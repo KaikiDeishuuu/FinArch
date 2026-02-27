@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinArch · 科研经费管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:16px 32px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+header h1{font-size:20px;font-weight:600;letter-spacing:.5px}
+header span{font-size:13px;opacity:.6;margin-left:auto}
+nav{display:flex;gap:4px;background:#fff;padding:8px 32px;border-bottom:1px solid #e8eaed;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+nav button{background:none;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:#555;transition:all .15s}
+nav button:hover{background:#f0f4ff;color:#4f46e5}
+nav button.active{background:#4f46e5;color:#fff}
+main{max-width:1100px;margin:24px auto;padding:0 24px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px}
+.card{background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
+.card label{font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:8px}
+.card .value{font-size:30px;font-weight:700;color:#1a1a2e}
+.card .value.danger{color:#e53e3e}
+.card .value.success{color:#38a169}
+section{display:none}
+section.active{display:block}
+.panel{background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,.08);margin-bottom:20px}
+.panel h2{font-size:16px;font-weight:600;margin-bottom:18px;color:#333;display:flex;align-items:center;gap:8px}
+.panel h2 .badge{font-size:11px;background:#e0e7ff;color:#4f46e5;padding:2px 8px;border-radius:20px;font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;background:#f7f8fa;color:#666;font-weight:600;border-bottom:2px solid #e8eaed}
+td{padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#333}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.tag.income{background:#f0fff4;color:#38a169}
+.tag.expense{background:#fff5f5;color:#e53e3e}
+.tag.company{background:#ebf8ff;color:#3182ce}
+.tag.personal{background:#faf5ff;color:#805ad5}
+.tag.reimbursed{background:#f0fff4;color:#38a169}
+.tag.pending{background:#fffaf0;color:#dd6b20}
+.tag.toggle-btn{cursor:pointer;user-select:none;transition:opacity .15s}
+.tag.toggle-btn:hover{opacity:.75}
+tr.is-reimbursed td{text-decoration:line-through;color:#aaa}
+tr.is-reimbursed td:last-child{text-decoration:none}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:600;color:#555}
+.field input,.field select,.field textarea{border:1px solid #d1d5db;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;transition:border .15s;background:#fff}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.field.full{grid-column:1/-1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s}
+.btn-primary{background:#4f46e5;color:#fff}
+.btn-primary:hover{background:#4338ca}
+.btn-success{background:#38a169;color:#fff}
+.btn-success:hover{background:#276749}
+.btn-outline{background:#fff;border:1px solid #d1d5db;color:#555}
+.btn-outline:hover{background:#f9fafb}
+.match-result{border:1px solid #e0e7ff;border-radius:10px;padding:14px 18px;margin-bottom:10px;display:block;cursor:pointer;transition:all .15s}
+.match-result:hover{border-color:#4f46e5;background:#f5f4ff}
+.match-result.selected{background:#eef2ff;border-color:#4f46e5}
+.match-meta{flex:1}
+.match-meta .total{font-size:18px;font-weight:700;color:#1a1a2e}
+.match-meta .sub{font-size:12px;color:#888;margin-top:2px}
+.match-error{font-size:13px;font-weight:600;text-align:right;min-width:64px}
+.match-error.zero{color:#38a169}
+.match-error.nonzero{color:#dd6b20}
+.ids-chip{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ids-chip span{background:#e0e7ff;color:#4f46e5;font-size:11px;padding:2px 8px;border-radius:12px;font-family:monospace}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+.alert.show{display:block}
+.alert.success{background:#f0fff4;border:1px solid #9ae6b4;color:#276749}
+.alert.error{background:#fff5f5;border:1px solid #fed7d7;color:#c53030}
+.empty{text-align:center;padding:40px;color:#aaa;font-size:14px}
+.subtabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid #e8eaed;padding-bottom:0}
+.subtab{background:none;border:none;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;color:#777;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.subtab:hover{color:#4f46e5}
+.subtab.active{color:#4f46e5;border-bottom-color:#4f46e5;font-weight:700}
+.summary-cards{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.sum-card{background:#f7f8fa;border-radius:10px;padding:12px 18px;flex:1;min-width:140px}
+.sum-card .s-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.sum-card .s-val{font-size:18px;font-weight:700;color:#1a1a2e}
+.sum-card .s-count{font-size:11px;color:#aaa;margin-top:2px}
+.sum-card.s-pending .s-val{color:#dd6b20}
+.sum-card.s-done .s-val{color:#38a169}
+.id-chip{font-family:monospace;font-size:11px;background:#f0f0f5;color:#555;padding:3px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .12s}
+.id-chip:hover{background:#e0e7ff;color:#4f46e5}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:8px 20px;border-radius:24px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:999}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="#4f46e5"/><path d="M7 20l4-8 4 5 3-4 3 7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <h1>FinArch 科研经费管理系统</h1>
+  <span>Go + SQLite · 本地运行</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('dashboard',this)">📊 概览</button>
+  <button onclick="showTab('addtx',this)">➕ 添加交易</button>
+  <button onclick="showTab('transactions',this)">📋 交易明细</button>
+  <button onclick="showTab('match',this)">🔍 报销反推</button>
+  <button onclick="showTab('reimburse',this)">📝 创建报销单</button>
+</nav>
+
+<main>
+
+<!-- ===== 概览 ===== -->
+<section id="dashboard" class="active">
+  <div class="cards">
+    <div class="card">
+      <label>公司资金池余额</label>
+      <div class="value success" id="companyBal">加载中…</div>
+    </div>
+    <div class="card">
+      <label>个人待报销合计</label>
+      <div class="value danger" id="personalBal">加载中…</div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>最近交易 <span class="badge" id="txCount">-</span></h2>
+    <table>
+      <thead><tr><th>日期</th><th>分类</th><th>方向</th><th>来源</th><th>金额（元）</th><th>备注</th><th>报销状态</th></tr></thead>
+      <tbody id="dashBody"><tr><td colspan="7" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== 添加交易 ===== -->
+<section id="addtx">
+  <div class="panel">
+    <h2>新增交易</h2>
+    <div id="txAlert" class="alert"></div>
+    <div class="form-grid">
+      <div class="field">
+        <label>发生日期</label>
+        <input type="date" id="txDate">
+      </div>
+      <div class="field">
+        <label>方向 *</label>
+        <select id="txDir">
+          <option value="expense">支出</option>
+          <option value="income">收入</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>来源 *</label>
+        <select id="txSrc">
+          <option value="personal">个人垫付</option>
+          <option value="company">公司资金</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>分类 *</label>
+        <select id="txCat">
+          <option>CNC</option><option>钣金</option><option>3D打印</option>
+          <option>差旅</option><option>材料</option><option>软件</option>
+          <option>外协</option><option>资金注入</option><option>其他</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>金额（元）*</label>
+        <input type="number" id="txAmt" step="0.01" min="0.01" placeholder="如 1200.50">
+      </div>
+      <div class="field">
+        <label>项目ID（可选）</label>
+        <input type="text" id="txProj" placeholder="如 PJT-001">
+      </div>
+      <div class="field full">
+        <label>备注</label>
+        <input type="text" id="txNote" placeholder="可选">
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn btn-primary" onclick="addTransaction()">＋ 添加交易</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 交易明细 ===== -->
+<section id="transactions">
+  <div class="panel">
+    <h2>汇总</h2>
+    <div class="summary-cards">
+      <div class="sum-card"><div class="s-label">全部</div><div class="s-val" id="sumAllAmt">-</div><div class="s-count" id="sumAllCnt">-</div></div>
+      <div class="sum-card s-pending"><div class="s-label">未报销</div><div class="s-val" id="sumPendAmt">-</div><div class="s-count" id="sumPendCnt">-</div></div>
+      <div class="sum-card s-done"><div class="s-label">已报销</div><div class="s-val" id="sumDoneAmt">-</div><div class="s-count" id="sumDoneCnt">-</div></div>
+    </div>
+    <div class="subtabs">
+      <button class="subtab active" id="stab-all" onclick="setTxFilter('all',this)">全部</button>
+      <button class="subtab" id="stab-pending" onclick="setTxFilter('pending',this)">未报销</button>
+      <button class="subtab" id="stab-reimbursed" onclick="setTxFilter('reimbursed',this)">已报销</button>
+    </div>
+    <table>
+      <thead><tr><th>交易ID</th><th>日期</th><th>分类</th><th>方向</th><th>来源</th><th>金额（元）</th><th>备注</th><th>报销状态</th></tr></thead>
+      <tbody id="txBody"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== 报销反推 ===== -->
+<section id="match">
+  <div class="panel">
+    <h2>报销反推参数</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label>目标金额（元）*</label>
+        <input type="number" id="mTarget" step="0.01" placeholder="如 1200">
+      </div>
+      <div class="field">
+        <label>误差容忍（元）</label>
+        <input type="number" id="mTol" step="0.01" value="5" min="0">
+      </div>
+      <div class="field">
+        <label>最大组合深度</label>
+        <input type="number" id="mDepth" value="6" min="1" max="20">
+      </div>
+      <div class="field">
+        <label>最大结果数</label>
+        <input type="number" id="mLimit" value="20" min="1">
+      </div>
+      <div class="field">
+        <label>项目ID（可选）</label>
+        <input type="text" id="mProj" placeholder="留空则全部项目">
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
+      <button class="btn btn-primary" onclick="runMatch()">🔍 开始反推</button>
+      <span id="matchStatus" style="font-size:13px;color:#888"></span>
+    </div>
+  </div>
+  <div class="panel" id="matchResultPanel" style="display:none">
+    <h2>匹配结果 <span class="badge" id="matchCount">0</span></h2>
+    <p style="font-size:13px;color:#888;margin-bottom:14px">
+      点击任意方案 → 自动跳转到「创建报销单」并填入交易ID
+    </p>
+    <div id="matchResults"></div>
+  </div>
+</section>
+
+<!-- ===== 创建报销单 ===== -->
+<section id="reimburse">
+  <div class="panel">
+    <h2>创建报销单</h2>
+    <div id="reimAlert" class="alert"></div>
+    <div class="form-grid">
+      <div class="field">
+        <label>申请人 *</label>
+        <input type="text" id="reimApplicant" placeholder="如 张三">
+      </div>
+      <div class="field">
+        <label>报销单号（可留空自动生成）</label>
+        <input type="text" id="reimNo" placeholder="自动生成">
+      </div>
+      <div class="field full">
+        <label>交易ID列表 *（每行一个，可从「报销反推」点击自动填入）</label>
+        <textarea id="reimIds" rows="6" placeholder="每行一个 transaction id"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:12px">
+      <button class="btn btn-success" onclick="submitReimbursement()">📝 提交报销单</button>
+      <button class="btn btn-outline" onclick="clearReimForm()">清空</button>
+    </div>
+  </div>
+</section>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+var allTxData=[];
+var txFilter='all';
+function fmt(v){return parseFloat(v).toFixed(2);}
+function fmtDate(s){return (s||'').substring(0,10);}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},1800);
+}
+
+function copyId(id){
+  navigator.clipboard.writeText(id).then(function(){
+    showToast('✓ 已复制 '+id);
+  }).catch(function(){
+    var ta=document.createElement('textarea');
+    ta.value=id;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✓ 已复制 '+id);
+  });
+}
+
+async function showTab(name,btn){
+  document.querySelectorAll('nav button').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('section').forEach(function(s){s.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById(name).classList.add('active');
+  if(name==='dashboard') loadDashboard();
+  if(name==='transactions') loadTransactions();
+}
+
+async function loadBalance(){
+  var r=await fetch('/api/balance');
+  var d=await r.json();
+  document.getElementById('companyBal').textContent='¥ '+fmt(d.company_balance_yuan);
+  document.getElementById('personalBal').textContent='¥ '+fmt(d.personal_outstanding_yuan);
+}
+
+function renderTxRows(txs,withIdCol){
+  if(!txs||txs.length===0){
+    var cols=withIdCol?8:7;
+    return '<tr><td colspan="'+cols+'" class="empty">暂无交易记录</td></tr>';
+  }
+  return txs.map(function(t){
+    var rowClass=t.reimbursed?'is-reimbursed':'';
+    var statusTag=t.reimbursed
+      ?'<span class="tag reimbursed toggle-btn" onclick="toggleReimbursed(event,\''+t.id+'\')" title="点击取消报销">✓ 已报销</span>'
+      :'<span class="tag pending toggle-btn" onclick="toggleReimbursed(event,\''+t.id+'\')" title="点击标为已报销">待报销</span>';
+    var idCell=withIdCol
+      ?'<td><span class="id-chip" onclick="copyId(\''+t.id+'\')" title="点击复制完整ID">'+t.id.substring(0,8)+'…</span></td>'
+      :'';
+    return '<tr class="'+rowClass+'">'
+      +idCell
+      +'<td>'+fmtDate(t.occurred_at)+'</td>'
+      +'<td>'+t.category+'</td>'
+      +'<td><span class="tag '+t.direction+'">'+(t.direction==='income'?'收入':'支出')+'</span></td>'
+      +'<td><span class="tag '+t.source+'">'+(t.source==='company'?'公司':'个人')+'</span></td>'
+      +'<td style="font-weight:600">¥ '+fmt(t.amount_yuan)+'</td>'
+      +'<td style="color:#888;font-size:12px">'+(t.note||'')+'</td>'
+      +'<td>'+statusTag
+      +(t.project_id?' <small style="color:#aaa">'+t.project_id+'</small>':'')+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function calcSummary(txs){
+  var all={cnt:txs.length,amt:0};
+  var pend={cnt:0,amt:0};
+  var done={cnt:0,amt:0};
+  txs.forEach(function(t){
+    all.amt+=t.amount_yuan;
+    if(t.reimbursed){done.cnt++;done.amt+=t.amount_yuan;}
+    else{pend.cnt++;pend.amt+=t.amount_yuan;}
+  });
+  return {all:all,pend:pend,done:done};
+}
+
+function updateSummaryUI(s){
+  document.getElementById('sumAllAmt').textContent='¥ '+fmt(s.all.amt);
+  document.getElementById('sumAllCnt').textContent=s.all.cnt+' 笔';
+  document.getElementById('sumPendAmt').textContent='¥ '+fmt(s.pend.amt);
+  document.getElementById('sumPendCnt').textContent=s.pend.cnt+' 笔';
+  document.getElementById('sumDoneAmt').textContent='¥ '+fmt(s.done.amt);
+  document.getElementById('sumDoneCnt').textContent=s.done.cnt+' 笔';
+}
+
+function setTxFilter(f,btn){
+  txFilter=f;
+  document.querySelectorAll('.subtab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderTxTable();
+}
+
+function renderTxTable(){
+  var filtered=allTxData;
+  if(txFilter==='pending') filtered=allTxData.filter(function(t){return !t.reimbursed;});
+  if(txFilter==='reimbursed') filtered=allTxData.filter(function(t){return t.reimbursed;});
+  document.getElementById('txBody').innerHTML=renderTxRows(filtered,true);
+}
+
+async function loadDashboard(){
+  await loadBalance();
+  var r=await fetch('/api/transactions');
+  var txs=await r.json();
+  document.getElementById('txCount').textContent=txs.length;
+  document.getElementById('dashBody').innerHTML=renderTxRows(txs.slice(0,10),false);
+}
+
+async function loadTransactions(){
+  var r=await fetch('/api/transactions');
+  allTxData=await r.json();
+  updateSummaryUI(calcSummary(allTxData));
+  renderTxTable();
+}
+
+async function toggleReimbursed(e,id){
+  e.stopPropagation();
+  var r=await fetch('/api/transactions/'+id+'/reimburse',{method:'PATCH'});
+  var d=await r.json();
+  if(!r.ok){alert(d.error||'操作失败');return;}
+  // refresh both tabs
+  loadDashboard();
+  loadTransactions();
+}
+
+async function addTransaction(){
+  var date=document.getElementById('txDate').value;
+  var dir=document.getElementById('txDir').value;
+  var src=document.getElementById('txSrc').value;
+  var cat=document.getElementById('txCat').value;
+  var amt=parseFloat(document.getElementById('txAmt').value);
+  var proj=document.getElementById('txProj').value.trim()||null;
+  var note=document.getElementById('txNote').value.trim();
+  var alertEl=document.getElementById('txAlert');
+  if(!amt||amt<=0){showAlert(alertEl,'error','请输入有效金额');return;}
+  var body={direction:dir,source:src,category:cat,amount_yuan:amt,note:note,project_id:proj};
+  if(date) body.occurred_at=date;
+  var r=await fetch('/api/transactions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var d=await r.json();
+  if(!r.ok){showAlert(alertEl,'error',d.error||'添加失败');return;}
+  showAlert(alertEl,'success','✓ 添加成功：¥ '+fmt(d.amount_yuan)+' (id: '+d.id.substring(0,8)+'…)');
+  document.getElementById('txAmt').value='';
+  document.getElementById('txNote').value='';
+}
+
+async function runMatch(){
+  var target=parseFloat(document.getElementById('mTarget').value);
+  var tol=parseFloat(document.getElementById('mTol').value)||0;
+  var depth=parseInt(document.getElementById('mDepth').value)||6;
+  var limit=parseInt(document.getElementById('mLimit').value)||20;
+  var projVal=document.getElementById('mProj').value.trim();
+  var statusEl=document.getElementById('matchStatus');
+  if(!target||target<=0){statusEl.textContent='请输入目标金额';return;}
+  statusEl.innerHTML='<span class="spinner"></span> 计算中…';
+  // 确保交易数据已加载
+  if(!allTxData.length){
+    var tr=await fetch('/api/transactions');
+    allTxData=await tr.json();
+  }
+  var body={target_yuan:target,tolerance_yuan:tol,max_depth:depth,limit:limit};
+  if(projVal) body.project_id=projVal;
+  var r=await fetch('/api/match',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var results=await r.json();
+  statusEl.textContent='';
+  renderMatchResults(results);
+}
+
+function renderMatchResults(results){
+  document.getElementById('matchResultPanel').style.display='block';
+  document.getElementById('matchCount').textContent=results.length;
+  var container=document.getElementById('matchResults');
+  if(!results||results.length===0){
+    container.innerHTML='<div class="empty">未找到符合条件的组合，请调整目标金额或误差范围</div>';
+    return;
+  }
+  // 构建 id→transaction 查找表
+  var txMap={};
+  allTxData.forEach(function(t){txMap[t.id]=t;});
+
+  container.innerHTML=results.map(function(res,i){
+    var idsAttr=res.transaction_ids.join(',');
+    var rows=res.transaction_ids.map(function(id){
+      var t=txMap[id];
+      if(!t) return '<tr><td colspan="6" style="color:#aaa;font-size:12px">'+id+'</td></tr>';
+      return '<tr>'
+        +'<td><span class="id-chip" onclick="copyId(\''+id+'\')" title="点击复制完整ID">'+id.substring(0,8)+'…</span></td>'
+        +'<td>'+fmtDate(t.occurred_at)+'</td>'
+        +'<td>'+t.category+'</td>'
+        +'<td><span class="tag '+t.source+'">'+(t.source==='company'?'公司':'个人')+'</span></td>'
+        +'<td style="font-weight:600">¥ '+fmt(t.amount_yuan)+'</td>'
+        +'<td style="color:#888;font-size:12px">'+(t.note||'—')+'</td>'
+        +'</tr>';
+    }).join('');
+
+    return '<div class="match-result" onclick="pickMatch(this,\''+idsAttr+'\')">'
+      +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;width:100%">'
+        +'<div style="min-width:32px;height:32px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#4f46e5">'+(i+1)+'</div>'
+        +'<div style="flex:1">'
+          +'<span style="font-size:17px;font-weight:700">¥ '+fmt(res.total_yuan)+'</span>'
+          +'<span style="font-size:12px;color:#888;margin-left:10px">'+res.item_count+' 笔</span>'
+        +'</div>'
+        +'<div class="match-error '+(res.abs_error_yuan<0.001?'zero':'nonzero')+'">误差&nbsp;<b>'+(res.abs_error_yuan<0.001?'精确':'¥ '+fmt(res.abs_error_yuan))+'</b></div>'
+      +'</div>'
+      +'<table style="width:100%">'
+        +'<thead><tr>'
+          +'<th style="background:#f7f8fa;padding:6px 10px;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #e8eaed">交易ID</th>'
+          +'<th style="background:#f7f8fa;padding:6px 10px;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #e8eaed">日期</th>'
+          +'<th style="background:#f7f8fa;padding:6px 10px;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #e8eaed">分类</th>'
+          +'<th style="background:#f7f8fa;padding:6px 10px;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #e8eaed">来源</th>'
+          +'<th style="background:#f7f8fa;padding:6px 10px;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #e8eaed">金额</th>'
+          +'<th style="background:#f7f8fa;padding:6px 10px;font-size:11px;color:#888;font-weight:600;border-bottom:1px solid #e8eaed">备注</th>'
+        +'</tr></thead>'
+        +'<tbody>'+rows+'</tbody>'
+      +'</table>'
+      +'</div>';
+  }).join('');
+}
+
+function pickMatch(el,idsStr){
+  document.querySelectorAll('.match-result').forEach(function(e){e.classList.remove('selected');});
+  el.classList.add('selected');
+  var ids=idsStr.split(',');
+  var btn=document.querySelector('nav button:nth-child(5)');
+  showTab('reimburse',btn);
+  document.getElementById('reimIds').value=ids.join('\n');
+}
+
+async function submitReimbursement(){
+  var applicant=document.getElementById('reimApplicant').value.trim();
+  var no=document.getElementById('reimNo').value.trim();
+  var idsRaw=document.getElementById('reimIds').value.trim();
+  var alertEl=document.getElementById('reimAlert');
+  if(!applicant){showAlert(alertEl,'error','请输入申请人姓名');return;}
+  var ids=idsRaw.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  if(!ids.length){showAlert(alertEl,'error','请输入至少一个交易ID');return;}
+  var body={applicant:applicant,transaction_ids:ids};
+  if(no) body.request_no=no;
+  var r=await fetch('/api/reimburse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var d=await r.json();
+  if(!r.ok){showAlert(alertEl,'error',d.error||'提交失败');return;}
+  showAlert(alertEl,'success','✓ 报销单已创建 · 单号：'+d.request_no+' · 合计：¥ '+fmt(d.total_yuan));
+  document.getElementById('reimIds').value='';
+  document.getElementById('reimNo').value='';
+}
+
+function clearReimForm(){
+  document.getElementById('reimApplicant').value='';
+  document.getElementById('reimNo').value='';
+  document.getElementById('reimIds').value='';
+  var alertEl=document.getElementById('reimAlert');
+  alertEl.className='alert';
+}
+
+function showAlert(el,type,msg){
+  el.className='alert '+type+' show';
+  el.textContent=msg;
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
+  loadDashboard();
+});
+</script>
+</body>
+</html>

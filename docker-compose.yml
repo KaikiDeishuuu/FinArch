@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finarch-api
+    restart: unless-stopped
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - FINARCH_DB=/data/finarch.db
+      - FINARCH_ADDR=0.0.0.0:8080
+      - GIN_MODE=release
+    volumes:
+      - finarch-data:/data
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/auth/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  finarch-data:
+    driver: local
