@@ -144,8 +144,8 @@ export default function AddTransactionPage() {
         {/* 金额 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <label className={labelClass}>金额（元）</label>
-          <div className={`flex items-center gap-2 rounded-xl border-2 px-4 py-1 transition-all ${isExpense ? 'border-red-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
-            <span className={`text-2xl font-bold select-none ${isExpense ? 'text-red-400' : 'text-green-400'}`}>
+          <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-red-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
+            <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-red-400' : 'text-green-400'}`}>
               {isExpense ? '−' : '+'}¥
             </span>
             <input
@@ -153,14 +153,14 @@ export default function AddTransactionPage() {
               required
               min="0.01"
               step="0.01"
-              className="flex-1 text-2xl font-bold text-gray-800 bg-transparent py-2 focus:outline-none placeholder:text-gray-200"
+              className="flex-1 min-w-0 text-xl font-bold text-gray-800 bg-transparent py-2 focus:outline-none placeholder:text-gray-200"
               placeholder="0.00"
               value={form.amount_yuan}
               onChange={(e) => set('amount_yuan', e.target.value)}
             />
-            <div className="relative">
+            <div className="relative shrink-0">
               <select
-                className="appearance-none text-sm font-medium text-gray-500 bg-gray-100 rounded-lg px-2.5 py-1.5 pr-7 focus:outline-none cursor-pointer"
+                className="appearance-none text-xs font-medium text-gray-500 bg-gray-100 rounded-lg px-2 py-1.5 pr-6 focus:outline-none cursor-pointer"
                 value={form.currency}
                 onChange={(e) => set('currency', e.target.value)}
               >
@@ -168,7 +168,7 @@ export default function AddTransactionPage() {
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
               </select>
-              <svg className="w-3.5 h-3.5 text-gray-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="w-3 h-3 text-gray-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
         </div>
