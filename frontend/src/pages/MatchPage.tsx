@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { matchSubsetSum } from '../api/client'
+import { matchSubsetSum, toggleReimbursed } from '../api/client'
 import type { MatchResult } from '../api/client'
 
 export default function MatchPage() {
@@ -12,6 +12,20 @@ export default function MatchPage() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
+
+  async function handleReimburse(id: string) {
+    setLoadingId(id)
+    try {
+      await toggleReimbursed(id)
+      setReimbursedIds(prev => new Set(prev).add(id))
+    } finally {
+      setLoadingId(null)
+      setConfirmId(null)
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -22,6 +36,8 @@ export default function MatchPage() {
     setResults([])
     setSearched(false)
     setExpandedIdx(null)
+    setConfirmId(null)
+    setReimbursedIds(new Set())
     try {
       const res = await matchSubsetSum(t, parseFloat(tolerance), parseInt(maxItems))
       setResults(res || [])
@@ -179,21 +195,49 @@ export default function MatchPage() {
                     <>
                       {/* Mobile: card list */}
                       <div className="md:hidden divide-y divide-gray-50">
-                        {r.items.map((item) => (
-                          <div key={item.id} className="px-4 py-3 space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-semibold text-gray-700 text-sm">{item.category}</span>
-                              <span className="font-bold text-red-500 tabular-nums text-sm">−{fmt(item.amount_yuan)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
-                              <span className="tabular-nums">{item.occurred_at}</span>
-                              {item.project_id && (
-                                <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                        {r.items.map((item) => {
+                          const done = reimbursedIds.has(item.id)
+                          const confirming = confirmId === item.id
+                          const busy = loadingId === item.id
+                          return (
+                            <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`font-semibold text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.category}</span>
+                                <span className={`font-bold tabular-nums text-sm ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
+                                <span className="tabular-nums">{item.occurred_at}</span>
+                                {item.project_id && (
+                                  <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                                )}
+                                {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
+                              </div>
+                              {done ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                  已报销
+                                </span>
+                              ) : confirming ? (
+                                <div className="flex items-center gap-2 pt-0.5">
+                                  <span className="text-xs text-gray-500">确认标记已报销？</span>
+                                  <button onClick={() => handleReimburse(item.id)} disabled={busy}
+                                    className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
+                                    {busy ? '…' : '确认'}
+                                  </button>
+                                  <button onClick={() => setConfirmId(null)}
+                                    className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">
+                                    取消
+                                  </button>
+                                </div>
+                              ) : (
+                                <button onClick={() => setConfirmId(item.id)}
+                                  className="text-xs text-blue-500 hover:text-blue-700 font-medium">
+                                  标记已报销
+                                </button>
                               )}
-                              {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                         <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-500">合计</span>
                           <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(r.total)}</span>
@@ -209,28 +253,58 @@ export default function MatchPage() {
                             <th className="px-4 py-2.5 text-left font-semibold">项目</th>
                             <th className="px-4 py-2.5 text-left font-semibold">备注</th>
                             <th className="px-4 py-2.5 text-right font-semibold">金额</th>
+                            <th className="px-4 py-2.5 text-center font-semibold">报销</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {r.items.map((item, idx) => (
-                            <tr key={item.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
-                              <td className="px-4 py-2.5 font-mono text-gray-400 bg-gray-50/50">{item.id.slice(0, 8)}…</td>
-                              <td className="px-4 py-2.5 text-gray-500 tabular-nums whitespace-nowrap">{item.occurred_at}</td>
-                              <td className="px-4 py-2.5 font-medium text-gray-600">{item.category}</td>
-                              <td className="px-4 py-2.5">
-                                {item.project_id
-                                  ? <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
-                                  : <span className="text-gray-300">—</span>
-                                }
-                              </td>
-                              <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                              <td className="px-4 py-2.5 text-right font-bold text-red-500 tabular-nums">−{fmt(item.amount_yuan)}</td>
-                            </tr>
-                          ))}
+                          {r.items.map((item, idx) => {
+                            const done = reimbursedIds.has(item.id)
+                            const confirming = confirmId === item.id
+                            const busy = loadingId === item.id
+                            return (
+                              <tr key={item.id} className={`border-b border-gray-50 last:border-0 transition-colors ${done ? 'opacity-50 bg-green-50/30' : idx % 2 === 0 ? 'hover:bg-gray-50/60' : 'bg-gray-50/30 hover:bg-gray-50/60'}`}>
+                                <td className="px-4 py-2.5 font-mono text-gray-400 bg-gray-50/50">{item.id.slice(0, 8)}…</td>
+                                <td className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${done ? 'text-gray-400 line-through' : 'text-gray-500'}`}>{item.occurred_at}</td>
+                                <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 line-through' : 'text-gray-600'}`}>{item.category}</td>
+                                <td className="px-4 py-2.5">
+                                  {item.project_id
+                                    ? <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                                    : <span className="text-gray-300">—</span>
+                                  }
+                                </td>
+                                <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
+                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan)}</td>
+                                <td className="px-4 py-2.5 text-center">
+                                  {done ? (
+                                    <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
+                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                      已报销
+                                    </span>
+                                  ) : confirming ? (
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <button onClick={() => handleReimburse(item.id)} disabled={busy}
+                                        className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
+                                        {busy ? '…' : '确认'}
+                                      </button>
+                                      <button onClick={() => setConfirmId(null)}
+                                        className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-1">
+                                        取消
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => setConfirmId(item.id)}
+                                      className="text-xs text-blue-500 hover:text-blue-700 font-medium whitespace-nowrap">
+                                      标记报销
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                         <tfoot>
                           <tr className="bg-gray-50 border-t border-gray-200">
-                            <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计</td>
+                            <td colSpan={6} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计</td>
                             <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(r.total)}</td>
                           </tr>
                         </tfoot>
