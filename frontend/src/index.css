@@ -4,3 +4,9 @@ body {
   font-family: "Inter", system-ui, sans-serif;
   background-color: #f8fafc;
 }
+
+/* Remove focus outline on Recharts pie/sector path elements */
+.recharts-sector:focus,
+.recharts-sector:focus-visible {
+  outline: none;
+}
