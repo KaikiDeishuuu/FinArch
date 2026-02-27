@@ -203,19 +203,26 @@ export default function StatsPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex-1 w-full space-y-3">
-              {categories.map((c, idx) => (
-                <div key={c.category} className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                    <span className="text-sm font-medium text-gray-700 truncate">{c.category}</span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-bold text-gray-800 tabular-nums">{fmt(c.total)}</span>
-                    <span className="text-xs text-gray-400 ml-1.5">{c.count} 笔</span>
-                  </div>
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                  {categories.map((c, idx) => (
+                    <div key={c.category} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                        <span className="text-sm font-medium text-gray-700 truncate">{c.category}</span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-bold text-gray-800 tabular-nums">{fmt(c.total)}</span>
+                        <span className="text-xs text-gray-400 ml-1.5">{c.count} 笔</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+                {categories.length > 6 && (
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b" />
+                )}
+              </div>
             </div>
           </div>
         )}
