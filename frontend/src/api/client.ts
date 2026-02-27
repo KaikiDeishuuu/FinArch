@@ -40,12 +40,14 @@ client.interceptors.response.use(
 export interface LoginRequest {
   email: string
   password: string
+  captcha_token?: string
 }
 
 export interface RegisterRequest {
   email: string
   name: string
   password: string
+  captcha_token?: string
 }
 
 export interface AuthResponse {
@@ -72,6 +74,15 @@ export async function changePassword(currentPassword: string, newPassword: strin
     current_password: currentPassword,
     new_password: newPassword,
   })
+}
+
+export interface AppConfig {
+  turnstile_site_key: string
+}
+
+export async function getAppConfig(): Promise<AppConfig> {
+  const { data } = await client.get('/config')
+  return data.data as AppConfig
 }
 
 // ─── Transactions ─────────────────────────────────────────────────────────────

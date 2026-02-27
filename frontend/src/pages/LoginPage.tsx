@@ -1,32 +1,53 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Turnstile } from '@marsidev/react-turnstile'
+import type { TurnstileInstance } from '@marsidev/react-turnstile'
 import { useAuth } from '../contexts/AuthContext'
+import { useConfig } from '../contexts/ConfigContext'
 
 export default function LoginPage() {
   const { login, register } = useAuth()
+  const { turnstileSiteKey, loaded: configLoaded } = useConfig()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  // Reset captcha widget when switching auth mode
+  function switchMode(next: 'login' | 'register') {
+    setMode(next)
+    setError('')
+    setCaptchaToken('')
+    turnstileRef.current?.reset()
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
+    if (turnstileSiteKey && !captchaToken) {
+      setError('请先完成人机验证')
+      return
+    }
     setLoading(true)
     try {
       if (mode === 'login') {
-        await login({ email, password })
+        await login({ email, password, captcha_token: captchaToken || undefined })
       } else {
-        await register({ email, name, password })
+        await register({ email, name, password, captcha_token: captchaToken || undefined })
       }
       navigate('/')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setError(msg || '操作失败，请重试')
+      // Reset captcha on failure so the user must re-verify
+      setCaptchaToken('')
+      turnstileRef.current?.reset()
     } finally {
       setLoading(false)
     }
@@ -46,11 +67,11 @@ export default function LoginPage() {
         <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
           <button
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-            onClick={() => setMode('login')}
+            onClick={() => switchMode('login')}
           >登录</button>
           <button
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-            onClick={() => setMode('register')}
+            onClick={() => switchMode('register')}
           >注册</button>
         </div>
 
@@ -92,6 +113,23 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Cloudflare Turnstile – only rendered when server reports a site key */}
+          {turnstileSiteKey && configLoaded && (
+            <div className="flex justify-center">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={turnstileSiteKey}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken('')}
+                onError={() => {
+                  setCaptchaToken('')
+                  setError('人机验证加载失败，请刷新页面重试')
+                }}
+                options={{ theme: 'light', language: 'zh-cn' }}
+              />
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
               {error}
@@ -100,7 +138,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!!turnstileSiteKey && !captchaToken)}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg py-2 text-sm transition-colors"
           >
             {loading ? '处理中...' : mode === 'login' ? '登录' : '注册'}
