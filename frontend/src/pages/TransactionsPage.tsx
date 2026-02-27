@@ -17,7 +17,7 @@ function StatusBadge({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all disabled:opacity-40 disabled:cursor-not-allowed ${active ? activeClass : inactiveClass}`}
+      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all disabled:opacity-40 disabled:cursor-not-allowed ${active ? activeClass : inactiveClass}`}
     >
       {loading ? (
         <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -267,18 +267,16 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wider border-b border-gray-100">
-                  <th className="px-5 py-3.5 text-left font-semibold">ID</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">日期</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">类别</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">项目</th>
-                  <th className="px-5 py-3.5 text-left font-semibold w-48">备注</th>
-                  <th className="px-5 py-3.5 text-left font-semibold">来源</th>
-                  <th className="px-5 py-3.5 text-right font-semibold">金额</th>
-                  <th className="px-5 py-3.5 text-center font-semibold">上传</th>
-                  <th className="px-5 py-3.5 text-center font-semibold">报销</th>
+                <tr className="bg-gray-50 border-b-2 border-gray-200">
+                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">日期</th>
+                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">类别</th>
+                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">项目 / 备注</th>
+                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">来源</th>
+                  <th className="px-5 py-4 text-right text-sm font-bold text-gray-700">金额</th>
+                  <th className="px-5 py-4 text-center text-sm font-bold text-gray-700">上传</th>
+                  <th className="px-5 py-4 text-center text-sm font-bold text-gray-700">报销</th>
                 </tr>
               </thead>
               <tbody>
@@ -288,77 +286,81 @@ export default function TransactionsPage() {
                   return (
                     <tr
                       key={tx.id}
-                      className={`border-b border-gray-50 last:border-0 transition-colors ${
-                        done ? 'opacity-40' : 'hover:bg-gray-50/60'
+                      className={`border-b border-gray-100 last:border-0 transition-colors ${
+                        done ? 'opacity-40' : 'hover:bg-blue-50/30'
                       }`}
                     >
-                      <td className="px-5 py-3.5">
-                        <button
-                          onClick={() => copyId(tx.id)}
-                          title="点击复制完整 ID"
-                          className={`font-mono text-xs rounded-lg px-2 py-1 transition-all ${
-                            copiedId === tx.id
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-gray-100 text-gray-400 hover:bg-blue-50 hover:text-blue-500'
-                          }`}
-                        >
-                          {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
-                        </button>
+                      <td className="px-5 py-4 text-gray-700 text-sm tabular-nums whitespace-nowrap font-medium">
+                        {tx.occurred_at}
                       </td>
-                      <td className="px-5 py-3.5 text-gray-500 tabular-nums whitespace-nowrap">{tx.occurred_at}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 font-medium ${urgent ? 'text-gray-800' : 'text-gray-600'}`}>
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-green-400' : 'bg-red-400'}`} />
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${urgent ? 'text-gray-900' : 'text-gray-700'}`}>
+                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-green-500' : 'bg-red-500'}`} />
                           {tx.category}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5">
-                        {tx.project_id
-                          ? <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg">{tx.project_id}</span>
-                          : <span className="text-gray-300">—</span>
+                      <td className="px-5 py-4 max-w-[200px]">
+                        {tx.project_id && (
+                          <span className="inline-flex items-center text-xs font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md mr-1.5">
+                            {tx.project_id}
+                          </span>
+                        )}
+                        {tx.note
+                          ? <span className="text-sm text-gray-600 truncate">{tx.note}</span>
+                          : !tx.project_id && <span className="text-gray-300 text-sm">—</span>
                         }
+                        <div className="mt-0.5">
+                          <button
+                            onClick={() => copyId(tx.id)}
+                            title="点击复制完整 ID"
+                            className={`font-mono text-[11px] rounded px-1.5 py-0.5 transition-all ${
+                              copiedId === tx.id
+                                ? 'bg-green-100 text-green-600'
+                                : 'text-gray-300 hover:text-blue-400 hover:bg-blue-50'
+                            }`}
+                          >
+                            {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                          </button>
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5 text-gray-500 text-xs w-48 max-w-[192px] truncate" title={tx.note ?? undefined}>
-                        {tx.note || <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
                           tx.source === 'company'
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'bg-amber-50 text-amber-600'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-700'
                         }`}>
                           {tx.source === 'company' ? '🏢 公司' : '👤 个人'}
                         </span>
                       </td>
-                      <td className={`px-5 py-3.5 text-right font-bold tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-green-600' : 'text-red-500'}`}>
+                      <td className={`px-5 py-4 text-right font-bold text-base tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-green-600' : 'text-red-500'}`}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx.amount_yuan)}
                       </td>
-                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                      <td className="px-5 py-4 text-center whitespace-nowrap">
                         <StatusBadge
                           active={tx.uploaded}
                           activeLabel="已上传"
                           inactiveLabel="未上传"
                           activeClass="bg-purple-100 text-purple-700 hover:bg-purple-200"
-                          inactiveClass="bg-gray-100 text-gray-400 hover:bg-purple-50 hover:text-purple-500"
+                          inactiveClass="bg-gray-100 text-gray-500 hover:bg-purple-50 hover:text-purple-600"
                           onClick={() => handleToggleUpload(tx.id)}
                           disabled={togglingId === tx.id}
                           loading={togglingId === tx.id}
                         />
                       </td>
-                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                      <td className="px-5 py-4 text-center whitespace-nowrap">
                         {tx.source === 'personal' ? (
                           <StatusBadge
                             active={tx.reimbursed}
                             activeLabel="已报销"
                             inactiveLabel="待报销"
                             activeClass="bg-green-100 text-green-700 hover:bg-green-200"
-                            inactiveClass="bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-500"
+                            inactiveClass="bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600"
                             onClick={() => handleToggle(tx.id)}
                             disabled={togglingId === tx.id || !tx.uploaded}
                             loading={togglingId === tx.id}
                           />
                         ) : (
-                          <span className="text-gray-200 text-lg">—</span>
+                          <span className="text-gray-300 text-lg">—</span>
                         )}
                       </td>
                     </tr>
