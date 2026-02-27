@@ -168,6 +168,7 @@ export interface MonthlyStat {
   month: number
   income: number
   expense: number
+  reimbursed: number // 已报销的个人垫付金额
 }
 
 export interface CategoryStat {

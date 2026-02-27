@@ -23,10 +23,11 @@ type PoolBalance struct {
 
 // MonthlyStat is one month's income/expense totals.
 type MonthlyStat struct {
-	Year    int     `json:"year"`
-	Month   int     `json:"month"`
-	Income  float64 `json:"income"`
-	Expense float64 `json:"expense"`
+	Year       int     `json:"year"`
+	Month      int     `json:"month"`
+	Income     float64 `json:"income"`
+	Expense    float64 `json:"expense"`
+	Reimbursed float64 `json:"reimbursed"` // 已报销的个人垫付金额
 }
 
 // CategoryStat is per-category expense total.
@@ -72,10 +73,8 @@ func (s *StatsService) Monthly(ctx context.Context, year int) ([]MonthlyStat, er
 		  CAST(strftime('%Y', datetime(occurred_at, 'unixepoch')) AS INTEGER),
 		  CAST(strftime('%m', datetime(occurred_at, 'unixepoch')) AS INTEGER),
 		  COALESCE(SUM(CASE WHEN direction='income' THEN amount_yuan ELSE 0 END), 0),
-		  COALESCE(SUM(CASE
-		    WHEN direction='expense'
-		     AND NOT (source='personal' AND reimbursed=1)
-		    THEN amount_yuan ELSE 0 END), 0)
+		  COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0),
+		  COALESCE(SUM(CASE WHEN direction='expense' AND source='personal' AND reimbursed=1 THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
 		WHERE strftime('%Y', datetime(occurred_at, 'unixepoch')) = ?
 		GROUP BY 1, 2
@@ -88,7 +87,7 @@ func (s *StatsService) Monthly(ctx context.Context, year int) ([]MonthlyStat, er
 	var stats []MonthlyStat
 	for rows.Next() {
 		var st MonthlyStat
-		if err := rows.Scan(&st.Year, &st.Month, &st.Income, &st.Expense); err != nil {
+		if err := rows.Scan(&st.Year, &st.Month, &st.Income, &st.Expense, &st.Reimbursed); err != nil {
 			return nil, err
 		}
 		stats = append(stats, st)

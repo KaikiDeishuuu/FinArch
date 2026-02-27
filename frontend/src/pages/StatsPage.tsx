@@ -37,7 +37,8 @@ export default function StatsPage() {
 
   const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
   const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
-  const totalNet = totalIncome - totalExpense
+  const totalReimbursed = monthly.reduce((s, m) => s + (m.reimbursed ?? 0), 0)
+  const totalNet = totalIncome - totalExpense + totalReimbursed
 
   const maxExpense = Math.max(...monthly.map(m => m.expense), 1)
   const maxIncome = Math.max(...monthly.map(m => m.income), 1)
