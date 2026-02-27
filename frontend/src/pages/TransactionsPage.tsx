@@ -272,7 +272,8 @@ export default function TransactionsPage() {
                 <tr className="bg-gray-50 border-b-2 border-gray-200">
                   <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">日期</th>
                   <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">类别</th>
-                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">项目 / 备注</th>
+                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">项目</th>
+                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">备注</th>
                   <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">来源</th>
                   <th className="px-5 py-4 text-right text-sm font-bold text-gray-700">金额</th>
                   <th className="px-5 py-4 text-center text-sm font-bold text-gray-700">上传</th>
@@ -299,29 +300,28 @@ export default function TransactionsPage() {
                           {tx.category}
                         </span>
                       </td>
-                      <td className="px-5 py-4 max-w-[200px]">
-                        {tx.project_id && (
-                          <span className="inline-flex items-center text-xs font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md mr-1.5">
-                            {tx.project_id}
-                          </span>
-                        )}
-                        {tx.note
-                          ? <span className="text-sm text-gray-600 truncate">{tx.note}</span>
-                          : !tx.project_id && <span className="text-gray-300 text-sm">—</span>
+                      <td className="px-5 py-4 max-w-[140px]">
+                        {tx.project_id
+                          ? <span className="inline-flex items-center text-xs font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">{tx.project_id}</span>
+                          : <span className="text-gray-300 text-sm">—</span>
                         }
-                        <div className="mt-0.5">
-                          <button
-                            onClick={() => copyId(tx.id)}
-                            title="点击复制完整 ID"
-                            className={`font-mono text-[11px] rounded px-1.5 py-0.5 transition-all ${
-                              copiedId === tx.id
-                                ? 'bg-green-100 text-green-600'
-                                : 'text-gray-300 hover:text-blue-400 hover:bg-blue-50'
-                            }`}
-                          >
-                            {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
-                          </button>
-                        </div>
+                      </td>
+                      <td className="px-5 py-4 max-w-[180px]">
+                        {tx.note
+                          ? <span className="text-sm text-gray-600 truncate block" title={tx.note}>{tx.note}</span>
+                          : <span className="text-gray-300 text-sm">—</span>
+                        }
+                        <button
+                          onClick={() => copyId(tx.id)}
+                          title="点击复制完整 ID"
+                          className={`font-mono text-[11px] rounded px-1.5 py-0.5 transition-all mt-0.5 block ${
+                            copiedId === tx.id
+                              ? 'bg-green-100 text-green-600'
+                              : 'text-gray-300 hover:text-blue-400 hover:bg-blue-50'
+                          }`}
+                        >
+                          {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                        </button>
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
