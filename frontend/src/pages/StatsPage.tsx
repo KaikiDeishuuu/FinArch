@@ -111,7 +111,7 @@ export default function StatsPage() {
                       <Cell fill="#10b981" />
                       <Cell fill="#ef4444" />
                     </Pie>
-                    <Tooltip formatter={(value) => [fmt(value as number), '']} />
+                    <Tooltip formatter={(value, name) => [fmt(value as number), name]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -194,7 +194,7 @@ export default function StatsPage() {
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [fmt(value as number), '']} />
+                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
