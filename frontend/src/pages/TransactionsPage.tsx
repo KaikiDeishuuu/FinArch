@@ -291,8 +291,19 @@ export default function TransactionsPage() {
                         done ? 'opacity-40' : 'hover:bg-blue-50/30'
                       }`}
                     >
-                      <td className="px-5 py-4 text-gray-700 text-sm tabular-nums whitespace-nowrap font-medium">
-                        {tx.occurred_at}
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <p className="text-sm font-medium text-gray-700 tabular-nums">{tx.occurred_at}</p>
+                        <button
+                          onClick={() => copyId(tx.id)}
+                          title="点击复制完整 ID"
+                          className={`font-mono text-[11px] rounded px-1 py-0.5 transition-all mt-0.5 block ${
+                            copiedId === tx.id
+                              ? 'bg-green-100 text-green-600'
+                              : 'text-gray-300 hover:text-blue-400 hover:bg-blue-50'
+                          }`}
+                        >
+                          {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                        </button>
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center gap-2 text-sm font-semibold ${urgent ? 'text-gray-900' : 'text-gray-700'}`}>
@@ -311,17 +322,6 @@ export default function TransactionsPage() {
                           ? <span className="text-sm text-gray-600 truncate block" title={tx.note}>{tx.note}</span>
                           : <span className="text-gray-300 text-sm">—</span>
                         }
-                        <button
-                          onClick={() => copyId(tx.id)}
-                          title="点击复制完整 ID"
-                          className={`font-mono text-[11px] rounded px-1.5 py-0.5 transition-all mt-0.5 block ${
-                            copiedId === tx.id
-                              ? 'bg-green-100 text-green-600'
-                              : 'text-gray-300 hover:text-blue-400 hover:bg-blue-50'
-                          }`}
-                        >
-                          {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
-                        </button>
                       </td>
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
