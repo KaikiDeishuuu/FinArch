@@ -490,6 +490,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 		AmountYuan float64 `json:"amount_yuan"`
 		Note       string  `json:"note"`
 		ProjectID  *string `json:"project_id"`
+		Uploaded   bool    `json:"uploaded"`
 	}
 	type dto struct {
 		IDs          []string  `json:"ids"`
@@ -517,6 +518,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 					AmountYuan: t.AmountYuan.Float64(),
 					Note:       t.Note,
 					ProjectID:  t.ProjectID,
+					Uploaded:   t.Uploaded,
 				})
 			}
 		}

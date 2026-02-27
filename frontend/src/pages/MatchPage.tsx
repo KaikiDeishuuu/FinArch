@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { matchSubsetSum, toggleReimbursed } from '../api/client'
+import { matchSubsetSum, toggleReimbursed, toggleUploaded } from '../api/client'
 import type { MatchResult } from '../api/client'
 
 export default function MatchPage() {
@@ -16,10 +16,13 @@ export default function MatchPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
 
-  async function handleReimburse(id: string) {
+  async function handleReimburse(id: string, alreadyUploaded: boolean) {
     setLoadingId(id)
     try {
-      await toggleReimbursed(id)
+      await Promise.all([
+        toggleReimbursed(id),
+        ...(alreadyUploaded ? [] : [toggleUploaded(id)]),
+      ])
       setReimbursedIds(prev => new Set(prev).add(id))
     } finally {
       setLoadingId(null)
@@ -220,7 +223,7 @@ export default function MatchPage() {
                               ) : confirming ? (
                                 <div className="flex items-center gap-2 pt-0.5">
                                   <span className="text-xs text-gray-500">确认标记已报销？</span>
-                                  <button onClick={() => handleReimburse(item.id)} disabled={busy}
+                                  <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
                                     className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
                                     {busy ? '…' : '确认'}
                                   </button>
@@ -282,7 +285,7 @@ export default function MatchPage() {
                                     </span>
                                   ) : confirming ? (
                                     <div className="flex items-center justify-center gap-1.5">
-                                      <button onClick={() => handleReimburse(item.id)} disabled={busy}
+                                      <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
                                         className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
                                         {busy ? '…' : '确认'}
                                       </button>

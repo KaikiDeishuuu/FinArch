@@ -132,6 +132,7 @@ export interface MatchResultItem {
   amount_yuan: number
   note: string
   project_id: string
+  uploaded: boolean
 }
 
 export interface MatchResult {
