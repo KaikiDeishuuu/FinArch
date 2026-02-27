@@ -189,7 +189,7 @@ export default function TransactionsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <span className="text-4xl">📭</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             <p className="text-sm text-gray-400">暂无记录</p>
           </div>
         ) : filtered.map((tx) => {
@@ -226,7 +226,7 @@ export default function TransactionsPage() {
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                   tx.source === 'company' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
                 }`}>
-                  {tx.source === 'company' ? '🏢 公司' : '👤 个人'}
+                  {tx.source === 'company' ? '公司' : '个人'}
                 </span>
               </div>
               {/* Row 3: note (if any) */}
@@ -284,7 +284,7 @@ export default function TransactionsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2">
-            <span className="text-4xl">📭</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             <p className="text-sm text-gray-400">暂无记录</p>
           </div>
         ) : (
@@ -351,7 +351,7 @@ export default function TransactionsPage() {
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {tx.source === 'company' ? '🏢 公司' : '👤 个人'}
+                          {tx.source === 'company' ? '公司' : '个人'}
                         </span>
                       </td>
                       <td className={`px-5 py-4 text-right font-bold text-base tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-green-600' : 'text-red-500'}`}>

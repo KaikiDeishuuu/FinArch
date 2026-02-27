@@ -8,11 +8,6 @@ const CATEGORIES = [
   '差旅', '劳务', '软件', '培训', '会议', '测试', '其他',
 ]
 
-const CATEGORY_ICONS: Record<string, string> = {
-  '耗材': '🧪', '材料': '📦', '设备': '🖥️', '仪器': '🔬',
-  'CNC加工': '⚙️', '加工费': '🔧', '差旅': '✈️', '劳务': '👷',
-  '软件': '💻', '培训': '📚', '会议': '🗣️', '测试': '🧩', '其他': '📎',
-}
 
 export default function AddTransactionPage() {
   const navigate = useNavigate()
@@ -182,14 +177,13 @@ export default function AddTransactionPage() {
                 key={c}
                 type="button"
                 onClick={() => set('category', c)}
-                className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl text-sm font-semibold border-2 transition-all ${
+                className={`flex items-center justify-center py-2.5 px-1 rounded-xl text-xs font-semibold border-2 transition-all ${
                   form.category === c
                     ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
                 }`}
               >
-                <span className="text-xl leading-none">{CATEGORY_ICONS[c]}</span>
-                <span className="leading-tight">{c}</span>
+                <span className="leading-tight text-center">{c}</span>
               </button>
             ))}
           </div>

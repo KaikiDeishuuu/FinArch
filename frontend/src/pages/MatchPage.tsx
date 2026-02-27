@@ -146,12 +146,12 @@ export default function MatchPage() {
           <div className="flex items-center justify-between px-1">
             {results.length === 0 ? (
               <div className="flex items-center gap-2 text-gray-500">
-                <span className="text-xl">🔎</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                 <span className="text-sm">未找到匹配方案，尝试调大误差范围</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-xl">✅</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-green-500 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
                 <span className="text-sm text-gray-600">
                   共找到 <span className="text-blue-600 font-bold text-base">{results.length}</span> 个匹配方案
                 </span>
