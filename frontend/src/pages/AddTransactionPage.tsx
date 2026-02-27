@@ -21,7 +21,7 @@ export default function AddTransactionPage() {
   const [loading, setLoading] = useState(false)
 
   const [form, setForm] = useState({
-    occurred_at: new Date().toISOString().slice(0, 10),
+    occurred_at: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
     direction: 'expense',
     source: 'personal',
     category: CATEGORIES[0],
