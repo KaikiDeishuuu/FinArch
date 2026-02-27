@@ -123,7 +123,7 @@ func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx conte
 		SELECT id, occurred_at, direction, source, category, amount_yuan, currency, note,
 		       project_id, reimbursed, reimbursement_id, created_at, updated_at, uploaded
 		FROM transactions
-		WHERE source = ? AND direction = ? AND reimbursed = 0
+		WHERE source = ? AND direction = ? AND reimbursed = 0 AND uploaded = 1
 	`
 	if projectID != nil {
 		q += " AND project_id = ?"
