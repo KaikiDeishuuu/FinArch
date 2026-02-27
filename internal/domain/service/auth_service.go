@@ -14,12 +14,13 @@ import (
 
 // AuthService handles user registration and login.
 type AuthService struct {
-	users repository.UserRepository
-	jwt   *auth.JWTService
+	users   repository.UserRepository
+	jwt     *auth.JWTService
+	tracker *auth.LoginAttemptTracker
 }
 
-func NewAuthService(users repository.UserRepository, jwt *auth.JWTService) *AuthService {
-	return &AuthService{users: users, jwt: jwt}
+func NewAuthService(users repository.UserRepository, jwt *auth.JWTService, tracker *auth.LoginAttemptTracker) *AuthService {
+	return &AuthService{users: users, jwt: jwt, tracker: tracker}
 }
 
 type RegisterRequest struct {
@@ -84,13 +85,21 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, currentPasswor
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResponse, error) {
+	// Check account lockout before any DB access to prevent timing-based enumeration.
+	if s.tracker.IsLocked(email) {
+		return LoginResponse{}, fmt.Errorf("账户已因多次失败尝试被锁定，请稍后再试")
+	}
 	u, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
+		s.tracker.RecordFailure(email)
 		return LoginResponse{}, fmt.Errorf("invalid credentials")
 	}
 	if err := auth.CheckPassword(u.PasswordHash, password); err != nil {
+		s.tracker.RecordFailure(email)
 		return LoginResponse{}, fmt.Errorf("invalid credentials")
 	}
+	// Successful login — clear failure counter.
+	s.tracker.RecordSuccess(email)
 	token, exp, err := s.jwt.Issue(u.ID, u.Email, u.Role)
 	if err != nil {
 		return LoginResponse{}, err
