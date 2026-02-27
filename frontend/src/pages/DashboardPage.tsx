@@ -105,12 +105,12 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wider opacity-75 mb-2">公司账户余额</p>
-          <p className="text-3xl font-bold">{balance ? fmt(balance.company_balance) : '—'}</p>
+          <p className="text-xl md:text-3xl font-bold leading-tight tabular-nums break-all">{balance ? fmt(balance.company_balance) : '—'}</p>
           <p className="text-xs opacity-60 mt-2">当前可用资金</p>
         </div>
         <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wider opacity-75 mb-2">个人待报销</p>
-          <p className="text-3xl font-bold">{balance ? fmt(balance.personal_outstanding) : '—'}</p>
+          <p className="text-xl md:text-3xl font-bold leading-tight tabular-nums break-all">{balance ? fmt(balance.personal_outstanding) : '—'}</p>
           <p className="text-xs opacity-60 mt-2">个人垫付未报销合计</p>
         </div>
       </div>

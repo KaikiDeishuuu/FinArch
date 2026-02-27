@@ -155,13 +155,13 @@ export default function StatsPage() {
                             <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
                               <div className="h-2.5 rounded-full bg-gradient-to-r from-green-300 to-emerald-500 transition-all duration-500" style={{ width: `${incPct}%` }} />
                             </div>
-                            <span className="text-xs text-emerald-600 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.income)}</span>
+                            <span className="text-xs text-emerald-600 tabular-nums shrink-0 w-20 text-right">{fmtShort(m.income)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
                               <div className="h-2.5 rounded-full bg-gradient-to-r from-red-300 to-red-500 transition-all duration-500" style={{ width: `${expPct}%` }} />
                             </div>
-                            <span className="text-xs text-red-500 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.expense)}</span>
+                            <span className="text-xs text-red-500 tabular-nums shrink-0 w-20 text-right">{fmtShort(m.expense)}</span>
                           </div>
                         </div>
                       </div>
@@ -238,7 +238,8 @@ export default function StatsPage() {
         {projects.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[320px]">
             <thead>
               <tr className="bg-gray-50/80 text-gray-400 text-xs uppercase tracking-wide border-b border-gray-100">
                 <th className="px-5 py-3 text-left font-semibold">项目</th>
@@ -271,6 +272,7 @@ export default function StatsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
