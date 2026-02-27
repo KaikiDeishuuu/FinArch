@@ -16,7 +16,7 @@ services:
       - finarch-data:/data
     network_mode: host
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO /dev/null --post-data='{\"email\":\"_\",\"password\":\"_\"}' --header='Content-Type:application/json' http://localhost:8080/api/v1/auth/login 2>&1; ret=$?; [ $ret -eq 0 ] || [ $ret -eq 8 ]"]
+      test: ["CMD-SHELL", "wget -qO /dev/null --post-data='{\"email\":\"_\",\"password\":\"_\"}' --header='Content-Type:application/json' http://localhost:8080/api/v1/auth/login 2>&1; ret=$$?; [ $$ret -eq 0 ] || [ $$ret -eq 8 ]"]
       interval: 30s
       timeout: 5s
       retries: 3
