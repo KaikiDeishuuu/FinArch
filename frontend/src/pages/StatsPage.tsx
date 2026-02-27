@@ -141,30 +141,35 @@ export default function StatsPage() {
                   <span className="w-2.5 h-2 rounded-sm bg-red-400 inline-block" />支出
                 </span>
               </div>
-              <div className="space-y-3">
-                {monthly.map((m) => {
-                  const incPct = maxIncome > 0 ? Math.max(Math.round((m.income / maxIncome) * 100), m.income > 0 ? 3 : 0) : 0
-                  const expPct = maxExpense > 0 ? Math.max(Math.round((m.expense / maxExpense) * 100), m.expense > 0 ? 3 : 0) : 0
-                  return (
-                    <div key={`${m.year}-${m.month}`} className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-medium text-gray-400 w-7 shrink-0 text-right">{monthNames[m.month - 1]}</span>
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                            <div className="h-2.5 rounded-full bg-gradient-to-r from-green-300 to-emerald-500 transition-all duration-500" style={{ width: `${incPct}%` }} />
+              <div className="relative">
+                <div className="space-y-3 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+                  {monthly.map((m) => {
+                    const incPct = maxIncome > 0 ? Math.max(Math.round((m.income / maxIncome) * 100), m.income > 0 ? 3 : 0) : 0
+                    const expPct = maxExpense > 0 ? Math.max(Math.round((m.expense / maxExpense) * 100), m.expense > 0 ? 3 : 0) : 0
+                    return (
+                      <div key={`${m.year}-${m.month}`} className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-medium text-gray-400 w-7 shrink-0 text-right">{monthNames[m.month - 1]}</span>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                              <div className="h-2.5 rounded-full bg-gradient-to-r from-green-300 to-emerald-500 transition-all duration-500" style={{ width: `${incPct}%` }} />
+                            </div>
+                            <span className="text-xs text-emerald-600 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.income)}</span>
                           </div>
-                          <span className="text-xs text-emerald-600 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.income)}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                            <div className="h-2.5 rounded-full bg-gradient-to-r from-red-300 to-red-500 transition-all duration-500" style={{ width: `${expPct}%` }} />
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                              <div className="h-2.5 rounded-full bg-gradient-to-r from-red-300 to-red-500 transition-all duration-500" style={{ width: `${expPct}%` }} />
+                            </div>
+                            <span className="text-xs text-red-500 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.expense)}</span>
                           </div>
-                          <span className="text-xs text-red-500 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.expense)}</span>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
+                {monthly.length > 6 && (
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b" />
+                )}
               </div>
             </div>
           </div>
