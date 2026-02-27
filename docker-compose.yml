@@ -1,6 +1,6 @@
 services:
   api:
-    image: ghcr.io/kaikiDeishuuu/finarch:latest
+    image: ghcr.io/kaikideishuuu/finarch:latest
     container_name: finarch-api
     restart: unless-stopped
     environment:
