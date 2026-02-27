@@ -123,14 +123,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="max-w-5xl mx-auto px-4 py-4 md:px-6 md:py-8">
           {children}
         </div>
-        {/* ── Footer（仅桌面）── */}
-        <footer className="hidden md:block border-t border-gray-100 bg-white">
-          <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+        {/* ── Footer ── */}
+        <footer className="border-t border-gray-100 bg-white">
+          <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between">
             <span className="text-[11px] text-gray-400">
               &copy; {new Date().getFullYear()} FinArch — 收支与报销管理
             </span>
             <span className="text-[11px] text-gray-300">
-              v2.0 &nbsp;·&nbsp; Powered by Go + React
+              v2.0 · Go + React
             </span>
           </div>
         </footer>
