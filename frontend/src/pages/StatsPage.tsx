@@ -9,21 +9,6 @@ const PIE_COLORS = [
   '#14b8a6','#a855f7','#eab308',
 ]
 
-function Bar({ value, max, color, label }: { value: number; max: number; color: string; label?: string }) {
-  const pct = max > 0 ? Math.max(Math.round((value / max) * 100), value > 0 ? 2 : 0) : 0
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
-        <div
-          className={`h-2.5 rounded-full transition-all duration-500 ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {label && <span className="text-xs tabular-nums text-gray-400 w-8 text-right">{pct}%</span>}
-    </div>
-  )
-}
-
 export default function StatsPage() {
   const year = new Date().getFullYear()
   const [monthly, setMonthly] = useState<MonthlyStat[]>([])
@@ -105,46 +90,82 @@ export default function StatsPage() {
         {monthly.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
         ) : (
-          <div className="flex flex-col md:flex-row gap-6 items-center">
-            {/* Pie: income vs expense */}
-            <div className="w-full md:w-64 h-56 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: '收入', value: totalIncome },
-                      { name: '支出', value: totalExpense },
-                    ]}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%" cy="50%"
-                    innerRadius={50}
-                    outerRadius={82}
-                    paddingAngle={3}
-                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    <Cell fill="#10b981" />
-                    <Cell fill="#ef4444" />
-                  </Pie>
-                  <Tooltip formatter={(value) => [fmt(value as number), '']} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 w-full space-y-2">
-              {monthly.map((m) => (
-                <div key={`${m.year}-${m.month}`} className="grid grid-cols-[3rem_1fr_6rem] gap-3 items-center">
-                  <span className="text-xs font-medium text-gray-500 text-right">{monthNames[m.month - 1]}</span>
-                  <div className="space-y-1.5">
-                    <Bar value={m.income} max={maxIncome} color="bg-gradient-to-r from-green-300 to-green-500" />
-                    <Bar value={m.expense} max={maxExpense} color="bg-gradient-to-r from-red-300 to-red-500" />
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-xs text-green-600 tabular-nums">{fmtShort(m.income)}</p>
-                    <p className="text-xs text-red-500 tabular-nums">{fmtShort(m.expense)}</p>
-                  </div>
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            {/* Pie + legend */}
+            <div className="shrink-0 flex flex-col items-center gap-3 w-full md:w-auto">
+              <div className="w-48 h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: '收入', value: totalIncome },
+                        { name: '支出', value: totalExpense },
+                      ]}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%" cy="50%"
+                      innerRadius={46}
+                      outerRadius={72}
+                      paddingAngle={3}
+                    >
+                      <Cell fill="#10b981" />
+                      <Cell fill="#ef4444" />
+                    </Pie>
+                    <Tooltip formatter={(value) => [fmt(value as number), '']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {/* color legend */}
+              <div className="flex gap-5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="text-xs text-gray-500">收入</span>
+                  <span className="text-xs font-bold text-emerald-600 tabular-nums ml-1">{fmtShort(totalIncome)}</span>
                 </div>
-              ))}
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />
+                  <span className="text-xs text-gray-500">支出</span>
+                  <span className="text-xs font-bold text-red-500 tabular-nums ml-1">{fmtShort(totalExpense)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Monthly bar chart */}
+            <div className="flex-1 min-w-0 w-full">
+              {/* legend */}
+              <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2 rounded-sm bg-green-400 inline-block" />收入
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2 rounded-sm bg-red-400 inline-block" />支出
+                </span>
+              </div>
+              <div className="space-y-3">
+                {monthly.map((m) => {
+                  const incPct = maxIncome > 0 ? Math.max(Math.round((m.income / maxIncome) * 100), m.income > 0 ? 3 : 0) : 0
+                  const expPct = maxExpense > 0 ? Math.max(Math.round((m.expense / maxExpense) * 100), m.expense > 0 ? 3 : 0) : 0
+                  return (
+                    <div key={`${m.year}-${m.month}`} className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium text-gray-400 w-7 shrink-0 text-right">{monthNames[m.month - 1]}</span>
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                            <div className="h-2.5 rounded-full bg-gradient-to-r from-green-300 to-emerald-500 transition-all duration-500" style={{ width: `${incPct}%` }} />
+                          </div>
+                          <span className="text-xs text-emerald-600 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.income)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                            <div className="h-2.5 rounded-full bg-gradient-to-r from-red-300 to-red-500 transition-all duration-500" style={{ width: `${expPct}%` }} />
+                          </div>
+                          <span className="text-xs text-red-500 tabular-nums shrink-0 w-16 text-right">{fmtShort(m.expense)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -156,8 +177,8 @@ export default function StatsPage() {
         {categories.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
         ) : (
-          <div className="flex flex-col md:flex-row gap-6 items-center">
-            <div className="w-full md:w-72 h-64 shrink-0">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            <div className="w-full md:w-64 h-56 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -165,8 +186,8 @@ export default function StatsPage() {
                     dataKey="total"
                     nameKey="category"
                     cx="50%" cy="50%"
-                    innerRadius={55}
-                    outerRadius={90}
+                    innerRadius={52}
+                    outerRadius={82}
                     paddingAngle={2}
                   >
                     {categories.map((_, i) => (
