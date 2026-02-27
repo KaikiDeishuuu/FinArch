@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { listTransactions, toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction } from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
+import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -32,6 +34,7 @@ function StatusBadge({
 }
 
 export default function TransactionsPage() {
+  const { user } = useAuth()
   const [txs, setTxs] = useState<Transaction[]>([])
   const [filter, setFilter] = useState<FilterTab>('all')
   const [loading, setLoading] = useState(true)
@@ -56,6 +59,11 @@ export default function TransactionsPage() {
   })
 
   const fmt = (n: number) => `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+
+  function exportPDF() {
+    const filterLabel = { all: '全部', unreimbursed: '待报销', reimbursed: '已报销' }[filter]
+    exportTransactionsPDF(filtered, filterLabel, user)
+  }
 
   async function handleToggle(id: string) {
     setTogglingId(id)
@@ -107,12 +115,25 @@ export default function TransactionsPage() {
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">交易明细</h1>
           <p className="text-sm text-gray-400 mt-0.5 hidden sm:block">管理所有收入与支出记录</p>
         </div>
-        <Link
-          to="/add"
-          className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
-        >
-          + 添加
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={exportPDF}
+            disabled={loading || filtered.length === 0}
+            className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-3.5 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="导出当前筛选结果为 PDF"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            <span className="hidden sm:inline">导出 PDF</span>
+          </button>
+          <Link
+            to="/add"
+            className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+          >
+            + 添加
+          </Link>
+        </div>
       </div>
 
       {/* Summary cards */}
