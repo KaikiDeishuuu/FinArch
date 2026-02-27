@@ -58,26 +58,26 @@ export default function StatsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-stretch gap-3 overflow-hidden">
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4 flex items-stretch gap-2 md:gap-3 overflow-hidden">
           <div className="w-1 rounded-full bg-green-400 shrink-0" />
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">年度收入</p>
-            <p className="text-xl font-bold text-green-600">{fmtShort(totalIncome)}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-0.5 md:mb-1">年度收入</p>
+            <p className="text-sm md:text-xl font-bold text-green-600 truncate tabular-nums">{fmtShort(totalIncome)}</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-stretch gap-3 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4 flex items-stretch gap-2 md:gap-3 overflow-hidden">
           <div className="w-1 rounded-full bg-red-400 shrink-0" />
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">年度支出</p>
-            <p className="text-xl font-bold text-red-500">{fmtShort(totalExpense)}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-0.5 md:mb-1">年度支出</p>
+            <p className="text-sm md:text-xl font-bold text-red-500 truncate tabular-nums">{fmtShort(totalExpense)}</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-stretch gap-3 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4 flex items-stretch gap-2 md:gap-3 overflow-hidden">
           <div className={`w-1 rounded-full shrink-0 ${totalNet >= 0 ? 'bg-blue-400' : 'bg-orange-400'}`} />
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">净结余</p>
-            <p className={`text-xl font-bold ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
+          <div className="min-w-0">
+            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-0.5 md:mb-1">净结余</p>
+            <p className={`text-sm md:text-xl font-bold truncate tabular-nums ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
               {totalNet >= 0 ? '+' : ''}{fmtShort(totalNet)}
             </p>
           </div>
@@ -93,7 +93,7 @@ export default function StatsPage() {
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Pie + legend */}
             <div className="shrink-0 flex flex-col items-center gap-3 w-full md:w-auto">
-              <div className="w-48 h-48">
+              <div className="w-36 h-36 md:w-48 md:h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -183,7 +183,7 @@ export default function StatsPage() {
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
         ) : (
           <div className="flex flex-col md:flex-row gap-6 items-start">
-            <div className="w-full md:w-64 h-56 shrink-0">
+            <div className="w-full md:w-64 h-44 md:h-56 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

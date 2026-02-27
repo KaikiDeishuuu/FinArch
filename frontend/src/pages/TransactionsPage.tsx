@@ -181,9 +181,9 @@ export default function TransactionsPage() {
               }`}
             >
               {/* Row 1: category + amount */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+              <div className="flex items-start justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                     tx.direction === 'income' ? 'bg-green-400' : 'bg-red-400'
                   }`} />
                   <span className="font-semibold text-gray-800 text-sm truncate">{tx.category}</span>
@@ -193,26 +193,27 @@ export default function TransactionsPage() {
                     </span>
                   )}
                 </div>
-                <span className={`font-bold tabular-nums text-sm shrink-0 ml-3 ${
+                <span className={`font-bold tabular-nums text-base shrink-0 ml-2 ${
                   tx.direction === 'income' ? 'text-green-600' : 'text-red-500'
                 }`}>
                   {tx.direction === 'income' ? '+' : '−'}{fmt(tx.amount_yuan)}
                 </span>
               </div>
-              {/* Row 2: date + source + note */}
-              <div className="flex items-center gap-2 mb-3 flex-wrap">
+              {/* Row 2: date + source */}
+              <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-xs text-gray-400 tabular-nums">{tx.occurred_at}</span>
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                   tx.source === 'company' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
                 }`}>
                   {tx.source === 'company' ? '🏢 公司' : '👤 个人'}
                 </span>
-                {tx.note && (
-                  <span className="text-xs text-gray-400 truncate flex-1 min-w-0">{tx.note}</span>
-                )}
               </div>
-              {/* Row 3: action badges + copy ID */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Row 3: note (if any) */}
+              {tx.note && (
+                <p className="text-xs text-gray-400 mb-2.5 truncate">{tx.note}</p>
+              )}
+              {/* Row 4: action badges + copy ID */}
+              <div className="flex items-center gap-2 flex-wrap pt-0.5">
                 <StatusBadge
                   active={tx.uploaded}
                   activeLabel="已上传"

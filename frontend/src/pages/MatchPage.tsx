@@ -176,41 +176,66 @@ export default function MatchPage() {
               {expandedIdx === i && (
                 <div className="border-t border-gray-100">
                   {r.items && r.items.length > 0 ? (
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-gray-50 text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                          <th className="px-4 py-2.5 text-left font-semibold">ID</th>
-                          <th className="px-4 py-2.5 text-left font-semibold">日期</th>
-                          <th className="px-4 py-2.5 text-left font-semibold">类别</th>
-                          <th className="px-4 py-2.5 text-left font-semibold">项目</th>
-                          <th className="px-4 py-2.5 text-left font-semibold">备注</th>
-                          <th className="px-4 py-2.5 text-right font-semibold">金额</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {r.items.map((item, idx) => (
-                          <tr key={item.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
-                            <td className="px-4 py-2.5 font-mono text-gray-400 bg-gray-50/50">{item.id.slice(0, 8)}…</td>
-                            <td className="px-4 py-2.5 text-gray-500 tabular-nums whitespace-nowrap">{item.occurred_at}</td>
-                            <td className="px-4 py-2.5 font-medium text-gray-600">{item.category}</td>
-                            <td className="px-4 py-2.5">
-                              {item.project_id
-                                ? <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
-                                : <span className="text-gray-300">—</span>
-                              }
-                            </td>
-                            <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-red-500 tabular-nums">−{fmt(item.amount_yuan)}</td>
-                          </tr>
+                    <>
+                      {/* Mobile: card list */}
+                      <div className="md:hidden divide-y divide-gray-50">
+                        {r.items.map((item) => (
+                          <div key={item.id} className="px-4 py-3 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-gray-700 text-sm">{item.category}</span>
+                              <span className="font-bold text-red-500 tabular-nums text-sm">−{fmt(item.amount_yuan)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
+                              <span className="tabular-nums">{item.occurred_at}</span>
+                              {item.project_id && (
+                                <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                              )}
+                              {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
+                            </div>
+                          </div>
                         ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-gray-50 border-t border-gray-200">
-                          <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计</td>
-                          <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(r.total)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                        <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
+                          <span className="text-xs font-semibold text-gray-500">合计</span>
+                          <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(r.total)}</span>
+                        </div>
+                      </div>
+                      {/* Desktop: table */}
+                      <table className="hidden md:table w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                            <th className="px-4 py-2.5 text-left font-semibold">ID</th>
+                            <th className="px-4 py-2.5 text-left font-semibold">日期</th>
+                            <th className="px-4 py-2.5 text-left font-semibold">类别</th>
+                            <th className="px-4 py-2.5 text-left font-semibold">项目</th>
+                            <th className="px-4 py-2.5 text-left font-semibold">备注</th>
+                            <th className="px-4 py-2.5 text-right font-semibold">金额</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.items.map((item, idx) => (
+                            <tr key={item.id} className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/60 transition-colors ${idx % 2 === 0 ? '' : 'bg-gray-50/30'}`}>
+                              <td className="px-4 py-2.5 font-mono text-gray-400 bg-gray-50/50">{item.id.slice(0, 8)}…</td>
+                              <td className="px-4 py-2.5 text-gray-500 tabular-nums whitespace-nowrap">{item.occurred_at}</td>
+                              <td className="px-4 py-2.5 font-medium text-gray-600">{item.category}</td>
+                              <td className="px-4 py-2.5">
+                                {item.project_id
+                                  ? <span className="font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                                  : <span className="text-gray-300">—</span>
+                                }
+                              </td>
+                              <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
+                              <td className="px-4 py-2.5 text-right font-bold text-red-500 tabular-nums">−{fmt(item.amount_yuan)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-gray-50 border-t border-gray-200">
+                            <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(r.total)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </>
                   ) : (
                     <div className="px-5 py-4">
                       <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wider">交易 ID 列表</p>
