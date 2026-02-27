@@ -13,7 +13,8 @@ export function exportTransactionsPDF(
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const incSum = filtered.filter(t => t.direction === 'income').reduce((s, t) => s + t.amount_yuan, 0)
   const expSum = filtered.filter(t => t.direction === 'expense').reduce((s, t) => s + t.amount_yuan, 0)
-  const net = incSum - expSum
+  const reimbursedSum = filtered.filter(t => t.direction === 'expense' && t.source === 'personal' && t.reimbursed).reduce((s, t) => s + t.amount_yuan, 0)
+  const net = incSum - expSum + reimbursedSum
 
   const rows = filtered.map(t => {
     const dir = t.direction === 'income' ? '收入' : '支出'
@@ -110,6 +111,10 @@ export function exportTransactionsPDF(
     '  <div class="summary-card">',
     '    <div class="label">支出合计</div>',
     `    <div class="value expense">${fmt(expSum)}</div>`,
+    '  </div>',
+    '  <div class="summary-card">',
+    '    <div class="label">已报销</div>',
+    `    <div class="value" style="color:#7c3aed">+${fmt(reimbursedSum)}</div>`,
     '  </div>',
     '  <div class="summary-card">',
     '    <div class="label">净结余</div>',
