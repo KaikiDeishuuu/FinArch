@@ -71,8 +71,11 @@ func (s *StatsService) Monthly(ctx context.Context, year int) ([]MonthlyStat, er
 		SELECT
 		  CAST(strftime('%Y', datetime(occurred_at, 'unixepoch')) AS INTEGER),
 		  CAST(strftime('%m', datetime(occurred_at, 'unixepoch')) AS INTEGER),
-		  COALESCE(SUM(CASE WHEN direction='income'  THEN amount_yuan ELSE 0 END), 0),
-		  COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0)
+		  COALESCE(SUM(CASE WHEN direction='income' THEN amount_yuan ELSE 0 END), 0),
+		  COALESCE(SUM(CASE
+		    WHEN direction='expense'
+		     AND NOT (source='personal' AND reimbursed=1)
+		    THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
 		WHERE strftime('%Y', datetime(occurred_at, 'unixepoch')) = ?
 		GROUP BY 1, 2
