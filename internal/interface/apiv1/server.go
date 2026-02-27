@@ -101,6 +101,30 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/monthly", s.handleStatsMonthly)
 	api.GET("/stats/by-category", s.handleStatsByCategory)
 	api.GET("/stats/by-project", s.handleStatsByProject)
+
+	// ─── Frontend static files ────────────────────────────────────
+	staticDir := os.Getenv("FINARCH_STATIC")
+	if staticDir == "" {
+		staticDir = "./frontend/dist"
+	}
+	r.Static("/assets", staticDir+"/assets")
+	// Serve any other static file that exists in dist root (favicon, etc.)
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		// API routes that truly don't exist → 404 JSON
+		if strings.HasPrefix(path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		// Try to serve the file directly first (e.g. /favicon.svg)
+		candidate := staticDir + path
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			c.File(candidate)
+			return
+		}
+		// SPA fallback: let React Router handle the path
+		c.File(staticDir + "/index.html")
+	})
 }
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
@@ -224,17 +248,17 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		return
 	}
 	type txDTO struct {
-		ID          string   `json:"id"`
-		OccurredAt  string   `json:"occurred_at"`
-		Direction   string   `json:"direction"`
-		Source      string   `json:"source"`
-		Category    string   `json:"category"`
-		AmountYuan  float64  `json:"amount_yuan"`
-		Note        string   `json:"note"`
-		ProjectID   *string  `json:"project_id"`
-		Reimbursed  bool     `json:"reimbursed"`
-		Uploaded    bool     `json:"uploaded"`
-		Tags        []string `json:"tags"`
+		ID         string   `json:"id"`
+		OccurredAt string   `json:"occurred_at"`
+		Direction  string   `json:"direction"`
+		Source     string   `json:"source"`
+		Category   string   `json:"category"`
+		AmountYuan float64  `json:"amount_yuan"`
+		Note       string   `json:"note"`
+		ProjectID  *string  `json:"project_id"`
+		Reimbursed bool     `json:"reimbursed"`
+		Uploaded   bool     `json:"uploaded"`
+		Tags       []string `json:"tags"`
 	}
 	dtos := make([]txDTO, 0, len(txs))
 	for _, t := range txs {
