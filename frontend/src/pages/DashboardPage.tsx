@@ -88,16 +88,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">你好，{user?.name || user?.email?.split('@')[0]} 👋</h1>
-          <p className="text-sm text-gray-400 mt-1">科研经费管理系统 · 今日 {new Date().toLocaleDateString('zh-CN')}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">你好，{user?.name || user?.email?.split('@')[0]} 👋</h1>
+          <p className="text-sm text-gray-400 mt-1">科研经费管理系统 · {new Date().toLocaleDateString('zh-CN')}</p>
         </div>
         <Link
           to="/add"
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+          className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
         >
-          + 添加交易
+          + 添加
         </Link>
       </div>
 
@@ -169,7 +169,26 @@ export default function DashboardPage() {
       {/* Workflow guide */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h2 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">使用流程</h2>
-        <div className="flex items-start gap-0">
+        {/* Mobile: 2-column grid */}
+        <div className="grid grid-cols-2 gap-3 md:hidden">
+          {[
+            { step: '1', icon: '✍️', title: '记录垫付', desc: '添加个人垫付的支出，填写类别和项目' },
+            { step: '2', icon: '⬆️', title: '标记上传', desc: '在交易明细中标记已上传到报销系统' },
+            { step: '3', icon: '🔍', title: '子集匹配', desc: '输入报销单总额，自动找到对应交易组合' },
+            { step: '4', icon: '✅', title: '完成报销', desc: '确认报销完成，标记相关交易为已报销' },
+          ].map((s) => (
+            <div key={s.step} className="bg-gray-50 rounded-xl p-3 flex items-start gap-2.5">
+              <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{s.step}</div>
+              <div>
+                <p className="text-base leading-none mb-1">{s.icon}</p>
+                <p className="text-xs font-semibold text-gray-700">{s.title}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Desktop: horizontal with connecting lines */}
+        <div className="hidden md:flex items-start gap-0">
           {[
             { step: '1', icon: '✍️', title: '记录垫付', desc: '添加个人垫付的支出，填写类别和项目' },
             { step: '2', icon: '⬆️', title: '标记上传', desc: '在交易明细中标记已上传到报销系统' },

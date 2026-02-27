@@ -102,32 +102,32 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">交易明细</h1>
-          <p className="text-sm text-gray-400 mt-0.5">管理所有收入与支出记录</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">交易明细</h1>
+          <p className="text-sm text-gray-400 mt-0.5 hidden sm:block">管理所有收入与支出记录</p>
         </div>
         <Link
           to="/add"
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+          className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
         >
-          + 添加交易
+          + 添加
         </Link>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">筛选结果</p>
-          <p className="text-2xl font-bold text-gray-700">{filtered.length} <span className="text-base font-normal text-gray-400">笔</span></p>
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">筛选结果</p>
+          <p className="text-lg md:text-2xl font-bold text-gray-700">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400">笔</span></p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">收入合计</p>
-          <p className="text-2xl font-bold text-green-600">{fmt(totalIncome)}</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">收入</p>
+          <p className="text-sm md:text-2xl font-bold text-green-600 tabular-nums truncate">{fmt(totalIncome)}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">支出合计</p>
-          <p className="text-2xl font-bold text-red-500">{fmt(totalExpense)}</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
+          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">支出</p>
+          <p className="text-sm md:text-2xl font-bold text-red-500 tabular-nums truncate">{fmt(totalExpense)}</p>
         </div>
       </div>
 
@@ -159,8 +159,102 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-400">加载中…</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-2">
+            <span className="text-4xl">📭</span>
+            <p className="text-sm text-gray-400">暂无记录</p>
+          </div>
+        ) : filtered.map((tx) => {
+          const done = tx.reimbursed && tx.uploaded
+          return (
+            <div
+              key={tx.id}
+              className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 transition-opacity ${
+                done ? 'opacity-40' : ''
+              }`}
+            >
+              {/* Row 1: category + amount */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    tx.direction === 'income' ? 'bg-green-400' : 'bg-red-400'
+                  }`} />
+                  <span className="font-semibold text-gray-800 text-sm truncate">{tx.category}</span>
+                  {tx.project_id && (
+                    <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
+                      {tx.project_id}
+                    </span>
+                  )}
+                </div>
+                <span className={`font-bold tabular-nums text-sm shrink-0 ml-3 ${
+                  tx.direction === 'income' ? 'text-green-600' : 'text-red-500'
+                }`}>
+                  {tx.direction === 'income' ? '+' : '−'}{fmt(tx.amount_yuan)}
+                </span>
+              </div>
+              {/* Row 2: date + source + note */}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-xs text-gray-400 tabular-nums">{tx.occurred_at}</span>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  tx.source === 'company' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                }`}>
+                  {tx.source === 'company' ? '🏢 公司' : '👤 个人'}
+                </span>
+                {tx.note && (
+                  <span className="text-xs text-gray-400 truncate flex-1 min-w-0">{tx.note}</span>
+                )}
+              </div>
+              {/* Row 3: action badges + copy ID */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <StatusBadge
+                  active={tx.uploaded}
+                  activeLabel="已上传"
+                  inactiveLabel="未上传"
+                  activeClass="bg-purple-100 text-purple-700"
+                  inactiveClass="bg-gray-100 text-gray-400"
+                  onClick={() => handleToggleUpload(tx.id)}
+                  disabled={togglingId === tx.id}
+                  loading={togglingId === tx.id}
+                />
+                {tx.source === 'personal' ? (
+                  <StatusBadge
+                    active={tx.reimbursed}
+                    activeLabel="已报销"
+                    inactiveLabel="待报销"
+                    activeClass="bg-green-100 text-green-700"
+                    inactiveClass="bg-gray-100 text-gray-400"
+                    onClick={() => handleToggle(tx.id)}
+                    disabled={togglingId === tx.id || !tx.uploaded}
+                    loading={togglingId === tx.id}
+                  />
+                ) : (
+                  <span className="text-gray-200 text-sm">—</span>
+                )}
+                <button
+                  onClick={() => copyId(tx.id)}
+                  className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${
+                    copiedId === tx.id
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -278,3 +372,4 @@ export default function TransactionsPage() {
     </div>
   )
 }
+
