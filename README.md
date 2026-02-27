@@ -1,36 +1,53 @@
 # FinArch
 
-工程级可扩展科研经费管理系统（Go + SQLite + Clean Architecture + Wails 示例）。
+科研经费管理系统 — Go + SQLite + React 19 + Tailwind v4
 
-## 快速开始
+**在线访问：** https://fund.wulab.tech
+
+## 功能
+
+- 收支记录管理（个人垫付 / 公司账户）
+- 上传与报销状态跟踪
+- 子集匹配算法：自动寻找与报销总额精确匹配的交易组合
+- 月度趋势、分类与项目统计图表
+
+## 技术栈
+
+| 层 | 技术 |
+|---|---|
+| 后端 | Go 1.24 · Gin · SQLite（WAL） |
+| 前端 | React 19 · Vite 7 · Tailwind CSS v4 |
+| 部署 | Docker multi-stage build · Nginx 反代 |
+
+## 本地开发
 
 ```bash
-go mod tidy
-go run ./cmd/cli init
-go run ./cmd/cli seed
-go run ./cmd/cli balance
-go run ./cmd/cli match 1200 2 6 20
+# 后端
+cp .env.example .env   # 填写 JWT_SECRET
+go run ./cmd/server
+
+# 前端（另开终端）
+cd frontend
+npm install
+npm run dev            # http://localhost:5173
 ```
 
-## CLI 命令
-
-- `init` 初始化数据库 schema。
-- `seed` 写入示例项目与交易。
-- `addtx` 新增交易。
-- `match` 从未报销个人支出中反推组合。
-- `reimburse` 创建报销单并绑定交易（事务）。
-- `balance` 计算公司资金池与个人待报销余额。
-
-## 金额约束
-
-所有金额统一使用 `float64` 元（yuan）。
-
-## 事务约束
-
-报销创建使用单事务执行：创建主单 -> 插入明细 -> 标记交易已报销。
-
-## 测试
+## Docker 部署
 
 ```bash
-go test ./...
+echo "JWT_SECRET=$(openssl rand -hex 32)" > .env
+docker compose up --build -d
+```
+
+服务监听 `127.0.0.1:8080`，通过 Nginx 反代对外提供服务。
+
+## 项目结构
+
+```
+cmd/server/          HTTP 服务入口
+internal/
+  domain/            领域模型、服务、仓储接口
+  infrastructure/    SQLite 实现、JWT、数据库迁移
+  interface/apiv1/   Gin 路由与 Handler
+frontend/src/        React 前端
 ```
