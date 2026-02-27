@@ -128,16 +128,18 @@ func (s *StatsService) ByCategory(ctx context.Context, dateFrom, dateTo string) 
 	return stats, rows.Err()
 }
 
-// ByProject returns income/expense totals per project.
+// ByProject returns income/expense totals per project, aggregated directly
+// from transactions so that projects entered as free-text are also included.
 func (s *StatsService) ByProject(ctx context.Context) ([]ProjectStat, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, p.name,
-		       COALESCE(SUM(CASE WHEN t.direction='income'  THEN t.amount_yuan ELSE 0 END), 0),
-		       COALESCE(SUM(CASE WHEN t.direction='expense' THEN t.amount_yuan ELSE 0 END), 0)
-		FROM projects p
-		LEFT JOIN transactions t ON t.project_id = p.id
-		GROUP BY p.id, p.name
-		ORDER BY p.name`)
+		SELECT project_id,
+		       COALESCE((SELECT name FROM projects WHERE id = project_id), project_id),
+		       COALESCE(SUM(CASE WHEN direction='income'  THEN amount_yuan ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0)
+		FROM transactions
+		WHERE project_id IS NOT NULL AND project_id != ''
+		GROUP BY project_id
+		ORDER BY project_id`)
 	if err != nil {
 		return nil, fmt.Errorf("by-project stats: %w", err)
 	}
