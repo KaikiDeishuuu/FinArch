@@ -14,7 +14,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex bg-gray-50" style={{ height: '100dvh' }}>
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex w-60 bg-white border-r border-gray-100 flex-col shrink-0 shadow-sm">
         <div className="px-5 py-5 border-b border-gray-100">
@@ -64,7 +64,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Mobile Top Header ── */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 shadow-sm">
+      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shadow-sm">
             <span className="text-white text-xs font-bold">¥</span>
@@ -82,14 +82,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 overflow-y-auto pt-14 pb-20 md:pt-0 md:pb-0">
+      {/* scroll-main: iOS 动量滚动 + overscroll-contain 防橡皮筋上传 */}
+      <main className="scroll-main flex-1 overflow-y-scroll pt-14 md:pt-0 md:pb-0">
         <div className="max-w-5xl mx-auto px-4 py-4 md:px-6 md:py-8">
           {children}
         </div>
       </main>
 
       {/* ── Mobile Bottom Navigation ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex shadow-lg safe-area-inset-bottom">
+      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex shadow-lg">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

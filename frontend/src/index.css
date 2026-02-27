@@ -1,8 +1,76 @@
 @import "tailwindcss";
 
+/* ── 视口基础：防止 html/body 双重滚动 ── */
+html {
+  height: 100%;
+  /* 禁止 iOS 橡皮筋传导到根节点 */
+  overscroll-behavior: none;
+}
+
 body {
   font-family: "Inter", system-ui, sans-serif;
   background-color: #f8fafc;
+  height: 100%;
+  /* 禁止 body 层自身滚动，统一收口到 main 滚动容器 */
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* 消除 iOS 300ms 点击延迟 */
+  touch-action: manipulation;
+  /* 禁止长按选中文字导致 UI 抖动 */
+  -webkit-user-select: none;
+  user-select: none;
+  /* 去除 iOS tap 高亮蓝框 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 允许输入框/文本区域选中文字 */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#root {
+  height: 100%;
+  /* 提升为独立合成层，避免与 body 共享光栅化 */
+  isolation: isolate;
+}
+
+/* ── 滚动容器：动量滚动 + 防抖动 ── */
+.scroll-main {
+  /* iOS 动量滚动（惯性） */
+  -webkit-overflow-scrolling: touch;
+  /* 阻止橡皮筋效果上传到 html/body，保留容器内自身弹性 */
+  overscroll-behavior-y: contain;
+  /* 提示浏览器提前提升合成层，避免首次滚动掉帧 */
+  will-change: scroll-position;
+}
+
+/* ── GPU 合成层：fixed 元素不触发重排 ── */
+.gpu-layer {
+  /* translate3d(0,0,0) 强制 GPU 合成，fixed 元素移动时不触发主线程重绘 */
+  transform: translate3d(0, 0, 0);
+  /* 告知合成器该层会发生 transform 变化 */
+  will-change: transform;
+  /* 独立绘制上下文，避免与内容层合并 */
+  backface-visibility: hidden;
+}
+
+/* ── Safe Area：刘海/圆角屏底部适配 ── */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── 全局交互优化 ── */
+button, a, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 主内容区底部留白 = 底栏高度(56px) + 安全区域，防止内容被遮挡 */
+@media (max-width: 767px) {
+  .scroll-main {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* Remove focus outline on Recharts pie/sector path elements */
