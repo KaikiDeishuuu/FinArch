@@ -25,11 +25,12 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 	exec := getExecutor(ctx, r.db)
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO transactions (
-			id, occurred_at, direction, source, category, amount_yuan, currency, note,
+			id, user_id, occurred_at, direction, source, category, amount_yuan, currency, note,
 			project_id, reimbursed, reimbursement_id, created_at, updated_at, uploaded
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		t.ID,
+		t.UserID,
 		t.OccurredAt.Unix(),
 		string(t.Direction),
 		string(t.Source),
@@ -50,17 +51,18 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 	return nil
 }
 
-// ListAll returns all transactions ordered by occurred_at desc.
-func (r *SQLiteTransactionRepository) ListAll(ctx context.Context) ([]model.Transaction, error) {
+// ListByUser returns all transactions for the given user ordered by occurred_at desc.
+func (r *SQLiteTransactionRepository) ListByUser(ctx context.Context, userID string) ([]model.Transaction, error) {
 	exec := getExecutor(ctx, r.db)
 	rows, err := exec.QueryContext(ctx, `
-		SELECT id, occurred_at, direction, source, category, amount_yuan, currency, note,
+		SELECT id, user_id, occurred_at, direction, source, category, amount_yuan, currency, note,
 		       project_id, reimbursed, reimbursement_id, created_at, updated_at, uploaded
 		FROM transactions
+		WHERE user_id = ?
 		ORDER BY occurred_at DESC, rowid DESC
-	`)
+	`, userID)
 	if err != nil {
-		return nil, fmt.Errorf("list all transactions: %w", err)
+		return nil, fmt.Errorf("list transactions by user: %w", err)
 	}
 	defer rows.Close()
 
@@ -90,7 +92,7 @@ func (r *SQLiteTransactionRepository) GetByIDs(ctx context.Context, ids []string
 		args = append(args, id)
 	}
 	q := `
-		SELECT id, occurred_at, direction, source, category, amount_yuan, currency, note,
+		SELECT id, user_id, occurred_at, direction, source, category, amount_yuan, currency, note,
 		       project_id, reimbursed, reimbursement_id, created_at, updated_at, uploaded
 		FROM transactions
 		WHERE id IN (` + placeholders + `)
@@ -115,15 +117,15 @@ func (r *SQLiteTransactionRepository) GetByIDs(ctx context.Context, ids []string
 	return result, nil
 }
 
-// ListUnreimbursedPersonalExpenses lists unreimbursed personal expenses.
-func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx context.Context, projectID *string, maxN int) ([]model.Transaction, error) {
+// ListUnreimbursedPersonalExpenses lists unreimbursed personal expenses for a user.
+func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx context.Context, userID string, projectID *string, maxN int) ([]model.Transaction, error) {
 	exec := getExecutor(ctx, r.db)
-	args := []any{string(model.SourcePersonal), string(model.DirectionExpense)}
+	args := []any{string(model.SourcePersonal), string(model.DirectionExpense), userID}
 	q := `
-		SELECT id, occurred_at, direction, source, category, amount_yuan, currency, note,
+		SELECT id, user_id, occurred_at, direction, source, category, amount_yuan, currency, note,
 		       project_id, reimbursed, reimbursement_id, created_at, updated_at, uploaded
 		FROM transactions
-		WHERE source = ? AND direction = ? AND reimbursed = 0 AND uploaded = 1
+		WHERE source = ? AND direction = ? AND reimbursed = 0 AND uploaded = 1 AND user_id = ?
 	`
 	if projectID != nil {
 		q += " AND project_id = ?"
@@ -186,19 +188,23 @@ func (r *SQLiteTransactionRepository) MarkReimbursed(ctx context.Context, transa
 	return nil
 }
 
-// ToggleReimbursed flips the reimbursed flag for a single transaction and returns the new state.
-func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id string) (bool, error) {
+// ToggleReimbursed flips the reimbursed flag for a transaction owned by userID and returns the new state.
+func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id string, userID string) (bool, error) {
 	exec := getExecutor(ctx, r.db)
-	// Read current state
+	// Read current state, verifying ownership
 	var cur int
+	var ownerID string
 	err := exec.QueryRowContext(ctx,
-		`SELECT reimbursed FROM transactions WHERE id = ?`, id,
-	).Scan(&cur)
+		`SELECT reimbursed, user_id FROM transactions WHERE id = ?`, id,
+	).Scan(&cur, &ownerID)
 	if err == sql.ErrNoRows {
 		return false, fmt.Errorf("transaction %s not found", id)
 	}
 	if err != nil {
 		return false, fmt.Errorf("read reimbursed: %w", err)
+	}
+	if ownerID != userID {
+		return false, fmt.Errorf("permission denied: transaction %s does not belong to you", id)
 	}
 	newVal := 1 - cur // flip 0↔1
 	_, err = exec.ExecContext(ctx,
@@ -211,18 +217,22 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 	return newVal == 1, nil
 }
 
-// ToggleUploaded flips the uploaded flag for a single transaction and returns the new state.
-func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id string) (bool, error) {
+// ToggleUploaded flips the uploaded flag for a transaction owned by userID and returns the new state.
+func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id string, userID string) (bool, error) {
 	exec := getExecutor(ctx, r.db)
 	var cur int
+	var ownerID string
 	err := exec.QueryRowContext(ctx,
-		`SELECT uploaded FROM transactions WHERE id = ?`, id,
-	).Scan(&cur)
+		`SELECT uploaded, user_id FROM transactions WHERE id = ?`, id,
+	).Scan(&cur, &ownerID)
 	if err == sql.ErrNoRows {
 		return false, fmt.Errorf("transaction %s not found", id)
 	}
 	if err != nil {
 		return false, fmt.Errorf("read uploaded: %w", err)
+	}
+	if ownerID != userID {
+		return false, fmt.Errorf("permission denied: transaction %s does not belong to you", id)
 	}
 	newVal := 1 - cur
 	_, err = exec.ExecContext(ctx,
@@ -235,8 +245,8 @@ func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id str
 	return newVal == 1, nil
 }
 
-// SumPoolBalance returns company balance and personal outstanding in yuan.
-func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context) (model.Money, model.Money, error) {
+// SumPoolBalance returns company balance and personal outstanding in yuan for a user.
+func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID string) (model.Money, model.Money, error) {
 	exec := getExecutor(ctx, r.db)
 
 	var companyBalance float64
@@ -246,7 +256,8 @@ func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context) (model
 			WHEN source = 'company' AND direction = 'expense' THEN -amount_yuan
 			ELSE 0 END), 0)
 		FROM transactions
-	`).Scan(&companyBalance); err != nil {
+		WHERE user_id = ?
+	`, userID).Scan(&companyBalance); err != nil {
 		return 0, 0, fmt.Errorf("sum company balance: %w", err)
 	}
 
@@ -256,7 +267,8 @@ func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context) (model
 			WHEN source = 'personal' AND direction = 'expense' AND reimbursed = 0 THEN amount_yuan
 			ELSE 0 END), 0)
 		FROM transactions
-	`).Scan(&personalOutstanding); err != nil {
+		WHERE user_id = ?
+	`, userID).Scan(&personalOutstanding); err != nil {
 		return 0, 0, fmt.Errorf("sum personal outstanding: %w", err)
 	}
 
@@ -280,6 +292,7 @@ func scanTransaction(scanner interface {
 
 	err := scanner.Scan(
 		&t.ID,
+		&t.UserID,
 		&occurredAt,
 		&direction,
 		&source,

@@ -101,12 +101,18 @@ func main() {
 			jwtSecret = "finarch-dev-secret-change-in-prod"
 		}
 		jwtSvc := auth.NewJWTService(jwtSecret)
+		// Auth brute-force protection
+		authLimiter := auth.NewIPRateLimiter(10, 60*time.Second)
+		loginTracker := auth.NewLoginAttemptTracker(5, 15*time.Minute)
+		// Cloudflare Turnstile CAPTCHA (set TURNSTILE_SECRET to enable)
+		captchaVerifier := auth.NewTurnstileVerifier(os.Getenv("TURNSTILE_SECRET"))
+		turnstileSiteKey := os.Getenv("TURNSTILE_SITE_KEY")
 		userRepo := sqliterepo.NewSQLiteUserRepository(database)
 		tagRepo := sqliterepo.NewSQLiteTagRepository(database)
 		txSvc, reimSvc, matchSvc, txRepo := buildServicesWithRepo(database)
-		authSvc := service.NewAuthService(userRepo, jwtSvc)
+		authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker)
 		statsSvc := service.NewStatsService(database)
-		srv := apiv1.NewServer(addr, database, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc)
+		srv := apiv1.NewServer(addr, database, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
 		log.Printf("FinArch API v1: http://%s", addr)
 		log.Fatal(srv.Run())
 	default:
@@ -182,7 +188,8 @@ func runMatch(ctx context.Context, database *sql.DB, args []string) error {
 		projectID = &args[4]
 	}
 
-	results, err := matchingSvc.Match(ctx, target, tolerance, maxDepth, projectID, limit)
+	// CLI is single-user; use empty string as the user scope.
+	results, err := matchingSvc.Match(ctx, "", target, tolerance, maxDepth, projectID, limit)
 	if err != nil {
 		return err
 	}
@@ -224,7 +231,8 @@ func runReimburse(ctx context.Context, database *sql.DB, args []string) error {
 // runBalance prints computed balances.
 func runBalance(ctx context.Context, database *sql.DB) error {
 	txSvc, _, _, _ := buildServices(database)
-	company, personal, err := txSvc.GetBalances(ctx)
+	// CLI is single-user; use empty string as the user scope.
+	company, personal, err := txSvc.GetBalances(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -235,7 +243,7 @@ func runBalance(ctx context.Context, database *sql.DB) error {
 // runList prints all transactions to stdout.
 func runList(ctx context.Context, database *sql.DB) error {
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
-	txs, err := txRepo.ListAll(ctx)
+	txs, err := txRepo.ListByUser(ctx, "")
 	if err != nil {
 		return err
 	}

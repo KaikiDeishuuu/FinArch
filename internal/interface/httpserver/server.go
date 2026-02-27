@@ -78,7 +78,8 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // handleBalance returns fund pool balance.
 func (s *Server) handleBalance(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	company, personal, err := s.txSvc.GetBalances(ctx)
+	// Embedded server is single-user; use empty string as the user scope.
+	company, personal, err := s.txSvc.GetBalances(ctx, "")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -94,7 +95,7 @@ func (s *Server) handleTransactions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	switch r.Method {
 	case http.MethodGet:
-		txs, err := s.txRepo.ListAll(ctx)
+		txs, err := s.txRepo.ListByUser(ctx, "")
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -196,8 +197,10 @@ func (s *Server) handleMatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
 		return
 	}
+	// Embedded server is single-user; use empty string as the user scope.
 	results, err := s.matchSvc.Match(
 		ctx,
+		"",
 		model.Money(req.TargetYuan),
 		model.Money(req.ToleranceYuan),
 		req.MaxDepth,
@@ -273,7 +276,8 @@ func (s *Server) handleToggleReimbursed(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "missing transaction id")
 		return
 	}
-	newState, err := s.txRepo.ToggleReimbursed(r.Context(), id)
+	// Embedded server is single-user; use empty string as the user scope.
+	newState, err := s.txRepo.ToggleReimbursed(r.Context(), id, "")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

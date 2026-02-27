@@ -46,8 +46,8 @@ type ProjectStat struct {
 	Net         float64 `json:"net"`
 }
 
-// Summary returns company balance + personal outstanding.
-func (s *StatsService) Summary(ctx context.Context) (PoolBalance, error) {
+// Summary returns company balance + personal outstanding for a user.
+func (s *StatsService) Summary(ctx context.Context, userID string) (PoolBalance, error) {
 	var b PoolBalance
 	err := s.db.QueryRowContext(ctx, `
 		SELECT
@@ -59,15 +59,16 @@ func (s *StatsService) Summary(ctx context.Context) (PoolBalance, error) {
 		    WHEN source='personal' AND direction='expense' AND reimbursed=0
 		    THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
-	`).Scan(&b.CompanyBalance, &b.PersonalOutstanding)
+		WHERE user_id = ?
+	`, userID).Scan(&b.CompanyBalance, &b.PersonalOutstanding)
 	if err != nil {
 		return PoolBalance{}, fmt.Errorf("summary: %w", err)
 	}
 	return b, nil
 }
 
-// Monthly returns income/expense grouped by month for a given year.
-func (s *StatsService) Monthly(ctx context.Context, year int) ([]MonthlyStat, error) {
+// Monthly returns income/expense grouped by month for a given year for a user.
+func (s *StatsService) Monthly(ctx context.Context, userID string, year int) ([]MonthlyStat, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT
 		  CAST(strftime('%Y', datetime(occurred_at, 'unixepoch')) AS INTEGER),
@@ -76,10 +77,10 @@ func (s *StatsService) Monthly(ctx context.Context, year int) ([]MonthlyStat, er
 		  COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0),
 		  COALESCE(SUM(CASE WHEN direction='expense' AND source='personal' AND reimbursed=1 THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
-		WHERE strftime('%Y', datetime(occurred_at, 'unixepoch')) = ?
+		WHERE strftime('%Y', datetime(occurred_at, 'unixepoch')) = ? AND user_id = ?
 		GROUP BY 1, 2
 		ORDER BY 2
-	`, fmt.Sprintf("%d", year))
+	`, fmt.Sprintf("%d", year), userID)
 	if err != nil {
 		return nil, fmt.Errorf("monthly stats: %w", err)
 	}
@@ -95,15 +96,15 @@ func (s *StatsService) Monthly(ctx context.Context, year int) ([]MonthlyStat, er
 	return stats, rows.Err()
 }
 
-// ByCategory returns expense totals grouped by category.
-func (s *StatsService) ByCategory(ctx context.Context, dateFrom, dateTo string) ([]CategoryStat, error) {
+// ByCategory returns expense totals grouped by category for a user.
+func (s *StatsService) ByCategory(ctx context.Context, userID string, dateFrom, dateTo string) ([]CategoryStat, error) {
 	q := `
 		SELECT category,
 		       COALESCE(SUM(amount_yuan), 0) AS total,
 		       COUNT(*) AS cnt
 		FROM transactions
-		WHERE direction='expense'`
-	args := []any{}
+		WHERE direction='expense' AND user_id = ?`
+	args := []any{userID}
 	if dateFrom != "" {
 		q += " AND date(datetime(occurred_at,'unixepoch')) >= ?"
 		args = append(args, dateFrom)
@@ -130,18 +131,17 @@ func (s *StatsService) ByCategory(ctx context.Context, dateFrom, dateTo string) 
 	return stats, rows.Err()
 }
 
-// ByProject returns income/expense totals per project, aggregated directly
-// from transactions so that projects entered as free-text are also included.
-func (s *StatsService) ByProject(ctx context.Context) ([]ProjectStat, error) {
+// ByProject returns income/expense totals per project for a user.
+func (s *StatsService) ByProject(ctx context.Context, userID string) ([]ProjectStat, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT project_id,
 		       COALESCE((SELECT name FROM projects WHERE id = project_id), project_id),
 		       COALESCE(SUM(CASE WHEN direction='income'  THEN amount_yuan ELSE 0 END), 0),
 		       COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
-		WHERE project_id IS NOT NULL AND project_id != ''
+		WHERE project_id IS NOT NULL AND project_id != '' AND user_id = ?
 		GROUP BY project_id
-		ORDER BY project_id`)
+		ORDER BY project_id`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("by-project stats: %w", err)
 	}

@@ -32,7 +32,8 @@ type ReimburseRequest struct {
 
 // MatchReimbursement suggests reimbursement combinations.
 func (a *App) MatchReimbursement(ctx context.Context, req MatchRequest) ([]service.MatchResult, error) {
-	return a.Matching.Match(ctx, model.Money(req.TargetYuan), model.Money(req.ToleranceYuan), req.MaxDepth, req.ProjectID, req.Limit)
+	// Desktop mode is single-user; use empty string as the user scope.
+	return a.Matching.Match(ctx, "", model.Money(req.TargetYuan), model.Money(req.ToleranceYuan), req.MaxDepth, req.ProjectID, req.Limit)
 }
 
 // CreateReimbursement submits one reimbursement.
@@ -46,7 +47,8 @@ func (a *App) CreateReimbursement(ctx context.Context, req ReimburseRequest) (mo
 
 // GetBalance returns company balance and personal outstanding.
 func (a *App) GetBalance(ctx context.Context) (map[string]float64, error) {
-	company, personal, err := a.Transactions.GetBalances(ctx)
+	// Desktop mode is single-user; use empty string as the user scope.
+	company, personal, err := a.Transactions.GetBalances(ctx, "")
 	if err != nil {
 		return nil, err
 	}

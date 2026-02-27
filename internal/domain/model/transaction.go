@@ -25,6 +25,7 @@ const (
 // Transaction records one cash movement.
 type Transaction struct {
 	ID              string
+	UserID          string // owner of this transaction
 	OccurredAt      time.Time
 	Direction       Direction
 	Source          Source

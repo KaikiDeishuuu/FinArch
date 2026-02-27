@@ -23,6 +23,7 @@ func NewTransactionService(transactions repository.TransactionRepository) *Trans
 
 // CreateTransactionRequest is the input of CreateTransaction.
 type CreateTransactionRequest struct {
+	UserID     string
 	OccurredAt time.Time
 	Direction  model.Direction
 	Source     model.Source
@@ -54,6 +55,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 	now := time.Now()
 	t := model.Transaction{
 		ID:         uuid.NewString(),
+		UserID:     req.UserID,
 		OccurredAt: req.OccurredAt,
 		Direction:  req.Direction,
 		Source:     req.Source,
@@ -72,7 +74,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 	return t, nil
 }
 
-// GetBalances returns company balance and personal outstanding in yuan.
-func (s *TransactionService) GetBalances(ctx context.Context) (model.Money, model.Money, error) {
-	return s.transactions.SumPoolBalance(ctx)
+// GetBalances returns company balance and personal outstanding in yuan for a user.
+func (s *TransactionService) GetBalances(ctx context.Context, userID string) (model.Money, model.Money, error) {
+	return s.transactions.SumPoolBalance(ctx, userID)
 }

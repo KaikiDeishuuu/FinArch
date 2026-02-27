@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
@@ -44,6 +45,16 @@ func main() {
 
 	jwtSvc := auth.NewJWTService(jwtSecret)
 
+	// Auth brute-force protection:
+	// - IP rate limiter: max 10 login/register requests per IP per minute
+	// - Account lockout: lock 15 min after 5 consecutive failures
+	authLimiter := auth.NewIPRateLimiter(10, 60*time.Second)
+	loginTracker := auth.NewLoginAttemptTracker(5, 15*time.Minute)
+
+	// Cloudflare Turnstile CAPTCHA (set TURNSTILE_SECRET to enable).
+	captchaVerifier := auth.NewTurnstileVerifier(os.Getenv("TURNSTILE_SECRET"))
+	turnstileSiteKey := os.Getenv("TURNSTILE_SITE_KEY")
+
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
 	userRepo := sqliterepo.NewSQLiteUserRepository(database)
@@ -53,10 +64,10 @@ func main() {
 	txSvc := service.NewTransactionService(txRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
-	authSvc := service.NewAuthService(userRepo, jwtSvc)
+	authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker)
 	statsSvc := service.NewStatsService(database)
 
-	srv := apiv1.NewServer(addr, database, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc)
+	srv := apiv1.NewServer(addr, database, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
 	log.Printf("FinArch API server listening on %s", addr)
 	log.Fatal(srv.Run())
 }

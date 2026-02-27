@@ -18,16 +18,19 @@ import (
 
 // Server is the Gin-based API v1 server.
 type Server struct {
-	engine   *gin.Engine
-	addr     string
-	authSvc  *service.AuthService
-	txSvc    *service.TransactionService
-	reimSvc  *service.ReimbursementService
-	matchSvc *service.MatchingService
-	statsSvc *service.StatsService
-	txRepo   repository.TransactionRepository
-	tagRepo  repository.TagRepository
-	jwtSvc   *auth.JWTService
+	engine           *gin.Engine
+	addr             string
+	authSvc          *service.AuthService
+	txSvc            *service.TransactionService
+	reimSvc          *service.ReimbursementService
+	matchSvc         *service.MatchingService
+	statsSvc         *service.StatsService
+	txRepo           repository.TransactionRepository
+	tagRepo          repository.TagRepository
+	jwtSvc           *auth.JWTService
+	authLimiter      *auth.IPRateLimiter
+	captchaVerifier  *auth.TurnstileVerifier
+	turnstileSiteKey string
 }
 
 func NewServer(
@@ -41,21 +44,27 @@ func NewServer(
 	authSvc *service.AuthService,
 	statsSvc *service.StatsService,
 	jwtSvc *auth.JWTService,
+	authLimiter *auth.IPRateLimiter,
+	captchaVerifier *auth.TurnstileVerifier,
+	turnstileSiteKey string,
 ) *Server {
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	s := &Server{
-		engine:   gin.New(),
-		addr:     addr,
-		authSvc:  authSvc,
-		txSvc:    txSvc,
-		reimSvc:  reimSvc,
-		matchSvc: matchSvc,
-		statsSvc: statsSvc,
-		txRepo:   txRepo,
-		tagRepo:  tagRepo,
-		jwtSvc:   jwtSvc,
+		engine:           gin.New(),
+		addr:             addr,
+		authSvc:          authSvc,
+		txSvc:            txSvc,
+		reimSvc:          reimSvc,
+		matchSvc:         matchSvc,
+		statsSvc:         statsSvc,
+		txRepo:           txRepo,
+		tagRepo:          tagRepo,
+		jwtSvc:           jwtSvc,
+		authLimiter:      authLimiter,
+		captchaVerifier:  captchaVerifier,
+		turnstileSiteKey: turnstileSiteKey,
 	}
 	s.registerRoutes()
 	return s
@@ -71,8 +80,9 @@ func (s *Server) registerRoutes() {
 
 	// ─── Public routes ───────────────────────────────────────────
 	pub := r.Group("/api/v1")
-	pub.POST("/auth/register", s.handleRegister)
-	pub.POST("/auth/login", s.handleLogin)
+	pub.GET("/config", s.handleConfig)
+	pub.POST("/auth/register", s.authRateLimitMiddleware(), s.handleRegister)
+	pub.POST("/auth/login", s.authRateLimitMiddleware(), s.handleLogin)
 
 	// ─── Protected routes (JWT required) ─────────────────────────
 	api := r.Group("/api/v1", s.jwtMiddleware())
@@ -171,6 +181,38 @@ func (s *Server) jwtMiddleware() gin.HandlerFunc {
 
 func userID(c *gin.Context) string { return c.GetString("userID") }
 
+// realIP extracts the best-effort real client IP, honouring X-Forwarded-For
+// and X-Real-IP headers set by a trusted reverse proxy.
+func realIP(c *gin.Context) string {
+	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For may be a comma-separated list; take the first entry.
+		if idx := strings.IndexByte(xff, ','); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
+	if xri := c.GetHeader("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+	return c.ClientIP()
+}
+
+// authRateLimitMiddleware restricts auth endpoints by IP to prevent brute-force
+// and credential-stuffing attacks.
+func (s *Server) authRateLimitMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ip := realIP(c)
+		if !s.authLimiter.Allow(ip) {
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"code":    42901,
+				"message": "请求过于频繁，请稍后再试",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 func ok(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "ok", "data": data})
 }
@@ -183,16 +225,30 @@ func fail(c *gin.Context, status, code int, msg string) {
 	c.AbortWithStatusJSON(status, gin.H{"code": code, "message": msg})
 }
 
+// ─── Config ──────────────────────────────────────────────────────────────────
+
+// handleConfig returns public runtime configuration consumed by the frontend.
+func (s *Server) handleConfig(c *gin.Context) {
+	ok(c, gin.H{
+		"turnstile_site_key": s.turnstileSiteKey,
+	})
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 func (s *Server) handleRegister(c *gin.Context) {
 	var req struct {
-		Email    string `json:"email"    binding:"required,email"`
-		Name     string `json:"name"     binding:"required"`
-		Password string `json:"password" binding:"required,min=8"`
+		Email        string `json:"email"         binding:"required,email"`
+		Name         string `json:"name"          binding:"required"`
+		Password     string `json:"password"      binding:"required,min=8"`
+		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, 40001, err.Error())
+		return
+	}
+	if err := s.captchaVerifier.Verify(req.CaptchaToken, realIP(c)); err != nil {
+		fail(c, 400, 40003, "人机验证失败："+err.Error())
 		return
 	}
 	_, err := s.authSvc.Register(c.Request.Context(), service.RegisterRequest{
@@ -220,11 +276,16 @@ func (s *Server) handleRegister(c *gin.Context) {
 
 func (s *Server) handleLogin(c *gin.Context) {
 	var req struct {
-		Email    string `json:"email"    binding:"required"`
-		Password string `json:"password" binding:"required"`
+		Email        string `json:"email"         binding:"required"`
+		Password     string `json:"password"      binding:"required"`
+		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, 40001, err.Error())
+		return
+	}
+	if err := s.captchaVerifier.Verify(req.CaptchaToken, realIP(c)); err != nil {
+		fail(c, 400, 40003, "人机验证失败："+err.Error())
 		return
 	}
 	resp, err := s.authSvc.Login(c.Request.Context(), req.Email, req.Password)
@@ -262,7 +323,7 @@ func (s *Server) handleChangePassword(c *gin.Context) {
 // ─── Transactions ────────────────────────────────────────────────────────────
 
 func (s *Server) handleListTransactions(c *gin.Context) {
-	txs, err := s.txRepo.ListAll(c.Request.Context())
+	txs, err := s.txRepo.ListByUser(c.Request.Context(), userID(c))
 	if err != nil {
 		fail(c, 500, 50001, err.Error())
 		return
@@ -324,7 +385,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		projID = nil
 	}
 	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
-		OccurredAt: t, Direction: model.Direction(req.Direction),
+		UserID: userID(c), OccurredAt: t, Direction: model.Direction(req.Direction),
 		Source: model.Source(req.Source), Category: req.Category,
 		AmountYuan: model.Money(req.AmountYuan), Note: req.Note, ProjectID: projID,
 	})
@@ -344,7 +405,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 
 func (s *Server) handleToggleReimbursed(c *gin.Context) {
 	id := c.Param("id")
-	newState, err := s.txRepo.ToggleReimbursed(c.Request.Context(), id)
+	newState, err := s.txRepo.ToggleReimbursed(c.Request.Context(), id, userID(c))
 	if err != nil {
 		fail(c, 400, 40001, err.Error())
 		return
@@ -354,7 +415,7 @@ func (s *Server) handleToggleReimbursed(c *gin.Context) {
 
 func (s *Server) handleToggleUploaded(c *gin.Context) {
 	id := c.Param("id")
-	newState, err := s.txRepo.ToggleUploaded(c.Request.Context(), id)
+	newState, err := s.txRepo.ToggleUploaded(c.Request.Context(), id, userID(c))
 	if err != nil {
 		fail(c, 400, 40001, err.Error())
 		return
@@ -451,6 +512,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 	limit := 20
 	results, err := s.matchSvc.Match(
 		c.Request.Context(),
+		userID(c),
 		model.Money(req.TargetYuan), model.Money(req.ToleranceYuan),
 		maxDepth, req.ProjectID, limit,
 	)
@@ -562,7 +624,7 @@ func (s *Server) handleCreateReimbursement(c *gin.Context) {
 // ─── Stats ───────────────────────────────────────────────────────────────────
 
 func (s *Server) handleStatsSummary(c *gin.Context) {
-	b, err := s.statsSvc.Summary(c.Request.Context())
+	b, err := s.statsSvc.Summary(c.Request.Context(), userID(c))
 	if err != nil {
 		fail(c, 500, 50001, err.Error())
 		return
@@ -577,7 +639,7 @@ func (s *Server) handleStatsMonthly(c *gin.Context) {
 			year = t.Year()
 		}
 	}
-	stats, err := s.statsSvc.Monthly(c.Request.Context(), year)
+	stats, err := s.statsSvc.Monthly(c.Request.Context(), userID(c), year)
 	if err != nil {
 		fail(c, 500, 50001, err.Error())
 		return
@@ -589,7 +651,7 @@ func (s *Server) handleStatsMonthly(c *gin.Context) {
 }
 
 func (s *Server) handleStatsByCategory(c *gin.Context) {
-	stats, err := s.statsSvc.ByCategory(c.Request.Context(), c.Query("date_from"), c.Query("date_to"))
+	stats, err := s.statsSvc.ByCategory(c.Request.Context(), userID(c), c.Query("date_from"), c.Query("date_to"))
 	if err != nil {
 		fail(c, 500, 50001, err.Error())
 		return
@@ -601,7 +663,7 @@ func (s *Server) handleStatsByCategory(c *gin.Context) {
 }
 
 func (s *Server) handleStatsByProject(c *gin.Context) {
-	stats, err := s.statsSvc.ByProject(c.Request.Context())
+	stats, err := s.statsSvc.ByProject(c.Request.Context(), userID(c))
 	if err != nil {
 		fail(c, 500, 50001, err.Error())
 		return

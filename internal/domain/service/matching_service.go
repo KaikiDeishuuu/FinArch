@@ -30,6 +30,7 @@ func NewMatchingService(transactions repository.TransactionRepository) *Matching
 // Match finds candidate combinations sorted by minimum error then minimum project count then item count.
 func (s *MatchingService) Match(
 	ctx context.Context,
+	userID string,
 	target model.Money,
 	tolerance model.Money,
 	maxDepth int,
@@ -42,7 +43,7 @@ func (s *MatchingService) Match(
 	if limit <= 0 {
 		limit = 20
 	}
-	candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(ctx, projectID, 2000)
+	candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(ctx, userID, projectID, 2000)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,9 @@ var migrationV2SQL string
 //go:embed migration_v3.sql
 var migrationV3SQL string
 
+//go:embed migration_v4.sql
+var migrationV4SQL string
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	database, err := sql.Open("sqlite3", dsn)
@@ -54,8 +57,7 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version  INTEGER PRIMARY KEY,
 			applied_at INTEGER NOT NULL
-		)`);
-		err != nil {
+		)`); err != nil {
 		return fmt.Errorf("create schema_migrations: %w", err)
 	}
 
@@ -66,6 +68,7 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		{1, migrationSQL},
 		{2, migrationV2SQL},
 		{3, migrationV3SQL},
+		{4, migrationV4SQL},
 	}
 
 	for _, m := range migrations {
