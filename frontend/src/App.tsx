@@ -7,6 +7,7 @@ import TransactionsPage from './pages/TransactionsPage'
 import AddTransactionPage from './pages/AddTransactionPage'
 import MatchPage from './pages/MatchPage'
 import StatsPage from './pages/StatsPage'
+import SettingsPage from './pages/SettingsPage'
 
 function ProtectedRoutes() {
   const { isAuthenticated } = useAuth()
@@ -19,6 +20,7 @@ function ProtectedRoutes() {
         <Route path="/add" element={<AddTransactionPage />} />
         <Route path="/match" element={<MatchPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

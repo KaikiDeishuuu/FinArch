@@ -77,6 +77,9 @@ func (s *Server) registerRoutes() {
 	// ─── Protected routes (JWT required) ─────────────────────────
 	api := r.Group("/api/v1", s.jwtMiddleware())
 
+	// User
+	api.POST("/auth/change-password", s.handleChangePassword)
+
 	// Transactions
 	api.GET("/transactions", s.handleListTransactions)
 	api.POST("/transactions", s.handleCreateTransaction)
@@ -237,6 +240,23 @@ func (s *Server) handleLogin(c *gin.Context) {
 		"name":       resp.Name,
 		"role":       resp.Role,
 	})
+}
+
+func (s *Server) handleChangePassword(c *gin.Context) {
+	userID := c.GetString("userID")
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewPassword     string `json:"new_password"     binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	if err := s.authSvc.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		fail(c, 400, 40002, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "密码修改成功"})
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────

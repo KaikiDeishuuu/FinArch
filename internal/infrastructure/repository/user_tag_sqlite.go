@@ -43,6 +43,17 @@ func (r *SQLiteUserRepository) GetByID(ctx context.Context, id string) (model.Us
 	return scanUser(row)
 }
 
+func (r *SQLiteUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+		passwordHash, time.Now().Unix(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	return nil
+}
+
 func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var createdAt, updatedAt int64

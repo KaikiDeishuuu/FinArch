@@ -7,6 +7,7 @@ const navItems = [
   { to: '/add', label: '添加', icon: '➕' },
   { to: '/match', label: '匹配', icon: '🔍' },
   { to: '/stats', label: '统计', icon: '📈' },
+  { to: '/settings', label: '设置', icon: '⚙️' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {

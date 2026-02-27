@@ -67,6 +67,13 @@ export async function register(req: RegisterRequest): Promise<AuthResponse> {
   return data.data
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await client.post('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  })
+}
+
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 export interface Transaction {

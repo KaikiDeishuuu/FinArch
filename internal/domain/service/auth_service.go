@@ -64,6 +64,25 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 	return u, nil
 }
 
+// ChangePassword verifies currentPassword then replaces it with newPassword.
+func (s *AuthService) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	if len(newPassword) < 8 {
+		return fmt.Errorf("new password must be at least 8 characters")
+	}
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+	if err := auth.CheckPassword(u.PasswordHash, currentPassword); err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+	hash, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return s.users.UpdatePassword(ctx, userID, hash)
+}
+
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResponse, error) {
 	u, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
