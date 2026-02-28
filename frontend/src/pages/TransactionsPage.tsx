@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { listTransactions, toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction } from '../api/client'
@@ -40,6 +40,8 @@ export default function TransactionsPage() {
   const { rates } = useExchangeRates()
   const [txs, setTxs] = useState<Transaction[]>([])
   const [filter, setFilter] = useState<FilterTab>('all')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterProject, setFilterProject] = useState('')
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -55,17 +57,32 @@ export default function TransactionsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const filtered = txs.filter((t) => {
+  const baseFiltered = txs.filter((t) => {
     if (filter === 'unreimbursed') return !t.reimbursed && t.source === 'personal'
     if (filter === 'reimbursed') return t.reimbursed
     return true
   })
 
+  const filtered = baseFiltered
+    .filter((t) => !filterCategory || t.category === filterCategory)
+    .filter((t) => !filterProject || (t.project_id ?? '') === filterProject)
+
+  const allCategories = useMemo(
+    () => Array.from(new Set(txs.map(t => t.category).filter(Boolean))).sort() as string[],
+    [txs]
+  )
+  const allProjects = useMemo(
+    () => Array.from(new Set(txs.map(t => t.project_id).filter((p): p is string => !!p))).sort(),
+    [txs]
+  )
+
   const fmt = (t: Transaction) => formatAmount(t.amount_yuan, t.currency)
 
   function exportPDF() {
-    const filterLabel = { all: '全部', unreimbursed: '待报销', reimbursed: '已报销' }[filter]
-    exportTransactionsPDF(filtered, filterLabel, user, rates)
+    const parts: string[] = [{ all: '全部', unreimbursed: '待报销', reimbursed: '已报销' }[filter]]
+    if (filterCategory) parts.push(`类别: ${filterCategory}`)
+    if (filterProject) parts.push(`项目: ${filterProject}`)
+    exportTransactionsPDF(filtered, parts.join(' · '), user, rates)
   }
 
   async function handleToggle(id: string) {
@@ -177,6 +194,51 @@ export default function TransactionsPage() {
             </button>
           ))}
         </div>
+
+        {/* Category filter */}
+        {allCategories.length > 0 && (
+          <select
+            value={filterCategory}
+            onChange={e => setFilterCategory(e.target.value)}
+            className={`h-9 rounded-xl border text-sm px-2.5 pr-7 outline-none transition-all appearance-none bg-no-repeat cursor-pointer ${
+              filterCategory
+                ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold'
+                : 'border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300'
+            }`}
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center' }}
+          >
+            <option value="">全部类别</option>
+            {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+
+        {/* Project filter */}
+        {allProjects.length > 0 && (
+          <select
+            value={filterProject}
+            onChange={e => setFilterProject(e.target.value)}
+            className={`h-9 rounded-xl border text-sm px-2.5 pr-7 outline-none transition-all appearance-none bg-no-repeat cursor-pointer ${
+              filterProject
+                ? 'border-blue-400 bg-blue-50 text-blue-700 font-semibold'
+                : 'border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300'
+            }`}
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center' }}
+          >
+            <option value="">全部项目</option>
+            {allProjects.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+
+        {/* Clear extra filters */}
+        {(filterCategory || filterProject) && (
+          <button
+            onClick={() => { setFilterCategory(''); setFilterProject('') }}
+            className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
+          >
+            清除筛选
+          </button>
+        )}
+
         {toggleError && (
           <div className="flex-1 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-2 text-sm flex items-center justify-between">
             <span>{toggleError}</span>
