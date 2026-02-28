@@ -129,12 +129,12 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
-          <p className="text-sm text-gray-400 mt-1">FinArch · {new Date().toLocaleDateString('zh-CN')}</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
+          <p className="text-sm text-gray-400 mt-1">FinArch · {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
         <Link
           to="/add"
-          className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+          className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm shadow-blue-200"
         >
           + 添加
         </Link>
@@ -142,22 +142,38 @@ export default function DashboardPage() {
 
       {/* Balance cards */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider opacity-75 mb-2">公司账户余额</p>
-          <p className="text-xl md:text-3xl font-bold leading-tight tabular-nums break-all">{balance ? fmt(balance.company_balance) : '—'}</p>
-          <p className="text-xs opacity-60 mt-2">当前可用资金</p>
+        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-green-100/60 pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+              </div>
+              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">公司账户</p>
+            </div>
+            <p className="text-xl md:text-2xl font-bold text-emerald-700 leading-tight tabular-nums break-all">{balance ? fmt(balance.company_balance) : '—'}</p>
+            <p className="text-xs text-emerald-500/80 mt-1.5">当前可用资金</p>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 text-white shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider opacity-75 mb-2">个人待报销</p>
-          <p className="text-xl md:text-3xl font-bold leading-tight tabular-nums break-all">{balance ? fmt(balance.personal_outstanding) : '—'}</p>
-          <p className="text-xs opacity-60 mt-2">个人垫付未报销合计</p>
+        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-100/60 pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+              </div>
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">待报销</p>
+            </div>
+            <p className="text-xl md:text-2xl font-bold text-amber-700 leading-tight tabular-nums break-all">{balance ? fmt(balance.personal_outstanding) : '—'}</p>
+            <p className="text-xs text-amber-500/80 mt-1.5">个人垫付未报销合计</p>
+          </div>
         </div>
       </div>
 
       {/* Pending action hints */}
       {(notUploaded.length > 0 || uploadedNotReimbursed.length > 0) && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wider">待处理事项</h2>
+          <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">待处理事项</h2>
           <div className="space-y-2">
             {notUploaded.length > 0 && (
               <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-100 hover:border-amber-300 transition-colors">
@@ -185,7 +201,7 @@ export default function DashboardPage() {
 
       {/* Feature guide */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">功能导航</h2>
+        <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">功能导航</h2>
         <div className="grid grid-cols-2 gap-3">
           {FEATURES.map((f) => (
             <Link
@@ -207,7 +223,7 @@ export default function DashboardPage() {
 
       {/* Workflow guide */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h2 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">使用流程</h2>
+        <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">使用流程</h2>
         {(() => {
           const steps = [
             { step: '1', Icon: IconPen,    title: '记录垫付', desc: '添加个人垫付的支出，填写类别和项目' },

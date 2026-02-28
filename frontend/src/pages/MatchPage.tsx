@@ -61,7 +61,7 @@ export default function MatchPage() {
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">子集匹配</h1>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">子集匹配</h1>
         <p className="text-sm text-gray-400 mt-1">自动搜索与报销总额精确匹配的交易组合</p>
       </div>
 

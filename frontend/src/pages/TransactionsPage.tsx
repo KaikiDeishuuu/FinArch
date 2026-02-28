@@ -112,7 +112,7 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800">交易明细</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">交易明细</h1>
           <p className="text-sm text-gray-400 mt-0.5 hidden sm:block">管理所有收入与支出记录</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">

@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts'
 import { getStatsMonthly, getStatsByCategory, getStatsByProject } from '../api/client'
 import type { MonthlyStat, CategoryStat, ProjectStat } from '../api/client'
 
@@ -40,9 +43,6 @@ export default function StatsPage() {
   const totalReimbursed = monthly.reduce((s, m) => s + (m.reimbursed ?? 0), 0)
   const totalNet = totalIncome - totalExpense + totalReimbursed
 
-  const maxExpense = Math.max(...monthly.map(m => m.expense), 1)
-  const maxIncome = Math.max(...monthly.map(m => m.income), 1)
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -52,134 +52,154 @@ export default function StatsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">统计分析</h1>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">统计分析</h1>
         <p className="text-sm text-gray-400 mt-1">{year} 年度资金概览</p>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4 flex items-stretch gap-2 md:gap-3 overflow-hidden">
-          <div className="w-1 rounded-full bg-green-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-0.5 md:mb-1">年度收入</p>
-            <p className="text-sm md:text-xl font-bold text-green-600 truncate tabular-nums">{fmtShort(totalIncome)}</p>
-          </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-emerald-400 to-green-500" />
+          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度收入</p>
+          <p className="text-base md:text-2xl font-bold text-emerald-600 truncate tabular-nums mt-1">{fmtShort(totalIncome)}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4 flex items-stretch gap-2 md:gap-3 overflow-hidden">
-          <div className="w-1 rounded-full bg-red-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-0.5 md:mb-1">年度支出</p>
-            <p className="text-sm md:text-xl font-bold text-red-500 truncate tabular-nums">{fmtShort(totalExpense)}</p>
-          </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-red-400 to-rose-500" />
+          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度支出</p>
+          <p className="text-base md:text-2xl font-bold text-red-500 truncate tabular-nums mt-1">{fmtShort(totalExpense)}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4 flex items-stretch gap-2 md:gap-3 overflow-hidden">
-          <div className={`w-1 rounded-full shrink-0 ${totalNet >= 0 ? 'bg-blue-400' : 'bg-orange-400'}`} />
-          <div className="min-w-0">
-            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-0.5 md:mb-1">净结余</p>
-            <p className={`text-sm md:text-xl font-bold truncate tabular-nums ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
-              {totalNet >= 0 ? '+' : ''}{fmtShort(totalNet)}
-            </p>
-          </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
+          <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${totalNet >= 0 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`} />
+          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">净结余</p>
+          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1 ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
+            {totalNet >= 0 ? '+' : ''}{fmtShort(totalNet)}
+          </p>
         </div>
       </div>
 
-      {/* Monthly pie - income vs expense */}
+      {/* Monthly bar chart */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="font-semibold text-gray-700 mb-4">{year} 年收支概况</h2>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-semibold text-gray-800">{year} 年月度收支</h2>
+            <p className="text-xs text-gray-400 mt-0.5">按月统计收入与支出</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-2.5 rounded-sm bg-emerald-400 inline-block" />收入
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-2.5 rounded-sm bg-red-400 inline-block" />支出
+            </span>
+          </div>
+        </div>
         {monthly.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
+          <p className="text-sm text-gray-400 text-center py-10">暂无数据</p>
         ) : (
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            {/* Pie + legend */}
-            <div className="shrink-0 flex flex-col items-center gap-3 w-full md:w-auto">
-              <div className="w-36 h-36 md:w-48 md:h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: '收入', value: totalIncome },
-                        { name: '支出', value: totalExpense },
-                      ]}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%" cy="50%"
-                      innerRadius={46}
-                      outerRadius={72}
-                      paddingAngle={3}
-                    >
-                      <Cell fill="#10b981" />
-                      <Cell fill="#ef4444" />
-                    </Pie>
-                    <Tooltip formatter={(value, name) => [fmt(value as number), name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              {/* color legend */}
-              <div className="flex gap-5">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-xs text-gray-500">收入</span>
-                  <span className="text-xs font-bold text-emerald-600 tabular-nums ml-1">{fmtShort(totalIncome)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />
-                  <span className="text-xs text-gray-500">支出</span>
-                  <span className="text-xs font-bold text-red-500 tabular-nums ml-1">{fmtShort(totalExpense)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Monthly bar chart */}
-            <div className="flex-1 min-w-0 w-full">
-              {/* legend */}
-              <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2 rounded-sm bg-green-400 inline-block" />收入
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2 rounded-sm bg-red-400 inline-block" />支出
-                </span>
-              </div>
-              <div className="relative">
-                <div className="space-y-3 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-                  {monthly.map((m) => {
-                    const incPct = maxIncome > 0 ? Math.max(Math.round((m.income / maxIncome) * 100), m.income > 0 ? 3 : 0) : 0
-                    const expPct = maxExpense > 0 ? Math.max(Math.round((m.expense / maxExpense) * 100), m.expense > 0 ? 3 : 0) : 0
-                    return (
-                      <div key={`${m.year}-${m.month}`} className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs font-medium text-gray-400 w-7 shrink-0 text-right">{monthNames[m.month - 1]}</span>
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                              <div className="h-2.5 rounded-full bg-gradient-to-r from-green-300 to-emerald-500 transition-all duration-500" style={{ width: `${incPct}%` }} />
-                            </div>
-                            <span className="text-xs text-emerald-600 tabular-nums shrink-0 w-20 text-right">{fmtShort(m.income)}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                              <div className="h-2.5 rounded-full bg-gradient-to-r from-red-300 to-red-500 transition-all duration-500" style={{ width: `${expPct}%` }} />
-                            </div>
-                            <span className="text-xs text-red-500 tabular-nums shrink-0 w-20 text-right">{fmtShort(m.expense)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                {monthly.length > 6 && (
-                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b" />
-                )}
-              </div>
-            </div>
+          <div className="h-52 md:h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={monthly.map(m => ({ name: monthNames[m.month - 1], income: m.income, expense: m.expense }))}
+                margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                barCategoryGap="32%"
+                barGap={3}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={fmtShort}
+                  width={56}
+                />
+                <Tooltip
+                  formatter={(value, name) => [fmt(value as number), name === 'income' ? '收入' : '支出']}
+                  labelStyle={{ fontWeight: 600, color: '#374151' }}
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
+                  cursor={{ fill: 'rgba(0,0,0,0.03)', radius: 6 }}
+                />
+                <Bar dataKey="income" name="收入" fill="#34d399" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name="支出" fill="#f87171" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>
 
+      {/* Income vs expense overview pie */}
+      {monthly.length > 0 && totalIncome + totalExpense > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="font-semibold text-gray-800 mb-4">收支比例</h2>
+          <div className="flex items-center gap-6">
+            <div className="w-32 h-32 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: '收入', value: totalIncome },
+                      { name: '支出', value: totalExpense },
+                    ]}
+                    dataKey="value"
+                    cx="50%" cy="50%"
+                    innerRadius={38}
+                    outerRadius={58}
+                    paddingAngle={3}
+                    strokeWidth={0}
+                  >
+                    <Cell fill="#34d399" />
+                    <Cell fill="#f87171" />
+                  </Pie>
+                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-3 flex-1">
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="flex items-center gap-2 text-gray-500 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />收入
+                  </span>
+                  <span className="font-bold text-emerald-600 tabular-nums">{fmt(totalIncome)}</span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="flex items-center gap-2 text-gray-500 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />支出
+                  </span>
+                  <span className="font-bold text-red-500 tabular-nums">{fmt(totalExpense)}</span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-red-400 rounded-full" style={{ width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                </div>
+              </div>
+              {totalReimbursed > 0 && (
+                <div className="pt-1 border-t border-gray-100">
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>已报销抵扣</span>
+                    <span className="font-semibold text-blue-500 tabular-nums">+{fmt(totalReimbursed)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Category pie chart */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="font-semibold text-gray-700 mb-4">分类支出</h2>
+        <h2 className="font-semibold text-gray-800 mb-4">分类支出</h2>
         {categories.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
         ) : (
@@ -232,7 +252,7 @@ export default function StatsPage() {
       {/* Project breakdown */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-700">项目汇总</h2>
+          <h2 className="font-semibold text-gray-800">项目汇总</h2>
           <span className="text-xs text-gray-400">{projects.length} 个项目</span>
         </div>
         {projects.length === 0 ? (
