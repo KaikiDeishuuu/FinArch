@@ -100,6 +100,14 @@ export async function changePassword(currentPassword: string, newPassword: strin
   })
 }
 
+export async function requestDeleteAccount(): Promise<void> {
+  await client.post('/auth/request-delete-account')
+}
+
+export async function confirmDeleteAccount(token: string): Promise<void> {
+  await client.post('/auth/confirm-delete-account', { token })
+}
+
 export interface AppConfig {
   turnstile_site_key: string
   email_verification_required: boolean

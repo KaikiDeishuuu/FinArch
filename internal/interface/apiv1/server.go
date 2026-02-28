@@ -97,12 +97,14 @@ func (s *Server) registerRoutes() {
 	pub.POST("/auth/resend-verification", s.authRateLimitMiddleware(), s.handleResendVerification)
 	pub.POST("/auth/forgot-password", s.authRateLimitMiddleware(), s.handleForgotPassword)
 	pub.POST("/auth/reset-password", s.handleResetPassword)
+	pub.POST("/auth/confirm-delete-account", s.handleConfirmDeleteAccount)
 
 	// ─── Protected routes (JWT required) ─────────────────────────
 	api := r.Group("/api/v1", s.jwtMiddleware())
 
 	// User
 	api.POST("/auth/change-password", s.handleChangePassword)
+	api.POST("/auth/request-delete-account", s.handleRequestDeleteAccount)
 
 	// Transactions
 	api.GET("/transactions", s.handleListTransactions)
@@ -399,6 +401,29 @@ func (s *Server) handleChangePassword(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"message": "密码修改成功"})
+}
+
+func (s *Server) handleRequestDeleteAccount(c *gin.Context) {
+	if err := s.authSvc.RequestAccountDeletion(c.Request.Context(), userID(c)); err != nil {
+		fail(c, 400, 40010, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "注销确认邮件已发送，请在 1 小时内点击邮件中的链接完成操作"})
+}
+
+func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
+	var req struct {
+		Token string `json:"token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40011, err.Error())
+		return
+	}
+	if err := s.authSvc.ConfirmAccountDeletion(c.Request.Context(), req.Token); err != nil {
+		fail(c, 400, 40012, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "账户已注销，感谢您使用 FinArch"})
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────

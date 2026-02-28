@@ -197,6 +197,41 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, currentPasswor
 	return s.users.UpdatePassword(ctx, userID, hash)
 }
 
+// RequestAccountDeletion sends an account-deletion confirmation email.
+func (s *AuthService) RequestAccountDeletion(ctx context.Context, userID string) error {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("用户不存在")
+	}
+	// Invalidate any existing delete tokens for this user.
+	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "delete")
+	token := uuid.NewString()
+	et := model.EmailToken{
+		Token:     token,
+		UserID:    u.ID,
+		Kind:      "delete",
+		ExpiresAt: time.Now().Add(1 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+	if err := s.users.CreateEmailToken(ctx, et); err != nil {
+		return err
+	}
+	return s.emailSvc.SendAccountDeletion(u.Email, u.Name, token)
+}
+
+// ConfirmAccountDeletion validates the token and permanently deletes the user and all their data.
+func (s *AuthService) ConfirmAccountDeletion(ctx context.Context, token string) error {
+	et, err := s.users.GetEmailToken(ctx, token)
+	if err != nil || et.Kind != "delete" {
+		return fmt.Errorf("无效或已过期的注销链接")
+	}
+	if time.Now().After(et.ExpiresAt) {
+		_ = s.users.DeleteEmailToken(ctx, token)
+		return fmt.Errorf("注销链接已过期，请重新申请")
+	}
+	return s.users.DeleteUser(ctx, et.UserID)
+}
+
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResponse, error) {
 	// Check account lockout before any DB access to prevent timing-based enumeration.
 	if s.tracker.IsLocked(email) {

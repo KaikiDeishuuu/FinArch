@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import ConfirmDeleteAccountPage from './pages/ConfirmDeleteAccountPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
 import AddTransactionPage from './pages/AddTransactionPage'
@@ -45,6 +46,7 @@ function App() {
             <Route path="/login" element={<LoginRouteWrapper />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </AuthProvider>

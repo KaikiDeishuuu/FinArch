@@ -111,6 +111,31 @@ func (r *SQLiteUserRepository) DeleteEmailTokensByUser(ctx context.Context, user
 	return err
 }
 
+// DeleteUser permanently deletes the user and (via CASCADE) all related tokens.
+// Transactions, tags, and fund_pools that reference the user are also cleaned up.
+func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Delete owned data first (no FK CASCADE on all tables)
+	for _, q := range []string{
+		`DELETE FROM email_tokens WHERE user_id = ?`,
+		`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE owner_id = ?)`,
+		`DELETE FROM transactions WHERE owner_id = ?`,
+		`DELETE FROM tags WHERE owner_id = ?`,
+		`DELETE FROM fund_pools WHERE owner_id = ?`,
+		`DELETE FROM users WHERE id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return fmt.Errorf("delete user data: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
 func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var createdAt, updatedAt int64

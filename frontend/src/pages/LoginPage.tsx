@@ -28,6 +28,7 @@ export default function LoginPage() {
 
   const justVerified = searchParams.get('verified') === '1'
   const tokenError = searchParams.get('error') === 'invalid_token'
+  const accountDeleted = searchParams.get('deleted') === '1'
 
   function switchMode(next: 'login' | 'register') {
     setMode(next)
@@ -128,6 +129,11 @@ export default function LoginPage() {
         {justVerified && (
           <div className="mb-4 bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
             <span>✓</span><span>邮箱验证成功，请登录</span>
+          </div>
+        )}
+        {accountDeleted && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
+            <span>✓</span><span>账户已注销，感谢您使用 FinArch。</span>
           </div>
         )}
         {tokenError && (

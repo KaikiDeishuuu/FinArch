@@ -19,6 +19,9 @@ type UserRepository interface {
 	GetEmailToken(ctx context.Context, token string) (model.EmailToken, error)
 	DeleteEmailToken(ctx context.Context, token string) error
 	DeleteEmailTokensByUser(ctx context.Context, userID, kind string) error
+
+	// DeleteUser permanently removes the user and all their data.
+	DeleteUser(ctx context.Context, id string) error
 }
 
 // TagRepository defines tag data access.

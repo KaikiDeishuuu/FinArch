@@ -25,6 +25,9 @@ var migrationV4SQL string
 //go:embed migration_v5.sql
 var migrationV5SQL string
 
+//go:embed migration_v6.sql
+var migrationV6SQL string
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	database, err := sql.Open("sqlite3", dsn)
@@ -73,6 +76,7 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		{3, migrationV3SQL},
 		{4, migrationV4SQL},
 		{5, migrationV5SQL},
+		{6, migrationV6SQL},
 	}
 
 	for _, m := range migrations {
