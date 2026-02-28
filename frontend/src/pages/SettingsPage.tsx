@@ -232,14 +232,15 @@ export default function SettingsPage() {
             {pendingEmail && !emailSent && (
               <Alert type="warning">
                 <p className="font-medium mb-0.5">有待验证的邮箱变更请求</p>
-                <p>验证邮件已发至 <strong>{pendingEmail}</strong>，点击链接完成更换。<br />提交新请求将使旧链接失效。</p>
+                <p>授权邮件将发至当前邮箱，新邮箱 <strong>{pendingEmail}</strong> 尚待验证。<br />请先完成当前请求再提交新申请。</p>
               </Alert>
             )}
 
             {emailSent ? (
               <Alert type="success">
-                <p className="font-medium mb-0.5">验证邮件已发送</p>
-                请检查 <strong>{profile?.pending_email}</strong> 的收件箱，点击链接完成邮箱更换。验证前原邮箱继续有效。
+                <p className="font-medium mb-0.5">授权邮件已发送至当前邮箱</p>
+                请检查 <strong>{currentEmail}</strong> 的收件箱，点击邮件中的「授权更换」链接。<br />
+                授权后系统将向新邮箱 <strong>{profile?.pending_email}</strong> 发送最终验证邮件。
               </Alert>
             ) : (
               <form onSubmit={handleRequestEmailChange} className="space-y-3">
@@ -252,7 +253,7 @@ export default function SettingsPage() {
                 {emailError && <Alert type="error">{emailError}</Alert>}
                 <button type="submit" disabled={emailLoading}
                   className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
-                  {emailLoading ? '发送中...' : '发送验证邮件'}
+                  {emailLoading ? '发送中...' : '发送授权邮件'}
                 </button>
               </form>
             )}

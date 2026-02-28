@@ -14,6 +14,10 @@ type Sender interface {
 	SendVerification(toEmail, toName, token string) error
 	SendPasswordReset(toEmail, toName, token string) error
 	SendAccountDeletion(toEmail, toName, token string) error
+	// SendEmailChangeOldVerify sends an authorization request to the OLD email address.
+	// The user must click this link before the system will send a verification to the new email.
+	SendEmailChangeOldVerify(toOldEmail, toUsername, newEmail, token string) error
+	// SendEmailChange sends a verification link to the NEW email address to complete the change.
 	SendEmailChange(toNewEmail, toUsername, token string) error
 }
 
@@ -215,6 +219,35 @@ func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error 
 	return s.send(toEmail, "⚠️ 确认注销您的 FinArch 账户", html)
 }
 
+func (s *ResendSender) SendEmailChangeOldVerify(toOldEmail, toUsername, newEmail, token string) error {
+	link := s.baseURL + "/confirm-email-change-old?token=" + token
+	body := fmt.Sprintf(`
+      <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">授权更换登录邮箱</h1>
+      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">请在您的当前邮箱确认此次变更请求</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%%s</strong>，</p>
+      <p style="margin:0 0 28px;color:#374151;font-size:15px;line-height:1.7">
+        我们收到了将您的登录邮箱更换为 <strong style="color:#2563eb">%%s</strong> 的申请。<br>
+        请点击下方按钮确认您本人发起了此次更换，系统随后将向新邮箱发送二次验证邮件。<br>
+        链接有效期为 <strong>1 小时</strong>。
+      </p>
+      <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
+        <tr>
+          <td style="border-radius:8px;background:#2563eb">
+            <a href="%%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">✓ &nbsp;确认，发送新邮箱验证</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
+      <p style="margin:0 0 24px;word-break:break-all">
+        <a href="%%s" style="color:#2563eb;font-size:12px;text-decoration:none">%%s</a>
+      </p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+      <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并立即修改密码以保护账户安全。</p>`,
+		toUsername, newEmail, link, link, link)
+	html := buildEmailHTML("", body)
+	return s.send(toOldEmail, "FinArch 登录邮箱变更授权", html)
+}
+
 func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) error {
 	link := s.baseURL + "/confirm-email-change?token=" + token
 	body := fmt.Sprintf(`
@@ -246,10 +279,11 @@ func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) err
 // NoopSender discards all emails (used when RESEND_API_KEY is not set).
 type NoopSender struct{}
 
-func (n *NoopSender) SendVerification(_, _, _ string) error    { return nil }
-func (n *NoopSender) SendPasswordReset(_, _, _ string) error   { return nil }
-func (n *NoopSender) SendAccountDeletion(_, _, _ string) error { return nil }
-func (n *NoopSender) SendEmailChange(_, _, _ string) error     { return nil }
+func (n *NoopSender) SendVerification(_, _, _ string) error            { return nil }
+func (n *NoopSender) SendPasswordReset(_, _, _ string) error           { return nil }
+func (n *NoopSender) SendAccountDeletion(_, _, _ string) error         { return nil }
+func (n *NoopSender) SendEmailChangeOldVerify(_, _, _, _ string) error { return nil }
+func (n *NoopSender) SendEmailChange(_, _, _ string) error             { return nil }
 
 // IsConfigured returns true if RESEND_API_KEY env var is set.
 func IsConfigured() bool { return os.Getenv("RESEND_API_KEY") != "" }

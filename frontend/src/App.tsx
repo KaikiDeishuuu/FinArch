@@ -7,6 +7,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ConfirmDeleteAccountPage from './pages/ConfirmDeleteAccountPage'
 import ConfirmEmailChangePage from './pages/ConfirmEmailChangePage'
+import ConfirmOldEmailChangePage from './pages/ConfirmOldEmailChangePage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
 import AddTransactionPage from './pages/AddTransactionPage'
@@ -48,6 +49,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
+            <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
             <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

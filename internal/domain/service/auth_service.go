@@ -160,7 +160,9 @@ func (s *AuthService) ForgotPassword(ctx context.Context, emailAddr string) erro
 	return s.emailSvc.SendPasswordReset(u.Email, u.Username, token)
 }
 
-// RequestEmailChange sends a confirmation link to the new email address.
+// RequestEmailChange sends an authorization link to the CURRENT (old) email address.
+// The user must click it to confirm they initiated the change; only then will a
+// verification link be sent to the new address.
 func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail string) error {
 	// New email must not already be in use.
 	if _, err := s.users.GetByEmail(ctx, newEmail); err == nil {
@@ -170,20 +172,65 @@ func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail s
 	if err != nil {
 		return fmt.Errorf("用户不存在")
 	}
+	if u.Email == newEmail {
+		return fmt.Errorf("新邮箱与当前邮箱相同")
+	}
 	if err := s.users.SetPendingEmail(ctx, u.ID, newEmail); err != nil {
 		return err
 	}
+	// Clear any pre-existing old-verify or new-verify tokens.
+	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "change_email_old")
 	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "change_email")
 	token := uuid.NewString()
 	et := model.EmailToken{
-		Token: token, UserID: u.ID, Kind: "change_email", Meta: newEmail,
+		Token: token, UserID: u.ID, Kind: "change_email_old", Meta: newEmail,
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 		CreatedAt: time.Now(),
 	}
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
 		return err
 	}
-	return s.emailSvc.SendEmailChange(newEmail, u.Username, token)
+	// Step 1: send authorization request to the CURRENT email.
+	return s.emailSvc.SendEmailChangeOldVerify(u.Email, u.Username, newEmail, token)
+}
+
+// ConfirmOldEmailForChange is called when the user clicks the authorization link
+// sent to their OLD email. It issues a verification link to the NEW email.
+func (s *AuthService) ConfirmOldEmailForChange(ctx context.Context, token string) error {
+	et, err := s.users.GetEmailToken(ctx, token)
+	if err != nil || et.Kind != "change_email_old" {
+		return fmt.Errorf("无效或已过期的授权链接")
+	}
+	if time.Now().After(et.ExpiresAt) {
+		_ = s.users.DeleteEmailToken(ctx, token)
+		return fmt.Errorf("链接已过期，请重新申请")
+	}
+	newEmail := et.Meta
+	if newEmail == "" {
+		return fmt.Errorf("无效的邮箱变更请求")
+	}
+	u, err := s.users.GetByID(ctx, et.UserID)
+	if err != nil {
+		return fmt.Errorf("用户不存在")
+	}
+	// Check new email still available.
+	if _, err := s.users.GetByEmail(ctx, newEmail); err == nil {
+		return fmt.Errorf("该邮箱已被其他账户使用，请重新申请")
+	}
+	// Consume the old-email token and create a new-email verification token.
+	_ = s.users.DeleteEmailToken(ctx, token)
+	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "change_email")
+	newToken := uuid.NewString()
+	net := model.EmailToken{
+		Token: newToken, UserID: u.ID, Kind: "change_email", Meta: newEmail,
+		ExpiresAt: time.Now().Add(1 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+	if err := s.users.CreateEmailToken(ctx, net); err != nil {
+		return err
+	}
+	// Step 2: send verification link to the NEW email.
+	return s.emailSvc.SendEmailChange(newEmail, u.Username, newToken)
 }
 
 // ConfirmEmailChange validates the token and applies the email change.

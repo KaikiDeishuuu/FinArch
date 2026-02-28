@@ -98,6 +98,7 @@ func (s *Server) registerRoutes() {
 	pub.POST("/auth/forgot-password", s.authRateLimitMiddleware(), s.handleForgotPassword)
 	pub.POST("/auth/reset-password", s.handleResetPassword)
 	pub.POST("/auth/confirm-delete-account", s.handleConfirmDeleteAccount)
+	pub.POST("/auth/confirm-email-change-old", s.handleConfirmOldEmailChange)
 	pub.POST("/auth/confirm-email-change", s.handleConfirmEmailChange)
 
 	// ─── Protected routes (JWT required) ──────────────────────────
@@ -464,7 +465,22 @@ func (s *Server) handleRequestEmailChange(c *gin.Context) {
 		fail(c, 400, 40021, err.Error())
 		return
 	}
-	ok(c, gin.H{"message": "验证邮件已发送至新邮箱，请在 1 小时内点击链接完成变更"})
+	ok(c, gin.H{"message": "验证邮件已发送至当前邮箱，请在 1 小时内点击授权链接"})
+}
+
+func (s *Server) handleConfirmOldEmailChange(c *gin.Context) {
+	var req struct {
+		Token string `json:"token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40024, err.Error())
+		return
+	}
+	if err := s.authSvc.ConfirmOldEmailForChange(c.Request.Context(), req.Token); err != nil {
+		fail(c, 400, 40025, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "授权成功，验证邮件已发送至新邮箱"})
 }
 
 func (s *Server) handleConfirmEmailChange(c *gin.Context) {

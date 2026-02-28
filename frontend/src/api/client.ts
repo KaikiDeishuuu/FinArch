@@ -123,6 +123,10 @@ export async function confirmEmailChange(token: string): Promise<void> {
   await client.post('/auth/confirm-email-change', { token })
 }
 
+export async function confirmOldEmailForChange(token: string): Promise<void> {
+  await client.post('/auth/confirm-email-change-old', { token })
+}
+
 export interface UserProfile {
   id: string
   email: string
