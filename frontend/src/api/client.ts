@@ -206,6 +206,7 @@ export interface MatchResultItem {
   source: string
   category: string
   amount_yuan: number
+  currency: string
   note: string
   project_id: string
   uploaded: boolean

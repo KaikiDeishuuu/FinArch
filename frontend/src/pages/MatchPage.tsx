@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { matchSubsetSum, toggleReimbursed, toggleUploaded } from '../api/client'
 import type { MatchResult } from '../api/client'
+import { formatAmount } from '../utils/format'
 
 export default function MatchPage() {
   const [target, setTarget] = useState('')
@@ -53,7 +54,7 @@ export default function MatchPage() {
     }
   }
 
-  const fmt = (n: number) => `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+  const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
   const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white tabular-nums'
   const labelClass = 'block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider'
 
@@ -172,13 +173,13 @@ export default function MatchPage() {
                   </span>
                   <div>
                     <div className="flex items-center gap-3">
-                      <p className="font-bold text-gray-800 text-base">{fmt(r.total)}</p>
+                      <p className="font-bold text-gray-800 text-base">{fmt(r.total, 'CNY')}</p>
                       {r.error <= 0.01 && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">精确匹配</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                      <span>误差 {fmt(r.error)}</span>
+                      <span>误差 {fmt(r.error, 'CNY')}</span>
                       <span className="w-1 h-1 rounded-full bg-gray-300" />
                       <span>{r.item_count} 笔</span>
                       <span className="w-1 h-1 rounded-full bg-gray-300" />
@@ -206,7 +207,7 @@ export default function MatchPage() {
                             <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
                               <div className="flex items-center justify-between gap-2">
                                 <span className={`font-semibold text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.category}</span>
-                                <span className={`font-bold tabular-nums text-sm ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan)}</span>
+                                <span className={`font-bold tabular-nums text-sm ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
                               </div>
                               <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
                                 <span className="tabular-nums">{item.occurred_at}</span>
@@ -243,7 +244,7 @@ export default function MatchPage() {
                         })}
                         <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-500">合计</span>
-                          <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(r.total)}</span>
+                          <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(r.total, 'CNY')}</span>
                         </div>
                       </div>
                       {/* Desktop: table */}
@@ -276,7 +277,7 @@ export default function MatchPage() {
                                   }
                                 </td>
                                 <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan)}</td>
+                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
                                 <td className="px-4 py-2.5 text-center">
                                   {done ? (
                                     <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
@@ -308,7 +309,7 @@ export default function MatchPage() {
                         <tfoot>
                           <tr className="bg-gray-50 border-t border-gray-200">
                             <td colSpan={6} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(r.total)}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(r.total, 'CNY')}</td>
                           </tr>
                         </tfoot>
                       </table>

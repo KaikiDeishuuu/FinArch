@@ -1,7 +1,12 @@
 import type { Transaction } from '../api/client'
+import { formatAmount } from './format'
 
-function fmt(n: number) {
-  return `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+function fmt(t: Transaction) {
+  return formatAmount(t.amount_yuan, t.currency)
+}
+
+function fmtTotal(n: number) {
+  return formatAmount(n, 'CNY')
 }
 
 export function exportTransactionsPDF(
@@ -20,7 +25,7 @@ export function exportTransactionsPDF(
     const dir = t.direction === 'income' ? '收入' : '支出'
     void dir
     const src = t.source === 'company' ? '公司' : '个人'
-    const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t.amount_yuan)}`
+    const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
     const uploaded = t.uploaded ? '✓ 已上传' : '✗ 未上传'
     const uploadedColor = t.uploaded ? '#7c3aed' : '#9ca3af'
@@ -86,7 +91,7 @@ export function exportTransactionsPDF(
   ].join('\n')
 
   const netColor = net >= 0 ? '#16a34a' : '#ef4444'
-  const netStr = (net >= 0 ? '+' : '') + fmt(net)
+  const netStr = (net >= 0 ? '+' : '') + fmtTotal(net)
 
   const body = [
     '<div class="header">',
@@ -106,15 +111,15 @@ export function exportTransactionsPDF(
     '  </div>',
     '  <div class="summary-card">',
     '    <div class="label">收入合计</div>',
-    `    <div class="value income">${fmt(incSum)}</div>`,
+    `    <div class="value income">${fmtTotal(incSum)}</div>`,
     '  </div>',
     '  <div class="summary-card">',
     '    <div class="label">支出合计</div>',
-    `    <div class="value expense">${fmt(expSum)}</div>`,
+    `    <div class="value expense">${fmtTotal(expSum)}</div>`,
     '  </div>',
     '  <div class="summary-card">',
     '    <div class="label">已报销</div>',
-    `    <div class="value" style="color:#7c3aed">+${fmt(reimbursedSum)}</div>`,
+    `    <div class="value" style="color:#7c3aed">+${fmtTotal(reimbursedSum)}</div>`,
     '  </div>',
     '  <div class="summary-card">',
     '    <div class="label">净结余</div>',

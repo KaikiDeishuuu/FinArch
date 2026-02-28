@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
 import Layout from './components/Layout'
+import PwaUpdatePrompt from './components/PwaUpdatePrompt'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -55,6 +56,7 @@ function App() {
           </Routes>
         </AuthProvider>
       </ConfigProvider>
+      <PwaUpdatePrompt />
     </BrowserRouter>
   )
 }

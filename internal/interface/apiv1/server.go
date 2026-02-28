@@ -738,6 +738,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 		Source     string  `json:"source"`
 		Category   string  `json:"category"`
 		AmountYuan float64 `json:"amount_yuan"`
+		Currency   string  `json:"currency"`
 		Note       string  `json:"note"`
 		ProjectID  *string `json:"project_id"`
 		Uploaded   bool    `json:"uploaded"`
@@ -766,6 +767,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 					Source:     string(t.Source),
 					Category:   t.Category,
 					AmountYuan: t.AmountYuan.Float64(),
+					Currency:   t.Currency,
 					Note:       t.Note,
 					ProjectID:  t.ProjectID,
 					Uploaded:   t.Uploaded,

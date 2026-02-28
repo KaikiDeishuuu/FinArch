@@ -4,6 +4,7 @@ import { listTransactions, toggleReimbursed, toggleUploaded } from '../api/clien
 import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
+import { formatAmount, formatTotals } from '../utils/format'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -58,7 +59,7 @@ export default function TransactionsPage() {
     return true
   })
 
-  const fmt = (n: number) => `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+  const fmt = (t: Transaction) => formatAmount(t.amount_yuan, t.currency)
 
   function exportPDF() {
     const filterLabel = { all: '全部', unreimbursed: '待报销', reimbursed: '已报销' }[filter]
@@ -104,8 +105,10 @@ export default function TransactionsPage() {
     { key: 'reimbursed', label: '已报销', count: txs.filter(t => t.reimbursed).length },
   ]
 
-  const totalIncome = filtered.filter(t => t.direction === 'income').reduce((s, t) => s + t.amount_yuan, 0)
-  const totalExpense = filtered.filter(t => t.direction === 'expense').reduce((s, t) => s + t.amount_yuan, 0)
+  const incomeItems = filtered.filter(t => t.direction === 'income')
+  const expenseItems = filtered.filter(t => t.direction === 'expense')
+  const totalIncomeStr = formatTotals(incomeItems).join(' + ') || '¥0.00'
+  const totalExpenseStr = formatTotals(expenseItems).join(' + ') || '¥0.00'
 
   return (
     <div className="space-y-5">
@@ -144,11 +147,11 @@ export default function TransactionsPage() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">收入</p>
-          <p className="text-sm md:text-2xl font-bold text-green-600 tabular-nums truncate">{fmt(totalIncome)}</p>
+          <p className="text-sm md:text-2xl font-bold text-green-600 tabular-nums truncate">{totalIncomeStr}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">支出</p>
-          <p className="text-sm md:text-2xl font-bold text-red-500 tabular-nums truncate">{fmt(totalExpense)}</p>
+          <p className="text-sm md:text-2xl font-bold text-red-500 tabular-nums truncate">{totalExpenseStr}</p>
         </div>
       </div>
 
@@ -217,7 +220,7 @@ export default function TransactionsPage() {
                 <span className={`font-bold tabular-nums text-base shrink-0 ml-2 ${
                   tx.direction === 'income' ? 'text-green-600' : 'text-red-500'
                 }`}>
-                  {tx.direction === 'income' ? '+' : '−'}{fmt(tx.amount_yuan)}
+                  {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                 </span>
               </div>
               {/* Row 2: date + source */}
@@ -355,7 +358,7 @@ export default function TransactionsPage() {
                         </span>
                       </td>
                       <td className={`px-5 py-4 text-right font-bold text-base tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-                        {tx.direction === 'income' ? '+' : '−'}{fmt(tx.amount_yuan)}
+                        {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
                       <td className="px-5 py-4 text-center whitespace-nowrap">
                         <StatusBadge

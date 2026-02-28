@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { getStatsMonthly, getStatsByCategory, getStatsByProject } from '../api/client'
 import type { MonthlyStat, CategoryStat, ProjectStat } from '../api/client'
+import { formatAmountCompact, formatAmount } from '../utils/format'
 
 const PIE_COLORS = [
   '#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6',
@@ -31,11 +32,8 @@ export default function StatsPage() {
     }).finally(() => setLoading(false))
   }, [year])
 
-  const fmt = (n: number) => `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
-  const fmtShort = (n: number) => {
-    if (n >= 10000) return `¥${(n / 10000).toFixed(1)}万`
-    return `¥${n.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`
-  }
+  const fmt = (n: number) => formatAmount(n, 'CNY')
+  const fmtShort = (n: number) => formatAmountCompact(n, 'CNY')
   const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 
   const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
