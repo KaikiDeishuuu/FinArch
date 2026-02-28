@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
@@ -41,6 +42,15 @@ function LoginRouteWrapper() {
 }
 
 function App() {
+  // Fade out the inline splash screen after React mounts
+  useEffect(() => {
+    const splash = document.getElementById('splash')
+    if (!splash) return
+    splash.style.opacity = '0'
+    const t = setTimeout(() => splash.remove(), 420)
+    return () => clearTimeout(t)
+  }, [])
+
   return (
     <BrowserRouter>
       <ConfigProvider>

@@ -7,6 +7,25 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: '£',
 }
 
+/**
+ * Approximate exchange rates to CNY (1 unit of foreign currency = N CNY).
+ * Used for aggregated totals, stats and PDF summaries.
+ * Individual transaction amounts are always shown in their original currency.
+ */
+export const EXCHANGE_RATES_TO_CNY: Record<string, number> = {
+  CNY: 1,
+  USD: 7.2,
+  EUR: 7.8,
+  JPY: 0.05,
+  GBP: 9.0,
+}
+
+/** Converts an amount in any currency to CNY equivalent. */
+export function toCNY(amount: number, currency: string): number {
+  const rate = EXCHANGE_RATES_TO_CNY[(currency ?? 'CNY').toUpperCase()] ?? 1
+  return amount * rate
+}
+
 /** Returns the symbol for a currency code, falling back to the code itself. */
 export function currencySymbol(currency: string): string {
   return CURRENCY_SYMBOLS[currency?.toUpperCase()] ?? currency ?? '¥'
@@ -51,6 +70,14 @@ export function sumByCurrency(items: AmountWithCurrency[]): Map<string, number> 
     map.set(cur, (map.get(cur) ?? 0) + item.amount_yuan)
   }
   return map
+}
+
+/**
+ * Converts all amounts to CNY equivalents and sums them.
+ * Used for aggregate totals in summary cards, PDF exports, etc.
+ */
+export function sumInCNY(items: AmountWithCurrency[]): number {
+  return items.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY'), 0)
 }
 
 /**

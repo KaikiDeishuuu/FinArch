@@ -1,5 +1,5 @@
 import type { Transaction } from '../api/client'
-import { formatAmount } from './format'
+import { formatAmount, toCNY } from './format'
 
 function fmt(t: Transaction) {
   return formatAmount(t.amount_yuan, t.currency)
@@ -16,9 +16,9 @@ export function exportTransactionsPDF(
 ) {
   const now = new Date()
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const incSum = filtered.filter(t => t.direction === 'income').reduce((s, t) => s + t.amount_yuan, 0)
-  const expSum = filtered.filter(t => t.direction === 'expense').reduce((s, t) => s + t.amount_yuan, 0)
-  const reimbursedSum = filtered.filter(t => t.direction === 'expense' && t.source === 'personal' && t.reimbursed).reduce((s, t) => s + t.amount_yuan, 0)
+  const incSum = filtered.filter(t => t.direction === 'income').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency), 0)
+  const expSum = filtered.filter(t => t.direction === 'expense').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency), 0)
+  const reimbursedSum = filtered.filter(t => t.direction === 'expense' && t.source === 'personal' && t.reimbursed).reduce((s, t) => s + toCNY(t.amount_yuan, t.currency), 0)
   const net = incSum - expSum + reimbursedSum
 
   const rows = filtered.map(t => {

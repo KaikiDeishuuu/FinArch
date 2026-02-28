@@ -9,11 +9,11 @@
   <!-- Full-bleed background (no radius for maskable) -->
   <rect width="512" height="512" fill="url(#bg)"/>
   <!-- Content scaled to center 80% safe zone (i.e. within ~205px radius from center=256,256) -->
-  <!-- 3 bars bottom-aligned at y=355, inside safe zone x=112..400 -->
+  <!-- 3 bars bottom-aligned at y=391, content vertically centered at y=256 -->
   <!-- Blue bar (shortest) -->
-  <rect x="112" y="227" width="72" height="128" rx="16" fill="#2563eb"/>
+  <rect x="112" y="263" width="72" height="128" rx="16" fill="#2563eb"/>
   <!-- Orange bar (medium) -->
-  <rect x="220" y="163" width="72" height="192" rx="16" fill="#f97316"/>
+  <rect x="220" y="199" width="72" height="192" rx="16" fill="#f97316"/>
   <!-- Green bar (tallest) -->
-  <rect x="328" y="85"  width="72" height="270" rx="16" fill="#22c55e"/>
+  <rect x="328" y="121" width="72" height="270" rx="16" fill="#22c55e"/>
 </svg>

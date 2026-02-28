@@ -4,7 +4,7 @@ import { listTransactions, toggleReimbursed, toggleUploaded } from '../api/clien
 import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
-import { formatAmount, formatTotals } from '../utils/format'
+import { formatAmount, sumInCNY } from '../utils/format'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -107,8 +107,8 @@ export default function TransactionsPage() {
 
   const incomeItems = filtered.filter(t => t.direction === 'income')
   const expenseItems = filtered.filter(t => t.direction === 'expense')
-  const totalIncomeStr = formatTotals(incomeItems).join(' + ') || '¥0.00'
-  const totalExpenseStr = formatTotals(expenseItems).join(' + ') || '¥0.00'
+  const totalIncomeStr = formatAmount(sumInCNY(incomeItems), 'CNY')
+  const totalExpenseStr = formatAmount(sumInCNY(expenseItems), 'CNY')
 
   return (
     <div className="space-y-5">
