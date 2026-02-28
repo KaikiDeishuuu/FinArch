@@ -147,8 +147,8 @@ export default function DashboardPage() {
             {ratesLoading
               ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">汇率加载中…</span>
               : rateDate
-                ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">实时汇率 {rateDate}</span>
-                : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">备用汇率</span>
+                ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">实时汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+                : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
             }
           </div>
         </div>

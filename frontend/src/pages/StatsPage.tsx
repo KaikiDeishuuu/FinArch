@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import { listTransactions } from '../api/client'
 import type { Transaction } from '../api/client'
@@ -13,6 +12,156 @@ const PIE_COLORS = [
   '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
   '#14b8a6','#a855f7','#eab308',
 ]
+
+// ─── Custom SVG bar chart (avoids recharts BarChart cursor/overflow bugs) ─────
+
+interface MonthData { month: number; income: number; expense: number }
+
+function MonthlyBarChart({
+  data,
+  fmt,
+  fmtShort,
+}: {
+  data: MonthData[]
+  fmt: (n: number) => string
+  fmtShort: (n: number) => string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [svgWidth, setSvgWidth] = useState(560)
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; income: number; expense: number; label: string } | null>(null)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    setSvgWidth(el.clientWidth)
+    const ro = new ResizeObserver(entries => setSvgWidth(entries[0].contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+  const PAD_L = 58   // room for Y-axis labels
+  const PAD_R = 12
+  const PAD_T = 12
+  const PAD_B = 28   // room for X-axis labels
+  const SVG_H = 212
+
+  const chartW = svgWidth - PAD_L - PAD_R
+  const chartH = SVG_H - PAD_T - PAD_B
+
+  const maxVal = Math.max(...data.flatMap(d => [d.income, d.expense]), 1)
+  // nice Y ticks
+  const roughStep = maxVal / 4
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)))
+  const niceStep = Math.ceil(roughStep / mag) * mag || 1
+  const yMax = niceStep * 4
+  const yTicks = [0, niceStep, niceStep * 2, niceStep * 3, niceStep * 4]
+
+  const yPx = (v: number) => PAD_T + chartH - (v / yMax) * chartH
+
+  const groupW = chartW / data.length
+  const barGutter = Math.max(groupW * 0.18, 3)
+  const pairW = groupW - barGutter * 2
+  const barW = Math.max((pairW / 2) - 2, 4)
+  const CORNER = Math.min(barW / 2, 4)
+
+  return (
+    <div ref={containerRef} className="relative w-full" style={{ height: SVG_H, overflow: 'hidden' }}>
+      <svg width={svgWidth} height={SVG_H}>
+        {/* Grid lines + Y labels (drawn inside SVG bounds) */}
+        {yTicks.map(v => {
+          const y = yPx(v)
+          return (
+            <g key={v}>
+              <line
+                x1={PAD_L} y1={y} x2={PAD_L + chartW} y2={y}
+                stroke={v === 0 ? '#d1d5db' : '#f3f4f6'} strokeWidth={1}
+              />
+              <text x={PAD_L - 6} y={y} dominantBaseline="middle" textAnchor="end"
+                fontSize={10} fill="#9ca3af" fontFamily="inherit">
+                {fmtShort(v)}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* Bars + X labels */}
+        {data.map((d, i) => {
+          const gx = PAD_L + i * groupW + barGutter
+          const incX = gx
+          const expX = gx + barW + 2
+          const incH = (d.income / yMax) * chartH
+          const expH = (d.expense / yMax) * chartH
+          const incY = yPx(d.income)
+          const expY = yPx(d.expense)
+          const labelX = PAD_L + (i + 0.5) * groupW
+          const tooltipX = Math.max(PAD_L + 60, Math.min(labelX, svgWidth - 60))
+
+          return (
+            <g key={d.month}
+              onMouseEnter={() => setTooltip({ x: tooltipX, y: Math.min(incY, expY), income: d.income, expense: d.expense, label: MONTH_LABELS[d.month - 1] })}
+              onMouseLeave={() => setTooltip(null)}
+              style={{ cursor: 'default' }}
+            >
+              {/* Hover highlight */}
+              <rect
+                x={PAD_L + i * groupW} y={PAD_T} width={groupW} height={chartH}
+                fill="transparent"
+                onMouseEnter={() => setTooltip({ x: tooltipX, y: Math.min(incY, expY), income: d.income, expense: d.expense, label: MONTH_LABELS[d.month - 1] })}
+              />
+              {/* Income bar */}
+              {d.income > 0 && (
+                <path
+                  d={`M${incX + CORNER},${incY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${incH - CORNER} h${-barW} v${-(incH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
+                  fill="#6366f1"
+                />
+              )}
+              {/* Expense bar */}
+              {d.expense > 0 && (
+                <path
+                  d={`M${expX + CORNER},${expY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${expH - CORNER} h${-barW} v${-(expH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
+                  fill="#f43f5e"
+                />
+              )}
+              {/* X label */}
+              <text x={labelX} y={PAD_T + chartH + 18} textAnchor="middle"
+                fontSize={10} fill="#9ca3af" fontFamily="inherit">
+                {MONTH_LABELS[d.month - 1]}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+
+      {/* Floating tooltip */}
+      {tooltip && (
+        <div
+          className="pointer-events-none absolute z-10 bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2.5 text-xs"
+          style={{
+            left: tooltip.x,
+            top: Math.max(4, tooltip.y - 72),
+            transform: 'translateX(-50%)',
+            minWidth: 130,
+          }}
+        >
+          <p className="font-semibold text-gray-700 mb-1.5 border-b border-gray-50 pb-1">{tooltip.label}</p>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-gray-500">
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#6366f1' }} />收入
+            </span>
+            <span className="font-bold tabular-nums" style={{ color: '#6366f1' }}>{fmt(tooltip.income)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 mt-1">
+            <span className="flex items-center gap-1.5 text-gray-500">
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#f43f5e' }} />支出
+            </span>
+            <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(tooltip.expense)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function StatsPage() {
   const year = new Date().getFullYear()
@@ -28,7 +177,6 @@ export default function StatsPage() {
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
   const fmtShort = (n: number) => formatAmountCompact(n, 'CNY')
-  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 
   // Compute monthly stats for current year
   const monthly = useMemo(() => {
@@ -103,8 +251,8 @@ export default function StatsPage() {
         </div>
         {!ratesLoading && (
           rateDate
-            ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium mt-1">实时汇率 {rateDate}</span>
-            : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 text-amber-600 font-medium mt-1">备用汇率</span>
+            ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium mt-1">实时汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+            : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 text-amber-600 font-medium mt-1">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
         )}
       </div>
 
@@ -148,39 +296,7 @@ export default function StatsPage() {
         {monthly.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-10">暂无数据</p>
         ) : (
-          <div className="h-52 md:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={monthly.map(m => ({ name: monthNames[m.month - 1], income: m.income, expense: m.expense }))}
-                margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
-                barCategoryGap="32%"
-                barGap={3}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={fmtShort}
-                  width={56}
-                />
-                <Tooltip
-                  formatter={(value, name) => [fmt(value as number), name === 'income' ? '收入' : '支出']}
-                  labelStyle={{ fontWeight: 600, color: '#374151' }}
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
-                  cursor={{ fill: 'rgba(99,102,241,0.06)' }}
-                />
-                <Bar dataKey="income" name="收入" fill="#6366f1" radius={[4, 4, 0, 0]} activeBar={false} />
-                <Bar dataKey="expense" name="支出" fill="#f43f5e" radius={[4, 4, 0, 0]} activeBar={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <MonthlyBarChart data={monthly} fmt={fmt} fmtShort={fmtShort} />
         )}
       </div>
 
