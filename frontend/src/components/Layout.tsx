@@ -55,9 +55,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex w-60 bg-white border-r border-gray-100 flex-col shrink-0 shadow-sm">
         <div className="px-5 py-5 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-              <span className="text-white text-sm font-bold">¥</span>
-            </div>
+            <img src="/logo.svg" alt="FinArch" className="w-8 h-8 rounded-lg shrink-0 shadow-sm" />
             <div>
               <h1 className="font-bold text-gray-800 text-sm leading-tight">FinArch</h1>
               <p className="text-[11px] text-gray-400 mt-0.5">收支 · 报销 · 统计</p>
@@ -102,9 +100,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Mobile Top Header ── */}
       <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shadow-sm">
-            <span className="text-white text-xs font-bold">¥</span>
-          </div>
+          <img src="/logo.svg" alt="FinArch" className="w-7 h-7 rounded-lg shrink-0 shadow-sm" />
           <span className="font-bold text-gray-800 text-sm">FinArch</span>
         </div>
         <div className="flex items-center gap-3">

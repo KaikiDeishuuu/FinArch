@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="FinArch Logo">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1f18"/>
+      <stop offset="100%" stop-color="#0d1b3e"/>
+    </linearGradient>
+  </defs>
+  <!-- 渐变背景 -->
+  <rect width="200" height="200" rx="40" ry="40" fill="url(#bg)"/>
+
+  <!-- 拱形柱状图：5根对称，中间最高 -->
+  <rect x="44"  y="116" width="16" height="36" rx="6" fill="#2563eb"/>
+  <rect x="68"  y="84"  width="16" height="68" rx="6" fill="#f97316"/>
+  <rect x="92"  y="58"  width="16" height="94" rx="6" fill="#22c55e"/>
+  <rect x="116" y="84"  width="16" height="68" rx="6" fill="#f97316"/>
+  <rect x="140" y="116" width="16" height="36" rx="6" fill="#2563eb"/>
+
+
+  <!-- 底部品牌文字 -->
+  <text x="100" y="178"
+    text-anchor="middle"
+    font-family="'SF Pro Display','Segoe UI',system-ui,sans-serif"
+    font-size="20" font-weight="700" letter-spacing="0.5">
+    <tspan fill="#f97316">Fin</tspan><tspan fill="#ffffff">Arch</tspan>
+  </text>
+</svg>

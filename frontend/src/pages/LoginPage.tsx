@@ -120,9 +120,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-md mb-3">
-            <span className="text-white text-xl font-bold">¥</span>
-          </div>
+          <img src="/logo.svg" alt="FinArch" className="w-16 h-16 rounded-2xl shadow-md mb-3" />
           <h1 className="text-xl font-bold text-gray-800">FinArch</h1>
           <p className="text-xs text-gray-400 mt-0.5">收支与报销管理 v2</p>
         </div>
