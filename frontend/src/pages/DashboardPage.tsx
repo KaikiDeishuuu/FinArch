@@ -5,6 +5,7 @@ import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
+import CompactAmount from '../components/CompactAmount'
 
 const IconList = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -172,7 +173,9 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">公司账户</p>
             </div>
-            <p title={fmtExact(companyBalance)} className="text-xl md:text-2xl font-bold text-emerald-700 leading-tight tabular-nums whitespace-nowrap truncate cursor-help">{fmtCompact(companyBalance)}</p>
+            <p className="text-xl md:text-2xl font-bold text-emerald-700 leading-tight tabular-nums whitespace-nowrap truncate">
+              <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
+            </p>
             <p className="text-xs text-emerald-500/80 mt-1.5">当前可用资金</p>
           </div>
         </div>
@@ -185,7 +188,9 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">待报销</p>
             </div>
-            <p title={fmtExact(personalOutstanding)} className="text-xl md:text-2xl font-bold text-amber-700 leading-tight tabular-nums whitespace-nowrap truncate cursor-help">{fmtCompact(personalOutstanding)}</p>
+            <p className="text-xl md:text-2xl font-bold text-amber-700 leading-tight tabular-nums whitespace-nowrap truncate">
+              <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
+            </p>
             <p className="text-xs text-amber-500/80 mt-1.5">个人垫付未报销合计</p>
           </div>
         </div>
