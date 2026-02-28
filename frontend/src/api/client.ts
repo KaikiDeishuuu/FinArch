@@ -220,3 +220,25 @@ export async function getStatsByProject(): Promise<ProjectStat[]> {
   const { data } = await client.get('/stats/by-project')
   return data.data
 }
+
+// ─── Backup & Restore ────────────────────────────────────────────────────────
+export async function downloadBackup(): Promise<void> {
+  const resp = await client.get('/backup/download', { responseType: 'blob' })
+  const cd = resp.headers['content-disposition'] ?? ''
+  const match = cd.match(/filename="([^"]+)"/)
+  const filename = match ? match[1] : `finarch_backup_${new Date().toISOString().slice(0, 10)}.db`
+  const url = URL.createObjectURL(new Blob([resp.data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function restoreBackup(file: File): Promise<void> {
+  const form = new FormData()
+  form.append('file', file)
+  await client.post('/backup/restore', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}

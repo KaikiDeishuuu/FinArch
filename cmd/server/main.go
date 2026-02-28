@@ -67,7 +67,7 @@ func main() {
 	authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker)
 	statsSvc := service.NewStatsService(database)
 
-	srv := apiv1.NewServer(addr, database, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
+	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
 	log.Printf("FinArch API server listening on %s", addr)
 	log.Fatal(srv.Run())
 }

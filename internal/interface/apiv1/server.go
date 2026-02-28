@@ -1,9 +1,13 @@
 package apiv1
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,12 +18,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 // Server is the Gin-based API v1 server.
 type Server struct {
 	engine           *gin.Engine
 	addr             string
+	db               *sql.DB
+	dbPath           string
 	authSvc          *service.AuthService
 	txSvc            *service.TransactionService
 	reimSvc          *service.ReimbursementService
@@ -36,6 +43,7 @@ type Server struct {
 func NewServer(
 	addr string,
 	db *sql.DB,
+	dbPath string,
 	txRepo repository.TransactionRepository,
 	tagRepo repository.TagRepository,
 	txSvc *service.TransactionService,
@@ -54,6 +62,8 @@ func NewServer(
 	s := &Server{
 		engine:           gin.New(),
 		addr:             addr,
+		db:               db,
+		dbPath:           dbPath,
 		authSvc:          authSvc,
 		txSvc:            txSvc,
 		reimSvc:          reimSvc,
@@ -114,6 +124,10 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/monthly", s.handleStatsMonthly)
 	api.GET("/stats/by-category", s.handleStatsByCategory)
 	api.GET("/stats/by-project", s.handleStatsByProject)
+
+	// Backup & Restore
+	api.GET("/backup/download", s.handleBackupDownload)
+	api.POST("/backup/restore", s.handleRestore)
 
 	// ─── Frontend static files ────────────────────────────────────
 	staticDir := os.Getenv("FINARCH_STATIC")
@@ -672,4 +686,133 @@ func (s *Server) handleStatsByProject(c *gin.Context) {
 		stats = []service.ProjectStat{}
 	}
 	ok(c, stats)
+}
+
+// handleBackupDownload creates a consistent snapshot of the database using
+// SQLite Online Backup API and streams it as a downloadable file.
+func (s *Server) handleBackupDownload(c *gin.Context) {
+	// Create temp file for the snapshot
+	tmp, err := os.CreateTemp("", "finarch-backup-*.db")
+	if err != nil {
+		fail(c, 500, 50001, "无法创建临时文件")
+		return
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
+
+	// Use VACUUM INTO to produce a defragmented, consistent snapshot
+	if _, err := s.db.ExecContext(c.Request.Context(), fmt.Sprintf("VACUUM INTO '%s'", tmpPath)); err != nil {
+		fail(c, 500, 50001, "备份失败: "+err.Error())
+		return
+	}
+
+	ts := time.Now().Format("20060102_150405")
+	filename := fmt.Sprintf("finarch_backup_%s.db", ts)
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	c.Header("Content-Type", "application/octet-stream")
+	c.File(tmpPath)
+}
+
+// handleRestore accepts a SQLite database file upload and restores it into the
+// live database using the SQLite Online Backup API — no restart needed.
+func (s *Server) handleRestore(c *gin.Context) {
+	fh, err := c.FormFile("file")
+	if err != nil {
+		fail(c, 400, 40001, "请上传数据库文件（multipart field: file）")
+		return
+	}
+	if filepath.Ext(fh.Filename) != ".db" {
+		fail(c, 400, 40002, "仅接受 .db 文件")
+		return
+	}
+
+	// Save upload to temp file
+	tmp, err := os.CreateTemp("", "finarch-restore-*.db")
+	if err != nil {
+		fail(c, 500, 50001, "无法创建临时文件")
+		return
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+
+	src, err := fh.Open()
+	if err != nil {
+		tmp.Close()
+		fail(c, 500, 50001, "无法读取上传文件")
+		return
+	}
+	defer src.Close()
+
+	if _, err := io.Copy(tmp, src); err != nil {
+		tmp.Close()
+		fail(c, 500, 50001, "写入临时文件失败")
+		return
+	}
+	tmp.Close()
+
+	// Validate SQLite magic bytes
+	magic := make([]byte, 16)
+	f, _ := os.Open(tmpPath)
+	f.Read(magic)
+	f.Close()
+	if string(magic[:15]) != "SQLite format 3" {
+		fail(c, 400, 40003, "文件不是有效的 SQLite 数据库")
+		return
+	}
+
+	// Open the uploaded DB as source
+	srcDB, err := sql.Open("sqlite3", tmpPath)
+	if err != nil {
+		fail(c, 500, 50002, "无法打开备份文件")
+		return
+	}
+	defer srcDB.Close()
+
+	ctx := context.Background()
+
+	// Use SQLite backup API: copy from uploaded file into live DB
+	destConn, err := s.db.Conn(ctx)
+	if err != nil {
+		fail(c, 500, 50002, "获取数据库连接失败")
+		return
+	}
+	defer destConn.Close()
+
+	srcConn, err := srcDB.Conn(ctx)
+	if err != nil {
+		fail(c, 500, 50002, "获取备份连接失败")
+		return
+	}
+	defer srcConn.Close()
+
+	var restoreErr error
+	srcConn.Raw(func(srcRaw interface{}) error {
+		return destConn.Raw(func(destRaw interface{}) error {
+			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
+			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
+			if !ok1 || !ok2 {
+				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
+				return restoreErr
+			}
+			bk, err := destSQLite.Backup("main", srcSQLite, "main")
+			if err != nil {
+				restoreErr = err
+				return err
+			}
+			defer bk.Finish()
+			if _, err := bk.Step(-1); err != nil {
+				restoreErr = err
+				return err
+			}
+			return nil
+		})
+	})
+
+	if restoreErr != nil {
+		fail(c, 500, 50003, "恢复失败: "+restoreErr.Error())
+		return
+	}
+
+	ok(c, gin.H{"message": "数据恢复成功，数据库已更新"})
 }
