@@ -23,6 +23,7 @@ type ResendSender struct {
 }
 
 // NewResendSender returns a ResendSender. If apiKey is empty it returns a NoopSender.
+// Logo URL is read from the EMAIL_LOGO_URL environment variable.
 func NewResendSender(apiKey, from, baseURL string) Sender {
 	if apiKey == "" {
 		return &NoopSender{}
@@ -30,7 +31,77 @@ func NewResendSender(apiKey, from, baseURL string) Sender {
 	if from == "" {
 		from = "FinArch <noreply@finarch.app>"
 	}
-	return &ResendSender{apiKey: apiKey, from: from, baseURL: baseURL}
+	return &ResendSender{
+		apiKey:  apiKey,
+		from:    from,
+		baseURL: baseURL,
+	}
+}
+
+// buildEmailHTML wraps body content in a consistent email shell.
+// The header contains an inline HTML bar-chart logo (email-client safe, no SVG/image needed).
+func buildEmailHTML(_, bodyHTML string) string {
+	// Inline 3-bar logo: blue→orange→green, bottom-aligned via vertical-align
+	inlineLogo := `
+          <table cellpadding="0" cellspacing="0" role="presentation" style="display:inline-table;margin-right:12px;vertical-align:middle">
+            <tr>
+              <td style="width:9px;height:16px;background:#2563eb;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
+              <td style="width:5px"></td>
+              <td style="width:9px;height:24px;background:#f97316;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
+              <td style="width:5px"></td>
+              <td style="width:9px;height:34px;background:#22c55e;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
+            </tr>
+          </table>
+          <span style="font-size:22px;font-weight:800;color:#ffffff;vertical-align:middle;letter-spacing:-0.3px">FinArch</span>`
+
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FinArch</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
+  <table width="100%%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f0f2f5;padding:40px 16px">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" role="presentation" style="max-width:560px;width:100%%">
+
+          <!-- ── Header ── -->
+          <tr>
+            <td align="center" style="background:linear-gradient(135deg,#0b1f18 0%%,#0d1b3e 100%%);border-radius:14px 14px 0 0;padding:28px 40px 24px">
+              %s
+            </td>
+          </tr>
+
+          <!-- ── Accent bar ── -->
+          <tr>
+            <td style="height:4px;background:linear-gradient(90deg,#2563eb,#f97316,#22c55e)"></td>
+          </tr>
+
+          <!-- ── Body ── -->
+          <tr>
+            <td style="background:#ffffff;padding:40px 40px 36px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb">
+              %s
+            </td>
+          </tr>
+
+          <!-- ── Footer ── -->
+          <tr>
+            <td align="center" style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 14px 14px;padding:20px 40px">
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.8">
+                此邮件由 <strong style="color:#6b7280">FinArch</strong> 系统自动发送，请勿直接回复。<br>
+                &copy; %d FinArch &nbsp;·&nbsp; 科研经费管理系统
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`, inlineLogo, bodyHTML, 2026)
 }
 
 func (s *ResendSender) send(to, subject, html string) error {
@@ -61,34 +132,57 @@ func (s *ResendSender) send(to, subject, html string) error {
 
 func (s *ResendSender) SendVerification(toEmail, toName, token string) error {
 	link := s.baseURL + "/verify-email?token=" + token
-	html := fmt.Sprintf(`
-<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-  <h2 style="color:#1d4ed8">验证您的 FinArch 账号</h2>
-  <p>您好，%s，</p>
-  <p>请点击下方按钮完成邮箱验证，链接有效期 <strong>24 小时</strong>。</p>
-  <p style="margin:24px 0">
-    <a href="%s" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">验证邮箱</a>
-  </p>
-  <p style="color:#6b7280;font-size:12px">如果您没有注册 FinArch，请忽略此邮件。</p>
-  <p style="color:#9ca3af;font-size:11px">%s</p>
-</div>`, toName, link, link)
-	return s.send(toEmail, "验证您的 FinArch 账号", html)
+	body := fmt.Sprintf(`
+      <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">验证您的邮箱地址</h1>
+      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">完成注册，激活您的 FinArch 账号</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
+      <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7">
+        感谢您注册 FinArch！请点击下方按钮完成邮箱验证，<br>验证链接有效期为 <strong>24 小时</strong>。
+      </p>
+      <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
+        <tr>
+          <td style="border-radius:8px;background:#22c55e">
+            <a href="%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">✓ &nbsp;立即验证邮箱</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
+      <p style="margin:0 0 24px;word-break:break-all">
+        <a href="%s" style="color:#2563eb;font-size:12px;text-decoration:none">%s</a>
+      </p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+      <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有注册 FinArch 账号，请忽略此邮件，无需进行任何操作。</p>`,
+		toName, link, link, link)
+	html := buildEmailHTML("", body)
+	return s.send(toEmail, "验证您的 FinArch 邮箱地址", html)
 }
 
 func (s *ResendSender) SendPasswordReset(toEmail, toName, token string) error {
 	link := s.baseURL + "/reset-password?token=" + token
-	html := fmt.Sprintf(`
-<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-  <h2 style="color:#1d4ed8">重置 FinArch 密码</h2>
-  <p>您好，%s，</p>
-  <p>我们收到了您的密码重置请求。请点击下方按钮设置新密码，链接有效期 <strong>1 小时</strong>。</p>
-  <p style="margin:24px 0">
-    <a href="%s" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">重置密码</a>
-  </p>
-  <p style="color:#6b7280;font-size:12px">如果您没有发起此请求，请忽略此邮件，您的密码不会被更改。</p>
-  <p style="color:#9ca3af;font-size:11px">%s</p>
-</div>`, toName, link, link)
-	return s.send(toEmail, "重置您的 FinArch 密码", html)
+	body := fmt.Sprintf(`
+      <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">重置您的密码</h1>
+      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">我们收到了您的密码重置申请</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
+      <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7">
+        请点击下方按钮设置新密码，链接有效期为 <strong>1 小时</strong>。<br>
+        过期后需要重新发起重置请求。
+      </p>
+      <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
+        <tr>
+          <td style="border-radius:8px;background:#f97316">
+            <a href="%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">→ &nbsp;重置我的密码</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
+      <p style="margin:0 0 24px;word-break:break-all">
+        <a href="%s" style="color:#2563eb;font-size:12px;text-decoration:none">%s</a>
+      </p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+      <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件，您的密码不会被更改。为了账户安全，请勿将此链接分享给任何人。</p>`,
+		toName, link, link, link)
+	html := buildEmailHTML("", body)
+	return s.send(toEmail, "FinArch 密码重置申请", html)
 }
 
 // NoopSender discards all emails (used when RESEND_API_KEY is not set).
