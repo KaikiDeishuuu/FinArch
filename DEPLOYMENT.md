@@ -71,6 +71,15 @@ LITESTREAM_SECRET_ACCESS_KEY=
 LITESTREAM_BUCKET=finarch-backup
 # 格式：https://<Account ID>.r2.cloudflarestorage.com
 LITESTREAM_ENDPOINT=https://xxxxxxxx.r2.cloudflarestorage.com
+
+# ── 邮件发送 / 邮箱验证（可选）──────────────────────
+# 留空则禁用邮箱验证，注册后直接登录（与旧版行为一致）
+# 获取 API Key：https://resend.com → API Keys
+RESEND_API_KEY=
+# 发件人地址（须在 Resend 控制台中已验证的域名下的地址）
+RESEND_FROM_EMAIL=noreply@yourdomain.com
+# 应用外部访问 URL（用于邮件中的验证/重置链接）
+APP_BASE_URL=https://yourdomain.com
 ```
 
 ---
@@ -101,6 +110,38 @@ server {
     return 301 https://$host$request_uri;
 }
 ```
+
+---
+
+## 邮箱验证与密码重置
+
+> 此功能为**可选**。不配置 `RESEND_API_KEY` 时，注册后直接登录，行为与旧版完全相同。
+
+### 配置步骤
+
+1. 注册 [Resend](https://resend.com) 并创建 API Key。
+2. 在 Resend 控制台验证你的发件域名（DNS 添加 DKIM、SPF 记录）。
+3. 在 `.env` 中填写：
+
+   ```env
+   RESEND_API_KEY=re_xxxxxxxxxxxx
+   RESEND_FROM_EMAIL=noreply@yourdomain.com
+   APP_BASE_URL=https://yourdomain.com
+   ```
+
+4. 重启服务：`docker compose up -d`
+
+### 行为说明
+
+| 场景 | 已配置 RESEND_API_KEY | 未配置 |
+|------|----------------------|--------|
+| 注册 | 发送验证邮件，需点击链接激活 | 直接登录 |
+| 登录（未验证） | 返回 403，可重发验证邮件 | 不适用 |
+| 忘记密码 | 发送重置链接（1 小时有效） | 入口隐藏 |
+
+### 已有用户
+
+数据库迁移（v5）将 `email_verified` 默认值设为 `1`，**已有用户不受影响**，无需重新验证。
 
 ---
 
