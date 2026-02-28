@@ -62,7 +62,7 @@ export default function AddTransactionPage() {
   const isPersonal = form.source === 'personal'
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-3xl pb-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">添加交易记录</h1>
         <p className="text-sm text-gray-400 mt-1">记录一笔新的收入或支出</p>
@@ -75,9 +75,9 @@ export default function AddTransactionPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* 收支方向 + 资金来源 */}
+        {/* 收支方向 + 资金来源 ── col 1 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
           <div>
             <label className={labelClass}>收支方向</label>
@@ -136,8 +136,8 @@ export default function AddTransactionPage() {
           </div>
         </div>
 
-        {/* 金额 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        {/* 金额 ── col 2 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between">
           <label className={labelClass}>金额（元）</label>
           <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-red-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
             <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-red-400' : 'text-green-400'}`}>
@@ -166,12 +166,15 @@ export default function AddTransactionPage() {
               <svg className="w-3 h-3 text-gray-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
+          <p className="text-xs text-gray-400 mt-2">
+            {isExpense ? '本笔支出将从资金池中扣除' : '本笔收入将计入资金池'}
+          </p>
         </div>
 
-        {/* 费用类别 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        {/* 费用类别 ── full width */}
+        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <label className={labelClass}>费用类别</label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
             {CATEGORIES.map((c) => (
               <button
                 key={c}
@@ -189,12 +192,14 @@ export default function AddTransactionPage() {
           </div>
         </div>
 
-        {/* 日期、项目、备注 */}
+        {/* 日期 ── col 1 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <label className={labelClass}>日期</label>
+          <input type="date" required className={inputClass} value={form.occurred_at} onChange={(e) => set('occurred_at', e.target.value)} />
+        </div>
+
+        {/* 项目编号 + 备注 ── col 2 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-          <div>
-            <label className={labelClass}>日期</label>
-            <input type="date" required className={inputClass} value={form.occurred_at} onChange={(e) => set('occurred_at', e.target.value)} />
-          </div>
           <div>
             <label className={labelClass}>
               项目编号 <span className="text-gray-300 font-normal normal-case tracking-normal">选填</span>
@@ -221,33 +226,36 @@ export default function AddTransactionPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-            {error}
+        {/* 错误提示 + 操作按钮 ── full width */}
+        <div className="md:col-span-2 space-y-3">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+              {error}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={loading || success}
+              className={`flex-1 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 shadow-sm ${
+                isExpense
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
+            >
+              {loading ? '提交中…' : `保存${isExpense ? '支出' : '收入'}`}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="px-5 py-3 rounded-xl border-2 border-gray-200 text-sm text-gray-500 hover:bg-gray-50 hover:border-gray-300 font-medium transition-all"
+            >
+              取消
+            </button>
           </div>
-        )}
-
-        <div className="flex gap-3 pb-4">
-          <button
-            type="submit"
-            disabled={loading || success}
-            className={`flex-1 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 shadow-sm ${
-              isExpense
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-          >
-            {loading ? '提交中…' : `保存${isExpense ? '支出' : '收入'}`}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="px-5 py-3 rounded-xl border-2 border-gray-200 text-sm text-gray-500 hover:bg-gray-50 hover:border-gray-300 font-medium transition-all"
-          >
-            取消
-          </button>
         </div>
+
       </form>
     </div>
   )
