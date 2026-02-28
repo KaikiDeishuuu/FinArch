@@ -48,21 +48,21 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 
 func (r *SQLiteUserRepository) GetByEmail(ctx context.Context, email string) (model.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,'')
+		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
 			 FROM users WHERE email = ? AND deleted_at IS NULL`, email)
 	return scanUser(row)
 }
 
 func (r *SQLiteUserRepository) GetByID(ctx context.Context, id string) (model.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,'')
+		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
 			 FROM users WHERE id = ? AND deleted_at IS NULL`, id)
 	return scanUser(row)
 }
 
 func (r *SQLiteUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+		`UPDATE users SET password_hash = ?, pwd_version = pwd_version + 1, updated_at = ? WHERE id = ?`,
 		passwordHash, time.Now().Unix(), id,
 	)
 	if err != nil {
@@ -176,8 +176,8 @@ func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var createdAt, updatedAt int64
 	var verified int
-	// SELECT: id, email, name, username, password_hash, role, email_verified, created_at, updated_at, pending_email
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Username, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt, &u.PendingEmail); err != nil {
+	// SELECT: id, email, name, username, password_hash, role, email_verified, created_at, updated_at, pending_email, pwd_version
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Username, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt, &u.PendingEmail, &u.PwdVersion); err != nil {
 		if err == sql.ErrNoRows {
 			return model.User{}, fmt.Errorf("user not found")
 		}

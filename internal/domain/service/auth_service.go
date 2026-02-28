@@ -353,7 +353,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	}
 	// Successful login — clear failure counter.
 	s.tracker.RecordSuccess(email)
-	token, exp, err := s.jwt.Issue(u.ID, u.Email, u.Role)
+	token, exp, err := s.jwt.Issue(u.ID, u.Email, u.Role, u.PwdVersion)
 	if err != nil {
 		return LoginResponse{}, err
 	}

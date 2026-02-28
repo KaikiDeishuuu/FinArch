@@ -10,6 +10,7 @@ type User struct {
 	Name          string // kept for backward compat; mirrors Username
 	PendingEmail  string // unverified new email during email-change flow
 	PasswordHash  string
+	PwdVersion    int
 	Role          string // reserved; all users are equal
 	EmailVerified bool
 	CreatedAt     time.Time

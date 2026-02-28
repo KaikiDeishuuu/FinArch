@@ -10,16 +10,17 @@ import (
 
 // Claims contains the JWT payload.
 type Claims struct {
-	UserID string `json:"uid"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID     string `json:"uid"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	PwdVersion int    `json:"pv"`
 	jwt.RegisteredClaims
 }
 
 // JWTService issues and validates JWT tokens.
 type JWTService struct {
-	secret          []byte
-	accessTTL       time.Duration
+	secret    []byte
+	accessTTL time.Duration
 }
 
 // NewJWTService creates a JWTService with the given HMAC secret.
@@ -31,12 +32,13 @@ func NewJWTService(secret string) *JWTService {
 }
 
 // Issue mints a signed access token for the given user.
-func (s *JWTService) Issue(userID, email, role string) (string, time.Time, error) {
+func (s *JWTService) Issue(userID, email, role string, pwdVersion int) (string, time.Time, error) {
 	exp := time.Now().Add(s.accessTTL)
 	claims := &Claims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
+		UserID:     userID,
+		Email:      email,
+		Role:       role,
+		PwdVersion: pwdVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(exp),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

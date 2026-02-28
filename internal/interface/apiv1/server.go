@@ -196,6 +196,16 @@ func (s *Server) jwtMiddleware() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "invalid token"})
 			return
 		}
+		// Verify pwd_version matches DB — invalidates tokens from before a password change.
+		var dbPwdVer int
+		_ = s.db.QueryRowContext(c.Request.Context(),
+			"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ? AND deleted_at IS NULL",
+			claims.UserID,
+		).Scan(&dbPwdVer)
+		if dbPwdVer != claims.PwdVersion {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40102, "message": "密码已更改，请重新登录"})
+			return
+		}
 		c.Set("userID", claims.UserID)
 		c.Set("userEmail", claims.Email)
 		c.Set("userRole", claims.Role)
