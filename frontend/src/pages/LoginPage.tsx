@@ -66,6 +66,7 @@ export default function LoginPage() {
   const emailChanged = searchParams.get('email_changed') === '1'
 
   function switchMode(next: 'login' | 'register') {
+    if (next === mode) return
     setMode(next)
     setError('')
     setPendingVerification(false)
@@ -183,9 +184,9 @@ export default function LoginPage() {
         )}
 
         <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
-          <button className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
             onClick={() => switchMode('login')}>登录</button>
-          <button className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
             onClick={() => switchMode('register')}>注册</button>
         </div>
 

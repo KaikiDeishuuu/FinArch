@@ -28,7 +28,10 @@ let _redirectingToLogin = false
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !_redirectingToLogin) {
+    // Only redirect to login when we had an active token (i.e. session expired).
+    // If _token is null the 401 came from an unauthenticated request (e.g. wrong
+    // password during login) — let the caller handle the error normally.
+    if (error.response?.status === 401 && _token && !_redirectingToLogin) {
       _redirectingToLogin = true
       _token = null
       // Clear persisted session so expired token is not reloaded on next page render

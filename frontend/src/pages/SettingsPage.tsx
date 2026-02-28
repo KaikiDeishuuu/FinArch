@@ -186,134 +186,123 @@ export default function SettingsPage() {
   const pendingEmail = profile?.pending_email
 
   return (
-    <div className="space-y-8 max-w-xl pb-8">
+    <div className="pb-8 max-w-4xl">
       {/* Page header */}
-      <div>
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">账户设置</h1>
         <p className="text-sm text-gray-400 mt-1">管理您的账户信息、安全设置与数据备份</p>
       </div>
 
-      {/* ── Profile ────────────────────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>账户信息</SectionLabel>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm">
-              {(displayName[0] ?? '?').toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-gray-900 text-base">{displayName}</p>
-                <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">用户名 · 不可修改</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        {/* ── Profile ─────────────────────────────────────────── full width ── */}
+        <div className="md:col-span-2">
+          <SectionLabel>账户信息</SectionLabel>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm">
+                {(displayName[0] ?? '?').toUpperCase()}
               </div>
-              <p className="text-sm text-gray-500 mt-0.5 truncate">{currentEmail}</p>
-              {pendingEmail && (
-                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                  待验证新邮箱：{pendingEmail}
-                </p>
-              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900 text-base">{displayName}</p>
+                  <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">用户名 · 不可修改</span>
+                </div>
+                <p className="text-sm text-gray-500 mt-0.5">{currentEmail}</p>
+                {pendingEmail && (
+                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                    待验证新邮箱：{pendingEmail}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Change email ───────────────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>更换邮箱</SectionLabel>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-          <div className="space-y-0.5">
-            <p className="text-sm text-gray-700 font-medium">当前邮箱</p>
-            <p className="text-sm text-gray-500">{currentEmail}</p>
+        {/* ── Change email ─────────────────────────────────────── col 1 ── */}
+        <div className="flex flex-col">
+          <SectionLabel>更换邮箱</SectionLabel>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 flex-1">
+            <div className="space-y-0.5">
+              <p className="text-sm text-gray-700 font-medium">当前邮箱</p>
+              <p className="text-sm text-gray-500">{currentEmail}</p>
+            </div>
+
+            {pendingEmail && !emailSent && (
+              <Alert type="warning">
+                <p className="font-medium mb-0.5">有待验证的邮箱变更请求</p>
+                <p>验证邮件已发至 <strong>{pendingEmail}</strong>，点击链接完成更换。<br />提交新请求将使旧链接失效。</p>
+              </Alert>
+            )}
+
+            {emailSent ? (
+              <Alert type="success">
+                <p className="font-medium mb-0.5">验证邮件已发送</p>
+                请检查 <strong>{profile?.pending_email}</strong> 的收件箱，点击链接完成邮箱更换。验证前原邮箱继续有效。
+              </Alert>
+            ) : (
+              <form onSubmit={handleRequestEmailChange} className="space-y-3">
+                <div>
+                  <label className={labelCls}>新邮箱地址</label>
+                  <input type="email" required value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className={inputCls} placeholder="输入新邮箱地址" />
+                </div>
+                {emailError && <Alert type="error">{emailError}</Alert>}
+                <button type="submit" disabled={emailLoading}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
+                  {emailLoading ? '发送中...' : '发送验证邮件'}
+                </button>
+              </form>
+            )}
           </div>
+        </div>
 
-          {pendingEmail && !emailSent && (
-            <Alert type="warning">
-              <p className="font-medium mb-0.5">有待验证的邮箱变更请求</p>
-              <p>验证邮件已发至 <strong>{pendingEmail}</strong>，请点击邮件中的链接完成更换。<br />
-              提交新请求将使旧链接失效。</p>
-            </Alert>
-          )}
-
-          {emailSent ? (
-            <Alert type="success">
-              <p className="font-medium mb-0.5">验证邮件已发送</p>
-              请检查 <strong>{profile?.pending_email}</strong> 的收件箱，点击链接完成邮箱更换。验证前原邮箱继续有效。
-            </Alert>
-          ) : (
-            <form onSubmit={handleRequestEmailChange} className="space-y-3">
+        {/* ── Change password ──────────────────────────────────── col 2 ── */}
+        <div className="flex flex-col">
+          <SectionLabel>安全</SectionLabel>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex-1">
+            {pwSuccess && <div className="mb-4"><Alert type="success">✓ 密码修改成功！</Alert></div>}
+            <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className={labelCls}>新邮箱地址</label>
-                <input
-                  type="email"
-                  required
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className={inputCls}
-                  placeholder="输入新邮箱地址"
-                />
+                <label className={labelCls}>当前密码</label>
+                <input type="password" required value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  className={inputCls} placeholder="请输入当前密码" autoComplete="current-password" />
               </div>
-              {emailError && <Alert type="error">{emailError}</Alert>}
-              <button
-                type="submit"
-                disabled={emailLoading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
-              >
-                {emailLoading ? '发送中...' : '发送验证邮件'}
+              <div>
+                <label className={labelCls}>新密码</label>
+                <input type="password" required minLength={8} value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  className={inputCls} placeholder="至少 8 位，建议大小写 + 数字 + 符号" autoComplete="new-password" />
+                <PasswordStrength password={newPw} />
+              </div>
+              <div>
+                <label className={labelCls}>确认新密码</label>
+                <input type="password" required minLength={8} value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)}
+                  className={inputCls} placeholder="再次输入新密码" autoComplete="new-password" />
+                {confirmPw && newPw !== confirmPw && (
+                  <p className="mt-1 text-xs text-red-500">两次输入的密码不一致</p>
+                )}
+              </div>
+              {pwError && <Alert type="error">{pwError}</Alert>}
+              <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
+                {pwLoading ? '提交中...' : '修改密码'}
               </button>
             </form>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* ── Change password ────────────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>安全</SectionLabel>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">修改密码</h3>
-          {pwSuccess && <div className="mb-4"><Alert type="success">✓ 密码修改成功！</Alert></div>}
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label className={labelCls}>当前密码</label>
-              <input type="password" required value={currentPw}
-                onChange={(e) => setCurrentPw(e.target.value)}
-                className={inputCls} placeholder="请输入当前密码" autoComplete="current-password" />
-            </div>
-            <div>
-              <label className={labelCls}>新密码</label>
-              <input type="password" required minLength={8} value={newPw}
-                onChange={(e) => setNewPw(e.target.value)}
-                className={inputCls} placeholder="至少 8 位，建议大小写 + 数字 + 符号" autoComplete="new-password" />
-              <PasswordStrength password={newPw} />
-            </div>
-            <div>
-              <label className={labelCls}>确认新密码</label>
-              <input type="password" required minLength={8} value={confirmPw}
-                onChange={(e) => setConfirmPw(e.target.value)}
-                className={inputCls} placeholder="再次输入新密码" autoComplete="new-password" />
-              {confirmPw && newPw !== confirmPw && (
-                <p className="mt-1 text-xs text-red-500">两次输入的密码不一致</p>
-              )}
-            </div>
-            {pwError && <Alert type="error">{pwError}</Alert>}
-            <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
-              {pwLoading ? '提交中...' : '修改密码'}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* ── Data backup / restore ──────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>数据管理</SectionLabel>
-        <div className="space-y-3">
-          {/* Backup */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">数据备份</h3>
+        {/* ── Backup ───────────────────────────────────────────── col 1 ── */}
+        <div className="flex flex-col">
+          <SectionLabel>数据备份</SectionLabel>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex-1">
             <p className="text-xs text-gray-400 mb-4">下载当前数据库的完整快照（标准 SQLite 格式），可用于迁移或恢复。</p>
             {backupError && <div className="mb-3"><Alert type="error">{backupError}</Alert></div>}
-            <button onClick={handleDownloadBackup} disabled={backupLoading}
+            <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}
               className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -321,18 +310,19 @@ export default function SettingsPage() {
               {backupLoading ? '生成中...' : '下载备份'}
             </button>
           </div>
+        </div>
 
-          {/* Restore */}
-          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">数据恢复</h3>
+        {/* ── Restore ──────────────────────────────────────────── col 2 ── */}
+        <div className="flex flex-col">
+          <SectionLabel>数据恢复</SectionLabel>
+          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5 flex-1">
             <p className="text-xs text-gray-400 mb-4">
               上传之前下载的 <code className="font-mono bg-gray-100 px-1 rounded">.db</code> 备份文件，将<strong>覆盖当前所有数据</strong>，操作不可撤销。
             </p>
             {restoreSuccess && <div className="mb-3"><Alert type="success">✓ 数据恢复成功！</Alert></div>}
             {restoreError && <div className="mb-3"><Alert type="error">{restoreError}</Alert></div>}
             <div className="space-y-3">
-              <input
-                ref={fileInputRef} type="file" accept=".db"
+              <input ref={fileInputRef} type="file" accept=".db"
                 onChange={(e) => {
                   const f = e.target.files?.[0] ?? null
                   setRestoreFile(f); setRestoreConfirm(false)
@@ -344,14 +334,14 @@ export default function SettingsPage() {
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
                   <p className="font-semibold mb-1">确认恢复：{restoreFile.name}</p>
                   <p className="text-xs text-amber-600 mb-2">此操作将<strong>覆盖当前所有数据</strong>，恢复为备份时的状态。</p>
-                  <button onClick={() => setRestoreConfirm(true)}
+                  <button type="button" onClick={() => setRestoreConfirm(true)}
                     className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
                     我已了解，确认恢复
                   </button>
                 </div>
               )}
               {restoreFile && restoreConfirm && (
-                <button onClick={handleRestore} disabled={restoreLoading}
+                <button type="button" onClick={handleRestore} disabled={restoreLoading}
                   className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                     <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
@@ -362,50 +352,57 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Danger zone ────────────────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>危险区域</SectionLabel>
-        <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-red-600 mb-1">注销账户</h3>
-          <p className="text-xs text-gray-400 mb-4">
-            将永久删除您的账户及所有数据（标签、资金池、交易记录），此操作<strong>不可撤销</strong>。
-          </p>
-          {deleteStep === 'sent' ? (
-            <Alert type="success">
-              ✓ 验证邮件已发送至 <strong>{currentEmail}</strong>，请在 1 小时内点击邮件中的链接以完成账户注销。
-            </Alert>
-          ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-red-700">确认注销账户？</p>
-              <p className="text-xs text-red-600">
-                我们将向 <strong>{currentEmail}</strong> 发送确认邮件，点击链接后账户将被<strong>永久删除</strong>。
-              </p>
-              {deleteError && <Alert type="error">{deleteError}</Alert>}
-              <div className="flex gap-2">
-                <button onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                  {deleteStep === 'loading' ? '发送中...' : '发送注销确认邮件'}
-                </button>
-                <button onClick={() => { setDeleteStep('idle'); setDeleteError('') }}
-                  disabled={deleteStep === 'loading'}
-                  className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
-                  取消
-                </button>
+        {/* ── Danger zone ─────────────────────────────────────── full width ── */}
+        <div className="md:col-span-2">
+          <SectionLabel>危险区域</SectionLabel>
+          <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-5">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-red-600 mb-1">注销账户</h3>
+                <p className="text-xs text-gray-400">
+                  将永久删除您的账户及所有数据（标签、资金池、交易记录），此操作<strong>不可撤销</strong>。
+                </p>
+              </div>
+              <div className="shrink-0">
+                {deleteStep === 'sent' ? (
+                  <Alert type="success">
+                    ✓ 验证邮件已发送至 <strong>{currentEmail}</strong>，请在 1 小时内点击链接以完成账户注销。
+                  </Alert>
+                ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3 max-w-sm">
+                    <p className="text-sm font-semibold text-red-700">确认注销账户？</p>
+                    <p className="text-xs text-red-600">
+                      我们将向 <strong>{currentEmail}</strong> 发送确认邮件，点击链接后账户将被<strong>永久删除</strong>。
+                    </p>
+                    {deleteError && <Alert type="error">{deleteError}</Alert>}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
+                        className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                        {deleteStep === 'loading' ? '发送中...' : '发送注销确认邮件'}
+                      </button>
+                      <button type="button" onClick={() => { setDeleteStep('idle'); setDeleteError('') }}
+                        disabled={deleteStep === 'loading'}
+                        className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setDeleteStep('confirm')}
+                    className="inline-flex items-center gap-2 border border-red-200 hover:bg-red-50 text-red-600 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                      <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                    </svg>
+                    申请注销账户
+                  </button>
+                )}
               </div>
             </div>
-          ) : (
-            <button onClick={() => setDeleteStep('confirm')}
-              className="inline-flex items-center gap-2 border border-red-200 hover:bg-red-50 text-red-600 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-              </svg>
-              申请注销账户
-            </button>
-          )}
+          </div>
         </div>
+
       </div>
     </div>
   )
