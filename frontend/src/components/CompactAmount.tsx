@@ -1,55 +1,84 @@
 import { useState, useEffect, useRef } from 'react'
 
 interface Props {
-  compact: string        // abbreviated display, e.g. ¥8.5万
-  exact: string          // full precise value, e.g. ¥85,000
+  compact: string
+  exact: string
   className?: string
-  prefix?: string        // optional prefix like "+"
+  prefix?: string
 }
 
 /**
  * Shows a compact/abbreviated amount.
- * - Desktop: hover shows exact value via native `title` tooltip
- * - Mobile: tap toggles to exact value inline; auto-reverts after 3 s
- * - A dashed underline hints the value is interactive when abbreviated
+ * - Desktop: native `title` tooltip on hover
+ * - Mobile: tap shows a position:fixed popover (escapes overflow:hidden) for 3 s
+ * - Dotted underline hints the value is tappable when abbreviated
  */
 export default function CompactAmount({ compact, exact, className = '', prefix = '' }: Props) {
-  const [expanded, setExpanded] = useState(false)
+  const [show, setShow] = useState(false)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAbbreviated = compact !== exact
 
-  function handleClick() {
+  function handleClick(e: React.MouseEvent) {
     if (!isAbbreviated) return
+    e.stopPropagation()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setPos({ x: rect.left + rect.width / 2, y: rect.top - 8 })
     if (timerRef.current) clearTimeout(timerRef.current)
-    if (expanded) {
-      setExpanded(false)
-    } else {
-      setExpanded(true)
-      timerRef.current = setTimeout(() => setExpanded(false), 3000)
-    }
+    setShow(true)
+    timerRef.current = setTimeout(() => setShow(false), 3000)
   }
 
-  // Cleanup on unmount
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
   return (
-    <span
-      title={isAbbreviated ? exact : undefined}
-      onClick={handleClick}
-      className={[
-        className,
-        isAbbreviated ? 'cursor-pointer select-none' : '',
-      ].join(' ')}
-      style={isAbbreviated ? { textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: '3px', textDecorationColor: 'currentColor', opacity: 1 } : {}}
-    >
-      {expanded ? (
-        <span>
+    <>
+      <span
+        title={isAbbreviated ? exact : undefined}
+        onClick={handleClick}
+        className={[
+          className,
+          isAbbreviated ? 'cursor-pointer select-none' : '',
+        ].join(' ')}
+        style={isAbbreviated ? {
+          textDecoration: 'underline',
+          textDecorationStyle: 'dotted',
+          textUnderlineOffset: '3px',
+          textDecorationColor: 'currentColor',
+        } : {}}
+      >
+        {prefix}{compact}
+      </span>
+
+      {show && (
+        <div
+          onClick={() => setShow(false)}
+          style={{
+            position: 'fixed',
+            left: pos.x,
+            top: pos.y,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 9999,
+            pointerEvents: 'auto',
+          }}
+          className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
+        >
           {prefix}{exact}
-          <span className="ml-1 text-[0.65em] opacity-50 font-normal align-middle">精确值</span>
-        </span>
-      ) : (
-        <span>{prefix}{compact}</span>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: -4,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 0,
+              height: 0,
+              borderLeft: '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop: '5px solid #111827',
+            }}
+          />
+        </div>
       )}
-    </span>
+    </>
   )
 }
