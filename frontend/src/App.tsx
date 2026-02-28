@@ -49,10 +49,8 @@ function App() {
     if (!splash) return
     // Delay so splash is visible for ~3 s (2600 ms display + 400 ms fade)
     const delay = setTimeout(() => {
-      splash.style.opacity = '0'
-      const remove = setTimeout(() => splash.remove(), 420)
-      return () => clearTimeout(remove)
-    }, 2600)
+      splash.remove()
+    }, 5000)
     return () => clearTimeout(delay)
   }, [])
 

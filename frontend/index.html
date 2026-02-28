@@ -29,30 +29,29 @@
     <title>FinArch</title>
   </head>
   <body>
-    <!-- PWA splash screen: shown immediately, faded out by React after first render -->
+    <!-- PWA splash screen: shown immediately, removed by React after mount -->
     <div id="splash" style="
       position:fixed;inset:0;z-index:9999;
       display:flex;align-items:center;justify-content:center;
-      background:linear-gradient(135deg,#0b1f18 0%,#0d1b3e 100%);
-      transition:opacity 0.4s ease;
+      background:#f0f4ff;
     ">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
-        <!-- Rounded icon: outer div clips via border-radius+overflow:hidden, SVG has no bg rect -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
+        <!-- Logo card: dark gradient on light background gives strong contrast -->
         <div style="
-          width:96px;height:96px;border-radius:22px;
-          background:linear-gradient(135deg,#0b1f18 0%,#0d1b3e 100%);
+          width:104px;height:104px;border-radius:26px;
+          background:linear-gradient(145deg,#0d1b3e 0%,#0b1f18 100%);
           display:flex;align-items:center;justify-content:center;
-          box-shadow:0 8px 32px rgba(0,0,0,0.4);
+          box-shadow:0 12px 40px rgba(13,27,62,0.22),0 2px 8px rgba(13,27,62,0.12);
           overflow:hidden;
         ">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="80" height="80">
-            <rect x="64"  y="272" width="112" height="144" rx="24" fill="#2563eb"/>
+            <rect x="64"  y="272" width="112" height="144" rx="24" fill="#3b82f6"/>
             <rect x="200" y="192" width="112" height="224" rx="24" fill="#f97316"/>
             <rect x="336" y="96"  width="112" height="320" rx="24" fill="#22c55e"/>
           </svg>
         </div>
-        <span style="color:white;font-family:sans-serif;font-size:22px;font-weight:700;letter-spacing:0.04em">FinArch</span>
-        <span style="color:#93c5fd;font-family:sans-serif;font-size:13px">记账 · 报销 · 统计</span>
+        <span style="color:#0d1b3e;font-family:sans-serif;font-size:22px;font-weight:700;letter-spacing:0.05em">FinArch</span>
+        <span style="color:#6b7280;font-family:sans-serif;font-size:13px">记账 · 报销 · 统计</span>
       </div>
     </div>
     <div id="root"></div>
