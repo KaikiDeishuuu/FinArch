@@ -5,22 +5,10 @@
       <stop offset="100%" stop-color="#0d1b3e"/>
     </linearGradient>
   </defs>
-  <!-- 渐变背景 -->
   <rect width="64" height="64" rx="13" ry="13" fill="url(#bg)"/>
 
-  <!-- 拱形柱状图：5根对称 -->
-  <rect x="5"  y="37" width="5" height="12" rx="2" fill="#2563eb"/>
-  <rect x="13" y="27" width="5" height="22" rx="2" fill="#f97316"/>
-  <rect x="21" y="19" width="5" height="30" rx="2" fill="#22c55e"/>
-  <rect x="29" y="27" width="5" height="22" rx="2" fill="#f97316"/>
-  <rect x="37" y="37" width="5" height="12" rx="2" fill="#2563eb"/>
-
-
-  <!-- 底部文字 FA（favicon 尺寸） -->
-  <text x="47" y="51"
-    text-anchor="middle"
-    font-family="'SF Pro Display','Segoe UI',system-ui,sans-serif"
-    font-size="11" font-weight="800">
-    <tspan fill="#f97316">F</tspan><tspan fill="#ffffff">A</tspan>
-  </text>
+  <!-- 3根递增柱，底部对齐 y=52 -->
+  <rect x="8"  y="34" width="14" height="18" rx="3" fill="#2563eb"/>
+  <rect x="25" y="24" width="14" height="28" rx="3" fill="#f97316"/>
+  <rect x="42" y="12" width="14" height="40" rx="3" fill="#22c55e"/>
 </svg>
