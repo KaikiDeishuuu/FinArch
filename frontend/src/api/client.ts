@@ -23,12 +23,16 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+let _redirectingToLogin = false
+
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !_redirectingToLogin) {
+      _redirectingToLogin = true
       _token = null
-      // redirect to login
+      // Clear persisted session so expired token is not reloaded on next page render
+      sessionStorage.removeItem('finarch_session')
       window.location.href = '/login'
     }
     return Promise.reject(error)
