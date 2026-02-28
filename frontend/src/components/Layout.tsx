@@ -164,7 +164,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
               <span className="text-[11px] font-semibold text-gray-400 tracking-wide">FinArch</span>
               <span className="text-[11px] text-gray-300">·</span>
-              <span className="text-[11px] text-gray-300">科研经费管理</span>
+              <span className="text-[11px] text-gray-300">记账 · 报销 · 统计</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="hidden sm:inline text-[11px] text-gray-300">

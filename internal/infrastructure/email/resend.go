@@ -97,7 +97,7 @@ func buildEmailHTML(_, bodyHTML string) string {
             <td align="center" style="background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 14px 14px;padding:20px 40px">
               <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.8">
                 此邮件由 <strong style="color:#6b7280">FinArch</strong> 系统自动发送，请勿直接回复。<br>
-                &copy; %d FinArch &nbsp;·&nbsp; 科研经费管理系统
+                &copy; %d FinArch
               </p>
             </td>
           </tr>
