@@ -196,7 +196,7 @@ func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error 
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">确认注销您的账户</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">此操作不可撤销，请谨慎确认</p>
-      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%%s</strong>，</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
       <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7">
         我们收到了您的账户注销申请。点击下方按钮将<strong>永久删除</strong>您的账户及所有数据（包括标签、资金池、交易记录），<strong>此操作不可撤销</strong>。<br>
         链接有效期为 <strong>1 小时</strong>。
@@ -204,13 +204,13 @@ func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error 
       <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
         <tr>
           <td style="border-radius:8px;background:#dc2626">
-            <a href="%%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">确认注销账户</a>
+            <a href="%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">确认注销账户</a>
           </td>
         </tr>
       </table>
       <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
       <p style="margin:0 0 24px;word-break:break-all">
-        <a href="%%s" style="color:#2563eb;font-size:12px;text-decoration:none">%%s</a>
+        <a href="%s" style="color:#2563eb;font-size:12px;text-decoration:none">%s</a>
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并立即修改密码以保护账户安全。</p>`,
@@ -224,22 +224,22 @@ func (s *ResendSender) SendEmailChangeOldVerify(toOldEmail, toUsername, newEmail
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">授权更换登录邮箱</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">请在您的当前邮箱确认此次变更请求</p>
-      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%%s</strong>，</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
       <p style="margin:0 0 28px;color:#374151;font-size:15px;line-height:1.7">
-        我们收到了将您的登录邮箱更换为 <strong style="color:#2563eb">%%s</strong> 的申请。<br>
+        我们收到了将您的登录邮箱更换为 <strong style="color:#2563eb">%s</strong> 的申请。<br>
         请点击下方按钮确认您本人发起了此次更换，系统随后将向新邮箱发送二次验证邮件。<br>
         链接有效期为 <strong>1 小时</strong>。
       </p>
       <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
         <tr>
           <td style="border-radius:8px;background:#2563eb">
-            <a href="%%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">✓ &nbsp;确认，发送新邮箱验证</a>
+            <a href="%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">✓ &nbsp;确认，发送新邮箱验证</a>
           </td>
         </tr>
       </table>
       <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
       <p style="margin:0 0 24px;word-break:break-all">
-        <a href="%%s" style="color:#2563eb;font-size:12px;text-decoration:none">%%s</a>
+        <a href="%s" style="color:#2563eb;font-size:12px;text-decoration:none">%s</a>
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并立即修改密码以保护账户安全。</p>`,
@@ -252,22 +252,22 @@ func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) err
 	link := s.baseURL + "/confirm-email-change?token=" + token
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">验证您的新邮箱</h1>
-      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">您申请更换登录邮筨3</p>
-      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%%s</strong>，</p>
+      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">您申请更换登录邮箱</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
       <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7">
         请点击下方按钮将此邮箱地址设为您的新登录邮箱。链接有效期为 <strong>1 小时</strong>。<br>
-        未验证前，您的哆接邮箱仍可正常使用。
+        未验证前，您的原邮箱仍可正常使用。
       </p>
       <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
         <tr>
           <td style="border-radius:8px;background:#2563eb">
-            <a href="%%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">验证新邮箱</a>
+            <a href="%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">验证新邮箱</a>
           </td>
         </tr>
       </table>
       <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
       <p style="margin:0 0 24px;word-break:break-all">
-        <a href="%%s" style="color:#2563eb;font-size:12px;text-decoration:none">%%s</a>
+        <a href="%s" style="color:#2563eb;font-size:12px;text-decoration:none">%s</a>
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并尽快修改密码以保护账户安全。</p>`,
