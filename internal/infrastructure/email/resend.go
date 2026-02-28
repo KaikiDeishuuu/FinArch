@@ -14,6 +14,7 @@ type Sender interface {
 	SendVerification(toEmail, toName, token string) error
 	SendPasswordReset(toEmail, toName, token string) error
 	SendAccountDeletion(toEmail, toName, token string) error
+	SendEmailChange(toNewEmail, toUsername, token string) error
 }
 
 // ResendSender sends emails via the Resend API.
@@ -214,12 +215,41 @@ func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error 
 	return s.send(toEmail, "⚠️ 确认注销您的 FinArch 账户", html)
 }
 
+func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) error {
+	link := s.baseURL + "/confirm-email-change?token=" + token
+	body := fmt.Sprintf(`
+      <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">验证您的新邮箱</h1>
+      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">您申请更换登录邮筨3</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%%s</strong>，</p>
+      <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7">
+        请点击下方按钮将此邮箱地址设为您的新登录邮箱。链接有效期为 <strong>1 小时</strong>。<br>
+        未验证前，您的哆接邮箱仍可正常使用。
+      </p>
+      <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
+        <tr>
+          <td style="border-radius:8px;background:#2563eb">
+            <a href="%%s" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px">验证新邮箱</a>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px">按钮无法点击？请复制以下链接到浏览器：</p>
+      <p style="margin:0 0 24px;word-break:break-all">
+        <a href="%%s" style="color:#2563eb;font-size:12px;text-decoration:none">%%s</a>
+      </p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+      <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并尽快修改密码以保护账户安全。</p>`,
+		toUsername, link, link, link)
+	html := buildEmailHTML("", body)
+	return s.send(toNewEmail, "FinArch 登录邮箱验证", html)
+}
+
 // NoopSender discards all emails (used when RESEND_API_KEY is not set).
 type NoopSender struct{}
 
 func (n *NoopSender) SendVerification(_, _, _ string) error    { return nil }
 func (n *NoopSender) SendPasswordReset(_, _, _ string) error   { return nil }
 func (n *NoopSender) SendAccountDeletion(_, _, _ string) error { return nil }
+func (n *NoopSender) SendEmailChange(_, _, _ string) error     { return nil }
 
 // IsConfigured returns true if RESEND_API_KEY env var is set.
 func IsConfigured() bool { return os.Getenv("RESEND_API_KEY") != "" }

@@ -6,7 +6,9 @@ import "time"
 type User struct {
 	ID            string
 	Email         string
-	Name          string
+	Username      string // unique, immutable after registration
+	Name          string // kept for backward compat; mirrors Username
+	PendingEmail  string // unverified new email during email-change flow
 	PasswordHash  string
 	Role          string // reserved; all users are equal
 	EmailVerified bool
@@ -14,11 +16,13 @@ type User struct {
 	UpdatedAt     time.Time
 }
 
-// EmailToken is a short-lived token for email verification or password reset.
+// EmailToken is a short-lived token for email verification, password reset,
+// account deletion, or email change.
 type EmailToken struct {
 	Token     string
 	UserID    string
-	Kind      string // "verify" or "reset"
+	Kind      string // "verify" | "reset" | "delete" | "change_email"
+	Meta      string // extra payload (e.g. new email for change_email)
 	ExpiresAt time.Time
 	CreatedAt time.Time
 }

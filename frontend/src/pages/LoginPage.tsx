@@ -7,6 +7,40 @@ import { useAuth } from '../contexts/AuthContext'
 import { useConfig } from '../contexts/ConfigContext'
 import { resendVerification } from '../api/client'
 
+// ─── Password Strength Indicator ─────────────────────────────────────────────
+type Strength = 'none' | 'weak' | 'medium' | 'strong'
+
+function calcStrength(pw: string): Strength {
+  if (!pw) return 'none'
+  if (pw.length < 8) return 'weak'
+  if (/^\d+$/.test(pw)) return 'weak'
+  let score = 0
+  if (/[a-z]/.test(pw)) score++
+  if (/[A-Z]/.test(pw)) score++
+  if (/[0-9]/.test(pw)) score++
+  if (/[^a-zA-Z0-9]/.test(pw)) score++
+  if (score <= 1) return 'weak'
+  if (score === 2) return 'medium'
+  return 'strong'
+}
+
+function PasswordStrength({ password }: { password: string }) {
+  const s = calcStrength(password)
+  if (!password) return null
+  const bar = { none: 'w-0', weak: 'w-1/3', medium: 'w-2/3', strong: 'w-full' }[s]
+  const color = { none: '', weak: 'bg-red-400', medium: 'bg-amber-400', strong: 'bg-green-500' }[s]
+  const label = { none: '', weak: '弱 — 建议混入大小写字母、数字和符号', medium: '中等 — 添加特殊字符可进一步增强', strong: '强' }[s]
+  const tc = { none: '', weak: 'text-red-500', medium: 'text-amber-600', strong: 'text-green-600' }[s]
+  return (
+    <div className="mt-1.5 space-y-1">
+      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-300 ${color} ${bar}`} />
+      </div>
+      {s !== 'none' && <p className={`text-xs ${tc}`}>{label}</p>}
+    </div>
+  )
+}
+
 export default function LoginPage() {
   const { login, register } = useAuth()
   const { turnstileSiteKey, loaded: configLoaded } = useConfig()
@@ -15,7 +49,7 @@ export default function LoginPage() {
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [captchaToken, setCaptchaToken] = useState<string>('')
   const [error, setError] = useState('')
@@ -29,6 +63,7 @@ export default function LoginPage() {
   const justVerified = searchParams.get('verified') === '1'
   const tokenError = searchParams.get('error') === 'invalid_token'
   const accountDeleted = searchParams.get('deleted') === '1'
+  const emailChanged = searchParams.get('email_changed') === '1'
 
   function switchMode(next: 'login' | 'register') {
     setMode(next)
@@ -53,7 +88,7 @@ export default function LoginPage() {
         await login({ email, password, captcha_token: captchaToken || undefined })
         navigate('/')
       } else {
-        const pending = await register({ email, name, password, captcha_token: captchaToken || undefined })
+        const pending = await register({ email, username, password, captcha_token: captchaToken || undefined })
         if (pending) {
           setPendingVerification(true)
         } else {
@@ -84,7 +119,7 @@ export default function LoginPage() {
     }
   }
 
-  const inputClass = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  const inputClass = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white'
 
   if (pendingVerification) {
     return (
@@ -121,7 +156,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
-          <img src="/logo.svg" alt="FinArch" className="w-16 h-16 rounded-2xl shadow-md mb-3" />
+          <img src="/logo.svg" alt="FinArch" className="w-14 h-14 rounded-2xl shadow-md mb-3" />
           <h1 className="text-xl font-bold text-gray-800">FinArch</h1>
           <p className="text-xs text-gray-400 mt-0.5">收支与报销管理 v2</p>
         </div>
@@ -132,8 +167,13 @@ export default function LoginPage() {
           </div>
         )}
         {accountDeleted && (
-          <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
+          <div className="mb-4 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
             <span>✓</span><span>账户已注销，感谢您使用 FinArch。</span>
+          </div>
+        )}
+        {emailChanged && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
+            <span>✓</span><span>邮箱已更新，请使用新邮箱登录。</span>
           </div>
         )}
         {tokenError && (
@@ -152,9 +192,11 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
-              <input type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                className={inputClass} placeholder="请输入姓名" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+              <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
+                className={inputClass} placeholder="字母、数字或下划线，注册后不可更改"
+                autoComplete="username" />
+              <p className="mt-1 text-xs text-gray-400">注册后无法修改，请谨慎选择。</p>
             </div>
           )}
           <div>
@@ -165,7 +207,8 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">密码</label>
             <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
-              className={inputClass} placeholder={mode === 'register' ? '至少 8 位' : '请输入密码'} />
+              className={inputClass} placeholder={mode === 'register' ? '至少 8 位，建议大小写 + 数字 + 符号' : '请输入密码'} />
+            {mode === 'register' && <PasswordStrength password={password} />}
           </div>
 
           {turnstileSiteKey && configLoaded && (

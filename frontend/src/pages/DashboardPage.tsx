@@ -129,7 +129,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">你好，{user?.name || user?.email?.split('@')[0]}</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
           <p className="text-sm text-gray-400 mt-1">FinArch · {new Date().toLocaleDateString('zh-CN')}</p>
         </div>
         <Link

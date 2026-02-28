@@ -7,7 +7,7 @@ function fmt(n: number) {
 export function exportTransactionsPDF(
   filtered: Transaction[],
   filterLabel: string,
-  user: { name: string; email: string; role: string } | null,
+  user: { username: string; email: string; role: string } | null,
 ) {
   const now = new Date()
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -95,7 +95,7 @@ export function exportTransactionsPDF(
     `    <p>筛选：${filterLabel} &nbsp;|&nbsp; 导出日期：${dateStr}</p>`,
     '  </div>',
     '  <div class="header-right">',
-    `    <div class="user-name">${user?.name ?? '—'}</div>`,
+    `    <div class="user-name">${user?.username ?? '—'}</div>`,
     `    <div class="user-detail">${user?.email ?? ''}</div>`,
     '  </div>',
     '</div>',

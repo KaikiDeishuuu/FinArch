@@ -45,7 +45,7 @@ export interface LoginRequest {
 
 export interface RegisterRequest {
   email: string
-  name: string
+  username: string
   password: string
   captcha_token?: string
 }
@@ -55,7 +55,7 @@ export interface AuthResponse {
   expires_at: string
   user_id: string
   email: string
-  name: string
+  username: string
   role: string
 }
 
@@ -70,7 +70,7 @@ export interface RegisterResponse {
   expires_at?: string
   user_id?: string
   email?: string
-  name?: string
+  username?: string
   role?: string
   // 202: email verification sent
   message?: string
@@ -106,6 +106,27 @@ export async function requestDeleteAccount(): Promise<void> {
 
 export async function confirmDeleteAccount(token: string): Promise<void> {
   await client.post('/auth/confirm-delete-account', { token })
+}
+
+export async function requestEmailChange(newEmail: string): Promise<void> {
+  await client.post('/auth/request-email-change', { new_email: newEmail })
+}
+
+export async function confirmEmailChange(token: string): Promise<void> {
+  await client.post('/auth/confirm-email-change', { token })
+}
+
+export interface UserProfile {
+  id: string
+  email: string
+  username: string
+  pending_email: string
+  role: string
+}
+
+export async function getMe(): Promise<UserProfile> {
+  const { data } = await client.get('/auth/me')
+  return data.data as UserProfile
 }
 
 export interface AppConfig {

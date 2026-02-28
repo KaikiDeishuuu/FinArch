@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"finarch/internal/domain/model"
@@ -23,13 +24,23 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 	if u.EmailVerified {
 		verified = 1
 	}
+	// Sync name = username for backward compat.
+	if u.Name == "" {
+		u.Name = u.Username
+	}
 	_, err := r.db.ExecContext(ctx, `
-			INSERT INTO users (id, email, name, password_hash, role, email_verified, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Email, u.Name, u.PasswordHash, u.Role, verified,
+			INSERT INTO users (id, email, name, username, password_hash, role, email_verified, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Email, u.Name, u.Username, u.PasswordHash, u.Role, verified,
 		u.CreatedAt.Unix(), u.UpdatedAt.Unix(),
 	)
 	if err != nil {
+		if strings.Contains(err.Error(), "users.username") {
+			return fmt.Errorf("username_taken")
+		}
+		if strings.Contains(err.Error(), "users.email") {
+			return fmt.Errorf("email_taken")
+		}
 		return fmt.Errorf("insert user: %w", err)
 	}
 	return nil
@@ -37,14 +48,14 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 
 func (r *SQLiteUserRepository) GetByEmail(ctx context.Context, email string) (model.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, password_hash, role, email_verified, created_at, updated_at
+		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,'')
 			 FROM users WHERE email = ? AND deleted_at IS NULL`, email)
 	return scanUser(row)
 }
 
 func (r *SQLiteUserRepository) GetByID(ctx context.Context, id string) (model.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, password_hash, role, email_verified, created_at, updated_at
+		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,'')
 			 FROM users WHERE id = ? AND deleted_at IS NULL`, id)
 	return scanUser(row)
 }
@@ -73,8 +84,8 @@ func (r *SQLiteUserRepository) CreateEmailToken(ctx context.Context, t model.Ema
 		t.Token = uuid.NewString()
 	}
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO email_tokens (token, user_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
-		t.Token, t.UserID, t.Kind, t.ExpiresAt.Unix(), t.CreatedAt.Unix(),
+		`INSERT INTO email_tokens (token, user_id, kind, expires_at, created_at, meta) VALUES (?, ?, ?, ?, ?, ?)`,
+		t.Token, t.UserID, t.Kind, t.ExpiresAt.Unix(), t.CreatedAt.Unix(), t.Meta,
 	)
 	if err != nil {
 		return fmt.Errorf("create email token: %w", err)
@@ -86,8 +97,8 @@ func (r *SQLiteUserRepository) GetEmailToken(ctx context.Context, token string) 
 	var t model.EmailToken
 	var expiresAt, createdAt int64
 	err := r.db.QueryRowContext(ctx,
-		`SELECT token, user_id, kind, expires_at, created_at FROM email_tokens WHERE token = ?`, token,
-	).Scan(&t.Token, &t.UserID, &t.Kind, &expiresAt, &createdAt)
+		`SELECT token, user_id, kind, expires_at, created_at, meta FROM email_tokens WHERE token = ?`, token,
+	).Scan(&t.Token, &t.UserID, &t.Kind, &expiresAt, &createdAt, &t.Meta)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return model.EmailToken{}, fmt.Errorf("token not found")
@@ -97,6 +108,31 @@ func (r *SQLiteUserRepository) GetEmailToken(ctx context.Context, token string) 
 	t.ExpiresAt = time.Unix(expiresAt, 0)
 	t.CreatedAt = time.Unix(createdAt, 0)
 	return t, nil
+}
+
+func (r *SQLiteUserRepository) SetPendingEmail(ctx context.Context, id, pendingEmail string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET pending_email = ?, updated_at = ? WHERE id = ?`,
+		pendingEmail, time.Now().Unix(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("set pending email: %w", err)
+	}
+	return nil
+}
+
+func (r *SQLiteUserRepository) UpdateEmail(ctx context.Context, id, newEmail string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET email = ?, pending_email = NULL, updated_at = ? WHERE id = ?`,
+		newEmail, time.Now().Unix(), id,
+	)
+	if err != nil {
+		if strings.Contains(err.Error(), "users.email") {
+			return fmt.Errorf("email_taken")
+		}
+		return fmt.Errorf("update email: %w", err)
+	}
+	return nil
 }
 
 func (r *SQLiteUserRepository) DeleteEmailToken(ctx context.Context, token string) error {
@@ -140,7 +176,8 @@ func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var createdAt, updatedAt int64
 	var verified int
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt); err != nil {
+	// SELECT: id, email, name, username, password_hash, role, email_verified, created_at, updated_at, pending_email
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Username, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt, &u.PendingEmail); err != nil {
 		if err == sql.ErrNoRows {
 			return model.User{}, fmt.Errorf("user not found")
 		}

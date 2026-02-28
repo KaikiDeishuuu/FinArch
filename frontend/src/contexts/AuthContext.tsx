@@ -6,7 +6,7 @@ import type { AuthResponse, LoginRequest, RegisterRequest } from '../api/client'
 const SESSION_KEY = 'finarch_session'
 
 interface AuthState {
-  user: { id: string; email: string; name: string; role: string } | null
+  user: { id: string; email: string; username: string; role: string } | null
   token: string | null
 }
 
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(resp.token)
     const next: AuthState = {
       token: resp.token,
-      user: { id: resp.user_id, email: resp.email, name: resp.name, role: resp.role },
+      user: { id: resp.user_id, email: resp.email, username: resp.username, role: resp.role },
     }
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(next))
     setState(next)

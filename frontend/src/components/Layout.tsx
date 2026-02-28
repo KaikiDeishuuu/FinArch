@@ -84,9 +84,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-2.5 mb-2.5">
             <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
-              {((user?.name || user?.email || '?')[0]).toUpperCase()}
+              {((user?.username || user?.email || '?')[0]).toUpperCase()}
             </div>
-            <p className="text-xs text-gray-700 truncate font-medium">{user?.name || user?.email}</p>
+            <p className="text-xs text-gray-700 truncate font-medium">{user?.username || user?.email}</p>
           </div>
           <button
             onClick={logout}
@@ -105,7 +105,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
-            {((user?.name || user?.email || '?')[0]).toUpperCase()}
+            {((user?.username || user?.email || '?')[0]).toUpperCase()}
           </div>
           <button onClick={logout} className="text-xs text-gray-400 hover:text-red-500 transition-colors">
             退出

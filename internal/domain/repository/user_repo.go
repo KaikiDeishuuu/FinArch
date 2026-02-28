@@ -14,11 +14,15 @@ type UserRepository interface {
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
 	SetEmailVerified(ctx context.Context, id string) error
 
-	// Email token management (verification + password reset)
+	// Email token management (verification + password reset + deletion + email change)
 	CreateEmailToken(ctx context.Context, t model.EmailToken) error
 	GetEmailToken(ctx context.Context, token string) (model.EmailToken, error)
 	DeleteEmailToken(ctx context.Context, token string) error
 	DeleteEmailTokensByUser(ctx context.Context, userID, kind string) error
+
+	// Email change flow
+	SetPendingEmail(ctx context.Context, id, pendingEmail string) error
+	UpdateEmail(ctx context.Context, id, newEmail string) error // also clears pending_email
 
 	// DeleteUser permanently removes the user and all their data.
 	DeleteUser(ctx context.Context, id string) error

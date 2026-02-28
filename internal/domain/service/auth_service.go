@@ -40,9 +40,14 @@ func NewAuthService(
 // EmailVerificationRequired returns true when email verification is enforced.
 func (s *AuthService) EmailVerificationRequired() bool { return s.emailReq }
 
+// GetUserProfile returns the current user's profile including pending email.
+func (s *AuthService) GetUserProfile(ctx context.Context, userID string) (model.User, error) {
+	return s.users.GetByID(ctx, userID)
+}
+
 type RegisterRequest struct {
 	Email    string
-	Name     string
+	Username string
 	Password string
 }
 
@@ -51,15 +56,15 @@ type LoginResponse struct {
 	ExpiresAt time.Time
 	UserID    string
 	Email     string
-	Name      string
+	Username  string
 	Role      string
 }
 
 // Register creates a new user. If email verification is required, the user starts
 // as unverified and a verification email is sent. Returns the created user.
 func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.User, error) {
-	if req.Email == "" || req.Password == "" || req.Name == "" {
-		return model.User{}, fmt.Errorf("email, name and password are required")
+	if req.Email == "" || req.Password == "" || req.Username == "" {
+		return model.User{}, fmt.Errorf("email, username and password are required")
 	}
 	if len(req.Password) < 8 {
 		return model.User{}, fmt.Errorf("password must be at least 8 characters")
@@ -72,7 +77,8 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 	u := model.User{
 		ID:            uuid.NewString(),
 		Email:         req.Email,
-		Name:          req.Name,
+		Username:      req.Username,
+		Name:          req.Username,
 		PasswordHash:  hash,
 		Role:          "owner",
 		EmailVerified: !s.emailReq, // auto-verified when email is not required
@@ -103,7 +109,7 @@ func (s *AuthService) sendVerificationEmail(ctx context.Context, u model.User) e
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
 		return err
 	}
-	return s.emailSvc.SendVerification(u.Email, u.Name, token)
+	return s.emailSvc.SendVerification(u.Email, u.Username, token)
 }
 
 // ResendVerification sends a new verification email if the user exists and is unverified.
@@ -151,7 +157,56 @@ func (s *AuthService) ForgotPassword(ctx context.Context, emailAddr string) erro
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
 		return err
 	}
-	return s.emailSvc.SendPasswordReset(u.Email, u.Name, token)
+	return s.emailSvc.SendPasswordReset(u.Email, u.Username, token)
+}
+
+// RequestEmailChange sends a confirmation link to the new email address.
+func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail string) error {
+	// New email must not already be in use.
+	if _, err := s.users.GetByEmail(ctx, newEmail); err == nil {
+		return fmt.Errorf("该邮箱已被其他账户使用")
+	}
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("用户不存在")
+	}
+	if err := s.users.SetPendingEmail(ctx, u.ID, newEmail); err != nil {
+		return err
+	}
+	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "change_email")
+	token := uuid.NewString()
+	et := model.EmailToken{
+		Token: token, UserID: u.ID, Kind: "change_email", Meta: newEmail,
+		ExpiresAt: time.Now().Add(1 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+	if err := s.users.CreateEmailToken(ctx, et); err != nil {
+		return err
+	}
+	return s.emailSvc.SendEmailChange(newEmail, u.Username, token)
+}
+
+// ConfirmEmailChange validates the token and applies the email change.
+func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) error {
+	et, err := s.users.GetEmailToken(ctx, token)
+	if err != nil || et.Kind != "change_email" {
+		return fmt.Errorf("无效或已过期的邮箱变更链接")
+	}
+	if time.Now().After(et.ExpiresAt) {
+		_ = s.users.DeleteEmailToken(ctx, token)
+		return fmt.Errorf("链接已过期，请重新申请")
+	}
+	if et.Meta == "" {
+		return fmt.Errorf("无效的邮箱变更请求")
+	}
+	if err := s.users.UpdateEmail(ctx, et.UserID, et.Meta); err != nil {
+		if err.Error() == "email_taken" {
+			return fmt.Errorf("该邮箱已被其他账户使用，请重新申请")
+		}
+		return err
+	}
+	_ = s.users.DeleteEmailToken(ctx, token)
+	return nil
 }
 
 // ResetPassword resets the user's password using a valid reset token.
@@ -216,7 +271,7 @@ func (s *AuthService) RequestAccountDeletion(ctx context.Context, userID string)
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
 		return err
 	}
-	return s.emailSvc.SendAccountDeletion(u.Email, u.Name, token)
+	return s.emailSvc.SendAccountDeletion(u.Email, u.Username, token)
 }
 
 // ConfirmAccountDeletion validates the token and permanently deletes the user and all their data.
@@ -257,6 +312,6 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	}
 	return LoginResponse{
 		Token: token, ExpiresAt: exp,
-		UserID: u.ID, Email: u.Email, Name: u.Name, Role: u.Role,
+		UserID: u.ID, Email: u.Email, Username: u.Username, Role: u.Role,
 	}, nil
 }

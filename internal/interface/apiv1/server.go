@@ -98,13 +98,16 @@ func (s *Server) registerRoutes() {
 	pub.POST("/auth/forgot-password", s.authRateLimitMiddleware(), s.handleForgotPassword)
 	pub.POST("/auth/reset-password", s.handleResetPassword)
 	pub.POST("/auth/confirm-delete-account", s.handleConfirmDeleteAccount)
+	pub.POST("/auth/confirm-email-change", s.handleConfirmEmailChange)
 
-	// ─── Protected routes (JWT required) ─────────────────────────
+	// ─── Protected routes (JWT required) ──────────────────────────
 	api := r.Group("/api/v1", s.jwtMiddleware())
 
 	// User
+	api.GET("/auth/me", s.handleGetMe)
 	api.POST("/auth/change-password", s.handleChangePassword)
 	api.POST("/auth/request-delete-account", s.handleRequestDeleteAccount)
+	api.POST("/auth/request-email-change", s.handleRequestEmailChange)
 
 	// Transactions
 	api.GET("/transactions", s.handleListTransactions)
@@ -260,7 +263,7 @@ func (s *Server) handleConfig(c *gin.Context) {
 func (s *Server) handleRegister(c *gin.Context) {
 	var req struct {
 		Email        string `json:"email"         binding:"required,email"`
-		Name         string `json:"name"          binding:"required"`
+		Username     string `json:"username"      binding:"required"`
 		Password     string `json:"password"      binding:"required,min=8"`
 		CaptchaToken string `json:"captcha_token"`
 	}
@@ -273,9 +276,17 @@ func (s *Server) handleRegister(c *gin.Context) {
 		return
 	}
 	_, err := s.authSvc.Register(c.Request.Context(), service.RegisterRequest{
-		Email: req.Email, Name: req.Name, Password: req.Password,
+		Email: req.Email, Username: req.Username, Password: req.Password,
 	})
 	if err != nil {
+		if err.Error() == "register: username_taken" {
+			fail(c, 409, 40902, "该用户名已被使用")
+			return
+		}
+		if err.Error() == "register: email_taken" {
+			fail(c, 409, 40901, "该邮箱已被注册")
+			return
+		}
 		fail(c, 409, 40901, err.Error())
 		return
 	}
@@ -295,7 +306,7 @@ func (s *Server) handleRegister(c *gin.Context) {
 		"expires_at": resp.ExpiresAt.Format(time.RFC3339),
 		"user_id":    resp.UserID,
 		"email":      resp.Email,
-		"name":       resp.Name,
+		"username":   resp.Username,
 		"role":       resp.Role,
 	})
 }
@@ -328,7 +339,7 @@ func (s *Server) handleLogin(c *gin.Context) {
 		"expires_at": resp.ExpiresAt.Format(time.RFC3339),
 		"user_id":    resp.UserID,
 		"email":      resp.Email,
-		"name":       resp.Name,
+		"username":   resp.Username,
 		"role":       resp.Role,
 	})
 }
@@ -424,6 +435,51 @@ func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"message": "账户已注销，感谢您使用 FinArch"})
+}
+
+func (s *Server) handleGetMe(c *gin.Context) {
+	u, err := s.authSvc.GetUserProfile(c.Request.Context(), userID(c))
+	if err != nil {
+		fail(c, 404, 40401, "用户不存在")
+		return
+	}
+	ok(c, gin.H{
+		"id":            u.ID,
+		"email":         u.Email,
+		"username":      u.Username,
+		"pending_email": u.PendingEmail,
+		"role":          u.Role,
+	})
+}
+
+func (s *Server) handleRequestEmailChange(c *gin.Context) {
+	var req struct {
+		NewEmail string `json:"new_email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40020, err.Error())
+		return
+	}
+	if err := s.authSvc.RequestEmailChange(c.Request.Context(), userID(c), req.NewEmail); err != nil {
+		fail(c, 400, 40021, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "验证邮件已发送至新邮箱，请在 1 小时内点击链接完成变更"})
+}
+
+func (s *Server) handleConfirmEmailChange(c *gin.Context) {
+	var req struct {
+		Token string `json:"token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40022, err.Error())
+		return
+	}
+	if err := s.authSvc.ConfirmEmailChange(c.Request.Context(), req.Token); err != nil {
+		fail(c, 400, 40023, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "邮箱已更新"})
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────
