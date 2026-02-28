@@ -96,7 +96,7 @@ export function exportTransactionsPDF(
     '  </div>',
     '  <div class="header-right">',
     `    <div class="user-name">${user?.name ?? '—'}</div>`,
-    `    <div class="user-detail">${user?.email ?? ''} &nbsp;|&nbsp; ${user?.role ?? ''}</div>`,
+    `    <div class="user-detail">${user?.email ?? ''}</div>`,
     '  </div>',
     '</div>',
     '<div class="summary">',

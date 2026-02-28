@@ -8,7 +8,7 @@ type User struct {
 	Email        string
 	Name         string
 	PasswordHash string
-	Role         string // owner | member
+	Role         string // reserved; all users are equal
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

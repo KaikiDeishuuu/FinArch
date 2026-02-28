@@ -58,9 +58,6 @@ export default function SettingsPage() {
           <div>
             <p className="font-medium text-gray-800">{user?.name || '—'}</p>
             <p className="text-sm text-gray-400">{user?.email}</p>
-            <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-600 text-xs rounded-full font-medium">
-              {user?.role === 'owner' ? '管理员' : '成员'}
-            </span>
           </div>
         </div>
       </div>
