@@ -575,6 +575,18 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	if projID != nil && *projID == "" {
 		projID = nil
 	}
+	// Auto-create the project if it doesn't exist yet (prevents FK constraint failure
+	// when the user types a free-form project identifier in the form).
+	if projID != nil {
+		_, err := s.db.ExecContext(c.Request.Context(),
+			`INSERT OR IGNORE INTO projects(id, name, code, created_at) VALUES (?, ?, ?, ?)`,
+			*projID, *projID, *projID, time.Now().Unix(),
+		)
+		if err != nil {
+			fail(c, 500, 50001, "auto-create project: "+err.Error())
+			return
+		}
+	}
 	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
 		UserID: userID(c), OccurredAt: t, Direction: model.Direction(req.Direction),
 		Source: model.Source(req.Source), Category: req.Category,

@@ -47,12 +47,12 @@ function App() {
   useEffect(() => {
     const splash = document.getElementById('splash')
     if (!splash) return
-    // Delay slightly so splash is visible even on cached fast loads
+    // Delay so splash is visible for ~3 s (2600 ms display + 400 ms fade)
     const delay = setTimeout(() => {
       splash.style.opacity = '0'
       const remove = setTimeout(() => splash.remove(), 420)
       return () => clearTimeout(remove)
-    }, 300)
+    }, 2600)
     return () => clearTimeout(delay)
   }, [])
 

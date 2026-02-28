@@ -15,6 +15,8 @@ export default function AddTransactionPage() {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const [customCat, setCustomCat] = useState('')
+
   const [form, setForm] = useState({
     occurred_at: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
     direction: 'expense',
@@ -179,7 +181,7 @@ export default function AddTransactionPage() {
               <button
                 key={c}
                 type="button"
-                onClick={() => set('category', c)}
+                onClick={() => { set('category', c); setCustomCat('') }}
                 className={`flex items-center justify-center py-2.5 px-1 rounded-xl text-xs font-semibold border-2 transition-all ${
                   form.category === c
                     ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
@@ -189,6 +191,25 @@ export default function AddTransactionPage() {
                 <span className="leading-tight text-center">{c}</span>
               </button>
             ))}
+          </div>
+          {/* 自定义类别 */}
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-xs text-gray-400 shrink-0">自定义</span>
+            <input
+              type="text"
+              value={customCat}
+              onChange={e => {
+                const v = e.target.value
+                setCustomCat(v)
+                set('category', v.trim() !== '' ? v.trim() : CATEGORIES[0])
+              }}
+              placeholder="输入自定义类别名称…"
+              className={`flex-1 text-xs rounded-xl border-2 py-2 px-3 outline-none transition-all placeholder-gray-300 ${
+                !CATEGORIES.includes(form.category) && customCat.trim() !== ''
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                  : 'border-gray-200 bg-white text-gray-600 focus:border-blue-300 focus:bg-blue-50'
+              }`}
+            />
           </div>
         </div>
 
