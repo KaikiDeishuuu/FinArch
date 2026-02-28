@@ -523,6 +523,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		Source     string   `json:"source"`
 		Category   string   `json:"category"`
 		AmountYuan float64  `json:"amount_yuan"`
+		Currency   string   `json:"currency"`
 		Note       string   `json:"note"`
 		ProjectID  *string  `json:"project_id"`
 		Reimbursed bool     `json:"reimbursed"`
@@ -540,7 +541,8 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			ID: t.ID, OccurredAt: t.OccurredAt.Format("2006-01-02"),
 			Direction: string(t.Direction), Source: string(t.Source),
 			Category: t.Category, AmountYuan: t.AmountYuan.Float64(),
-			Note: t.Note, ProjectID: t.ProjectID, Reimbursed: t.Reimbursed,
+			Currency: t.Currency,
+			Note:     t.Note, ProjectID: t.ProjectID, Reimbursed: t.Reimbursed,
 			Uploaded: t.Uploaded, Tags: tagNames,
 		})
 	}
@@ -554,6 +556,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		Source     string   `json:"source"      binding:"required"`
 		Category   string   `json:"category"    binding:"required"`
 		AmountYuan float64  `json:"amount_yuan" binding:"required,gt=0"`
+		Currency   string   `json:"currency"`
 		Note       string   `json:"note"`
 		ProjectID  *string  `json:"project_id"`
 		TagIDs     []string `json:"tag_ids"`
@@ -575,7 +578,8 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
 		UserID: userID(c), OccurredAt: t, Direction: model.Direction(req.Direction),
 		Source: model.Source(req.Source), Category: req.Category,
-		AmountYuan: model.Money(req.AmountYuan), Note: req.Note, ProjectID: projID,
+		AmountYuan: model.Money(req.AmountYuan), Currency: req.Currency,
+		Note: req.Note, ProjectID: projID,
 	})
 	if err != nil {
 		fail(c, 422, 40001, err.Error())
