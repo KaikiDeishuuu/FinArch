@@ -77,7 +77,7 @@ LITESTREAM_ENDPOINT=https://xxxxxxxx.r2.cloudflarestorage.com
 # 获取 API Key：https://resend.com → API Keys
 RESEND_API_KEY=
 # 发件人地址（须在 Resend 控制台中已验证的域名下的地址）
-RESEND_FROM_EMAIL=noreply@yourdomain.com
+RESEND_FROM_EMAIL=hello@yourdomain.com
 # 应用外部访问 URL（用于邮件中的验证/重置链接）
 APP_BASE_URL=https://yourdomain.com
 ```
@@ -125,7 +125,7 @@ server {
 
    ```env
    RESEND_API_KEY=re_xxxxxxxxxxxx
-   RESEND_FROM_EMAIL=noreply@yourdomain.com
+   RESEND_FROM_EMAIL=hello@yourdomain.com
    APP_BASE_URL=https://yourdomain.com
    ```
 

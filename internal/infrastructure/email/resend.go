@@ -35,7 +35,7 @@ func NewResendSender(apiKey, from, baseURL string) Sender {
 		return &NoopSender{}
 	}
 	if from == "" {
-		from = "FinArch <noreply@finarch.app>"
+		from = "FinArch <hello@finarch.app>"
 	}
 	return &ResendSender{
 		apiKey:  apiKey,
