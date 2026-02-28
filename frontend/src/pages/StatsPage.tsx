@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
-import { getStatsMonthly, getStatsByCategory, getStatsByProject } from '../api/client'
-import type { MonthlyStat, CategoryStat, ProjectStat } from '../api/client'
-import { formatAmountCompact, formatAmount } from '../utils/format'
+import { listTransactions } from '../api/client'
+import type { Transaction } from '../api/client'
+import { formatAmountCompact, formatAmount, toCNY } from '../utils/format'
+import { useExchangeRates } from '../contexts/ExchangeRateContext'
 
 const PIE_COLORS = [
   '#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6',
@@ -15,26 +16,70 @@ const PIE_COLORS = [
 
 export default function StatsPage() {
   const year = new Date().getFullYear()
-  const [monthly, setMonthly] = useState<MonthlyStat[]>([])
-  const [categories, setCategories] = useState<CategoryStat[]>([])
-  const [projects, setProjects] = useState<ProjectStat[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
 
   useEffect(() => {
-    Promise.all([
-      getStatsMonthly(year),
-      getStatsByCategory(),
-      getStatsByProject(),
-    ]).then(([m, c, p]) => {
-      setMonthly(m ?? [])
-      setCategories(c ?? [])
-      setProjects(p ?? [])
-    }).finally(() => setLoading(false))
-  }, [year])
+    listTransactions()
+      .then(data => setTransactions(data ?? []))
+      .finally(() => setLoading(false))
+  }, [])
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
   const fmtShort = (n: number) => formatAmountCompact(n, 'CNY')
   const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+
+  // Compute monthly stats for current year
+  const monthly = useMemo(() => {
+    const map = new Map<number, { month: number; income: number; expense: number; reimbursed: number }>()
+    for (const t of transactions) {
+      if (!t.occurred_at.startsWith(String(year))) continue
+      const month = parseInt(t.occurred_at.substring(5, 7))
+      if (!map.has(month)) map.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
+      const entry = map.get(month)!
+      const cny = toCNY(t.amount_yuan, t.currency || 'CNY', rates)
+      if (t.direction === 'income') {
+        entry.income += cny
+      } else {
+        entry.expense += cny
+        if (t.source === 'personal' && t.reimbursed) entry.reimbursed += cny
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.month - b.month)
+  }, [transactions, rates, year])
+
+  // Compute category stats (all-time expense)
+  const categories = useMemo(() => {
+    const map = new Map<string, { total: number; count: number }>()
+    for (const t of transactions) {
+      if (t.direction !== 'expense') continue
+      const cat = t.category || '其他'
+      if (!map.has(cat)) map.set(cat, { total: 0, count: 0 })
+      const entry = map.get(cat)!
+      entry.total += toCNY(t.amount_yuan, t.currency || 'CNY', rates)
+      entry.count++
+    }
+    return Array.from(map.entries())
+      .map(([category, v]) => ({ category, total: v.total, count: v.count }))
+      .sort((a, b) => b.total - a.total)
+  }, [transactions, rates])
+
+  // Compute project stats (all-time)
+  const projects = useMemo(() => {
+    const map = new Map<string, { project_name: string; income: number; expense: number }>()
+    for (const t of transactions) {
+      if (!t.project_id) continue
+      if (!map.has(t.project_id)) map.set(t.project_id, { project_name: t.project_id, income: 0, expense: 0 })
+      const entry = map.get(t.project_id)!
+      const cny = toCNY(t.amount_yuan, t.currency || 'CNY', rates)
+      if (t.direction === 'income') entry.income += cny
+      else entry.expense += cny
+    }
+    return Array.from(map.entries())
+      .map(([project_id, v]) => ({ project_id, project_name: v.project_name, income: v.income, expense: v.expense, net: v.income - v.expense }))
+      .sort((a, b) => a.project_id.localeCompare(b.project_id))
+  }, [transactions, rates])
 
   const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
   const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
@@ -51,22 +96,29 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">统计分析</h1>
-        <p className="text-sm text-gray-400 mt-1">{year} 年度资金概览</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">统计分析</h1>
+          <p className="text-sm text-gray-400 mt-1">{year} 年度资金概览</p>
+        </div>
+        {!ratesLoading && (
+          rateDate
+            ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium mt-1">实时汇率 {rateDate}</span>
+            : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 text-amber-600 font-medium mt-1">备用汇率</span>
+        )}
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-emerald-400 to-green-500" />
+          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-indigo-400 to-violet-500" />
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度收入</p>
-          <p className="text-base md:text-2xl font-bold text-emerald-600 truncate tabular-nums mt-1">{fmtShort(totalIncome)}</p>
+          <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1">{fmtShort(totalIncome)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-red-400 to-rose-500" />
+          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-rose-400 to-pink-500" />
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度支出</p>
-          <p className="text-base md:text-2xl font-bold text-red-500 truncate tabular-nums mt-1">{fmtShort(totalExpense)}</p>
+          <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1">{fmtShort(totalExpense)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
           <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${totalNet >= 0 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`} />
@@ -86,10 +138,10 @@ export default function StatsPage() {
           </div>
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm bg-emerald-400 inline-block" />收入
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#6366f1' }} />收入
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm bg-red-400 inline-block" />支出
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#f43f5e' }} />支出
             </span>
           </div>
         </div>
@@ -124,8 +176,8 @@ export default function StatsPage() {
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
                   cursor={{ fill: 'rgba(99,102,241,0.06)' }}
                 />
-                <Bar dataKey="income" name="收入" fill="#34d399" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name="支出" fill="#f87171" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" name="收入" fill="#6366f1" radius={[4, 4, 0, 0]} activeBar={false} />
+                <Bar dataKey="expense" name="支出" fill="#f43f5e" radius={[4, 4, 0, 0]} activeBar={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -152,8 +204,8 @@ export default function StatsPage() {
                     paddingAngle={3}
                     strokeWidth={0}
                   >
-                    <Cell fill="#34d399" />
-                    <Cell fill="#f87171" />
+                    <Cell fill="#6366f1" />
+                    <Cell fill="#f43f5e" />
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
                     contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
@@ -165,30 +217,30 @@ export default function StatsPage() {
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="flex items-center gap-2 text-gray-500 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />收入
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#6366f1' }} />收入
                   </span>
-                  <span className="font-bold text-emerald-600 tabular-nums">{fmt(totalIncome)}</span>
+                  <span className="font-bold tabular-nums" style={{ color: '#6366f1' }}>{fmt(totalIncome)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                  <div className="h-full rounded-full" style={{ background: '#6366f1', width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="flex items-center gap-2 text-gray-500 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" />支出
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#f43f5e' }} />支出
                   </span>
-                  <span className="font-bold text-red-500 tabular-nums">{fmt(totalExpense)}</span>
+                  <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(totalExpense)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-red-400 rounded-full" style={{ width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                  <div className="h-full rounded-full" style={{ background: '#f43f5e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               {totalReimbursed > 0 && (
                 <div className="pt-1 border-t border-gray-100">
                   <div className="flex items-center justify-between text-xs text-gray-400">
                     <span>已报销抵扣</span>
-                    <span className="font-semibold text-blue-500 tabular-nums">+{fmt(totalReimbursed)}</span>
+                    <span className="font-semibold text-violet-500 tabular-nums">+{fmt(totalReimbursed)}</span>
                   </div>
                 </div>
               )}
@@ -278,14 +330,14 @@ export default function StatsPage() {
                     {p.project_name && <p className="text-xs text-gray-400 mt-0.5">{p.project_name}</p>}
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className="text-green-600 font-medium tabular-nums">{fmt(p.income)}</span>
+                    <span className="text-indigo-600 font-medium tabular-nums">{fmt(p.income)}</span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className="text-red-500 font-medium tabular-nums">{fmt(p.expense)}</span>
+                    <span className="text-rose-500 font-medium tabular-nums">{fmt(p.expense)}</span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     <span className={`font-bold tabular-nums px-2 py-0.5 rounded-lg text-xs ${
-                      p.net >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
+                      p.net >= 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-600'
                     }`}>
                       {p.net >= 0 ? '+' : ''}{fmt(p.net)}
                     </span>

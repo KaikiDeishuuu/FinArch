@@ -46,28 +46,18 @@ type ProjectStat struct {
 	Net         float64 `json:"net"`
 }
 
-// cnyExpr returns a SQL expression that converts amount_yuan to CNY equivalent
-// based on the transaction's currency field.
-const cnyExpr = `amount_yuan * CASE currency
-  WHEN 'USD' THEN 7.2
-  WHEN 'EUR' THEN 7.8
-  WHEN 'JPY' THEN 0.05
-  WHEN 'GBP' THEN 9.0
-  ELSE 1
-END`
-
 // Summary returns company balance + personal outstanding for a user.
 func (s *StatsService) Summary(ctx context.Context, userID string) (PoolBalance, error) {
 	var b PoolBalance
 	err := s.db.QueryRowContext(ctx, `
 		SELECT
 		  COALESCE(SUM(CASE
-		    WHEN source='company' AND direction='income'  THEN  `+cnyExpr+`
-		    WHEN source='company' AND direction='expense' THEN -(`+cnyExpr+`)
+		    WHEN source='company' AND direction='income'  THEN  amount_yuan
+		    WHEN source='company' AND direction='expense' THEN -amount_yuan
 		    ELSE 0 END), 0),
 		  COALESCE(SUM(CASE
 		    WHEN source='personal' AND direction='expense' AND reimbursed=0
-		    THEN `+cnyExpr+` ELSE 0 END), 0)
+		    THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
 		WHERE user_id = ?
 	`, userID).Scan(&b.CompanyBalance, &b.PersonalOutstanding)
@@ -83,9 +73,9 @@ func (s *StatsService) Monthly(ctx context.Context, userID string, year int) ([]
 		SELECT
 		  CAST(strftime('%Y', datetime(occurred_at, 'unixepoch')) AS INTEGER),
 		  CAST(strftime('%m', datetime(occurred_at, 'unixepoch')) AS INTEGER),
-			  COALESCE(SUM(CASE WHEN direction='income' THEN `+cnyExpr+` ELSE 0 END), 0),
-			  COALESCE(SUM(CASE WHEN direction='expense' THEN `+cnyExpr+` ELSE 0 END), 0),
-			  COALESCE(SUM(CASE WHEN direction='expense' AND source='personal' AND reimbursed=1 THEN `+cnyExpr+` ELSE 0 END), 0)
+			  COALESCE(SUM(CASE WHEN direction='income' THEN amount_yuan ELSE 0 END), 0),
+			  COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0),
+			  COALESCE(SUM(CASE WHEN direction='expense' AND source='personal' AND reimbursed=1 THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
 		WHERE strftime('%Y', datetime(occurred_at, 'unixepoch')) = ? AND user_id = ?
 		GROUP BY 1, 2
@@ -110,7 +100,7 @@ func (s *StatsService) Monthly(ctx context.Context, userID string, year int) ([]
 func (s *StatsService) ByCategory(ctx context.Context, userID string, dateFrom, dateTo string) ([]CategoryStat, error) {
 	q := `
 		SELECT category,
-		       COALESCE(SUM(` + cnyExpr + `), 0) AS total,
+		       COALESCE(SUM(amount_yuan), 0) AS total,
 		       COUNT(*) AS cnt
 		FROM transactions
 		WHERE direction='expense' AND user_id = ?`
@@ -146,8 +136,8 @@ func (s *StatsService) ByProject(ctx context.Context, userID string) ([]ProjectS
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT project_id,
 		       COALESCE((SELECT name FROM projects WHERE id = project_id), project_id),
-		       COALESCE(SUM(CASE WHEN direction='income'  THEN `+cnyExpr+` ELSE 0 END), 0),
-		       COALESCE(SUM(CASE WHEN direction='expense' THEN `+cnyExpr+` ELSE 0 END), 0)
+		       COALESCE(SUM(CASE WHEN direction='income'  THEN amount_yuan ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN direction='expense' THEN amount_yuan ELSE 0 END), 0)
 		FROM transactions
 		WHERE project_id IS NOT NULL AND project_id != '' AND user_id = ?
 		GROUP BY project_id

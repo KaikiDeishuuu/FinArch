@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { matchSubsetSum, toggleReimbursed, toggleUploaded } from '../api/client'
 import type { MatchResult } from '../api/client'
-import { formatAmount } from '../utils/format'
+import { formatAmount, toCNY } from '../utils/format'
+import { useExchangeRates } from '../contexts/ExchangeRateContext'
 
 export default function MatchPage() {
   const [target, setTarget] = useState('')
@@ -16,6 +17,17 @@ export default function MatchPage() {
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
+  const { rates } = useExchangeRates()
+
+  // Compute CNY total for a result using live rates from its items
+  function cnyTotal(r: MatchResult): number {
+    if (!r.items?.length) return r.total
+    return r.items.reduce((s, item) => s + toCNY(item.amount_yuan, item.currency || 'CNY', rates), 0)
+  }
+  // True if a result contains non-CNY currencies
+  function hasMixedCurrency(r: MatchResult): boolean {
+    return !!r.items?.some(item => item.currency && item.currency.toUpperCase() !== 'CNY')
+  }
 
   async function handleReimburse(id: string, alreadyUploaded: boolean) {
     setLoadingId(id)
@@ -71,7 +83,10 @@ export default function MatchPage() {
         {/* Info bar */}
         <div className="bg-blue-50 border-b border-blue-100 px-5 py-3 flex items-start gap-2.5">
           <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-          <p className="text-sm text-blue-700">在<strong>已上传、未报销</strong>的个人垫付记录中，找出金额之和与目标最接近的组合</p>
+          <div>
+            <p className="text-sm text-blue-700">在<strong>已上传、未报销</strong>的个人庞付记录中，找出金额之和与目标最接近的组合</p>
+            <p className="text-xs text-blue-500/80 mt-1">注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5">
@@ -172,15 +187,16 @@ export default function MatchPage() {
                     {i + 1}
                   </span>
                   <div>
-                    <div className="flex items-center gap-3">
-                      <p className="font-bold text-gray-800 text-base">{fmt(r.total, 'CNY')}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-gray-800 text-base">{fmt(cnyTotal(r), 'CNY')}</p>
                       {r.error <= 0.01 && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">精确匹配</span>
                       )}
+                      {hasMixedCurrency(r) && (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">含外币·已汇率换算</span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                      <span>误差 {fmt(r.error, 'CNY')}</span>
-                      <span className="w-1 h-1 rounded-full bg-gray-300" />
                       <span>{r.item_count} 笔</span>
                       <span className="w-1 h-1 rounded-full bg-gray-300" />
                       <span>{r.project_count} 个项目</span>
@@ -243,8 +259,8 @@ export default function MatchPage() {
                           )
                         })}
                         <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-gray-500">合计</span>
-                          <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(r.total, 'CNY')}</span>
+                          <span className="text-xs font-semibold text-gray-500">合计（按实时汇率）</span>
+                          <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
                         </div>
                       </div>
                       {/* Desktop: table */}
@@ -308,8 +324,9 @@ export default function MatchPage() {
                         </tbody>
                         <tfoot>
                           <tr className="bg-gray-50 border-t border-gray-200">
-                            <td colSpan={6} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(r.total, 'CNY')}</td>
+                            <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计（按实时汇率）</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(cnyTotal(r), 'CNY')}</td>
+                            <td />
                           </tr>
                         </tfoot>
                       </table>

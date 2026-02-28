@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getStatsSummary, listTransactions } from '../api/client'
-import type { PoolBalance, Transaction } from '../api/client'
+import { listTransactions } from '../api/client'
+import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { toCNY, formatAmount } from '../utils/format'
 
 const IconList = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -80,21 +82,14 @@ const FEATURES = [
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const [balance, setBalance] = useState<PoolBalance | null>(null)
-  const [pendingTxs, setPendingTxs] = useState<Transaction[]>([])
+  const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([getStatsSummary(), listTransactions()])
-      .then(([bal, txs]) => {
-        setBalance(bal)
-        // 未上传 or 已上传未报销的个人垫付
-        const pending = (txs ?? []).filter(
-          (t) => t.source === 'personal' && !t.reimbursed
-        )
-        setPendingTxs(pending)
-      })
+    listTransactions()
+      .then((txs) => setTransactions(txs ?? []))
       .catch((err) => {
         const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
         setError(msg || '数据加载失败，请刷新页面重试')
@@ -102,8 +97,25 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const fmt = (n: number) => `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+  const companyBalance = useMemo(() =>
+    transactions.reduce((s, t) => {
+      if (t.source !== 'company') return s
+      const cny = toCNY(t.amount_yuan, t.currency || 'CNY', rates)
+      return s + (t.direction === 'income' ? cny : -cny)
+    }, 0),
+    [transactions, rates]
+  )
 
+  const personalOutstanding = useMemo(() =>
+    transactions
+      .filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
+      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
+    [transactions, rates]
+  )
+
+  const fmt = (n: number) => formatAmount(n, 'CNY')
+
+  const pendingTxs = transactions.filter(t => t.source === 'personal' && !t.reimbursed)
   const notUploaded = pendingTxs.filter((t) => !t.uploaded)
   const uploadedNotReimbursed = pendingTxs.filter((t) => t.uploaded && !t.reimbursed)
 
@@ -130,7 +142,15 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
-          <p className="text-sm text-gray-400 mt-1">FinArch · {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <p className="text-sm text-gray-400">FinArch · {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            {ratesLoading
+              ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">汇率加载中…</span>
+              : rateDate
+                ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">实时汇率 {rateDate}</span>
+                : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">备用汇率</span>
+            }
+          </div>
         </div>
         <Link
           to="/add"
@@ -151,7 +171,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">公司账户</p>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-emerald-700 leading-tight tabular-nums break-all">{balance ? fmt(balance.company_balance) : '—'}</p>
+            <p className="text-xl md:text-2xl font-bold text-emerald-700 leading-tight tabular-nums break-all">{fmt(companyBalance)}</p>
             <p className="text-xs text-emerald-500/80 mt-1.5">当前可用资金</p>
           </div>
         </div>
@@ -164,7 +184,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">待报销</p>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-amber-700 leading-tight tabular-nums break-all">{balance ? fmt(balance.personal_outstanding) : '—'}</p>
+            <p className="text-xl md:text-2xl font-bold text-amber-700 leading-tight tabular-nums break-all">{fmt(personalOutstanding)}</p>
             <p className="text-xs text-amber-500/80 mt-1.5">个人垫付未报销合计</p>
           </div>
         </div>

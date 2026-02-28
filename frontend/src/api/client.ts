@@ -263,10 +263,9 @@ export interface ProjectStat {
   net: number
 }
 
-export async function getStatsSummary(): Promise<PoolBalance> {
-  const { data } = await client.get('/stats/summary')
-  return data.data
-}
+// NOTE: getStatsSummary has been removed — it returned raw amount_yuan sums
+// across mixed currencies (no conversion). Dashboard now computes balances
+// from listTransactions() + live exchange rates on the frontend.
 
 export async function getStatsMonthly(year?: number): Promise<MonthlyStat[]> {
   const params = year ? { year } : {}
