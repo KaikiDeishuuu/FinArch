@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
 import AddTransactionPage from './pages/AddTransactionPage'
@@ -41,6 +43,8 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginRouteWrapper />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </AuthProvider>

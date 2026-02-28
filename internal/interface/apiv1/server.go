@@ -93,6 +93,10 @@ func (s *Server) registerRoutes() {
 	pub.GET("/config", s.handleConfig)
 	pub.POST("/auth/register", s.authRateLimitMiddleware(), s.handleRegister)
 	pub.POST("/auth/login", s.authRateLimitMiddleware(), s.handleLogin)
+	pub.GET("/auth/verify-email", s.handleVerifyEmail)
+	pub.POST("/auth/resend-verification", s.authRateLimitMiddleware(), s.handleResendVerification)
+	pub.POST("/auth/forgot-password", s.authRateLimitMiddleware(), s.handleForgotPassword)
+	pub.POST("/auth/reset-password", s.handleResetPassword)
 
 	// ─── Protected routes (JWT required) ─────────────────────────
 	api := r.Group("/api/v1", s.jwtMiddleware())
@@ -244,7 +248,8 @@ func fail(c *gin.Context, status, code int, msg string) {
 // handleConfig returns public runtime configuration consumed by the frontend.
 func (s *Server) handleConfig(c *gin.Context) {
 	ok(c, gin.H{
-		"turnstile_site_key": s.turnstileSiteKey,
+		"turnstile_site_key":          s.turnstileSiteKey,
+		"email_verification_required": s.authSvc.EmailVerificationRequired(),
 	})
 }
 
@@ -272,7 +277,12 @@ func (s *Server) handleRegister(c *gin.Context) {
 		fail(c, 409, 40901, err.Error())
 		return
 	}
-	// Auto-login after registration
+	// If email verification is required, don't auto-login.
+	if s.authSvc.EmailVerificationRequired() {
+		c.JSON(http.StatusAccepted, gin.H{"message": "注册成功，验证邮件已发送，请检查邮箱后登录"})
+		return
+	}
+	// Auto-login after registration (email not required)
 	resp, err := s.authSvc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		fail(c, 500, 50001, err.Error())
@@ -304,6 +314,10 @@ func (s *Server) handleLogin(c *gin.Context) {
 	}
 	resp, err := s.authSvc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
+		if err.Error() == "email_not_verified" {
+			fail(c, 403, 40301, "邮箱尚未验证，请检查您的邮箱并点击验证链接")
+			return
+		}
 		fail(c, 401, 40101, err.Error())
 		return
 	}
@@ -315,6 +329,59 @@ func (s *Server) handleLogin(c *gin.Context) {
 		"name":       resp.Name,
 		"role":       resp.Role,
 	})
+}
+
+func (s *Server) handleVerifyEmail(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.Redirect(http.StatusFound, "/login?error=invalid_token")
+		return
+	}
+	if err := s.authSvc.VerifyEmail(c.Request.Context(), token); err != nil {
+		c.Redirect(http.StatusFound, "/login?error=invalid_token")
+		return
+	}
+	c.Redirect(http.StatusFound, "/login?verified=1")
+}
+
+func (s *Server) handleResendVerification(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	_ = s.authSvc.ResendVerification(c.Request.Context(), req.Email)
+	ok(c, gin.H{"message": "如果该邮箱已注册，验证邮件将在几分钟内发送"})
+}
+
+func (s *Server) handleForgotPassword(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	_ = s.authSvc.ForgotPassword(c.Request.Context(), req.Email)
+	ok(c, gin.H{"message": "如果该邮箱已注册，重置密码邮件将在几分钟内发送"})
+}
+
+func (s *Server) handleResetPassword(c *gin.Context) {
+	var req struct {
+		Token       string `json:"token"        binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	if err := s.authSvc.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		fail(c, 400, 40002, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "密码重置成功，请使用新密码登录"})
 }
 
 func (s *Server) handleChangePassword(c *gin.Context) {

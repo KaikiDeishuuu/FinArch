@@ -64,9 +64,33 @@ export async function login(req: LoginRequest): Promise<AuthResponse> {
   return data.data
 }
 
-export async function register(req: RegisterRequest): Promise<AuthResponse> {
-  const { data } = await client.post('/auth/register', req)
-  return data.data
+export interface RegisterResponse {
+  // 201: auto-login (no email verification required)
+  token?: string
+  expires_at?: string
+  user_id?: string
+  email?: string
+  name?: string
+  role?: string
+  // 202: email verification sent
+  message?: string
+}
+
+export async function register(req: RegisterRequest): Promise<RegisterResponse> {
+  const resp = await client.post('/auth/register', req)
+  return resp.data.data ?? resp.data
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await client.post('/auth/forgot-password', { email })
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await client.post('/auth/reset-password', { token, new_password: newPassword })
+}
+
+export async function resendVerification(email: string): Promise<void> {
+  await client.post('/auth/resend-verification', { email })
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -78,6 +102,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 export interface AppConfig {
   turnstile_site_key: string
+  email_verification_required: boolean
 }
 
 export async function getAppConfig(): Promise<AppConfig> {

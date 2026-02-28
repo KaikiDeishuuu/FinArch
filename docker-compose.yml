@@ -12,6 +12,12 @@ services:
       # Get keys at https://dash.cloudflare.com/?to=/:account/turnstile
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
+      # Email verification & password reset (Resend API, leave empty to disable)
+      # Get API key at https://resend.com — set RESEND_API_KEY to enable
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-}
+      # App base URL used in email links (defaults to https://farc.wulab.tech)
+      - APP_BASE_URL=${APP_BASE_URL:-}
     volumes:
       - finarch-data:/data
     network_mode: host

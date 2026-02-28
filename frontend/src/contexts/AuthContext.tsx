@@ -12,7 +12,8 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (req: LoginRequest) => Promise<void>
-  register: (req: RegisterRequest) => Promise<void>
+  // Returns true if email verification is pending (202), false if auto-logged in (201)
+  register: (req: RegisterRequest) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
 }
@@ -51,9 +52,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyAuth(resp)
   }, [applyAuth])
 
-  const register = useCallback(async (req: RegisterRequest) => {
+  const register = useCallback(async (req: RegisterRequest): Promise<boolean> => {
     const resp = await apiRegister(req)
-    applyAuth(resp)
+    if (resp.token) {
+      // email verification not required — auto-login
+      applyAuth(resp as AuthResponse)
+      return false
+    }
+    // 202: email verification pending
+    return true
   }, [applyAuth])
 
   const logout = useCallback(() => {

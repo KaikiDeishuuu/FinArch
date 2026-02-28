@@ -11,6 +11,7 @@ import (
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
 	"finarch/internal/infrastructure/db"
+	"finarch/internal/infrastructure/email"
 	sqliterepo "finarch/internal/infrastructure/repository"
 	"finarch/internal/interface/apiv1"
 )
@@ -55,6 +56,17 @@ func main() {
 	captchaVerifier := auth.NewTurnstileVerifier(os.Getenv("TURNSTILE_SECRET"))
 	turnstileSiteKey := os.Getenv("TURNSTILE_SITE_KEY")
 
+	// Email service (Resend). Set RESEND_API_KEY to enable email verification.
+	appBaseURL := os.Getenv("APP_BASE_URL")
+	if appBaseURL == "" {
+		appBaseURL = "https://farc.wulab.tech"
+	}
+	emailSvc := email.NewResendSender(
+		os.Getenv("RESEND_API_KEY"),
+		os.Getenv("RESEND_FROM_EMAIL"),
+		appBaseURL,
+	)
+
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
 	userRepo := sqliterepo.NewSQLiteUserRepository(database)
@@ -64,7 +76,7 @@ func main() {
 	txSvc := service.NewTransactionService(txRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
-	authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker)
+	authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 	statsSvc := service.NewStatsService(database)
 
 	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)

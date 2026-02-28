@@ -14,6 +14,7 @@ import (
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
 	"finarch/internal/infrastructure/db"
+	"finarch/internal/infrastructure/email"
 	sqliterepo "finarch/internal/infrastructure/repository"
 	"finarch/internal/interface/apiv1"
 )
@@ -110,7 +111,13 @@ func main() {
 		userRepo := sqliterepo.NewSQLiteUserRepository(database)
 		tagRepo := sqliterepo.NewSQLiteTagRepository(database)
 		txSvc, reimSvc, matchSvc, txRepo := buildServicesWithRepo(database)
-		authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker)
+		// Email service (no-op in dev unless RESEND_API_KEY is set)
+		appBaseURL := os.Getenv("APP_BASE_URL")
+		if appBaseURL == "" {
+			appBaseURL = "http://localhost:8080"
+		}
+		emailSvc := email.NewResendSender(os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM_EMAIL"), appBaseURL)
+		authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 		statsSvc := service.NewStatsService(database)
 		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
 		log.Printf("FinArch API v1: http://%s", addr)

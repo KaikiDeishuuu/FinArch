@@ -12,6 +12,13 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (model.User, error)
 	GetByID(ctx context.Context, id string) (model.User, error)
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
+	SetEmailVerified(ctx context.Context, id string) error
+
+	// Email token management (verification + password reset)
+	CreateEmailToken(ctx context.Context, t model.EmailToken) error
+	GetEmailToken(ctx context.Context, token string) (model.EmailToken, error)
+	DeleteEmailToken(ctx context.Context, token string) error
+	DeleteEmailTokensByUser(ctx context.Context, userID, kind string) error
 }
 
 // TagRepository defines tag data access.
