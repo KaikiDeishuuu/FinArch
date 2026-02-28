@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 
 interface Props {
   compact: string
@@ -16,20 +16,19 @@ interface Props {
 export default function CompactAmount({ compact, exact, className = '', prefix = '' }: Props) {
   const [show, setShow] = useState(false)
   const [pos, setPos] = useState({ x: 0, y: 0 })
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAbbreviated = compact !== exact
 
   function handleClick(e: React.MouseEvent) {
     if (!isAbbreviated) return
     e.stopPropagation()
+    if (show) {
+      setShow(false)
+      return
+    }
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     setPos({ x: rect.left + rect.width / 2, y: rect.top - 8 })
-    if (timerRef.current) clearTimeout(timerRef.current)
     setShow(true)
-    timerRef.current = setTimeout(() => setShow(false), 3000)
   }
-
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
   return (
     <>
