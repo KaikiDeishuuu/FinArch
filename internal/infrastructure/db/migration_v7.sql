@@ -1,6 +1,6 @@
 -- V7: username (unique, immutable) + pending_email + change_email token kind
 
--- Add username column; copy existing name values so legacy accounts are migrated.
+-- Add username column and backfill from existing name values for legacy accounts.
 ALTER TABLE users ADD COLUMN username TEXT NOT NULL DEFAULT '';
 UPDATE users SET username = name WHERE username = '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE deleted_at IS NULL;
