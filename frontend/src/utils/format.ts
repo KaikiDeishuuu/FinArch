@@ -1,3 +1,5 @@
+import { toCNYWithRates, FALLBACK_RATES } from './exchangeRates'
+
 /** Mapping from currency code to display symbol. */
 const CURRENCY_SYMBOLS: Record<string, string> = {
   CNY: '¥',
@@ -8,22 +10,18 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 }
 
 /**
- * Approximate exchange rates to CNY (1 unit of foreign currency = N CNY).
- * Used for aggregated totals, stats and PDF summaries.
- * Individual transaction amounts are always shown in their original currency.
+ * Approximate exchange rates to CNY — used only as a last-resort fallback
+ * when the live rate context is not available (e.g. standalone utility calls).
  */
-export const EXCHANGE_RATES_TO_CNY: Record<string, number> = {
-  CNY: 1,
-  USD: 7.2,
-  EUR: 7.8,
-  JPY: 0.05,
-  GBP: 9.0,
-}
+export const EXCHANGE_RATES_TO_CNY: Record<string, number> = FALLBACK_RATES
 
 /** Converts an amount in any currency to CNY equivalent. */
-export function toCNY(amount: number, currency: string): number {
-  const rate = EXCHANGE_RATES_TO_CNY[(currency ?? 'CNY').toUpperCase()] ?? 1
-  return amount * rate
+export function toCNY(
+  amount: number,
+  currency: string,
+  rates?: Record<string, number>,
+): number {
+  return toCNYWithRates(amount, currency, rates ?? FALLBACK_RATES)
 }
 
 /** Returns the symbol for a currency code, falling back to the code itself. */
@@ -74,10 +72,10 @@ export function sumByCurrency(items: AmountWithCurrency[]): Map<string, number> 
 
 /**
  * Converts all amounts to CNY equivalents and sums them.
- * Used for aggregate totals in summary cards, PDF exports, etc.
+ * Pass live `rates` from ExchangeRateContext for accurate conversion.
  */
-export function sumInCNY(items: AmountWithCurrency[]): number {
-  return items.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY'), 0)
+export function sumInCNY(items: AmountWithCurrency[], rates?: Record<string, number>): number {
+  return items.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
 }
 
 /**

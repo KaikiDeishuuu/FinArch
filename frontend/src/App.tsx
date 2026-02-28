@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
 import Layout from './components/Layout'
@@ -46,13 +47,18 @@ function App() {
   useEffect(() => {
     const splash = document.getElementById('splash')
     if (!splash) return
-    splash.style.opacity = '0'
-    const t = setTimeout(() => splash.remove(), 420)
-    return () => clearTimeout(t)
+    // Delay slightly so splash is visible even on cached fast loads
+    const delay = setTimeout(() => {
+      splash.style.opacity = '0'
+      const remove = setTimeout(() => splash.remove(), 420)
+      return () => clearTimeout(remove)
+    }, 300)
+    return () => clearTimeout(delay)
   }, [])
 
   return (
     <BrowserRouter>
+      <ExchangeRateProvider>
       <ConfigProvider>
         <AuthProvider>
           <Routes>
@@ -66,6 +72,7 @@ function App() {
           </Routes>
         </AuthProvider>
       </ConfigProvider>
+      </ExchangeRateProvider>
       <PwaUpdatePrompt />
     </BrowserRouter>
   )

@@ -122,7 +122,7 @@ export default function StatsPage() {
                   formatter={(value, name) => [fmt(value as number), name === 'income' ? '收入' : '支出']}
                   labelStyle={{ fontWeight: 600, color: '#374151' }}
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
-                  cursor={{ fill: 'rgba(0,0,0,0.03)', radius: 6 }}
+                  cursor={{ fill: 'rgba(99,102,241,0.06)' }}
                 />
                 <Bar dataKey="income" name="收入" fill="#34d399" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="expense" name="支出" fill="#f87171" radius={[4, 4, 0, 0]} />
@@ -155,7 +155,9 @@ export default function StatsPage() {
                     <Cell fill="#34d399" />
                     <Cell fill="#f87171" />
                   </Pie>
-                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} />
+                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -218,7 +220,9 @@ export default function StatsPage() {
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} />
+                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>

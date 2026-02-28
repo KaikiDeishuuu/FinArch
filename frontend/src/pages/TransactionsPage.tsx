@@ -5,6 +5,7 @@ import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
+import { useExchangeRates } from '../contexts/ExchangeRateContext'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -36,6 +37,7 @@ function StatusBadge({
 
 export default function TransactionsPage() {
   const { user } = useAuth()
+  const { rates } = useExchangeRates()
   const [txs, setTxs] = useState<Transaction[]>([])
   const [filter, setFilter] = useState<FilterTab>('all')
   const [loading, setLoading] = useState(true)
@@ -63,7 +65,7 @@ export default function TransactionsPage() {
 
   function exportPDF() {
     const filterLabel = { all: '全部', unreimbursed: '待报销', reimbursed: '已报销' }[filter]
-    exportTransactionsPDF(filtered, filterLabel, user)
+    exportTransactionsPDF(filtered, filterLabel, user, rates)
   }
 
   async function handleToggle(id: string) {
@@ -107,8 +109,8 @@ export default function TransactionsPage() {
 
   const incomeItems = filtered.filter(t => t.direction === 'income')
   const expenseItems = filtered.filter(t => t.direction === 'expense')
-  const totalIncomeStr = formatAmount(sumInCNY(incomeItems), 'CNY')
-  const totalExpenseStr = formatAmount(sumInCNY(expenseItems), 'CNY')
+  const totalIncomeStr = formatAmount(sumInCNY(incomeItems, rates), 'CNY')
+  const totalExpenseStr = formatAmount(sumInCNY(expenseItems, rates), 'CNY')
 
   return (
     <div className="space-y-5">
