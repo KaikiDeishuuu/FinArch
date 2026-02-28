@@ -223,7 +223,7 @@ export default function MatchPage() {
                             <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
                               <div className="flex items-center justify-between gap-2">
                                 <span className={`font-semibold text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.category}</span>
-                                <span className={`font-bold tabular-nums text-sm ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
+                                <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
                               </div>
                               <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
                                 <span className="tabular-nums">{item.occurred_at}</span>
@@ -260,7 +260,7 @@ export default function MatchPage() {
                         })}
                         <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-500">合计（按实时汇率）</span>
-                          <span className="font-bold text-red-600 tabular-nums text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
+                          <span className="font-bold text-red-600 tabular-nums whitespace-nowrap text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
                         </div>
                       </div>
                       {/* Desktop: table */}
@@ -293,7 +293,7 @@ export default function MatchPage() {
                                   }
                                 </td>
                                 <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
+                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
                                 <td className="px-4 py-2.5 text-center">
                                   {done ? (
                                     <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
@@ -325,7 +325,7 @@ export default function MatchPage() {
                         <tfoot>
                           <tr className="bg-gray-50 border-t border-gray-200">
                             <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计（按实时汇率）</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums">−{fmt(cnyTotal(r), 'CNY')}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
                             <td />
                           </tr>
                         </tfoot>

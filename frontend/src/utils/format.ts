@@ -40,15 +40,42 @@ export function formatAmount(amount: number, currency: string): string {
 }
 
 /**
- * Compact formatter for chart labels (skips decimals, uses 万 for large CNY values).
- * For non-CNY currencies, always shows 2 decimals.
+ * Full-precision formatter for tooltips / hover hints.
+ * Shows up to 10 significant decimal places, strips trailing zeros.
+ * e.g. formatAmountExact(12345.6789, 'CNY') → '¥12,345.6789'
+ *      formatAmountExact(80000, 'CNY')       → '¥80,000'
+ */
+export function formatAmountExact(amount: number, currency: string): string {
+  const sym = currencySymbol(currency)
+  const formatted = amount.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 10 })
+  return `${sym}${formatted}`
+}
+
+/**
+ * Compact formatter for summary cards and chart labels.
+ * ≥ 1亿  → ¥1.23亿
+ * ≥ 1万  → ¥8.00万  (trailing zeros trimmed: ¥8万 / ¥8.5万)
+ * < 1万  → ¥999.00  (no decimals if zero: ¥999)
+ * For non-CNY/JPY: always full 2-decimal.
  */
 export function formatAmountCompact(amount: number, currency: string): string {
   const sym = currencySymbol(currency)
-  if ((currency === 'CNY' || currency === 'JPY') && amount >= 10000) {
-    return `${sym}${(amount / 10000).toFixed(1)}万`
+  const isCJK = currency === 'CNY' || currency === 'JPY'
+  if (isCJK && Math.abs(amount) >= 1_0000_0000) {
+    const v = amount / 1_0000_0000
+    return `${sym}${trimZeros(v.toFixed(2))}亿`
   }
-  return `${sym}${amount.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`
+  if (isCJK && Math.abs(amount) >= 1_0000) {
+    const v = amount / 1_0000
+    return `${sym}${trimZeros(v.toFixed(2))}万`
+  }
+  const full = amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `${sym}${full}`
+}
+
+/** Removes unnecessary trailing decimal zeros. e.g. '8.00' → '8', '8.50' → '8.5' */
+function trimZeros(s: string): string {
+  return s.replace(/\.?0+$/, '')
 }
 
 /** Transaction subset type needed for multi-currency totals. */

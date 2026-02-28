@@ -4,7 +4,7 @@ import {
 } from 'recharts'
 import { listTransactions } from '../api/client'
 import type { Transaction } from '../api/client'
-import { formatAmountCompact, formatAmount, toCNY } from '../utils/format'
+import { formatAmountCompact, formatAmount, formatAmountExact, toCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 
 const PIE_COLORS = [
@@ -176,6 +176,7 @@ export default function StatsPage() {
   }, [])
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
+  const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
   const fmtShort = (n: number) => formatAmountCompact(n, 'CNY')
 
   // Compute monthly stats for current year
@@ -261,17 +262,17 @@ export default function StatsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
           <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-indigo-400 to-violet-500" />
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度收入</p>
-          <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1">{fmtShort(totalIncome)}</p>
+          <p title={fmtExact(totalIncome)} className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1 cursor-help">{fmtShort(totalIncome)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
           <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-rose-400 to-pink-500" />
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度支出</p>
-          <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1">{fmtShort(totalExpense)}</p>
+          <p title={fmtExact(totalExpense)} className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1 cursor-help">{fmtShort(totalExpense)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
           <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${totalNet >= 0 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`} />
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">净结余</p>
-          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1 ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
+          <p title={fmtExact(totalNet)} className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1 cursor-help ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
             {totalNet >= 0 ? '+' : ''}{fmtShort(totalNet)}
           </p>
         </div>
@@ -356,7 +357,7 @@ export default function StatsPage() {
                 <div className="pt-1 border-t border-gray-100">
                   <div className="flex items-center justify-between text-xs text-gray-400">
                     <span>已报销抵扣</span>
-                    <span className="font-semibold text-violet-500 tabular-nums">+{fmt(totalReimbursed)}</span>
+                    <span className="font-semibold text-violet-500 tabular-nums whitespace-nowrap">+{fmt(totalReimbursed)}</span>
                   </div>
                 </div>
               )}
@@ -446,16 +447,16 @@ export default function StatsPage() {
                     {p.project_name && <p className="text-xs text-gray-400 mt-0.5">{p.project_name}</p>}
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className="text-indigo-600 font-medium tabular-nums">{fmt(p.income)}</span>
+                    <span title={fmtExact(p.income)} className="text-indigo-600 font-medium tabular-nums whitespace-nowrap cursor-help">{fmtShort(p.income)}</span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className="text-rose-500 font-medium tabular-nums">{fmt(p.expense)}</span>
+                    <span title={fmtExact(p.expense)} className="text-rose-500 font-medium tabular-nums whitespace-nowrap cursor-help">{fmtShort(p.expense)}</span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <span className={`font-bold tabular-nums px-2 py-0.5 rounded-lg text-xs ${
+                    <span title={fmtExact(p.net)} className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs cursor-help ${
                       p.net >= 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-600'
                     }`}>
-                      {p.net >= 0 ? '+' : ''}{fmt(p.net)}
+                      {p.net >= 0 ? '+' : ''}{fmtShort(p.net)}
                     </span>
                   </td>
                 </tr>
