@@ -5,6 +5,7 @@ import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
 import CompactAmount from '../components/CompactAmount'
 import { useTransactions } from '../hooks/useTransactions'
+import { useAccounts } from '../hooks/useAccounts'
 
 const IconList = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -84,17 +85,17 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
+  const { data: accounts = [] } = useAccounts()
   const error = txError
     ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '数据加载失败，请刷新页面重试')
     : ''
 
+  // Use server-side cached account balances for public (company) accounts
   const companyBalance = useMemo(() =>
-    transactions.reduce((s, t) => {
-      if (t.source !== 'company') return s
-      const cny = toCNY(t.amount_yuan, t.currency || 'CNY', rates)
-      return s + (t.direction === 'income' ? cny : -cny)
-    }, 0),
-    [transactions, rates]
+    accounts
+      .filter(a => a.type === 'public' && a.is_active)
+      .reduce((s, a) => s + a.balance_yuan, 0),
+    [accounts]
   )
 
   const personalOutstanding = useMemo(() =>

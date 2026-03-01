@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { createTransaction } from '../api/client'
 import { useInvalidateTransactions } from '../hooks/useTransactions'
+import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 
 const CATEGORIES = [
@@ -16,6 +17,7 @@ export default function AddTransactionPage() {
   const navigate = useNavigate()
   const invalidate = useInvalidateTransactions()
   const haptic = useHaptic()
+  const { data: accounts = [] } = useAccounts()
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -26,6 +28,7 @@ export default function AddTransactionPage() {
     occurred_at: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
     direction: 'expense',
     source: 'personal',
+    account_id: '',
     category: CATEGORIES[0],
     amount_yuan: '',
     currency: 'CNY',
@@ -33,9 +36,26 @@ export default function AddTransactionPage() {
     project_id: '',
   })
 
+  // Auto-select first account matching current source type
+  useEffect(() => {
+    if (accounts.length === 0) return
+    const targetType = form.source === 'personal' ? 'personal' : 'public'
+    const match = accounts.find(a => a.type === targetType && a.is_active)
+    if (match && form.account_id !== match.id) {
+      setForm(prev => ({ ...prev, account_id: match.id }))
+    } else if (!match) {
+      setForm(prev => ({ ...prev, account_id: '' }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.source, accounts])
+
   function set(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
+
+  const sourceAccounts = accounts.filter(a =>
+    a.is_active && a.type === (form.source === 'personal' ? 'personal' : 'public')
+  )
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -50,6 +70,7 @@ export default function AddTransactionPage() {
     try {
       await createTransaction({
         ...form,
+        account_id: form.account_id || undefined,
         project_id: form.project_id.trim() || undefined,
         amount_yuan: amount,
       })
@@ -147,6 +168,27 @@ export default function AddTransactionPage() {
               </button>
             </div>
           </div>
+
+          {/* Account picker */}
+          {sourceAccounts.length > 0 && (
+            <div>
+              <label className={labelClass}>所属账户</label>
+              <div className="relative">
+                <select
+                  value={form.account_id}
+                  onChange={(e) => set('account_id', e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white appearance-none"
+                >
+                  {sourceAccounts.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}（余额 ¥{a.balance_yuan.toFixed(2)}）
+                    </option>
+                  ))}
+                </select>
+                <svg className="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 金额 ── col 2 */}

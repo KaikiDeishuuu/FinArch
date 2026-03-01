@@ -175,6 +175,7 @@ export interface CreateTransactionRequest {
   occurred_at: string
   direction: string
   source: string
+  account_id?: string
   category: string
   amount_yuan: number
   currency?: string
@@ -200,6 +201,36 @@ export async function toggleReimbursed(id: string): Promise<Transaction> {
 export async function toggleUploaded(id: string): Promise<{ id: string; uploaded: boolean }> {
   const { data } = await client.patch(`/transactions/${id}/upload`)
   return data.data
+}
+
+// ─── Accounts ─────────────────────────────────────────────────────────────────
+
+export interface Account {
+  id: string
+  name: string
+  type: 'personal' | 'public'
+  currency: string
+  balance_cents: number
+  balance_yuan: number
+  is_active: boolean
+}
+
+export async function listAccounts(): Promise<Account[]> {
+  const { data } = await client.get('/accounts')
+  return data.data
+}
+
+export async function createAccount(
+  name: string,
+  type: 'personal' | 'public',
+  currency = 'CNY'
+): Promise<Account> {
+  const { data } = await client.post('/accounts', { name, type, currency })
+  return data.data
+}
+
+export async function renameAccount(id: string, name: string): Promise<void> {
+  await client.patch(`/accounts/${id}`, { name })
 }
 
 // ─── Match ────────────────────────────────────────────────────────────────────
@@ -277,9 +308,10 @@ export interface ProjectStat {
   net: number
 }
 
-// NOTE: getStatsSummary has been removed — it returned raw amount_yuan sums
-// across mixed currencies (no conversion). Dashboard now computes balances
-// from listTransactions() + live exchange rates on the frontend.
+export async function getStatsSummary(): Promise<PoolBalance> {
+  const { data } = await client.get('/stats/summary')
+  return data.data
+}
 
 export async function getStatsMonthly(year?: number): Promise<MonthlyStat[]> {
   const params = year ? { year } : {}

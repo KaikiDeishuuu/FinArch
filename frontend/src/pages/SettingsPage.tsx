@@ -3,9 +3,11 @@ import type { FormEvent } from 'react'
 import {
   changePassword, downloadBackup, restoreBackup,
   requestDeleteAccount, requestEmailChange, getMe,
+  createAccount, renameAccount,
 } from '../api/client'
 import type { UserProfile } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -71,7 +73,8 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user } = useAuth()
-
+  const { data: accounts = [], isLoading: acctLoading } = useAccounts()
+  const invalidateAccounts = useInvalidateAccounts()
   // ── Profile data ──────────────────────────────────────────────────────────
   const [profile, setProfile] = useState<UserProfile | null>(null)
   useEffect(() => {
@@ -180,7 +183,44 @@ export default function SettingsPage() {
       setDeleteStep('confirm')
     }
   }
+  // ── Account management ─────────────────────────────────────────────────
+  const [newAcctName, setNewAcctName] = useState('')
+  const [newAcctType, setNewAcctType] = useState<'personal' | 'public'>('personal')
+  const [newAcctCurrency, setNewAcctCurrency] = useState('CNY')
+  const [newAcctLoading, setNewAcctLoading] = useState(false)
+  const [newAcctError, setNewAcctError] = useState('')
+  const [newAcctSuccess, setNewAcctSuccess] = useState(false)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameLoading, setRenameLoading] = useState(false)
 
+  async function handleCreateAccount(e: FormEvent) {
+    e.preventDefault()
+    setNewAcctError('')
+    setNewAcctSuccess(false)
+    if (!newAcctName.trim()) { setNewAcctError('请输入账户名称'); return }
+    setNewAcctLoading(true)
+    try {
+      await createAccount(newAcctName.trim(), newAcctType, newAcctCurrency)
+      await invalidateAccounts()
+      setNewAcctName('')
+      setNewAcctSuccess(true)
+      setTimeout(() => setNewAcctSuccess(false), 2000)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setNewAcctError(msg || '创建失败')
+    } finally { setNewAcctLoading(false) }
+  }
+
+  async function handleRenameAccount(id: string) {
+    if (!renameValue.trim()) return
+    setRenameLoading(true)
+    try {
+      await renameAccount(id, renameValue.trim())
+      await invalidateAccounts()
+      setRenamingId(null)
+    } catch { /* ignore */ } finally { setRenameLoading(false) }
+  }
   const displayName = profile?.username || user?.username || user?.email || '—'
   const currentEmail = profile?.email || user?.email || '—'
   const pendingEmail = profile?.pending_email
@@ -194,7 +234,103 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* ── Fund Accounts ───────────────────────────── full width ── */}
+        <div className="md:col-span-2">
+          <SectionLabel>资金账户</SectionLabel>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            {/* Account list */}
+            {acctLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <span className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                加载中…
+              </div>
+            ) : accounts.length === 0 ? (
+              <p className="text-sm text-gray-400">暂无账户，请在下方创建第一个资金账户。</p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {accounts.map(a => {
+                  const isPublic = a.type === 'public'
+                  const typeBadge = isPublic
+                    ? 'bg-teal-50 text-teal-700 border border-teal-100'
+                    : 'bg-amber-50 text-amber-700 border border-amber-100'
+                  const typeLabel = isPublic ? '公司' : '个人'
+                  const balanceColor = a.balance_yuan >= 0 ? 'text-emerald-600' : 'text-rose-500'
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${typeBadge}`}>{typeLabel}</span>
+                      {renamingId === a.id ? (
+                        <form onSubmit={(e) => { e.preventDefault(); handleRenameAccount(a.id) }}
+                          className="flex flex-1 gap-2">
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            className="flex-1 border border-teal-300 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                          />
+                          <button type="submit" disabled={renameLoading}
+                            className="text-xs bg-teal-600 text-white px-3 py-1 rounded-lg disabled:opacity-50">
+                            {renameLoading ? '保存中…' : '保存'}
+                          </button>
+                          <button type="button" onClick={() => setRenamingId(null)}
+                            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">取消</button>
+                        </form>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm font-medium text-gray-800 min-w-0 truncate">{a.name}</span>
+                          <span className={`text-sm font-bold tabular-nums shrink-0 ${balanceColor}`}>
+                            {a.balance_yuan >= 0 ? '' : '−'}¥{Math.abs(a.balance_yuan).toFixed(2)}
+                            <span className="text-xs font-normal text-gray-400 ml-1">{a.currency}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { setRenamingId(a.id); setRenameValue(a.name) }}
+                            className="text-xs text-gray-400 hover:text-teal-600 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                          >改名</button>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
+            {/* Create account form */}
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">新建账户</p>
+              <form onSubmit={handleCreateAccount} className="flex flex-wrap gap-2">
+                <input
+                  value={newAcctName}
+                  onChange={(e) => setNewAcctName(e.target.value)}
+                  placeholder="账户名称"
+                  className={`${inputCls} flex-1 min-w-32 py-2`}
+                />
+                <select
+                  value={newAcctType}
+                  onChange={(e) => setNewAcctType(e.target.value as 'personal' | 'public')}
+                  className={`${inputCls} w-auto py-2`}
+                >
+                  <option value="personal">个人账户</option>
+                  <option value="public">公司账户</option>
+                </select>
+                <select
+                  value={newAcctCurrency}
+                  onChange={(e) => setNewAcctCurrency(e.target.value)}
+                  className={`${inputCls} w-auto py-2`}
+                >
+                  <option value="CNY">CNY</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+                <button type="submit" disabled={newAcctLoading}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+                  {newAcctLoading ? '创建中…' : '+ 新建'}
+                </button>
+              </form>
+              {newAcctError && <p className="text-xs text-rose-500 mt-2">{newAcctError}</p>}
+              {newAcctSuccess && <p className="text-xs text-emerald-600 mt-2">✓ 账户已创建</p>}
+            </div>
+          </div>
+        </div>
         {/* ── Profile ─────────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>账户信息</SectionLabel>
