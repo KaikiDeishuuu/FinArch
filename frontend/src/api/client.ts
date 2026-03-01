@@ -71,6 +71,11 @@ export async function login(req: LoginRequest): Promise<AuthResponse> {
   return data.data
 }
 
+export async function refreshToken(): Promise<AuthResponse> {
+  const { data } = await client.post('/auth/refresh', {})
+  return data.data
+}
+
 export interface RegisterResponse {
   // 201: auto-login (no email verification required)
   token?: string

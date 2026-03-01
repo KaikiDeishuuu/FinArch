@@ -106,6 +106,7 @@ func (s *Server) registerRoutes() {
 
 	// User
 	api.GET("/auth/me", s.handleGetMe)
+	api.POST("/auth/refresh", s.handleRefreshToken)
 	api.POST("/auth/change-password", s.handleChangePassword)
 	api.POST("/auth/request-delete-account", s.handleRequestDeleteAccount)
 	api.POST("/auth/request-email-change", s.handleRequestEmailChange)
@@ -460,6 +461,32 @@ func (s *Server) handleGetMe(c *gin.Context) {
 		"username":      u.Username,
 		"pending_email": u.PendingEmail,
 		"role":          u.Role,
+	})
+}
+
+// handleRefreshToken re-issues a fresh 6h token for the current user.
+func (s *Server) handleRefreshToken(c *gin.Context) {
+	u, err := s.authSvc.GetUserProfile(c.Request.Context(), userID(c))
+	if err != nil {
+		fail(c, 404, 40401, "用户不存在")
+		return
+	}
+	var pwdVer int
+	_ = s.db.QueryRowContext(c.Request.Context(),
+		"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ?", u.ID,
+	).Scan(&pwdVer)
+	token, exp, err := s.jwtSvc.Issue(u.ID, u.Email, u.Role, pwdVer)
+	if err != nil {
+		fail(c, 500, 50001, err.Error())
+		return
+	}
+	ok(c, gin.H{
+		"token":      token,
+		"expires_at": exp.Format(time.RFC3339),
+		"user_id":    u.ID,
+		"email":      u.Email,
+		"username":   u.Username,
+		"role":       u.Role,
 	})
 }
 

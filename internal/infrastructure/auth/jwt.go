@@ -27,7 +27,7 @@ type JWTService struct {
 func NewJWTService(secret string) *JWTService {
 	return &JWTService{
 		secret:    []byte(secret),
-		accessTTL: 15 * time.Minute,
+		accessTTL: 6 * time.Hour,
 	}
 }
 
