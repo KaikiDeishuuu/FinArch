@@ -377,27 +377,27 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full table-fixed">
+            <table className="w-full" style={{ minWidth: '820px' }}>
               <colgroup>
-                <col className="w-[130px]" />{/* 日期 */}
-                <col className="w-[110px]" />{/* 类别 */}
-                <col className="w-[100px]" />{/* 项目 */}
+                <col style={{ width: '120px' }} />{/* 日期 */}
+                <col style={{ width: '100px' }} />{/* 类别 */}
+                <col style={{ width: '90px' }} />{/* 项目 */}
                 <col />{/* 备注 — 自适应 */}
-                <col className="w-[72px]" />{/* 来源 */}
-                <col className="w-[110px]" />{/* 金额 */}
-                <col className="w-[80px]" />{/* 上传 */}
-                <col className="w-[80px]" />{/* 报销 */}
+                <col style={{ width: '68px' }} />{/* 来源 */}
+                <col style={{ width: '110px' }} />{/* 金额 */}
+                <col style={{ width: '88px' }} />{/* 上传 */}
+                <col style={{ width: '88px' }} />{/* 报销 */}
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 border-b border-gray-100">
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">日期</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">日期</th>
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">类别</th>
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">项目</th>
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">备注</th>
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">来源</th>
                   <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">金额</th>
-                  <th className="px-2 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">上传</th>
-                  <th className="px-2 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">报销</th>
+                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">上传</th>
+                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider pr-4">报销</th>
                 </tr>
               </thead>
               <tbody>
@@ -413,7 +413,7 @@ export default function TransactionsPage() {
                       }`}
                     >
                       {/* 日期 + ID */}
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-[13px] font-medium text-gray-700 tabular-nums leading-tight">{tx.occurred_at}</p>
                         <button
                           onClick={() => copyId(tx.id)}
@@ -459,11 +459,11 @@ export default function TransactionsPage() {
                         </span>
                       </td>
                       {/* 金额 */}
-                      <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
                       {/* 上传 */}
-                      <td className="px-2 py-3 text-center whitespace-nowrap">
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         {tx.direction === 'expense' ? (
                           <StatusBadge
                             active={tx.uploaded}
@@ -480,7 +480,7 @@ export default function TransactionsPage() {
                         )}
                       </td>
                       {/* 报销 */}
-                      <td className="px-2 py-3 text-center whitespace-nowrap">
+                      <td className="px-3 py-3 text-center whitespace-nowrap pr-4">
                         {tx.direction === 'expense' ? (
                           <StatusBadge
                             active={tx.reimbursed}

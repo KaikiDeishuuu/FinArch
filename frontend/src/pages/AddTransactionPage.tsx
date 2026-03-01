@@ -7,6 +7,7 @@ import { useInvalidateTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
+import DatePicker from '../components/DatePicker'
 
 const CATEGORIES = [
   '耗材', '材料', '设备', '仪器', 'CNC加工', '加工费',
@@ -266,7 +267,11 @@ export default function AddTransactionPage() {
         {/* 日期 ── col 1 */}
         <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
           <label className={labelClass}>日期</label>
-          <input type="date" required className={inputClass} value={form.occurred_at} onChange={(e) => set('occurred_at', e.target.value)} />
+          <DatePicker
+            value={form.occurred_at}
+            onChange={(v) => set('occurred_at', v)}
+            required
+          />
         </div>
 
         {/* 项目编号 + 备注 ── col 2 */}
