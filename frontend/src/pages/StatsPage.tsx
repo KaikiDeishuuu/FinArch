@@ -8,9 +8,9 @@ import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions } from '../hooks/useTransactions'
 
 const PIE_COLORS = [
-  '#0d9488','#f59e0b','#10b981','#ef4444','#8b5cf6',
-  '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
-  '#14b8a6','#a855f7','#eab308',
+  '#8b5cf6','#f59e0b','#10b981','#ef4444','#06b6d4',
+  '#f97316','#84cc16','#ec4899','#22c55e','#14b8a6',
+  '#a855f7','#eab308','#0ea5e9',
 ]
 
 // ─── Custom SVG bar chart (avoids recharts BarChart cursor/overflow bugs) ─────
@@ -113,7 +113,7 @@ function MonthlyBarChart({
               {d.income > 0 && (
                 <path
                   d={`M${incX + CORNER},${incY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${incH - CORNER} h${-barW} v${-(incH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
-                  fill="#6366f1"
+                  fill="#22c55e"
                 />
               )}
               {/* Expense bar */}
@@ -147,9 +147,9 @@ function MonthlyBarChart({
           <p className="font-semibold text-gray-700 mb-1.5 border-b border-gray-50 pb-1">{tooltip.label}</p>
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 text-gray-500">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#6366f1' }} />收入
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#22c55e' }} />收入
             </span>
-            <span className="font-bold tabular-nums" style={{ color: '#6366f1' }}>{fmt(tooltip.income)}</span>
+            <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(tooltip.income)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 mt-1">
             <span className="flex items-center gap-1.5 text-gray-500">
@@ -237,7 +237,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -258,13 +258,13 @@ export default function StatsPage() {
 
       {/* Source filter tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {([['all', '全部'], ['personal', '个人账户'], ['company', '公司账户']] as const).map(([key, label]) => (
+        {([['all', '全部'], ['personal', '个人账户'], ['company', '公共账户']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setSourceFilter(key)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               sourceFilter === key
-                ? 'bg-white text-teal-700 shadow-sm'
+                ? 'bg-white text-violet-700 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -273,7 +273,7 @@ export default function StatsPage() {
         ))}
       </div>
 
-      {/* Summary cards — Wise-style: flat, clean */}
+      {/* Summary cards — Premium: flat, clean */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度收入</p>
@@ -289,14 +289,14 @@ export default function StatsPage() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">净结余</p>
-          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-teal-600' : 'text-orange-500'}`}>
+          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600' : 'text-orange-500'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
         </div>
       </div>
 
-      {/* Monthly bar chart — Wise-style */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      {/* Monthly bar chart — Premium */}
+      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="font-semibold text-gray-800">{year} 年月度收支</h2>
@@ -304,7 +304,7 @@ export default function StatsPage() {
           </div>
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#6366f1' }} />收入
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#22c55e' }} />收入
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#f43f5e' }} />支出
@@ -320,7 +320,7 @@ export default function StatsPage() {
 
       {/* Income vs expense overview pie */}
       {monthly.length > 0 && totalIncome + totalExpense > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
           <h2 className="font-semibold text-gray-800 mb-4">收支比例</h2>
           <div className="flex items-center gap-6">
             <div className="w-32 h-32 shrink-0">
@@ -338,7 +338,7 @@ export default function StatsPage() {
                     paddingAngle={3}
                     strokeWidth={0}
                   >
-                    <Cell fill="#6366f1" />
+                    <Cell fill="#22c55e" />
                     <Cell fill="#f43f5e" />
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
@@ -351,12 +351,12 @@ export default function StatsPage() {
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="flex items-center gap-2 text-gray-500 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#6366f1' }} />收入
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#22c55e' }} />收入
                   </span>
-                  <span className="font-bold tabular-nums" style={{ color: '#6366f1' }}>{fmt(totalIncome)}</span>
+                  <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(totalIncome)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ background: '#6366f1', width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                  <div className="h-full rounded-full" style={{ background: '#22c55e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               <div>
@@ -383,8 +383,8 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* Category pie chart — Wise-style */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      {/* Category pie chart — Premium */}
+      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
         <h2 className="font-semibold text-gray-800 mb-4">分类支出</h2>
         {categories.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
@@ -437,8 +437,8 @@ export default function StatsPage() {
         )}
       </div>
 
-      {/* Project breakdown — Wise-style */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      {/* Project breakdown — Premium */}
+      <div className="bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-800">项目汇总</h2>
           <span className="text-xs text-gray-400">{projects.length} 个项目</span>

@@ -2,29 +2,29 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Wise-inspired design system
-   Primary: Teal/Emerald (#0D9488 primary · #D1FAE5 accent surfaces)
-   Background: #F8FAFC (slate-50)
-   Cards: white with very subtle borders
-   Typography: high-contrast, generous spacing
+   Premium design system — Violet/Purple
+   Primary: Violet (#7C3AED · #8B5CF6 accents)
+   Background: #FAFAF9 (warm stone-50)
+   Cards: white with refined borders & subtle shadows
+   Typography: high-contrast, premium spacing
 ───────────────────────────────────────────────────────────────────────────── */
 :root {
   /* Background / Surface */
-  --background: 210 40% 98%;           /* slate-50  #F8FAFC */
+  --background: 60 9% 98%;             /* stone-50  #FAFAF9 */
   --foreground: 222 47% 11%;           /* slate-900 #0F172A */
   --card: 0 0% 100%;                   /* white */
   --card-foreground: 222 47% 11%;
 
-  /* Primary — Teal (Wise-inspired green treatment) */
-  --primary: 173 80% 30%;              /* teal-600  #0D9488 */
+  /* Primary — Violet (Premium fintech) */
+  --primary: 263 70% 58%;              /* violet-600 #7C3AED */
   --primary-foreground: 0 0% 100%;
 
   /* Ring / focus */
-  --ring: 173 80% 40%;                 /* teal-500  #14B8A6 */
+  --ring: 258 90% 66%;                 /* violet-500 #8B5CF6 */
 
   /* Muted */
-  --muted: 210 40% 96%;                /* slate-100 */
-  --muted-foreground: 215 16% 47%;     /* slate-500 */
+  --muted: 60 5% 96%;                  /* stone-100 */
+  --muted-foreground: 25 5% 45%;       /* stone-500 */
 
   /* Semantic */
   --income: 160 64% 43%;              /* emerald-500 */
@@ -32,13 +32,13 @@
   --pending: 38 92% 50%;              /* amber-500 */
 
   /* Border */
-  --border: 214 32% 91%;              /* slate-200 */
+  --border: 20 6% 90%;                /* stone-200 */
 
-  /* Wise-specific: larger radii, softer shadows */
+  /* Premium: generous radii, refined shadows */
   --radius-card: 1rem;                 /* 16px */
   --radius-btn: 0.75rem;              /* 12px */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
-  --shadow-hover: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.02);
+  --shadow-hover: 0 8px 24px rgba(124,58,237,0.08);
 }
 
 /* ── 视口基础：防止 html/body 双重滚动 ── */
@@ -50,7 +50,7 @@ html {
 
 body {
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  background-color: #F8FAFC;           /* slate-50 — clean blue-grey canvas */
+  background-color: #FAFAF9;           /* stone-50 — warm premium canvas */
   height: 100%;
   /* 禁止 body 层自身滚动，统一收口到 main 滚动容器 */
   overflow: hidden;

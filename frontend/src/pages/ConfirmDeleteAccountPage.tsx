@@ -34,19 +34,19 @@ export default function ConfirmDeleteAccountPage() {
   }, [token])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 min-h-screen">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 w-full max-w-md text-center">
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center shadow-md mb-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-300/30 mb-3">
             <span className="text-white text-xl font-bold">¥</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-800">FinArch</h1>
+          <h1 className="text-xl font-bold text-gray-800 font-extrabold">FinArch</h1>
         </div>
 
         {status === 'loading' && (
           <div className="space-y-3">
-            <div className="w-10 h-10 border-4 border-teal-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
+            <div className="w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto" />
             <p className="text-gray-600 text-sm">正在处理账户注销请求...</p>
           </div>
         )}
@@ -65,7 +65,7 @@ export default function ConfirmDeleteAccountPage() {
             <p className="text-gray-400 text-xs">3 秒后自动跳转至登录页...</p>
             <Link
               to="/login"
-              className="inline-block bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
+              className="inline-block bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
             >
               立即返回登录
             </Link>
@@ -84,7 +84,7 @@ export default function ConfirmDeleteAccountPage() {
             <div className="flex flex-col gap-2">
               <Link
                 to="/settings"
-                className="inline-block bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
+                className="inline-block bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
               >
                 重新申请注销
               </Link>

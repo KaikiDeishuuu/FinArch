@@ -15,10 +15,10 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 min-h-screen">
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 w-full max-w-md text-center">
           <p className="text-rose-600 text-sm mb-4">无效的重置链接，请重新申请。</p>
-          <Link to="/forgot-password" className="text-sm text-teal-600 hover:underline">重新申请</Link>
+          <Link to="/forgot-password" className="text-sm text-violet-600 hover:underline">重新申请</Link>
         </div>
       </div>
     )
@@ -44,10 +44,10 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 min-h-screen">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center shadow-md mb-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-300/30 mb-3">
             <span className="text-white text-xl font-bold">¥</span>
           </div>
           <h1 className="text-xl font-bold text-gray-800">设置新密码</h1>
@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
             </div>
             <p className="text-gray-700 font-medium mb-1">密码重置成功！</p>
             <p className="text-gray-400 text-sm mb-5">请使用新密码登录。</p>
-            <Link to="/login" className="bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors">
+            <Link to="/login" className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors">
               前往登录
             </Link>
           </div>
@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
                 minLength={8}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="至少 8 位"
                 autoFocus
               />
@@ -90,7 +90,7 @@ export default function ResetPasswordPage() {
                 minLength={8}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="再次输入新密码"
               />
             </div>
@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-lg py-2 text-sm transition-colors"
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 text-white font-medium rounded-lg py-2 text-sm transition-colors"
             >
               {loading ? '提交中...' : '确认重置'}
             </button>

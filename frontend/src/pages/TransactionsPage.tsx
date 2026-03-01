@@ -151,24 +151,24 @@ export default function TransactionsPage() {
           </button>
           <Link
             to="/add"
-            className="shrink-0 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+            className="shrink-0 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-violet-300/30"
           >
             + 添加
           </Link>
         </div>
       </div>
 
-      {/* Summary cards — Wise-style: flat */}
+      {/* Summary cards — Premium */}
       <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-4">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">筛选结果</p>
           <p className="text-lg md:text-2xl font-bold text-gray-700">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400">笔</span></p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-4">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">收入</p>
           <p className="text-sm md:text-2xl font-bold text-emerald-500 tabular-nums truncate">{totalIncomeStr}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-4">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">支出</p>
           <p className="text-sm md:text-2xl font-bold text-rose-500 tabular-nums truncate">{totalExpenseStr}</p>
         </div>
@@ -182,13 +182,13 @@ export default function TransactionsPage() {
               key={t.key}
               onClick={() => setFilter(t.key)}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                filter === t.key ? 'bg-white shadow text-teal-600' : 'text-gray-500 hover:text-gray-700'
+                filter === t.key ? 'bg-white shadow text-violet-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {t.label}
               {t.count !== undefined && (
                 <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold tabular-nums ${
-                  filter === t.key ? 'bg-teal-100 text-teal-600' : 'bg-gray-200 text-gray-500'
+                  filter === t.key ? 'bg-violet-100 text-violet-600' : 'bg-gray-200 text-gray-500'
                 }`}>{t.count}</span>
               )}
             </button>
@@ -202,7 +202,7 @@ export default function TransactionsPage() {
             onChange={e => setFilterCategory(e.target.value)}
             className={`h-9 rounded-xl border text-sm px-2.5 pr-7 outline-none transition-all appearance-none bg-no-repeat cursor-pointer ${
               filterCategory
-                ? 'border-teal-400 bg-teal-50 text-teal-700 font-semibold'
+                ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold'
                 : 'border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300'
             }`}
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center' }}
@@ -219,7 +219,7 @@ export default function TransactionsPage() {
             onChange={e => setFilterProject(e.target.value)}
             className={`h-9 rounded-xl border text-sm px-2.5 pr-7 outline-none transition-all appearance-none bg-no-repeat cursor-pointer ${
               filterProject
-                ? 'border-teal-400 bg-teal-50 text-teal-700 font-semibold'
+                ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold'
                 : 'border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300'
             }`}
             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center' }}
@@ -244,7 +244,7 @@ export default function TransactionsPage() {
       <div className="md:hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-gray-400">加载中…</p>
           </div>
         ) : filtered.length === 0 ? (
@@ -276,7 +276,7 @@ export default function TransactionsPage() {
                   }}
                 >
                   <div
-                    className={`bg-white rounded-2xl border border-gray-100 p-4 transition-opacity ${
+                    className={`bg-white rounded-2xl border border-gray-100/80 p-4 shadow-sm transition-opacity ${
                       done ? 'opacity-40' : ''
                     }`}
                   >
@@ -303,9 +303,9 @@ export default function TransactionsPage() {
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-xs text-gray-400 tabular-nums">{tx.occurred_at}</span>
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        tx.source === 'company' ? 'bg-teal-50 text-teal-600' : 'bg-amber-50 text-amber-600'
+                        tx.source === 'company' ? 'bg-sky-50 text-sky-600' : 'bg-amber-50 text-amber-600'
                       }`}>
-                        {tx.source === 'company' ? '公司' : '个人'}
+                        {tx.source === 'company' ? '公共' : '个人'}
                       </span>
                     </div>
                     {/* Row 3: note (if any) */}
@@ -359,11 +359,11 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Desktop Table — Wise-style: flat */}
-      <div className="hidden md:block bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      {/* Desktop Table — Premium */}
+      <div className="hidden md:block bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-gray-400">加载中…</p>
           </div>
         ) : filtered.length === 0 ? (
@@ -375,7 +375,7 @@ export default function TransactionsPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50/80 border-b border-gray-100">
+                <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 border-b border-gray-100">
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">日期</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">类别</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">项目</th>
@@ -395,7 +395,7 @@ export default function TransactionsPage() {
                     <tr
                       key={tx.id}
                       className={`border-b border-gray-100 last:border-0 transition-colors ${
-                        done ? 'opacity-40' : 'hover:bg-teal-50/30'
+                        done ? 'opacity-40' : 'hover:bg-violet-50/30'
                       }`}
                     >
                       <td className="px-5 py-4 whitespace-nowrap">
@@ -406,7 +406,7 @@ export default function TransactionsPage() {
                           className={`font-mono text-[11px] rounded px-1 py-0.5 transition-all mt-0.5 block ${
                             copiedId === tx.id
                               ? 'bg-emerald-100 text-emerald-500'
-                              : 'text-gray-300 hover:text-teal-400 hover:bg-teal-50'
+                              : 'text-gray-300 hover:text-violet-400 hover:bg-violet-50'
                           }`}
                         >
                           {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
@@ -420,7 +420,7 @@ export default function TransactionsPage() {
                       </td>
                       <td className="px-5 py-4 max-w-[140px]">
                         {tx.project_id
-                          ? <span className="inline-flex items-center text-xs font-mono font-semibold bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-md">{tx.project_id}</span>
+                          ? <span className="inline-flex items-center text-xs font-mono font-semibold bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-md">{tx.project_id}</span>
                           : <span className="text-gray-300 text-sm">—</span>
                         }
                       </td>
@@ -433,10 +433,10 @@ export default function TransactionsPage() {
                       <td className="px-5 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
                           tx.source === 'company'
-                            ? 'bg-teal-100 text-teal-700'
+                            ? 'bg-sky-100 text-sky-700'
                             : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {tx.source === 'company' ? '公司' : '个人'}
+                          {tx.source === 'company' ? '公共' : '个人'}
                         </span>
                       </td>
                       <td className={`px-5 py-4 text-right font-bold text-base tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>

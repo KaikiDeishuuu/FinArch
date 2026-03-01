@@ -120,32 +120,36 @@ export default function LoginPage() {
     }
   }
 
-  const inputClass = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white'
+  const inputClass = 'w-full border border-gray-200/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-300 transition-all bg-white/80 backdrop-blur-sm placeholder:text-gray-300'
 
   if (pendingVerification) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-          <div className="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center mx-auto mb-4">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth={1.5} className="w-7 h-7">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative overflow-hidden">
+        {/* Decorative orbs */}
+        <div className="absolute top-1/4 -left-20 w-64 h-64 bg-violet-400/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-20 w-72 h-72 bg-fuchsia-400/20 rounded-full blur-3xl" />
+
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 w-full max-w-md text-center relative z-10 mx-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-violet-500/25">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.5} className="w-8 h-8">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
           </div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">请验证您的邮箱</h2>
-          <p className="text-gray-500 text-sm mb-6">
-            验证邮件已发送至 <span className="font-medium text-gray-700">{email}</span>，
+          <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+            验证邮件已发送至 <span className="font-semibold text-violet-600">{email}</span>，
             请点击邮件中的链接完成验证后再登录。
           </p>
           {!resendDone ? (
             <button onClick={handleResend} disabled={resendLoading}
-              className="text-sm text-teal-600 hover:underline disabled:opacity-50">
+              className="text-sm text-violet-600 hover:text-violet-700 font-medium hover:underline disabled:opacity-50 transition-colors">
               {resendLoading ? '发送中...' : '没收到邮件？重新发送'}
             </button>
           ) : (
-            <p className="text-sm text-emerald-500">验证邮件已重新发送</p>
+            <p className="text-sm text-emerald-500 font-medium">验证邮件已重新发送</p>
           )}
           <button onClick={() => switchMode('login')}
-            className="mt-4 block w-full text-center text-sm text-gray-400 hover:text-gray-600">
+            className="mt-4 block w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors">
             返回登录
           </button>
         </div>
@@ -154,59 +158,77 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        <div className="flex flex-col items-center mb-6">
-          <img src="/logo.svg" alt="FinArch" className="w-14 h-14 rounded-2xl shadow-md mb-3" />
-          <h1 className="text-xl font-bold text-gray-800">FinArch</h1>
-          <p className="text-xs text-gray-400 mt-0.5">收支与报销管理 v2</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative overflow-hidden">
+      {/* Decorative background orbs */}
+      <div className="absolute top-10 -left-32 w-80 h-80 bg-violet-400/30 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
+      <div className="absolute -bottom-20 -right-32 w-96 h-96 bg-fuchsia-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '6s' }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl" />
+
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 md:p-10 w-full max-w-md relative z-10 mx-4">
+        {/* Brand header */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="relative mb-4">
+            <img src="/logo.svg" alt="FinArch" className="w-16 h-16 rounded-2xl shadow-lg shadow-violet-500/20" />
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
+              <svg viewBox="0 0 20 20" fill="white" className="w-3 h-3"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">FinArch</h1>
+          <p className="text-xs text-gray-400 mt-1 tracking-wide">收支 · 报销 · 智能匹配</p>
         </div>
 
         {justVerified && (
-          <div className="mb-4 bg-emerald-50 border border-green-200 text-emerald-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
-            <span>✓</span><span>邮箱验证成功，请登录</span>
+          <div className="mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 20 20" fill="white" className="w-3 h-3"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+            </div>
+            <span>邮箱验证成功，请登录</span>
           </div>
         )}
         {accountDeleted && (
-          <div className="mb-4 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
-            <span>✓</span><span>账户已注销，感谢您使用 FinArch。</span>
+          <div className="mb-5 bg-gray-50 border border-gray-200 text-gray-600 rounded-xl px-4 py-3 text-sm flex items-center gap-2.5">
+            <span className="text-gray-400">✓</span><span>账户已注销，感谢您使用 FinArch。</span>
           </div>
         )}
         {emailChanged && (
-          <div className="mb-4 bg-emerald-50 border border-green-200 text-emerald-700 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
-            <span>✓</span><span>邮箱已更新，请使用新邮箱登录。</span>
+          <div className="mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2.5">
+            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 20 20" fill="white" className="w-3 h-3"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+            </div>
+            <span>邮箱已更新，请使用新邮箱登录。</span>
           </div>
         )}
         {tokenError && (
-          <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg px-3 py-2 text-sm">
+          <div className="mb-5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3 text-sm">
             验证链接无效或已过期，请重新发送验证邮件
           </div>
         )}
 
-        <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
-          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white shadow text-teal-600' : 'text-gray-500'}`}
+        {/* Login/Register tabs */}
+        <div className="flex rounded-xl bg-gray-100/80 p-1 mb-6">
+          <button type="button" className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${mode === 'login' ? 'bg-white shadow-sm text-violet-600' : 'text-gray-400 hover:text-gray-600'}`}
             onClick={() => switchMode('login')}>登录</button>
-          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white shadow text-teal-600' : 'text-gray-500'}`}
+          <button type="button" className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${mode === 'register' ? 'bg-white shadow-sm text-violet-600' : 'text-gray-400 hover:text-gray-600'}`}
             onClick={() => switchMode('register')}>注册</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">用户名</label>
               <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
                 className={inputClass} placeholder="字母、数字或下划线，注册后不可更改"
                 autoComplete="username" />
-              <p className="mt-1 text-xs text-gray-400">注册后无法修改，请谨慎选择。</p>
+              <p className="mt-1.5 text-xs text-gray-400">注册后无法修改，请谨慎选择。</p>
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱</label>
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
               className={inputClass} placeholder="user@example.com" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">密码</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">密码</label>
             <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
               className={inputClass} placeholder={mode === 'register' ? '至少 8 位，建议大小写 + 数字 + 符号' : '请输入密码'} />
             {mode === 'register' && <PasswordStrength password={password} />}
@@ -223,36 +245,41 @@ export default function LoginPage() {
           )}
 
           {error && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg px-3 py-2 text-sm">{error}</div>
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3 text-sm">{error}</div>
           )}
 
           {unverifiedEmail && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2 text-sm space-y-1">
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm space-y-1.5">
               <p>邮箱尚未验证，请检查收件箱并点击验证链接。</p>
               {!resendDone ? (
                 <button type="button" onClick={handleResend} disabled={resendLoading}
-                  className="text-teal-600 hover:underline text-xs disabled:opacity-50">
+                  className="text-violet-600 hover:text-violet-700 font-medium hover:underline text-xs disabled:opacity-50 transition-colors">
                   {resendLoading ? '发送中...' : '重新发送验证邮件'}
                 </button>
               ) : (
-                <p className="text-xs text-emerald-500">验证邮件已重新发送</p>
+                <p className="text-xs text-emerald-500 font-medium">验证邮件已重新发送</p>
               )}
             </div>
           )}
 
           <button type="submit" disabled={loading || (!!turnstileSiteKey && !captchaToken)}
-            className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-lg py-2 text-sm transition-colors">
+            className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 active:scale-[0.98]">
             {loading ? '处理中...' : mode === 'login' ? '登录' : '注册'}
           </button>
         </form>
 
         {mode === 'login' && (
-          <div className="text-center mt-4">
-            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-teal-600 transition-colors">
+          <div className="text-center mt-5">
+            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-violet-600 transition-colors font-medium">
               忘记密码？
             </Link>
           </div>
         )}
+
+        {/* Footer */}
+        <div className="mt-8 pt-5 border-t border-gray-100 text-center">
+          <p className="text-[10px] text-gray-300 tracking-wider">POWERED BY FINARCH · v2.2</p>
+        </div>
       </div>
     </div>
   )

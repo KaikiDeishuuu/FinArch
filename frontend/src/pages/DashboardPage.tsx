@@ -52,8 +52,8 @@ const FEATURES = [
     Icon: IconList,
     title: '交易明细',
     desc: '查看、筛选所有收支记录，标记上传与报销状态',
-    color: 'bg-teal-50 border-teal-100',
-    iconBg: 'bg-teal-100 text-teal-600',
+    color: 'bg-violet-50 border-violet-100',
+    iconBg: 'bg-violet-100 text-violet-600',
   },
   {
     to: '/add',
@@ -130,7 +130,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -146,37 +146,41 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <p className="text-sm text-gray-400">FinArch · {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            {ratesLoading
-              ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">汇率加载中…</span>
-              : rateDate
-                ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">实时汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-                : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
-            }
+            {/* Hero Header — Premium gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20">
+        <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+        <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-fuchsia-400/20 rounded-full blur-2xl" />
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-white/70 text-xs font-medium mb-1">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {ratesLoading
+                ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">汇率加载中…</span>
+                : rateDate
+                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium">💱 $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
+              }
+            </div>
           </div>
+          <Link
+            to="/add"
+            className="shrink-0 bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all border border-white/20"
+          >
+            + 添加
+          </Link>
         </div>
-        <Link
-          to="/add"
-          className="shrink-0 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
-        >
-          + 添加
-        </Link>
       </div>
 
-      {/* Balance cards — 2×2 grid — Wise-style: flat, clean */}
+      {/* Balance cards — 2×2 grid — Premium */}
       <div className="grid grid-cols-2 gap-3">
-        {/* 公司账户余额 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        {/* 公共账户余额 */}
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公司账户</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公共账户</p>
           </div>
           <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
             <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
@@ -184,7 +188,7 @@ export default function DashboardPage() {
           <p className="text-[11px] text-gray-400 mt-1.5">当前可用资金</p>
         </div>
         {/* 个人账户余额 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -197,7 +201,7 @@ export default function DashboardPage() {
           <p className="text-[11px] text-gray-400 mt-1.5">个人账户余额</p>
         </div>
         {/* 个人待报销 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
@@ -209,24 +213,24 @@ export default function DashboardPage() {
           </p>
           <p className="text-[11px] text-gray-400 mt-1.5">个人垫付未报销</p>
         </div>
-        {/* 公司待报销 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        {/* 公共待报销 */}
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公司待报销</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公共待报销</p>
           </div>
           <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
             <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
           </p>
-          <p className="text-[11px] text-gray-400 mt-1.5">公司支出未结算</p>
+          <p className="text-[11px] text-gray-400 mt-1.5">公共支出未结算</p>
         </div>
       </div>
 
-      {/* Pending action hints — Wise-style */}
+      {/* Pending action hints — Premium */}
       {(notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0) && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">待处理事项</h2>
           <div className="space-y-2">
             {notUploaded.length > 0 && (
@@ -240,21 +244,21 @@ export default function DashboardPage() {
               </Link>
             )}
             {uploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100 hover:border-teal-300 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center shrink-0"><IconSearch /></span>
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 border border-violet-100 hover:border-violet-300 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-teal-800">有 {uploadedNotReimbursed.length} 笔已上传等待报销</p>
-                  <p className="text-xs text-teal-600 mt-0.5">使用子集匹配找到报销组合 → 点击前往匹配</p>
+                  <p className="text-sm font-medium text-violet-800">有 {uploadedNotReimbursed.length} 笔已上传等待报销</p>
+                  <p className="text-xs text-violet-600 mt-0.5">使用子集匹配找到报销组合 → 点击前往匹配</p>
                 </div>
-                <svg className="w-4 h-4 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
             {companyNotUploaded.length > 0 && (
-              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-teal-300 transition-colors">
+              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-violet-300 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700">有 {companyNotUploaded.length} 笔公司支出未上传</p>
-                  <p className="text-xs text-slate-500 mt-0.5">公司支出记录上传后方可标记报销 → 点击前往明细</p>
+                  <p className="text-sm font-medium text-slate-700">有 {companyNotUploaded.length} 笔公共支出未上传</p>
+                  <p className="text-xs text-slate-500 mt-0.5">公共支出记录上传后方可标记报销 → 点击前往明细</p>
                 </div>
                 <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
@@ -263,15 +267,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Feature guide — Wise-style: clean, flat */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      {/* Feature guide — Premium: clean, flat */}
+      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">功能导航</h2>
         <div className="grid grid-cols-2 gap-3">
           {FEATURES.map((f) => (
             <Link
               key={f.to}
               to={f.to}
-              className="flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 transition-all hover:border-gray-200 hover:bg-gray-50/50 group"
+              className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 transition-all hover:border-violet-200 hover:shadow-md hover:shadow-violet-100/30 group bg-white"
             >
               <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
                 <f.Icon />
@@ -285,8 +289,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Workflow guide — Wise-style */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      {/* Workflow guide — Premium */}
+      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">使用流程</h2>
         <div className="space-y-4">
           {/* Personal advance flow */}
@@ -320,19 +324,19 @@ export default function DashboardPage() {
           {/* Company account flow */}
           <div>
             <div className="flex items-center gap-1.5 mb-2.5">
-              <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
-              <p className="text-[11px] font-semibold text-teal-600 uppercase tracking-wider">公司账户</p>
+              <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
+              <p className="text-[11px] font-semibold text-sky-600 uppercase tracking-wider">公共账户</p>
             </div>
             <div className="grid grid-cols-3 gap-2 md:flex md:items-start md:gap-0">
               {([
-                { step: '1', Icon: IconPen,    title: '设置账户', desc: '在设置页创建公司资金账户' },
-                { step: '2', Icon: IconUpload, title: '记录收支', desc: '添加公司账户的收入与支出' },
+                { step: '1', Icon: IconPen,    title: '设置账户', desc: '在设置页创建公共资金账户' },
+                { step: '2', Icon: IconUpload, title: '记录收支', desc: '添加公共账户的收入与支出' },
                 { step: '3', Icon: IconCheck,  title: '查看汇总', desc: '总览实时显示账户余额与待结算金额' },
               ] as const).map((s, i, arr) => (
-                <div key={s.step} className="bg-teal-50/60 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
-                  <div className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 md:w-7 md:h-7">{s.step}</div>
+                <div key={s.step} className="bg-sky-50/60 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
+                  <div className="w-5 h-5 rounded-full bg-sky-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 md:w-7 md:h-7">{s.step}</div>
                   <div className="md:text-center md:mt-1.5 md:px-1">
-                    <div className="text-teal-500 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
+                    <div className="text-sky-500 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
                     <p className="text-xs font-semibold text-gray-700">{s.title}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{s.desc}</p>
                   </div>

@@ -74,8 +74,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Nav — Wise-style: clean, generous, flat active state */}
-        <nav className="flex-1 px-3 py-2 space-y-1">
+        {/* Nav — Premium: refined active state with left accent */}
+        <nav className="flex-1 px-3 py-2 space-y-0.5">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -84,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-teal-50 text-teal-700'
+                    ? 'bg-violet-50 text-violet-700 shadow-sm shadow-violet-100/50'
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                 }`
               }
@@ -95,10 +95,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* User section — Wise-style: minimal */}
+        {/* User section — Premium: gradient avatar */}
         <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 mt-auto">
           <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm shadow-violet-200/50">
               {initial}
             </div>
             <p className="flex-1 text-[12px] text-gray-700 truncate font-medium">{displayName}</p>
@@ -111,18 +111,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
-
-        {/* Footer area in sidebar */}
       </aside>
 
       {/* ── Mobile Top Header ── */}
-      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between px-4">
+      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 backdrop-blur-sm border-b border-gray-100/80 flex items-center justify-between px-4">
         <div className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="FinArch" className="w-7 h-7 rounded-xl shrink-0" />
           <span className="font-extrabold text-gray-900 text-[15px] tracking-tight">FinArch</span>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-[11px] font-bold">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50">
             {initial}
           </div>
           <button
@@ -135,27 +133,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 overflow-y-scroll pt-14 md:pt-0 md:pb-0 flex flex-col">
+      <main className="scroll-main flex-1 overflow-y-scroll pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: '#FAFAF9' }}>
         <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 md:px-8 md:py-8 page-enter">
           {children}
         </div>
 
-        {/* ── Footer — Wise-style: minimal ── */}
+        {/* ── Footer — Premium: refined ── */}
         <footer className="shrink-0 mt-auto">
-          <div className="h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent mx-6 md:mx-8" />
+          <div className="h-px bg-gradient-to-r from-transparent via-gray-200/60 to-transparent mx-6 md:mx-8" />
           <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-gray-300 tracking-wide">FinArch</span>
               <span className="text-[11px] text-gray-200">·</span>
-              <span className="text-[11px] text-gray-300">记账 · 报销 · 统计</span>
+              <span className="text-[11px] text-gray-300">记账 · 报销 · 智能匹配</span>
             </div>
-            <span className="text-[10px] text-gray-300 font-mono">v2.1</span>
+            <span className="text-[10px] text-gray-300 font-mono">v2.2</span>
           </div>
         </footer>
       </main>
 
       {/* ── Mobile Bottom Navigation ── */}
-      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-100 flex items-end">
+      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-100/80 flex items-end">
         {navItems.map((item) => {
           if (item.isPrimary) {
             return (
@@ -164,7 +162,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={item.to}
                 className="flex-1 flex flex-col items-center pb-2 pt-1 -mt-5"
               >
-                <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-300/50 active:scale-95 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-violet-400/40 active:scale-95 transition-transform">
                   <item.Icon />
                 </div>
                 <span className="text-[10px] font-medium text-gray-400 mt-0.5">{item.label}</span>
@@ -178,16 +176,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               end={item.end}
               className={({ isActive }) =>
                 `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  isActive ? 'text-teal-600' : 'text-gray-400 active:text-gray-500'
+                  isActive ? 'text-violet-600' : 'text-gray-400 active:text-gray-500'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-teal-50' : ''}`}>
+                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-violet-50' : ''}`}>
                     <item.Icon />
                   </div>
-                  <span className={`text-[10px] font-medium ${isActive ? 'text-teal-600' : ''}`}>{item.label}</span>
+                  <span className={`text-[10px] font-medium ${isActive ? 'text-violet-600' : ''}`}>{item.label}</span>
                 </>
               )}
             </NavLink>

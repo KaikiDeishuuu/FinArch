@@ -89,7 +89,7 @@ export default function AddTransactionPage() {
     }
   }
 
-  const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white'
+  const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white'
   const labelClass = 'block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider'
 
   const isExpense = form.direction === 'expense'
@@ -112,7 +112,7 @@ export default function AddTransactionPage() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* 收支方向 + 资金来源 ── col 1 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm space-y-4">
           <div>
             <label className={labelClass}>收支方向</label>
             <div className="grid grid-cols-2 gap-2">
@@ -159,12 +159,12 @@ export default function AddTransactionPage() {
                 onClick={() => set('source', 'company')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isPersonal
-                    ? 'bg-teal-50 border-teal-200 text-teal-600'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-teal-200 hover:text-teal-400'
+                    ? 'bg-sky-50 border-sky-200 text-sky-600'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-sky-200 hover:text-sky-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                公司账户
+                公共账户
               </button>
             </div>
           </div>
@@ -177,7 +177,7 @@ export default function AddTransactionPage() {
                 <select
                   value={form.account_id}
                   onChange={(e) => set('account_id', e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white appearance-none"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white appearance-none"
                 >
                   {sourceAccounts.map(a => (
                     <option key={a.id} value={a.id}>
@@ -192,7 +192,7 @@ export default function AddTransactionPage() {
         </div>
 
         {/* 金额 ── col 2 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm flex flex-col justify-between">
           <label className={labelClass}>金额（元）</label>
           <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
             <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -227,7 +227,7 @@ export default function AddTransactionPage() {
         </div>
 
         {/* 费用类别 ── full width */}
-        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
           <label className={labelClass}>费用类别</label>
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
             {CATEGORIES.map((c) => (
@@ -237,8 +237,8 @@ export default function AddTransactionPage() {
                 onClick={() => { set('category', c); setCustomCat('') }}
                 className={`flex items-center justify-center py-2.5 px-1 rounded-xl text-xs font-semibold border-2 transition-all ${
                   form.category === c
-                    ? 'bg-teal-50 border-teal-300 text-teal-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-teal-200 hover:bg-teal-50/50 hover:text-teal-700'
+                    ? 'bg-violet-50 border-violet-300 text-violet-700'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-violet-200 hover:bg-violet-50/50 hover:text-violet-700'
                 }`}
               >
                 <span className="leading-tight text-center">{c}</span>
@@ -259,21 +259,21 @@ export default function AddTransactionPage() {
               placeholder="输入自定义类别名称…"
               className={`flex-1 text-xs rounded-xl border-2 py-2 px-3 outline-none transition-all placeholder-gray-300 ${
                 !CATEGORIES.includes(form.category) && customCat.trim() !== ''
-                  ? 'border-teal-500 bg-teal-50 text-teal-700 font-semibold'
-                  : 'border-gray-200 bg-white text-gray-600 focus:border-teal-300 focus:bg-teal-50'
+                  ? 'border-violet-500 bg-violet-50 text-violet-700 font-semibold'
+                  : 'border-gray-200 bg-white text-gray-600 focus:border-violet-300 focus:bg-violet-50'
               }`}
             />
           </div>
         </div>
 
         {/* 日期 ── col 1 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
           <label className={labelClass}>日期</label>
           <input type="date" required className={inputClass} value={form.occurred_at} onChange={(e) => set('occurred_at', e.target.value)} />
         </div>
 
         {/* 项目编号 + 备注 ── col 2 */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm space-y-4">
           <div>
             <label className={labelClass}>
               项目编号 <span className="text-gray-300 font-normal normal-case tracking-normal">选填</span>

@@ -26,7 +26,7 @@ export function exportTransactionsPDF(
   const rows = filtered.map(t => {
     const dir = t.direction === 'income' ? '收入' : '支出'
     void dir
-    const src = t.source === 'company' ? '公司' : '个人'
+    const src = t.source === 'company' ? '公共' : '个人'
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
     const uploaded = t.uploaded ? '✓ 已上传' : '✗ 未上传'

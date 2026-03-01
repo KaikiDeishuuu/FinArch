@@ -43,7 +43,7 @@ function PasswordStrength({ password }: { password: string }) {
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
-const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white'
+const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition bg-white'
 
 // ─── Section header ───────────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -62,7 +62,7 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
   const cls = {
     success: 'bg-emerald-50 border-green-200 text-emerald-700',
     error:   'bg-rose-50 border-rose-200 text-rose-700',
-    info:    'bg-teal-50 border-teal-200 text-teal-700',
+    info:    'bg-violet-50 border-violet-200 text-violet-700',
     warning: 'bg-amber-50 border-amber-200 text-amber-800',
   }[type]
   return (
@@ -237,11 +237,11 @@ export default function SettingsPage() {
         {/* ── Fund Accounts ───────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>资金账户</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm space-y-4">
             {/* Account list */}
             {acctLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span className="w-4 h-4 border-2 border-gray-300 border-t-teal-500 rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
                 加载中…
               </div>
             ) : accounts.length === 0 ? (
@@ -251,9 +251,9 @@ export default function SettingsPage() {
                 {accounts.map(a => {
                   const isPublic = a.type === 'public'
                   const typeBadge = isPublic
-                    ? 'bg-teal-50 text-teal-700 border border-teal-100'
+                    ? 'bg-sky-50 text-sky-700 border border-sky-100'
                     : 'bg-amber-50 text-amber-700 border border-amber-100'
-                  const typeLabel = isPublic ? '公司' : '个人'
+                  const typeLabel = isPublic ? '公共' : '个人'
                   const balanceColor = a.balance_yuan >= 0 ? 'text-emerald-600' : 'text-rose-500'
                   return (
                     <div key={a.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
@@ -265,10 +265,10 @@ export default function SettingsPage() {
                             autoFocus
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            className="flex-1 border border-teal-300 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                            className="flex-1 border border-violet-300 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
                           />
                           <button type="submit" disabled={renameLoading}
-                            className="text-xs bg-teal-600 text-white px-3 py-1 rounded-lg disabled:opacity-50">
+                            className="text-xs bg-violet-600 text-white px-3 py-1 rounded-lg disabled:opacity-50">
                             {renameLoading ? '保存中…' : '保存'}
                           </button>
                           <button type="button" onClick={() => setRenamingId(null)}
@@ -284,7 +284,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => { setRenamingId(a.id); setRenameValue(a.name) }}
-                            className="text-xs text-gray-400 hover:text-teal-600 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                            className="text-xs text-gray-400 hover:text-violet-600 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
                           >改名</button>
                         </>
                       )}
@@ -310,7 +310,7 @@ export default function SettingsPage() {
                   className={`${inputCls} w-auto py-2`}
                 >
                   <option value="personal">个人账户</option>
-                  <option value="public">公司账户</option>
+                  <option value="public">公共账户</option>
                 </select>
                 <select
                   value={newAcctCurrency}
@@ -322,7 +322,7 @@ export default function SettingsPage() {
                   <option value="EUR">EUR</option>
                 </select>
                 <button type="submit" disabled={newAcctLoading}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
                   {newAcctLoading ? '创建中…' : '+ 新建'}
                 </button>
               </form>
@@ -334,9 +334,9 @@ export default function SettingsPage() {
         {/* ── Profile ─────────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>账户信息</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-400 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
                 {(displayName[0] ?? '?').toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -359,7 +359,7 @@ export default function SettingsPage() {
         {/* ── Change email ─────────────────────────────────────── col 1 ── */}
         <div className="flex flex-col">
           <SectionLabel>更换邮箱</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 flex-1">
+          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm space-y-4 flex-1">
             <div className="space-y-0.5">
               <p className="text-sm text-gray-700 font-medium">当前邮箱</p>
               <p className="text-sm text-gray-500">{currentEmail}</p>
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                 </div>
                 {emailError && <Alert type="error">{emailError}</Alert>}
                 <button type="submit" disabled={emailLoading}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
+                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
                   {emailLoading ? '发送中...' : '发送授权邮件'}
                 </button>
               </form>
@@ -399,7 +399,7 @@ export default function SettingsPage() {
         {/* ── Change password ──────────────────────────────────── col 2 ── */}
         <div className="flex flex-col">
           <SectionLabel>安全</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 flex-1">
+          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm flex-1">
             {pwSuccess && <div className="mb-4"><Alert type="success">✓ 密码修改成功！</Alert></div>}
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
@@ -426,7 +426,7 @@ export default function SettingsPage() {
               </div>
               {pwError && <Alert type="error">{pwError}</Alert>}
               <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
-                className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
+                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
                 {pwLoading ? '提交中...' : '修改密码'}
               </button>
             </form>
@@ -436,11 +436,11 @@ export default function SettingsPage() {
         {/* ── Backup ───────────────────────────────────────────── col 1 ── */}
         <div className="flex flex-col">
           <SectionLabel>数据备份</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 flex-1">
+          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm flex-1">
             <p className="text-xs text-gray-400 mb-4">下载当前数据库的完整快照（标准 SQLite 格式），可用于迁移或恢复。</p>
             {backupError && <div className="mb-3"><Alert type="error">{backupError}</Alert></div>}
             <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}
-              className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 interface Props {
   compact: string
@@ -10,32 +11,48 @@ interface Props {
 export default function CompactAmount({ compact, exact, className = '', prefix = '' }: Props) {
   const [show, setShow] = useState(false)
   const [pos, setPos] = useState({ x: 0, y: 0 })
+  const triggerRef = useRef<HTMLSpanElement>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const isAbbreviated = compact !== exact
+
+  // Recalculate position from the trigger element
+  const updatePos = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setPos({ x: rect.left + rect.width / 2, y: rect.top - 8 })
+  }, [])
 
   function handleClick(e: React.MouseEvent) {
     if (!isAbbreviated) return
     e.stopPropagation()
     if (show) { setShow(false); return }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setPos({ x: rect.left + rect.width / 2, y: rect.top - 8 })
+    updatePos()
     setShow(true)
   }
 
-  // Close when clicking anywhere outside the bubble
+  // Close on outside click; reposition on scroll/resize
   useEffect(() => {
     if (!show) return
     function onDocClick(e: MouseEvent) {
       if (bubbleRef.current && bubbleRef.current.contains(e.target as Node)) return
+      if (triggerRef.current && triggerRef.current.contains(e.target as Node)) return
       setShow(false)
     }
+    function onScrollOrResize() { updatePos() }
     document.addEventListener('click', onDocClick, true)
-    return () => document.removeEventListener('click', onDocClick, true)
-  }, [show])
+    window.addEventListener('scroll', onScrollOrResize, true)
+    window.addEventListener('resize', onScrollOrResize)
+    return () => {
+      document.removeEventListener('click', onDocClick, true)
+      window.removeEventListener('scroll', onScrollOrResize, true)
+      window.removeEventListener('resize', onScrollOrResize)
+    }
+  }, [show, updatePos])
 
   return (
     <>
       <span
+        ref={triggerRef}
         title={isAbbreviated ? exact : undefined}
         onClick={handleClick}
         className={[className, isAbbreviated ? 'cursor-pointer select-none' : ''].join(' ')}
@@ -49,7 +66,7 @@ export default function CompactAmount({ compact, exact, className = '', prefix =
         {prefix}{compact}
       </span>
 
-      {show && (
+      {show && createPortal(
         <div
           ref={bubbleRef}
           style={{
@@ -59,7 +76,7 @@ export default function CompactAmount({ compact, exact, className = '', prefix =
             transform: 'translate(-50%, -100%)',
             zIndex: 9999,
           }}
-          className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap"
+          className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-auto"
         >
           {prefix}{exact}
           <div style={{
@@ -68,7 +85,8 @@ export default function CompactAmount({ compact, exact, className = '', prefix =
             borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
             borderTop: '5px solid #111827',
           }} />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

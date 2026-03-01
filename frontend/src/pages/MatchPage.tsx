@@ -161,7 +161,7 @@ export default function MatchPage() {
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
-  const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white tabular-nums'
+  const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white tabular-nums'
   const labelClass = 'block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider'
 
   return (
@@ -172,19 +172,19 @@ export default function MatchPage() {
         <p className="text-sm text-gray-400 mt-1">自动搜索与报销总额精确匹配的交易组合</p>
       </div>
 
-      {/* Form card — Wise-style */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      {/* Form card — Premium */}
+      <div className="bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
         {/* Source filter tabs */}
         <div className="border-b border-gray-100 px-5 pt-4 pb-0">
           <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-4">
-            {([['personal', '个人垫付'], ['company', '公司账户']] as const).map(([key, label]) => (
+            {([['personal', '个人垫付'], ['company', '公共账户']] as const).map(([key, label]) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => { setSourceFilter(key); setResults([]); setSearched(false) }}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   sourceFilter === key
-                    ? 'bg-white text-teal-700 shadow-sm'
+                    ? 'bg-white text-violet-700 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -195,11 +195,11 @@ export default function MatchPage() {
         </div>
 
         {/* Info bar */}
-        <div className="bg-teal-50 border-b border-teal-100 px-5 py-3 flex items-start gap-2.5">
-          <svg className="w-4 h-4 text-teal-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+        <div className="bg-violet-50 border-b border-violet-100 px-5 py-3 flex items-start gap-2.5">
+          <svg className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
           <div>
-            <p className="text-sm text-teal-700">在<strong>已上传、未报销</strong>的{sourceFilter === 'personal' ? '个人垫付' : '公司账户'}记录中，找出金额之和与目标最接近的组合</p>
-            <p className="text-xs text-teal-500/80 mt-1">注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。</p>
+            <p className="text-sm text-violet-700">在<strong>已上传、未报销</strong>的{sourceFilter === 'personal' ? '个人垫付' : '公共账户'}记录中，找出金额之和与目标最接近的组合</p>
+            <p className="text-xs text-violet-500/80 mt-1">注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。</p>
           </div>
         </div>
 
@@ -252,7 +252,7 @@ export default function MatchPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-5 w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
+            className="mt-5 w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -291,7 +291,7 @@ export default function MatchPage() {
               <div className="flex items-center gap-2">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
                 <span className="text-sm text-gray-600">
-                  共找到 <span className="text-teal-600 font-bold text-base">{results.length}</span> 个匹配方案
+                  共找到 <span className="text-violet-600 font-bold text-base">{results.length}</span> 个匹配方案
                 </span>
               </div>
             )}
@@ -303,9 +303,9 @@ export default function MatchPage() {
               'bg-gray-400',    // silver
               'bg-amber-700',   // bronze
             ]
-            const rankBg = i < 3 ? rankColors[i] : 'bg-teal-600'
+            const rankBg = i < 3 ? rankColors[i] : 'bg-violet-600'
             return (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div key={i} className="bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
               {/* Card header (clickable) */}
               <button
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/60 transition-colors"
@@ -322,7 +322,7 @@ export default function MatchPage() {
                         <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">精确匹配</span>
                       )}
                       {r.score != null && (
-                        <span className="text-xs bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-medium tabular-nums">
+                        <span className="text-xs bg-violet-50 text-violet-600 px-2 py-0.5 rounded-full font-medium tabular-nums">
                           Score {r.score.toFixed(3)}
                         </span>
                       )}
@@ -337,7 +337,7 @@ export default function MatchPage() {
                     </p>
                   </div>
                 </div>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-teal-100 text-teal-600 rotate-180' : 'bg-gray-100 text-gray-400'}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-violet-100 text-violet-600 rotate-180' : 'bg-gray-100 text-gray-400'}`}>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </div>
               </button>
@@ -385,7 +385,7 @@ export default function MatchPage() {
                                 </div>
                               ) : (
                                 <button onClick={() => setConfirmId(item.id)}
-                                  className="text-xs text-teal-500 hover:text-teal-700 font-medium">
+                                  className="text-xs text-violet-500 hover:text-violet-700 font-medium">
                                   标记已报销
                                 </button>
                               )}
@@ -447,7 +447,7 @@ export default function MatchPage() {
                                     </div>
                                   ) : (
                                     <button onClick={() => setConfirmId(item.id)}
-                                      className="text-xs text-teal-500 hover:text-teal-700 font-medium whitespace-nowrap">
+                                      className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
                                       标记报销
                                     </button>
                                   )}
