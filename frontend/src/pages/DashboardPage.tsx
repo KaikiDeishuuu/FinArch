@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { listTransactions } from '../api/client'
-import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
 import CompactAmount from '../components/CompactAmount'
+import { useTransactions } from '../hooks/useTransactions'
 
 const IconList = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -84,19 +83,10 @@ const FEATURES = [
 export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    listTransactions()
-      .then((txs) => setTransactions(txs ?? []))
-      .catch((err) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        setError(msg || '数据加载失败，请刷新页面重试')
-      })
-      .finally(() => setLoading(false))
-  }, [])
+  const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
+  const error = txError
+    ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '数据加载失败，请刷新页面重试')
+    : ''
 
   const companyBalance = useMemo(() =>
     transactions.reduce((s, t) => {

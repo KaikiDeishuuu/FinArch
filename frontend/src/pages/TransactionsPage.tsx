@@ -1,11 +1,13 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { listTransactions, toggleReimbursed, toggleUploaded } from '../api/client'
+import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -38,31 +40,21 @@ function StatusBadge({
 export default function TransactionsPage() {
   const { user } = useAuth()
   const { rates } = useExchangeRates()
-  const [txs, setTxs] = useState<Transaction[]>([])
+  const { data: txs = [], isLoading: loading } = useTransactions()
+  const invalidate = useInvalidateTransactions()
   const [filter, setFilter] = useState<FilterTab>('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
-  const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [toggleError, setToggleError] = useState('')
 
-  const load = useCallback(() => {
-    setLoading(true)
-    listTransactions()
-      .then(res => setTxs(res ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
+  // Filtering (inline — no hooks; must be before useWindowVirtualizer)
   const baseFiltered = txs.filter((t) => {
     if (filter === 'unreimbursed') return !t.reimbursed && t.source === 'personal'
     if (filter === 'reimbursed') return t.reimbursed
     return true
   })
-
   const filtered = baseFiltered
     .filter((t) => !filterCategory || t.category === filterCategory)
     .filter((t) => !filterProject || (t.project_id ?? '') === filterProject)
@@ -75,6 +67,15 @@ export default function TransactionsPage() {
     () => Array.from(new Set(txs.map(t => t.project_id).filter((p): p is string => !!p))).sort(),
     [txs]
   )
+
+  // Mobile card list virtualizer (window-level scrolling)
+  const mobileListRef = useRef<HTMLDivElement>(null)
+  const mobileVirtualizer = useWindowVirtualizer({
+    count: filtered.length,
+    estimateSize: () => 112,
+    overscan: 5,
+    scrollMargin: mobileListRef.current?.offsetTop ?? 0,
+  })
 
   const fmt = (t: Transaction) => formatAmount(t.amount_yuan, t.currency)
 
@@ -89,7 +90,7 @@ export default function TransactionsPage() {
     setTogglingId(id)
     try {
       await toggleReimbursed(id)
-      load()
+      invalidate()
     } catch {
       setToggleError('报销状态切换失败')
     } finally {
@@ -102,7 +103,7 @@ export default function TransactionsPage() {
     setToggleError('')
     try {
       await toggleUploaded(id)
-      load()
+      invalidate()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setToggleError(msg || '上传状态切换失败，请确认后端已重启')
@@ -247,8 +248,8 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Mobile card list */}
-      <div className="md:hidden space-y-2">
+      {/* Mobile card list (virtualized) */}
+      <div className="md:hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -259,87 +260,108 @@ export default function TransactionsPage() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             <p className="text-sm text-gray-400">暂无记录</p>
           </div>
-        ) : filtered.map((tx) => {
-          const done = tx.reimbursed && tx.uploaded
-          return (
-            <div
-              key={tx.id}
-              className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 transition-opacity ${
-                done ? 'opacity-40' : ''
-              }`}
-            >
-              {/* Row 1: category + amount */}
-              <div className="flex items-start justify-between gap-2 mb-2.5">
-                <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    tx.direction === 'income' ? 'bg-green-400' : 'bg-red-400'
-                  }`} />
-                  <span className="font-semibold text-gray-800 text-sm truncate">{tx.category}</span>
-                  {tx.project_id && (
-                    <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
-                      {tx.project_id}
-                    </span>
-                  )}
-                </div>
-                <span className={`font-bold tabular-nums text-base shrink-0 ml-2 ${
-                  tx.direction === 'income' ? 'text-green-600' : 'text-red-500'
-                }`}>
-                  {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
-                </span>
-              </div>
-              {/* Row 2: date + source */}
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-xs text-gray-400 tabular-nums">{tx.occurred_at}</span>
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                  tx.source === 'company' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
-                }`}>
-                  {tx.source === 'company' ? '公司' : '个人'}
-                </span>
-              </div>
-              {/* Row 3: note (if any) */}
-              {tx.note && (
-                <p className="text-xs text-gray-400 mb-2.5 truncate">{tx.note}</p>
-              )}
-              {/* Row 4: action badges + copy ID */}
-              <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                <StatusBadge
-                  active={tx.uploaded}
-                  activeLabel="已上传"
-                  inactiveLabel="未上传"
-                  activeClass="bg-purple-100 text-purple-700"
-                  inactiveClass="bg-gray-100 text-gray-400"
-                  onClick={() => handleToggleUpload(tx.id)}
-                  disabled={togglingId === tx.id}
-                  loading={togglingId === tx.id}
-                />
-                {tx.source === 'personal' ? (
-                  <StatusBadge
-                    active={tx.reimbursed}
-                    activeLabel="已报销"
-                    inactiveLabel="待报销"
-                    activeClass="bg-green-100 text-green-700"
-                    inactiveClass="bg-gray-100 text-gray-400"
-                    onClick={() => handleToggle(tx.id)}
-                    disabled={togglingId === tx.id || !tx.uploaded}
-                    loading={togglingId === tx.id}
-                  />
-                ) : (
-                  <span className="text-gray-200 text-sm">—</span>
-                )}
-                <button
-                  onClick={() => copyId(tx.id)}
-                  className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${
-                    copiedId === tx.id
-                      ? 'bg-green-100 text-green-600'
-                      : 'bg-gray-100 text-gray-400'
-                  }`}
+        ) : (
+          <div
+            ref={mobileListRef}
+            style={{ height: `${mobileVirtualizer.getTotalSize()}px`, position: 'relative' }}
+          >
+            {mobileVirtualizer.getVirtualItems().map((vItem) => {
+              const tx = filtered[vItem.index]
+              const done = tx.reimbursed && tx.uploaded
+              return (
+                <div
+                  key={vItem.key}
+                  data-index={vItem.index}
+                  ref={mobileVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${vItem.start - mobileVirtualizer.options.scrollMargin}px)`,
+                    paddingBottom: '8px',
+                  }}
                 >
-                  {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
+                  <div
+                    className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 transition-opacity ${
+                      done ? 'opacity-40' : ''
+                    }`}
+                  >
+                    {/* Row 1: category + amount */}
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                          tx.direction === 'income' ? 'bg-green-400' : 'bg-red-400'
+                        }`} />
+                        <span className="font-semibold text-gray-800 text-sm truncate">{tx.category}</span>
+                        {tx.project_id && (
+                          <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
+                            {tx.project_id}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`font-bold tabular-nums text-base shrink-0 ml-2 ${
+                        tx.direction === 'income' ? 'text-green-600' : 'text-red-500'
+                      }`}>
+                        {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
+                      </span>
+                    </div>
+                    {/* Row 2: date + source */}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs text-gray-400 tabular-nums">{tx.occurred_at}</span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        tx.source === 'company' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+                      }`}>
+                        {tx.source === 'company' ? '公司' : '个人'}
+                      </span>
+                    </div>
+                    {/* Row 3: note (if any) */}
+                    {tx.note && (
+                      <p className="text-xs text-gray-400 mb-2.5 truncate">{tx.note}</p>
+                    )}
+                    {/* Row 4: action badges + copy ID */}
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                      <StatusBadge
+                        active={tx.uploaded}
+                        activeLabel="已上传"
+                        inactiveLabel="未上传"
+                        activeClass="bg-purple-100 text-purple-700"
+                        inactiveClass="bg-gray-100 text-gray-400"
+                        onClick={() => handleToggleUpload(tx.id)}
+                        disabled={togglingId === tx.id}
+                        loading={togglingId === tx.id}
+                      />
+                      {tx.source === 'personal' ? (
+                        <StatusBadge
+                          active={tx.reimbursed}
+                          activeLabel="已报销"
+                          inactiveLabel="待报销"
+                          activeClass="bg-green-100 text-green-700"
+                          inactiveClass="bg-gray-100 text-gray-400"
+                          onClick={() => handleToggle(tx.id)}
+                          disabled={togglingId === tx.id || !tx.uploaded}
+                          loading={togglingId === tx.id}
+                        />
+                      ) : (
+                        <span className="text-gray-200 text-sm">—</span>
+                      )}
+                      <button
+                        onClick={() => copyId(tx.id)}
+                        className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${
+                          copiedId === tx.id
+                            ? 'bg-green-100 text-green-600'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Desktop Table */}

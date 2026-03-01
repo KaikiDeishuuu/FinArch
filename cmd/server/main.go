@@ -69,17 +69,19 @@ func main() {
 
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
+	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	userRepo := sqliterepo.NewSQLiteUserRepository(database)
 	tagRepo := sqliterepo.NewSQLiteTagRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
 
-	txSvc := service.NewTransactionService(txRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
 	authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 	statsSvc := service.NewStatsService(database)
+	acctSvc := service.NewAccountService(acctRepo)
 
-	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
+	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc)
 	log.Printf("FinArch API server listening on %s", addr)
 	log.Fatal(srv.Run())
 }

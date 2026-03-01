@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { listTransactions } from '../api/client'
-import type { Transaction } from '../api/client'
 import { formatAmountCompact, formatAmount, formatAmountExact, toCNY } from '../utils/format'
 import CompactAmount from '../components/CompactAmount'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useTransactions } from '../hooks/useTransactions'
 
 const PIE_COLORS = [
   '#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6',
@@ -166,15 +165,8 @@ function MonthlyBarChart({
 
 export default function StatsPage() {
   const year = new Date().getFullYear()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: transactions = [], isLoading: loading } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
-
-  useEffect(() => {
-    listTransactions()
-      .then(data => setTransactions(data ?? []))
-      .finally(() => setLoading(false))
-  }, [])
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
   const fmtExact = (n: number) => formatAmountExact(n, 'CNY')

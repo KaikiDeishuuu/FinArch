@@ -224,6 +224,11 @@ export interface MatchResult {
   project_count: number
   item_count: number
   items?: MatchResultItem[]
+  // V2 fields from integer-cent backend
+  total_cents?: number
+  error_cents?: number
+  score?: number
+  time_pruned?: boolean
 }
 
 export async function matchSubsetSum(
@@ -231,7 +236,11 @@ export async function matchSubsetSum(
   tolerance: number,
   maxItems: number
 ): Promise<MatchResult[]> {
+  const targetCents = Math.round(target * 100)
+  const toleranceCents = Math.round(tolerance * 100)
   const { data } = await client.post('/match/subset-sum', {
+    target_cents: targetCents,
+    tolerance_cents: toleranceCents,
     target_yuan: target,
     tolerance_yuan: tolerance,
     max_items: maxItems,

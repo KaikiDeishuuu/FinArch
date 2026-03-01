@@ -110,7 +110,7 @@ func main() {
 		turnstileSiteKey := os.Getenv("TURNSTILE_SITE_KEY")
 		userRepo := sqliterepo.NewSQLiteUserRepository(database)
 		tagRepo := sqliterepo.NewSQLiteTagRepository(database)
-		txSvc, reimSvc, matchSvc, txRepo := buildServicesWithRepo(database)
+		txSvc, reimSvc, matchSvc, txRepo, acctSvc := buildServicesWithRepo(database)
 		// Email service (no-op in dev unless RESEND_API_KEY is set)
 		appBaseURL := os.Getenv("APP_BASE_URL")
 		if appBaseURL == "" {
@@ -119,7 +119,7 @@ func main() {
 		emailSvc := email.NewResendSender(os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM_EMAIL"), appBaseURL)
 		authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 		statsSvc := service.NewStatsService(database)
-		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey)
+		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc)
 		log.Printf("FinArch API v1: http://%s", addr)
 		log.Fatal(srv.Run())
 	default:
@@ -274,14 +274,16 @@ func runList(ctx context.Context, database *sql.DB) error {
 	return nil
 }
 
-func buildServicesWithRepo(database *sql.DB) (*service.TransactionService, *service.ReimbursementService, *service.MatchingService, *sqliterepo.SQLiteTransactionRepository) {
+func buildServicesWithRepo(database *sql.DB) (*service.TransactionService, *service.ReimbursementService, *service.MatchingService, *sqliterepo.SQLiteTransactionRepository, *service.AccountService) {
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
+	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
-	txSvc := service.NewTransactionService(txRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
-	return txSvc, reimSvc, matchSvc, txRepo
+	acctSvc := service.NewAccountService(acctRepo)
+	return txSvc, reimSvc, matchSvc, txRepo, acctSvc
 }
 
 func printUsage() {
@@ -320,9 +322,10 @@ func buildServices(database *sql.DB) (*service.TransactionService, *service.Reim
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
 	projectRepo := sqliterepo.NewSQLiteProjectRepository(database)
+	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
 
-	txSvc := service.NewTransactionService(txRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
 	return txSvc, reimSvc, matchSvc, projectRepo

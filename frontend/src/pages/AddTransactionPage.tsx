@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createTransaction } from '../api/client'
+import { useInvalidateTransactions } from '../hooks/useTransactions'
 
 const CATEGORIES = [
   '耗材', '材料', '设备', '仪器', 'CNC加工', '加工费',
@@ -11,6 +12,7 @@ const CATEGORIES = [
 
 export default function AddTransactionPage() {
   const navigate = useNavigate()
+  const invalidate = useInvalidateTransactions()
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -47,6 +49,7 @@ export default function AddTransactionPage() {
         project_id: form.project_id.trim() || undefined,
         amount_yuan: amount,
       })
+      invalidate()
       setSuccess(true)
       setTimeout(() => navigate('/transactions'), 1200)
     } catch (err: unknown) {

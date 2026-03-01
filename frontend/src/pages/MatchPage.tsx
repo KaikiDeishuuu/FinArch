@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
-import { matchSubsetSum, toggleReimbursed, toggleUploaded } from '../api/client'
-import type { MatchResult } from '../api/client'
+import { toggleReimbursed, toggleUploaded } from '../api/client'
+import type { MatchResult, MatchResultItem } from '../api/client'
 import { formatAmount, toCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
+import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
+import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
 
 export default function MatchPage() {
   const [target, setTarget] = useState('')
   const [tolerance, setTolerance] = useState('0.01')
   const [maxItems, setMaxItems] = useState('10')
   const [results, setResults] = useState<MatchResult[]>([])
+  const [timePruned, setTimePruned] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -18,6 +22,21 @@ export default function MatchPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
   const { rates } = useExchangeRates()
+  const { data: txs = [] } = useTransactions()
+  const invalidate = useInvalidateTransactions()
+  const workerRef = useRef<Worker | null>(null)
+
+  // Lazily create the worker on first use
+  function getWorker(): Worker {
+    if (!workerRef.current) {
+      workerRef.current = new MatchWorkerConstructor()
+    }
+    return workerRef.current
+  }
+
+  useEffect(() => {
+    return () => { workerRef.current?.terminate() }
+  }, [])
 
   // Compute CNY total for a result using live rates from its items
   function cnyTotal(r: MatchResult): number {
@@ -37,33 +56,105 @@ export default function MatchPage() {
         ...(alreadyUploaded ? [] : [toggleUploaded(id)]),
       ])
       setReimbursedIds(prev => new Set(prev).add(id))
+      invalidate()
     } finally {
       setLoadingId(null)
       setConfirmId(null)
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
     const t = parseFloat(target)
     if (isNaN(t) || t <= 0) { setError('请输入有效目标金额'); return }
+    const tol = parseFloat(tolerance) || 0
+    const maxD = parseInt(maxItems) || 10
+
     setLoading(true)
     setResults([])
+    setTimePruned(false)
     setSearched(false)
     setExpandedIdx(null)
     setConfirmId(null)
     setReimbursedIds(new Set())
-    try {
-      const res = await matchSubsetSum(t, parseFloat(tolerance), parseInt(maxItems))
-      setResults(res || [])
-      setSearched(true)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg || '匹配失败，请重试')
-    } finally {
+
+    // Build a lookup map from tx id → tx
+    const txMap = new Map(txs.map(tx => [tx.id, tx]))
+
+    // Filter: uploaded, unreimbursed, personal-expense
+    const candidates = txs.filter(tx =>
+      tx.source === 'personal' &&
+      tx.direction === 'expense' &&
+      tx.uploaded &&
+      !tx.reimbursed
+    )
+
+    const workerItems: WorkerTxItem[] = candidates.map(tx => ({
+      id: tx.id,
+      amountCents: Math.round(tx.amount_yuan * 100),
+      occurredTs: Math.floor(new Date(tx.occurred_at).getTime() / 1000),
+      projectId: tx.project_id ?? undefined,
+    }))
+
+    const worker = getWorker()
+    worker.onmessage = (ev: MessageEvent<{ ok: boolean; results?: WorkerResult[]; error?: string }>) => {
       setLoading(false)
+      setSearched(true)
+      if (!ev.data.ok) {
+        setError(ev.data.error || '匹配失败，请重试')
+        return
+      }
+      const workerResults = ev.data.results ?? []
+      const pruned = workerResults.some(r => r.timePruned)
+      setTimePruned(pruned)
+
+      // Map WorkerResult → MatchResult, enriching with cached tx data
+      const mapped: MatchResult[] = workerResults.map(wr => {
+        const items: MatchResultItem[] = wr.ids.flatMap(id => {
+            const tx = txMap.get(id)
+            if (!tx) return []
+            const item: MatchResultItem = {
+              id: tx.id,
+              occurred_at: tx.occurred_at,
+              direction: tx.direction,
+              source: tx.source,
+              category: tx.category,
+              amount_yuan: tx.amount_yuan,
+              currency: tx.currency,
+              note: tx.note ?? '',
+              project_id: tx.project_id ?? '',
+              uploaded: tx.uploaded,
+            }
+            return [item]
+          })
+        return {
+          ids: wr.ids,
+          total: wr.totalCents / 100,
+          error: wr.errorCents / 100,
+          project_count: wr.projectCount,
+          item_count: wr.itemCount,
+          items,
+          total_cents: wr.totalCents,
+          error_cents: wr.errorCents,
+          score: wr.score,
+          time_pruned: wr.timePruned,
+        }
+      })
+      setResults(mapped)
     }
+    worker.onerror = (err) => {
+      setLoading(false)
+      setSearched(true)
+      setError(err.message || '匹配失败，请重试')
+    }
+    worker.postMessage({
+      targetCents: Math.round(t * 100),
+      toleranceCents: Math.round(tol * 100),
+      maxDepth: maxD,
+      limit: 20,
+      items: workerItems,
+    })
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
@@ -158,6 +249,14 @@ export default function MatchPage() {
       {/* Results */}
       {searched && (
         <div className="space-y-3">
+          {/* Time-pruned warning */}
+          {timePruned && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+              <span>候选项较多，已自动限制为最近 90 天数据以加速搜索</span>
+            </div>
+          )}
+
           {/* Result header */}
           <div className="flex items-center justify-between px-1">
             {results.length === 0 ? (
@@ -175,7 +274,14 @@ export default function MatchPage() {
             )}
           </div>
 
-          {results.map((r, i) => (
+          {results.map((r, i) => {
+            const rankColors = [
+              'bg-yellow-500',  // gold
+              'bg-gray-400',    // silver
+              'bg-amber-700',   // bronze
+            ]
+            const rankBg = i < 3 ? rankColors[i] : 'bg-blue-600'
+            return (
             <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               {/* Card header (clickable) */}
               <button
@@ -183,7 +289,7 @@ export default function MatchPage() {
                 onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
               >
                 <div className="flex items-center gap-4 text-left">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-blue-600 text-white text-xs font-bold shrink-0 shadow-sm">
+                  <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0 shadow-sm`}>
                     {i + 1}
                   </span>
                   <div>
@@ -191,6 +297,11 @@ export default function MatchPage() {
                       <p className="font-bold text-gray-800 text-base">{fmt(cnyTotal(r), 'CNY')}</p>
                       {r.error <= 0.01 && (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">精确匹配</span>
+                      )}
+                      {r.score != null && (
+                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium tabular-nums">
+                          Score {r.score.toFixed(3)}
+                        </span>
                       )}
                       {hasMixedCurrency(r) && (
                         <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">含外币·已汇率换算</span>
@@ -346,7 +457,8 @@ export default function MatchPage() {
                 </div>
               )}
             </div>
-          ))}
+          )
+        })}
         </div>
       )}
     </div>

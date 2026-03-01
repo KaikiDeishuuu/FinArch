@@ -38,6 +38,7 @@ type Server struct {
 	authLimiter      *auth.IPRateLimiter
 	captchaVerifier  *auth.TurnstileVerifier
 	turnstileSiteKey string
+	acctSvc          *service.AccountService
 }
 
 func NewServer(
@@ -55,6 +56,7 @@ func NewServer(
 	authLimiter *auth.IPRateLimiter,
 	captchaVerifier *auth.TurnstileVerifier,
 	turnstileSiteKey string,
+	acctSvc *service.AccountService,
 ) *Server {
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -75,6 +77,7 @@ func NewServer(
 		authLimiter:      authLimiter,
 		captchaVerifier:  captchaVerifier,
 		turnstileSiteKey: turnstileSiteKey,
+		acctSvc:          acctSvc,
 	}
 	s.registerRoutes()
 	return s
@@ -118,6 +121,15 @@ func (s *Server) registerRoutes() {
 	api.PATCH("/transactions/:id/upload", s.handleToggleUploaded)
 	api.POST("/transactions/:id/tags", s.handleAddTag)
 	api.DELETE("/transactions/:id/tags/:tagID", s.handleRemoveTag)
+
+	// Accounts (V9)
+	api.GET("/accounts", s.handleListAccounts)
+	api.POST("/accounts", s.handleCreateAccount)
+	api.PATCH("/accounts/:id", s.handleUpdateAccount)
+
+	// Categories (V9)
+	api.GET("/categories", s.handleListCategories)
+	api.POST("/categories", s.handleCreateCategory)
 
 	// Tags
 	api.GET("/tags", s.handleListTags)
@@ -544,7 +556,19 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		return
 	}
 	type txDTO struct {
-		ID         string   `json:"id"`
+		// V9 fields
+		ID              string  `json:"id"`
+		GroupID         string  `json:"group_id"`
+		AccountID       string  `json:"account_id"`
+		AccountType     string  `json:"account_type"`
+		LedgerDir       string  `json:"ledger_dir"`
+		TxType          string  `json:"type"`
+		AmountCents     int64   `json:"amount_cents"`
+		BaseAmountCents int64   `json:"base_amount_cents"`
+		ExchangeRate    float64 `json:"exchange_rate"`
+		ReimbStatus     string  `json:"reimb_status"`
+		TxnDate         string  `json:"txn_date"`
+		// Backward-compat fields retained for frontend
 		OccurredAt string   `json:"occurred_at"`
 		Direction  string   `json:"direction"`
 		Source     string   `json:"source"`
@@ -553,6 +577,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		Currency   string   `json:"currency"`
 		Note       string   `json:"note"`
 		ProjectID  *string  `json:"project_id"`
+		Project    *string  `json:"project"`
 		Reimbursed bool     `json:"reimbursed"`
 		Uploaded   bool     `json:"uploaded"`
 		Tags       []string `json:"tags"`
@@ -565,12 +590,19 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			tagNames = append(tagNames, tg.Name)
 		}
 		dtos = append(dtos, txDTO{
-			ID: t.ID, OccurredAt: t.OccurredAt.Format("2006-01-02"),
-			Direction: string(t.Direction), Source: string(t.Source),
+			ID: t.ID, GroupID: t.GroupID,
+			AccountID: t.AccountID, AccountType: string(t.AccountType),
+			LedgerDir: string(t.LedgerDir), TxType: string(t.TxType),
+			AmountCents: t.AmountCents, BaseAmountCents: t.BaseAmountCents,
+			ExchangeRate: t.ExchangeRate, ReimbStatus: string(t.ReimbStatus),
+			TxnDate: t.TxnDate,
+			// backward-compat
+			OccurredAt: t.TxnDate,
+			Direction:  string(t.Direction), Source: string(t.Source),
 			Category: t.Category, AmountYuan: t.AmountYuan.Float64(),
-			Currency: t.Currency,
-			Note:     t.Note, ProjectID: t.ProjectID, Reimbursed: t.Reimbursed,
-			Uploaded: t.Uploaded, Tags: tagNames,
+			Currency: t.Currency, Note: t.Note,
+			ProjectID: t.ProjectID, Project: t.Project,
+			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded, Tags: tagNames,
 		})
 	}
 	ok(c, dtos)
@@ -578,60 +610,91 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 
 func (s *Server) handleCreateTransaction(c *gin.Context) {
 	var req struct {
-		OccurredAt string   `json:"occurred_at"`
-		Direction  string   `json:"direction"   binding:"required"`
-		Source     string   `json:"source"      binding:"required"`
-		Category   string   `json:"category"    binding:"required"`
-		AmountYuan float64  `json:"amount_yuan" binding:"required,gt=0"`
-		Currency   string   `json:"currency"`
-		Note       string   `json:"note"`
-		ProjectID  *string  `json:"project_id"`
-		TagIDs     []string `json:"tag_ids"`
+		OccurredAt string `json:"occurred_at"`
+		// V9 preferred fields
+		AccountID    string  `json:"account_id"`
+		Type         string  `json:"type"` // 'income'|'expense'|'transfer'
+		AmountCents  int64   `json:"amount_cents"`
+		ExchangeRate float64 `json:"exchange_rate"`
+		// Backward-compat fields (still accepted)
+		Direction  string  `json:"direction"`
+		Source     string  `json:"source"`
+		AmountYuan float64 `json:"amount_yuan"`
+		// Common
+		Category  string   `json:"category"  binding:"required"`
+		Currency  string   `json:"currency"`
+		Note      string   `json:"note"`
+		ProjectID *string  `json:"project_id"`
+		TagIDs    []string `json:"tag_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, 40001, err.Error())
 		return
 	}
-	t := time.Now()
+	if req.AmountYuan <= 0 && req.AmountCents <= 0 {
+		fail(c, 422, 40001, "amount_yuan or amount_cents is required and must be positive")
+		return
+	}
+	txDate := time.Now()
 	if req.OccurredAt != "" {
 		if parsed, err := time.Parse("2006-01-02", req.OccurredAt); err == nil {
-			t = parsed
+			txDate = parsed
+		}
+	}
+	// Normalize type from direction for backward compat
+	txType := model.TxType(req.Type)
+	if txType == "" {
+		if req.Direction == "expense" {
+			txType = model.TxTypeExpense
+		} else if req.Direction == "income" {
+			txType = model.TxTypeIncome
 		}
 	}
 	projID := req.ProjectID
 	if projID != nil && *projID == "" {
 		projID = nil
 	}
-	// Auto-create the project if it doesn't exist yet (prevents FK constraint failure
-	// when the user types a free-form project identifier in the form).
 	if projID != nil {
-		_, err := s.db.ExecContext(c.Request.Context(),
+		if _, err := s.db.ExecContext(c.Request.Context(),
 			`INSERT OR IGNORE INTO projects(id, name, code, created_at) VALUES (?, ?, ?, ?)`,
 			*projID, *projID, *projID, time.Now().Unix(),
-		)
-		if err != nil {
+		); err != nil {
 			fail(c, 500, 50001, "auto-create project: "+err.Error())
 			return
 		}
 	}
 	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
-		UserID: userID(c), OccurredAt: t, Direction: model.Direction(req.Direction),
-		Source: model.Source(req.Source), Category: req.Category,
-		AmountYuan: model.Money(req.AmountYuan), Currency: req.Currency,
-		Note: req.Note, ProjectID: projID,
+		UserID:       userID(c),
+		OccurredAt:   txDate,
+		AccountID:    req.AccountID,
+		TxType:       txType,
+		Direction:    model.Direction(req.Direction),
+		Source:       model.Source(req.Source),
+		Category:     req.Category,
+		AmountYuan:   model.Money(req.AmountYuan),
+		AmountCents:  req.AmountCents,
+		ExchangeRate: req.ExchangeRate,
+		Currency:     req.Currency,
+		Note:         req.Note,
+		ProjectID:    projID,
 	})
 	if err != nil {
 		fail(c, 422, 40001, err.Error())
 		return
 	}
-	// attach tags
 	for _, tagID := range req.TagIDs {
 		if err := s.tagRepo.AddToTransaction(c.Request.Context(), created_.ID, tagID); err != nil {
 			fail(c, 422, 40002, "tag not found: "+tagID)
 			return
 		}
 	}
-	created(c, gin.H{"id": created_.ID, "amount_yuan": created_.AmountYuan.Float64()})
+	created(c, gin.H{
+		"id":           created_.ID,
+		"amount_yuan":  created_.AmountYuan.Float64(),
+		"amount_cents": created_.AmountCents,
+		"reimb_status": string(created_.ReimbStatus),
+		"account_id":   created_.AccountID,
+	})
 }
 
 func (s *Server) handleToggleReimbursed(c *gin.Context) {
@@ -727,13 +790,29 @@ func (s *Server) handleDeleteTag(c *gin.Context) {
 
 func (s *Server) handleMatch(c *gin.Context) {
 	var req struct {
-		TargetYuan    float64 `json:"target_yuan"    binding:"required,gt=0"`
+		// V2 preferred: integer cents
+		TargetCents    int64 `json:"target_cents"`
+		ToleranceCents int64 `json:"tolerance_cents"`
+		// Backward-compat: yuan floats (still accepted)
+		TargetYuan    float64 `json:"target_yuan"`
 		ToleranceYuan float64 `json:"tolerance_yuan"`
 		MaxItems      int     `json:"max_items"`
 		ProjectID     *string `json:"project_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, 40001, err.Error())
+		return
+	}
+	// Resolve target: cents takes priority over yuan.
+	var targetYuan, toleranceYuan model.Money
+	if req.TargetCents > 0 {
+		targetYuan = model.Money(req.TargetCents) / 100
+		toleranceYuan = model.Money(req.ToleranceCents) / 100
+	} else if req.TargetYuan > 0 {
+		targetYuan = model.Money(req.TargetYuan)
+		toleranceYuan = model.Money(req.ToleranceYuan)
+	} else {
+		fail(c, 422, 40001, "target_cents or target_yuan is required and must be > 0")
 		return
 	}
 	maxDepth := req.MaxItems
@@ -744,7 +823,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 	results, err := s.matchSvc.Match(
 		c.Request.Context(),
 		userID(c),
-		model.Money(req.TargetYuan), model.Money(req.ToleranceYuan),
+		targetYuan, toleranceYuan,
 		maxDepth, req.ProjectID, limit,
 	)
 	if err != nil {
@@ -789,9 +868,13 @@ func (s *Server) handleMatch(c *gin.Context) {
 	type dto struct {
 		IDs          []string  `json:"ids"`
 		Total        float64   `json:"total"`
+		TotalCents   int64     `json:"total_cents"`
 		Error        float64   `json:"error"`
+		ErrorCents   int64     `json:"error_cents"`
 		ProjectCount int       `json:"project_count"`
 		ItemCount    int       `json:"item_count"`
+		Score        float64   `json:"score"`
+		TimePruned   bool      `json:"time_pruned"`
 		Items        []itemDTO `json:"items"`
 	}
 	dtos := make([]dto, 0, len(results))
@@ -820,9 +903,13 @@ func (s *Server) handleMatch(c *gin.Context) {
 		dtos = append(dtos, dto{
 			IDs:          ids,
 			Total:        r.TotalYuan.Float64(),
+			TotalCents:   r.TotalCents,
 			Error:        r.AbsErrorYuan.Float64(),
+			ErrorCents:   r.AbsErrorCents,
 			ProjectCount: r.ProjectCount,
 			ItemCount:    r.ItemCount,
+			Score:        r.Score,
+			TimePruned:   r.TimePruned,
 			Items:        items,
 		})
 	}
@@ -1034,4 +1121,131 @@ func (s *Server) handleRestore(c *gin.Context) {
 	}
 
 	ok(c, gin.H{"message": "数据恢复成功，数据库已更新"})
+}
+
+// ─── Account handlers ────────────────────────────────────────────────────────
+
+func (s *Server) handleListAccounts(c *gin.Context) {
+	accounts, err := s.acctSvc.ListAccounts(c.Request.Context(), userID(c))
+	if err != nil {
+		fail(c, 500, 50001, err.Error())
+		return
+	}
+	dtos := make([]gin.H, 0, len(accounts))
+	for _, a := range accounts {
+		dtos = append(dtos, gin.H{
+			"id":            a.ID,
+			"name":          a.Name,
+			"type":          string(a.Type),
+			"currency":      a.Currency,
+			"balance_cents": a.BalanceCents,
+			"balance_yuan":  a.BalanceYuan().Float64(),
+			"is_active":     a.IsActive,
+		})
+	}
+	ok(c, dtos)
+}
+
+func (s *Server) handleCreateAccount(c *gin.Context) {
+	var req struct {
+		Name     string `json:"name"     binding:"required"`
+		Type     string `json:"type"     binding:"required"`
+		Currency string `json:"currency"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	cur := req.Currency
+	if cur == "" {
+		cur = "CNY"
+	}
+	acct, err := s.acctSvc.CreateAccount(c.Request.Context(), userID(c), req.Name, model.AccountType(req.Type), cur)
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	created(c, gin.H{
+		"id":            acct.ID,
+		"name":          acct.Name,
+		"type":          string(acct.Type),
+		"currency":      acct.Currency,
+		"balance_cents": acct.BalanceCents,
+		"is_active":     acct.IsActive,
+	})
+}
+
+func (s *Server) handleUpdateAccount(c *gin.Context) {
+	id := c.Param("id")
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	if err := s.acctSvc.RenameAccount(c.Request.Context(), id, userID(c), req.Name); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	ok(c, gin.H{"id": id, "name": req.Name})
+}
+
+// ─── Category handlers ───────────────────────────────────────────────────────
+
+func (s *Server) handleListCategories(c *gin.Context) {
+	rows, err := s.db.QueryContext(c.Request.Context(),
+		`SELECT id, name, type, parent_id, sort_order, is_active FROM categories WHERE user_id=? AND is_active=1 ORDER BY sort_order`,
+		userID(c),
+	)
+	if err != nil {
+		fail(c, 500, 50001, err.Error())
+		return
+	}
+	defer rows.Close()
+	type catDTO struct {
+		ID        string  `json:"id"`
+		Name      string  `json:"name"`
+		Type      string  `json:"type"`
+		ParentID  *string `json:"parent_id"`
+		SortOrder int     `json:"sort_order"`
+		IsActive  bool    `json:"is_active"`
+	}
+	var dtos []catDTO
+	for rows.Next() {
+		var d catDTO
+		var isActive int
+		if err := rows.Scan(&d.ID, &d.Name, &d.Type, &d.ParentID, &d.SortOrder, &isActive); err != nil {
+			fail(c, 500, 50001, err.Error())
+			return
+		}
+		d.IsActive = isActive == 1
+		dtos = append(dtos, d)
+	}
+	if dtos == nil {
+		dtos = []catDTO{}
+	}
+	ok(c, dtos)
+}
+
+func (s *Server) handleCreateCategory(c *gin.Context) {
+	var req struct {
+		Name      string  `json:"name"       binding:"required"`
+		Type      string  `json:"type"       binding:"required"`
+		ParentID  *string `json:"parent_id"`
+		SortOrder int     `json:"sort_order"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	id := uuid.NewString()
+	if _, err := s.db.ExecContext(c.Request.Context(),
+		`INSERT INTO categories(id, user_id, name, type, parent_id, sort_order, is_active, created_at) VALUES(?,?,?,?,?,?,1,?)`,
+		id, userID(c), req.Name, req.Type, req.ParentID, req.SortOrder, time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	created(c, gin.H{"id": id, "name": req.Name, "type": req.Type})
 }

@@ -1,0 +1,121 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+
+	"finarch/internal/domain/model"
+)
+
+// SQLiteAccountRepository stores accounts in SQLite.
+type SQLiteAccountRepository struct {
+	db *sql.DB
+}
+
+// NewSQLiteAccountRepository creates a new account repository.
+func NewSQLiteAccountRepository(db *sql.DB) *SQLiteAccountRepository {
+	return &SQLiteAccountRepository{db: db}
+}
+
+const accountSelectCols = `
+  id, user_id, name, type, currency,
+  balance_cents, version, is_active,
+  created_at, updated_at`
+
+// Create inserts one account.
+func (r *SQLiteAccountRepository) Create(ctx context.Context, a model.Account) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO accounts (id, user_id, name, type, currency, balance_cents, version, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.ID, a.UserID, a.Name, string(a.Type), a.Currency,
+		a.BalanceCents, a.Version, boolToInt(a.IsActive),
+		a.CreatedAt.UTC().Format(time.RFC3339),
+		a.UpdatedAt.UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("create account: %w", err)
+	}
+	return nil
+}
+
+// GetByID loads an account by primary key.
+func (r *SQLiteAccountRepository) GetByID(ctx context.Context, id string) (model.Account, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT`+accountSelectCols+` FROM accounts WHERE id = ?`, id)
+	return scanAccount(row)
+}
+
+// ListByUser returns all active accounts for a user.
+func (r *SQLiteAccountRepository) ListByUser(ctx context.Context, userID string) ([]model.Account, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT`+accountSelectCols+` FROM accounts WHERE user_id = ? AND is_active = 1 ORDER BY type, name`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list accounts: %w", err)
+	}
+	defer rows.Close()
+	var out []model.Account
+	for rows.Next() {
+		a, err := scanAccount(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// GetByUserAndType returns the first active account of the given type for a user.
+func (r *SQLiteAccountRepository) GetByUserAndType(ctx context.Context, userID string, t model.AccountType) (model.Account, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT`+accountSelectCols+` FROM accounts WHERE user_id = ? AND type = ? AND is_active = 1 LIMIT 1`,
+		userID, string(t))
+	return scanAccount(row)
+}
+
+// Update persists name and is_active changes (does NOT touch balance_cents — that is trigger-owned).
+func (r *SQLiteAccountRepository) Update(ctx context.Context, a model.Account) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE accounts SET name = ?, is_active = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
+		a.Name, boolToInt(a.IsActive),
+		time.Now().UTC().Format(time.RFC3339),
+		a.ID, a.UserID,
+	)
+	if err != nil {
+		return fmt.Errorf("update account: %w", err)
+	}
+	return nil
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+type accountScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanAccount(s accountScanner) (model.Account, error) {
+	var a model.Account
+	var typ string
+	var isActive int
+	var createdAt, updatedAt string
+	if err := s.Scan(
+		&a.ID, &a.UserID, &a.Name, &typ, &a.Currency,
+		&a.BalanceCents, &a.Version, &isActive,
+		&createdAt, &updatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return model.Account{}, fmt.Errorf("account not found")
+		}
+		return model.Account{}, fmt.Errorf("scan account: %w", err)
+	}
+	a.Type = model.AccountType(typ)
+	a.IsActive = isActive == 1
+	if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+		a.CreatedAt = t
+	}
+	if t, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+		a.UpdatedAt = t
+	}
+	return a, nil
+}

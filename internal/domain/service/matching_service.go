@@ -1,151 +1,256 @@
 package service
 
 import (
-	"context"
-	"sort"
+"context"
+"sort"
+"time"
 
-	"finarch/internal/domain/model"
-	"finarch/internal/domain/repository"
+"finarch/internal/domain/model"
+"finarch/internal/domain/repository"
+)
+
+const (
+// dpThreshold: if N × targetCents > dpThreshold, activate time-pruning.
+dpThreshold = int64(1_000_000_000)
+
+// timePruneDays: fallback window when N×W exceeds threshold.
+timePruneDays = 90
 )
 
 // MatchResult represents one matching combination candidate.
 type MatchResult struct {
-	TransactionIDs []string
-	TotalYuan      model.Money
-	AbsErrorYuan   model.Money
-	ProjectCount   int
-	ItemCount      int
+TransactionIDs []string
+TotalCents     int64       // precise integer cents
+AbsErrorCents  int64       // |total - target| in cents
+TotalYuan      model.Money // derived: TotalCents/100  (backward compat)
+AbsErrorYuan   model.Money // derived: AbsErrorCents/100 (backward compat)
+ProjectCount   int
+ItemCount      int
+Score          float64 // multi-objective score — higher is better
+TimePruned     bool    // true if result came from 90-day pruned set
 }
 
-// MatchingService finds reimbursement combinations from unreimbursed personal expenses.
+// MatchingService finds reimbursement combinations.
 type MatchingService struct {
-	transactions repository.TransactionRepository
+transactions repository.TransactionRepository
 }
 
-// NewMatchingService creates a new MatchingService.
 func NewMatchingService(transactions repository.TransactionRepository) *MatchingService {
-	return &MatchingService{transactions: transactions}
+return &MatchingService{transactions: transactions}
 }
 
-// Match finds candidate combinations sorted by minimum error then minimum project count then item count.
 func (s *MatchingService) Match(
-	ctx context.Context,
-	userID string,
-	target model.Money,
-	tolerance model.Money,
-	maxDepth int,
-	projectID *string,
-	limit int,
+ctx context.Context,
+userID string,
+targetYuan model.Money,
+toleranceYuan model.Money,
+maxDepth int,
+projectID *string,
+limit int,
 ) ([]MatchResult, error) {
-	if maxDepth <= 0 {
-		maxDepth = 6
-	}
-	if limit <= 0 {
-		limit = 20
-	}
-	candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(ctx, userID, projectID, 2000)
-	if err != nil {
-		return nil, err
-	}
-	return FindBestMatches(candidates, target, tolerance, maxDepth, limit), nil
+if maxDepth <= 0 {
+maxDepth = 6
+}
+if limit <= 0 {
+limit = 20
+}
+candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(ctx, userID, projectID, 2000)
+if err != nil {
+return nil, err
+}
+targetCents := int64(targetYuan * 100)
+toleranceCents := int64(toleranceYuan * 100)
+return FindBestMatchesCents(candidates, targetCents, toleranceCents, maxDepth, limit), nil
 }
 
-// FindBestMatches finds combinations with pruning optimization.
-func FindBestMatches(
-	candidates []model.Transaction,
-	target model.Money,
-	tolerance model.Money,
-	maxDepth int,
-	limit int,
+// FindBestMatchesCents is the primary matching algorithm using integer-cent arithmetic.
+//
+// Strategy:
+//   - N × targetCents <= dpThreshold: DFS+backtracking over all candidates.
+//   - N × targetCents >  dpThreshold: try DFS on last-90-days subset first (time-pruning
+//     Fallback 2); if no results found, retry on full set.
+//
+// Results scored by multi-objective function (fewer items + older receipts = higher score).
+// Top-3 best-scored solutions among equally-close matches appear first.
+func FindBestMatchesCents(
+candidates []model.Transaction,
+targetCents int64,
+toleranceCents int64,
+maxDepth int,
+limit int,
 ) []MatchResult {
-	if len(candidates) == 0 || maxDepth <= 0 || limit <= 0 {
-		return nil
-	}
+if len(candidates) == 0 || maxDepth <= 0 || limit <= 0 || targetCents <= 0 {
+return nil
+}
 
-	sorted := make([]model.Transaction, len(candidates))
-	copy(sorted, candidates)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].AmountYuan == sorted[j].AmountYuan {
-			return sorted[i].OccurredAt.Before(sorted[j].OccurredAt)
-		}
-		return sorted[i].AmountYuan > sorted[j].AmountYuan
-	})
+N := int64(len(candidates))
+workSet := candidates
+timePruned := false
 
-	suffix := make([]model.Money, len(sorted)+1)
-	for i := len(sorted) - 1; i >= 0; i-- {
-		suffix[i] = suffix[i+1] + sorted[i].AmountYuan
-	}
+if N*targetCents > dpThreshold {
+// Fallback 2 – time pruning: restrict to last timePruneDays days.
+cutoff := time.Now().AddDate(0, 0, -timePruneDays)
+pruned := make([]model.Transaction, 0, len(candidates))
+for _, c := range candidates {
+if c.OccurredAt.After(cutoff) {
+pruned = append(pruned, c)
+}
+}
+if len(pruned) > 0 {
+workSet = pruned
+timePruned = true
+}
+}
 
-	results := make([]MatchResult, 0, limit*2)
-	pickedIdx := make([]int, 0, maxDepth)
-	projectSet := make(map[string]struct{})
+results := dfsCents(workSet, targetCents, toleranceCents, maxDepth)
 
-	var dfs func(index int, sum model.Money)
-	dfs = func(index int, sum model.Money) {
-		if len(pickedIdx) > maxDepth {
-			return
-		}
-		if sum > target+tolerance {
-			return
-		}
-		if sum+suffix[index] < target-tolerance {
-			return
-		}
+// If time-pruned set yielded nothing, retry on the full set.
+if len(results) == 0 && timePruned {
+results = dfsCents(candidates, targetCents, toleranceCents, maxDepth)
+timePruned = false
+}
+if len(results) == 0 {
+return nil
+}
 
-		err := (sum - target).Abs()
-		if err <= tolerance && len(pickedIdx) > 0 {
-			ids := make([]string, 0, len(pickedIdx))
-			projectSet = make(map[string]struct{})
-			for _, idx := range pickedIdx {
-				ids = append(ids, sorted[idx].ID)
-				if sorted[idx].ProjectID != nil {
-					projectSet[*sorted[idx].ProjectID] = struct{}{}
-				}
-			}
-			results = append(results, MatchResult{
-				TransactionIDs: ids,
-				TotalYuan:      sum,
-				AbsErrorYuan:   err,
-				ProjectCount:   len(projectSet),
-				ItemCount:      len(ids),
-			})
-		}
+// Build index for age-scoring.
+txIndex := make(map[string]model.Transaction, len(candidates))
+for _, c := range candidates {
+txIndex[c.ID] = c
+}
 
-		if index >= len(sorted) || len(pickedIdx) == maxDepth {
-			return
-		}
+now := time.Now()
+for i := range results {
+var totalDays float64
+for _, id := range results[i].TransactionIDs {
+if t, ok := txIndex[id]; ok {
+totalDays += now.Sub(t.OccurredAt).Hours() / 24
+}
+}
+avgDays := totalDays / float64(results[i].ItemCount)
+ageScore := avgDays / 365.0
+if ageScore > 1.0 {
+ageScore = 1.0
+}
+// Weight: 60% minimalist (fewer items) + 40% age preference (older receipts first).
+minScore := 1.0 / float64(results[i].ItemCount)
+results[i].Score = 0.6*minScore + 0.4*ageScore
+results[i].TimePruned = timePruned
+results[i].TotalYuan = model.Money(results[i].TotalCents) / 100
+results[i].AbsErrorYuan = model.Money(results[i].AbsErrorCents) / 100
+}
 
-		var previous model.Money
-		hasPrevious := false
-		for i := index; i < len(sorted); i++ {
-			if hasPrevious && (sorted[i].AmountYuan-previous).Abs() <= 1e-9 {
-				continue
-			}
-			previous = sorted[i].AmountYuan
-			hasPrevious = true
-			pickedIdx = append(pickedIdx, i)
-			dfs(i+1, sum+sorted[i].AmountYuan)
-			pickedIdx = pickedIdx[:len(pickedIdx)-1]
-		}
-	}
+// Primary: absolute error asc. Secondary: score desc. Tertiary: item count asc.
+sort.Slice(results, func(i, j int) bool {
+if results[i].AbsErrorCents != results[j].AbsErrorCents {
+return results[i].AbsErrorCents < results[j].AbsErrorCents
+}
+if results[i].Score != results[j].Score {
+return results[i].Score > results[j].Score
+}
+return results[i].ItemCount < results[j].ItemCount
+})
 
-	dfs(0, 0)
+if len(results) > limit {
+results = results[:limit]
+}
+return results
+}
 
-	sort.Slice(results, func(i, j int) bool {
-		if results[i].AbsErrorYuan != results[j].AbsErrorYuan {
-			return results[i].AbsErrorYuan < results[j].AbsErrorYuan
-		}
-		if results[i].ProjectCount != results[j].ProjectCount {
-			return results[i].ProjectCount < results[j].ProjectCount
-		}
-		if results[i].ItemCount != results[j].ItemCount {
-			return results[i].ItemCount < results[j].ItemCount
-		}
-		return results[i].TotalYuan < results[j].TotalYuan
-	})
+// dfsCents runs Fallback 1: greedy-sorted DFS with backtracking.
+// Items are sorted by amount desc (large items tried first) and date asc (older first on tie).
+func dfsCents(
+items []model.Transaction,
+targetCents int64,
+toleranceCents int64,
+maxDepth int,
+) []MatchResult {
+sorted := make([]model.Transaction, len(items))
+copy(sorted, items)
+sort.Slice(sorted, func(i, j int) bool {
+if sorted[i].AmountCents != sorted[j].AmountCents {
+return sorted[i].AmountCents > sorted[j].AmountCents
+}
+return sorted[i].OccurredAt.Before(sorted[j].OccurredAt)
+})
 
-	if len(results) > limit {
-		results = results[:limit]
-	}
-	return results
+suffix := make([]int64, len(sorted)+1)
+for i := len(sorted) - 1; i >= 0; i-- {
+suffix[i] = suffix[i+1] + sorted[i].AmountCents
+}
+
+var results []MatchResult
+pickedIdx := make([]int, 0, maxDepth)
+
+var dfs func(index int, sum int64)
+dfs = func(index int, sum int64) {
+if len(pickedIdx) > maxDepth {
+return
+}
+if sum > targetCents+toleranceCents {
+return
+}
+if sum+suffix[index] < targetCents-toleranceCents {
+return
+}
+
+absErr := sum - targetCents
+if absErr < 0 {
+absErr = -absErr
+}
+if absErr <= toleranceCents && len(pickedIdx) > 0 {
+ids := make([]string, len(pickedIdx))
+for k, idx := range pickedIdx {
+ids[k] = sorted[idx].ID
+}
+projectSet := make(map[string]struct{})
+for _, idx := range pickedIdx {
+if sorted[idx].ProjectID != nil {
+projectSet[*sorted[idx].ProjectID] = struct{}{}
+}
+}
+results = append(results, MatchResult{
+TransactionIDs: ids,
+TotalCents:     sum,
+AbsErrorCents:  absErr,
+ProjectCount:   len(projectSet),
+ItemCount:      len(pickedIdx),
+})
+}
+
+if index >= len(sorted) || len(pickedIdx) == maxDepth {
+return
+}
+
+var prevCents int64 = -1
+for i := index; i < len(sorted); i++ {
+if sorted[i].AmountCents == prevCents {
+continue
+}
+prevCents = sorted[i].AmountCents
+pickedIdx = append(pickedIdx, i)
+dfs(i+1, sum+sorted[i].AmountCents)
+pickedIdx = pickedIdx[:len(pickedIdx)-1]
+}
+}
+
+dfs(0, 0)
+return results
+}
+
+// FindBestMatches is kept for backward compatibility with existing tests.
+// Delegates to FindBestMatchesCents after filling AmountCents from AmountYuan for legacy data.
+func FindBestMatches(
+candidates []model.Transaction,
+target model.Money,
+tolerance model.Money,
+maxDepth int,
+limit int,
+) []MatchResult {
+for i := range candidates {
+if candidates[i].AmountCents == 0 && candidates[i].AmountYuan != 0 {
+candidates[i].AmountCents = int64(candidates[i].AmountYuan * 100)
+}
+}
+return FindBestMatchesCents(candidates, int64(target*100), int64(tolerance*100), maxDepth, limit)
 }
