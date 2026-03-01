@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction } from '../api/client'
+import { StaggerContainer, StaggerItem, CardSkeleton, RowSkeleton } from '../motion'
 import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
@@ -159,20 +160,26 @@ export default function TransactionsPage() {
       </div>
 
       {/* Summary cards — Premium */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
+      <StaggerContainer className="grid grid-cols-3 gap-2 md:gap-3">
+        <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">筛选结果</p>
           <p className="text-lg md:text-2xl font-bold text-gray-700">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400">笔</span></p>
         </div>
+        </StaggerItem>
+        <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">收入</p>
           <p className="text-sm md:text-2xl font-bold text-emerald-500 tabular-nums truncate">{totalIncomeStr}</p>
         </div>
+        </StaggerItem>
+        <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">支出</p>
           <p className="text-sm md:text-2xl font-bold text-rose-500 tabular-nums truncate">{totalExpenseStr}</p>
         </div>
-      </div>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Tabs + error */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -243,9 +250,8 @@ export default function TransactionsPage() {
       {/* Mobile card list (virtualized) */}
       <div className="md:hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-400">加载中…</p>
+          <div className="space-y-2">
+            {[0,1,2,3].map(i => <CardSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
@@ -362,9 +368,8 @@ export default function TransactionsPage() {
       {/* Desktop Table — Premium */}
       <div className="hidden md:block bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-400">加载中…</p>
+          <div className="divide-y divide-gray-100">
+            {[0,1,2,3,4,5].map(i => <RowSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2">

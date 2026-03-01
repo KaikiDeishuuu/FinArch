@@ -6,6 +6,7 @@ import { formatAmountCompact, formatAmount, formatAmountExact, toCNY } from '../
 import CompactAmount from '../components/CompactAmount'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions } from '../hooks/useTransactions'
+import { StaggerContainer, StaggerItem } from '../motion'
 
 const PIE_COLORS = [
   '#8b5cf6','#f59e0b','#10b981','#ef4444','#06b6d4',
@@ -274,26 +275,32 @@ export default function StatsPage() {
       </div>
 
       {/* Summary cards — Premium: flat, clean */}
-      <div className="grid grid-cols-3 gap-3">
+      <StaggerContainer className="grid grid-cols-3 gap-3">
+        <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度收入</p>
           <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
           </p>
         </div>
+        </StaggerItem>
+        <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度支出</p>
           <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
           </p>
         </div>
+        </StaggerItem>
+        <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">净结余</p>
           <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600' : 'text-orange-500'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
         </div>
-      </div>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Monthly bar chart — Premium */}
       <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">

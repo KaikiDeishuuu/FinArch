@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PageTransition } from '../motion'
 
 // SVG icon components
 const IconHome = () => (
@@ -55,6 +56,7 @@ const navItems = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
+  const location = useLocation()
   const initial = ((user?.username || user?.email || '?')[0]).toUpperCase()
   const displayName = user?.username || user?.email || '—'
 
@@ -134,8 +136,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ── */}
       <main className="scroll-main flex-1 overflow-y-scroll pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: '#FAFAF9' }}>
-        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 md:px-8 md:py-8 page-enter">
-          {children}
+        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
+          <PageTransition motionKey={location.pathname}>
+            {children}
+          </PageTransition>
         </div>
 
         {/* ── Footer — Premium: refined ── */}
