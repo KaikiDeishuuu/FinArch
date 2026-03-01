@@ -140,7 +140,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-violet-500/25">
             <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.5} className="w-8 h-8">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
+          </svg>
           </div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">请验证您的邮箱</h2>
           <p className="text-gray-500 text-sm mb-6 leading-relaxed">
@@ -149,14 +149,17 @@ export default function LoginPage() {
           </p>
           {!resendDone ? (
             <button onClick={handleResend} disabled={resendLoading}
-              className="text-sm text-violet-600 hover:text-violet-700 font-medium hover:underline disabled:opacity-50 transition-colors">
+              className="inline-block bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:opacity-50 text-white text-sm font-semibold px-8 py-2.5 rounded-xl transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 active:scale-[0.98]">
               {resendLoading ? '发送中...' : '没收到邮件？重新发送'}
             </button>
           ) : (
-            <p className="text-sm text-emerald-500 font-medium">验证邮件已重新发送</p>
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 text-sm flex items-center justify-center gap-2">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              <span>验证邮件已重新发送</span>
+            </div>
           )}
           <button onClick={() => switchMode('login')}
-            className="mt-4 block w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            className="mt-5 block w-full text-center text-xs text-gray-400 hover:text-violet-600 transition-colors font-medium">
             返回登录
           </button>
         </div>
