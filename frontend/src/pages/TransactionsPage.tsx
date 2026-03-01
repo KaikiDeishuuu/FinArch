@@ -259,7 +259,8 @@ export default function TransactionsPage() {
           >
             {mobileVirtualizer.getVirtualItems().map((vItem) => {
               const tx = filtered[vItem.index]
-              const done = tx.reimbursed && tx.uploaded
+              const isExpense = tx.direction === 'expense'
+              const done = isExpense && tx.reimbursed && tx.uploaded
               return (
                 <div
                   key={vItem.key}
@@ -313,26 +314,32 @@ export default function TransactionsPage() {
                     )}
                     {/* Row 4: action badges + copy ID */}
                     <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                      <StatusBadge
-                        active={tx.uploaded}
-                        activeLabel="已上传"
-                        inactiveLabel="未上传"
-                        activeClass="bg-purple-100 text-purple-700"
-                        inactiveClass="bg-gray-100 text-gray-400"
-                        onClick={() => handleToggleUpload(tx.id)}
-                        disabled={togglingId === tx.id}
-                        loading={togglingId === tx.id}
-                      />
-                      <StatusBadge
-                          active={tx.reimbursed}
-                          activeLabel="已报销"
-                          inactiveLabel="待报销"
-                          activeClass="bg-emerald-100 text-emerald-700"
-                          inactiveClass="bg-gray-100 text-gray-400"
-                          onClick={() => handleToggle(tx.id)}
-                          disabled={togglingId === tx.id || !tx.uploaded}
-                          loading={togglingId === tx.id}
-                        />
+                      {tx.direction === 'expense' ? (
+                        <>
+                          <StatusBadge
+                            active={tx.uploaded}
+                            activeLabel="已上传"
+                            inactiveLabel="未上传"
+                            activeClass="bg-purple-100 text-purple-700"
+                            inactiveClass="bg-gray-100 text-gray-400"
+                            onClick={() => handleToggleUpload(tx.id)}
+                            disabled={togglingId === tx.id}
+                            loading={togglingId === tx.id}
+                          />
+                          <StatusBadge
+                            active={tx.reimbursed}
+                            activeLabel="已报销"
+                            inactiveLabel="待报销"
+                            activeClass="bg-emerald-100 text-emerald-700"
+                            inactiveClass="bg-gray-100 text-gray-400"
+                            onClick={() => handleToggle(tx.id)}
+                            disabled={togglingId === tx.id || !tx.uploaded}
+                            loading={togglingId === tx.id}
+                          />
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-300 px-1">收入无需报销</span>
+                      )}
                       <button
                         onClick={() => copyId(tx.id)}
                         className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${
@@ -381,8 +388,9 @@ export default function TransactionsPage() {
               </thead>
               <tbody>
                 {filtered.map((tx) => {
-                  const done = tx.reimbursed && tx.uploaded
-                  const urgent = !tx.reimbursed && !tx.uploaded
+                  const isExpense = tx.direction === 'expense'
+                  const done = isExpense && tx.reimbursed && tx.uploaded
+                  const urgent = isExpense && !tx.reimbursed && !tx.uploaded
                   return (
                     <tr
                       key={tx.id}
@@ -435,19 +443,24 @@ export default function TransactionsPage() {
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
                       <td className="px-5 py-4 text-center whitespace-nowrap">
-                        <StatusBadge
-                          active={tx.uploaded}
-                          activeLabel="已上传"
-                          inactiveLabel="未上传"
-                          activeClass="bg-purple-100 text-purple-700 hover:bg-purple-200"
-                          inactiveClass="bg-gray-100 text-gray-500 hover:bg-purple-50 hover:text-purple-600"
-                          onClick={() => handleToggleUpload(tx.id)}
-                          disabled={togglingId === tx.id}
-                          loading={togglingId === tx.id}
-                        />
+                        {tx.direction === 'expense' ? (
+                          <StatusBadge
+                            active={tx.uploaded}
+                            activeLabel="已上传"
+                            inactiveLabel="未上传"
+                            activeClass="bg-purple-100 text-purple-700 hover:bg-purple-200"
+                            inactiveClass="bg-gray-100 text-gray-500 hover:bg-purple-50 hover:text-purple-600"
+                            onClick={() => handleToggleUpload(tx.id)}
+                            disabled={togglingId === tx.id}
+                            loading={togglingId === tx.id}
+                          />
+                        ) : (
+                          <span className="text-gray-300 text-sm">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-center whitespace-nowrap">
-                        <StatusBadge
+                        {tx.direction === 'expense' ? (
+                          <StatusBadge
                             active={tx.reimbursed}
                             activeLabel="已报销"
                             inactiveLabel="待报销"
@@ -457,6 +470,9 @@ export default function TransactionsPage() {
                             disabled={togglingId === tx.id || !tx.uploaded}
                             loading={togglingId === tx.id}
                           />
+                        ) : (
+                          <span className="text-gray-300 text-sm">—</span>
+                        )}
                       </td>
                     </tr>
                   )
