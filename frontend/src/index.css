@@ -44,6 +44,7 @@
 /* ── 视口基础：防止 html/body 双重滚动 ── */
 html {
   height: 100%;
+  overflow-x: hidden;
   /* 禁止 iOS 橡皮筋传导到根节点 */
   overscroll-behavior: none;
 }
