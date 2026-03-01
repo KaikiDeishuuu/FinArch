@@ -162,9 +162,24 @@ button, a, [role="button"] {
     background-color: #FAFAF9;
   }
 
-  /* 顶部安全区域（刘海屏） */
-  .scroll-main {
-    padding-top: env(safe-area-inset-top);
+  /* 移动端 PWA：header 需要避开刘海/状态栏区域 */
+  @media (max-width: 767px) {
+    /* 固定 header：增加顶部安全区间距，使其不被状态栏遮挡 */
+    header.gpu-layer {
+      padding-top: env(safe-area-inset-top);
+      height: calc(3.5rem + env(safe-area-inset-top));
+    }
+    /* 主内容区：留出 header 高度(3.5rem) + 安全区域 */
+    .scroll-main {
+      padding-top: calc(3.5rem + env(safe-area-inset-top));
+    }
+  }
+
+  /* 桌面端 PWA：仅安全区域（无固定 header） */
+  @media (min-width: 768px) {
+    .scroll-main {
+      padding-top: env(safe-area-inset-top);
+    }
   }
 
   /* 移动端 PWA 导航栏增强 — 更大的底部安全区域 */
