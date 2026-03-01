@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
@@ -10,7 +10,7 @@ import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
-import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useVirtualizer } from '@tanstack/react-virtual'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -70,12 +70,17 @@ export default function TransactionsPage() {
     [txs]
   )
 
-  // Mobile card list virtualizer (window-level scrolling)
+  // Mobile card list virtualizer — uses <main> as scroll container
   const mobileListRef = useRef<HTMLDivElement>(null)
-  const mobileVirtualizer = useWindowVirtualizer({
+  const getScrollElement = useCallback(
+    () => document.querySelector<HTMLElement>('.scroll-main'),
+    [],
+  )
+  const mobileVirtualizer = useVirtualizer({
     count: filtered.length,
     estimateSize: () => 112,
     overscan: 5,
+    getScrollElement,
     scrollMargin: mobileListRef.current?.offsetTop ?? 0,
   })
 
@@ -276,7 +281,7 @@ export default function TransactionsPage() {
                     top: 0,
                     left: 0,
                     width: '100%',
-                    transform: `translateY(${vItem.start - mobileVirtualizer.options.scrollMargin}px)`,
+                    transform: `translateY(${vItem.start - (mobileVirtualizer.options.scrollMargin ?? 0)}px)`,
                     paddingBottom: '8px',
                   }}
                 >
