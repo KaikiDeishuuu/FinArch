@@ -18,10 +18,22 @@ export function exportTransactionsPDF(
 ) {
   const now = new Date()
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const incSum = filtered.filter(t => t.direction === 'income').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-  const expSum = filtered.filter(t => t.direction === 'expense').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-  const reimbursedSum = filtered.filter(t => t.direction === 'expense' && t.reimbursed).reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-  const net = incSum - expSum + reimbursedSum
+
+  // ── 按来源分组统计 ──
+  const personal = filtered.filter(t => t.source !== 'company')
+  const company  = filtered.filter(t => t.source === 'company')
+
+  function calcStats(txs: Transaction[]) {
+    const inc = txs.filter(t => t.direction === 'income').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
+    const exp = txs.filter(t => t.direction === 'expense').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
+    const reimb = txs.filter(t => t.direction === 'expense' && t.reimbursed).reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
+    const net = inc - exp + reimb
+    return { count: txs.length, inc, exp, reimb, net }
+  }
+
+  const allStats = calcStats(filtered)
+  const pStats   = calcStats(personal)
+  const cStats   = calcStats(company)
 
   const rows = filtered.map(t => {
     const dir = t.direction === 'income' ? '收入' : '支出'
@@ -64,13 +76,20 @@ export function exportTransactionsPDF(
     '.header-right { text-align: right; }',
     '.header-right .user-name { font-size: 14px; font-weight: 700; color: #1f2937; }',
     '.header-right .user-detail { font-size: 10px; color: #9ca3af; margin-top: 2px; }',
-    '.summary { display: flex; gap: 16px; margin-bottom: 16px; }',
-    '.summary-card { flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; }',
-    '.summary-card .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 4px; }',
-    '.summary-card .value { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }',
-    '.summary-card .value.income { color: #16a34a; }',
-    '.summary-card .value.expense { color: #ef4444; }',
-    '.summary-card .value.count { color: #7c3aed; }',
+    '.summary { margin-bottom: 16px; }',
+    '.summary-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }',
+    '.summary-table th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; padding: 6px 10px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; }',
+    '.summary-table th:first-child { text-align: left; }',
+    '.summary-table td { padding: 8px 10px; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; border-bottom: 1px solid #f3f4f6; }',
+    '.summary-table td:first-child { text-align: left; font-size: 12px; font-weight: 700; color: #1f2937; }',
+    '.summary-table tr:last-child td { border-bottom: none; }',
+    '.summary-table .row-all td:first-child { color: #5b21b6; }',
+    '.summary-table .row-personal td:first-child { color: #d97706; }',
+    '.summary-table .row-company td:first-child { color: #0284c7; }',
+    '.summary-table .income { color: #16a34a; }',
+    '.summary-table .expense { color: #ef4444; }',
+    '.summary-table .reimb { color: #7c3aed; }',
+    '.summary-table .count { color: #7c3aed; }',
     'table { width: 100%; border-collapse: collapse; font-size: 10.5px; }',
     'thead tr { background: #5b21b6; color: #fff; }',
     'thead th { padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; }',
@@ -93,8 +112,25 @@ export function exportTransactionsPDF(
     '<body>',
   ].join('\n')
 
-  const netColor = net >= 0 ? '#16a34a' : '#ef4444'
-  const netStr = (net >= 0 ? '+' : '') + fmtTotal(net)
+  function netStyle(n: number) {
+    return n >= 0 ? '#16a34a' : '#ef4444'
+  }
+  function netFmt(n: number) {
+    return (n >= 0 ? '+' : '') + fmtTotal(n)
+  }
+
+  function summaryRow(label: string, cls: string, s: { count: number; inc: number; exp: number; reimb: number; net: number }) {
+    return [
+      `<tr class="${cls}">`,
+      `  <td>${label}</td>`,
+      `  <td class="count">${s.count} 笔</td>`,
+      `  <td class="income">${fmtTotal(s.inc)}</td>`,
+      `  <td class="expense">${fmtTotal(s.exp)}</td>`,
+      `  <td class="reimb">+${fmtTotal(s.reimb)}</td>`,
+      `  <td style="color:${netStyle(s.net)}">${netFmt(s.net)}</td>`,
+      '</tr>',
+    ].join('')
+  }
 
   const body = [
     '<div class="header">',
@@ -117,26 +153,14 @@ export function exportTransactionsPDF(
     '  </div>',
     '</div>',
     '<div class="summary">',
-    '  <div class="summary-card">',
-    '    <div class="label">记录数</div>',
-    `    <div class="value count">${filtered.length} 笔</div>`,
-    '  </div>',
-    '  <div class="summary-card">',
-    '    <div class="label">收入合计</div>',
-    `    <div class="value income">${fmtTotal(incSum)}</div>`,
-    '  </div>',
-    '  <div class="summary-card">',
-    '    <div class="label">支出合计</div>',
-    `    <div class="value expense">${fmtTotal(expSum)}</div>`,
-    '  </div>',
-    '  <div class="summary-card">',
-    '    <div class="label">已报销</div>',
-    `    <div class="value" style="color:#7c3aed">+${fmtTotal(reimbursedSum)}</div>`,
-    '  </div>',
-    '  <div class="summary-card">',
-    '    <div class="label">净结余</div>',
-    `    <div class="value" style="color:${netColor}">${netStr}</div>`,
-    '  </div>',
+    '  <table class="summary-table">',
+    '    <thead><tr><th></th><th>记录数</th><th>收入合计</th><th>支出合计</th><th>已报销</th><th>净结余</th></tr></thead>',
+    '    <tbody>',
+    summaryRow('全部', 'row-all', allStats),
+    summaryRow('个人', 'row-personal', pStats),
+    summaryRow('公共', 'row-company', cStats),
+    '    </tbody>',
+    '  </table>',
     '</div>',
     '<table>',
     '  <thead>',
@@ -148,7 +172,7 @@ export function exportTransactionsPDF(
     '</table>',
     '<div class="footer">',
     `  <span>由 FinArch 自动生成 · ${now.toLocaleString('zh-CN')}</span>`,
-    `  <span>共 ${filtered.length} 条记录</span>`,
+    `  <span>共 ${allStats.count} 条记录</span>`,
     '</div>',
     '</body>',
     '</html>',
