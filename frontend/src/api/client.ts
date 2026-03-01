@@ -350,6 +350,7 @@ export interface BackupInfo {
   accounts: number
   schema_version: number
   db_size_bytes: number
+  journal_mode: string
 }
 
 export async function getBackupInfo(): Promise<BackupInfo> {
@@ -370,7 +371,7 @@ export async function downloadBackup(): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
-export async function restoreBackup(file: File): Promise<{ message: string; restored_version: number }> {
+export async function restoreBackup(file: File): Promise<{ message: string; restored_version: number; migrated_to: number }> {
   const form = new FormData()
   form.append('file', file)
   const { data } = await client.post('/backup/restore', form, {

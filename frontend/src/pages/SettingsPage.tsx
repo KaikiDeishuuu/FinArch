@@ -208,8 +208,12 @@ export default function SettingsPage() {
     if (!restoreFile) return
     setRestoreLoading(true)
     try {
-      await restoreBackup(restoreFile)
-      toast.success('数据恢复成功！页面数据已刷新')
+      const result = await restoreBackup(restoreFile)
+      toast.success(
+        result.migrated_to > result.restored_version
+          ? `数据恢复成功！已自动从 v${result.restored_version} 迁移到 v${result.migrated_to}`
+          : '数据恢复成功！页面数据已刷新'
+      )
       setRestoreFile(null); setRestoreConfirm(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
       // Invalidate ALL queries so every page reflects the restored data
@@ -582,6 +586,10 @@ export default function SettingsPage() {
                 <span className="tabular-nums">{backupInfo.accounts} 个账户</span>
                 <span className="tabular-nums">Schema v{backupInfo.schema_version}</span>
                 <span className="tabular-nums">{formatFileSize(backupInfo.db_size_bytes)}</span>
+                <span className={`inline-flex items-center gap-1 ${backupInfo.journal_mode === 'wal' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${backupInfo.journal_mode === 'wal' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  {backupInfo.journal_mode === 'wal' ? 'WAL 模式' : backupInfo.journal_mode.toUpperCase()}
+                </span>
               </div>
             )}
             <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}

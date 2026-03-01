@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"finarch/internal/domain/repository"
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
+	findb "finarch/internal/infrastructure/db"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -1036,8 +1038,11 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 		return
 	}
 
+	// Embed schema version in filename for traceability
+	var schemaVer int
+	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer)
 	ts := time.Now().Format("20060102_150405")
-	filename := fmt.Sprintf("finarch_backup_%s.db", ts)
+	filename := fmt.Sprintf("finarch_backup_v%d_%s.db", schemaVer, ts)
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(tmpPath)
@@ -1058,11 +1063,16 @@ func (s *Server) handleBackupInfo(c *gin.Context) {
 		dbSize = info.Size()
 	}
 
+	// Check WAL mode (important for Litestream compatibility)
+	var journalMode string
+	_ = s.db.QueryRowContext(ctx, `PRAGMA journal_mode`).Scan(&journalMode)
+
 	ok(c, gin.H{
 		"transactions":   txCount,
 		"accounts":       acctCount,
 		"schema_version": schemaVersion,
 		"db_size_bytes":  dbSize,
+		"journal_mode":   journalMode,
 	})
 }
 
@@ -1228,9 +1238,32 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
+	// ── Post-restore: re-apply PRAGMAs (Backup API may reset WAL → DELETE) ──
+	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
+		log.Printf("[WARN] restore: reapply pragmas: %v", err)
+	}
+
+	// ── Post-restore: auto-migrate if backup was an older schema ──
+	var migratedTo int
+	if uploadedVersion < currentVersion {
+		if err := findb.Migrate(ctx, s.db); err != nil {
+			log.Printf("[ERROR] restore: post-restore migration failed: %v", err)
+			fail(c, 500, 50004, fmt.Sprintf(
+				"数据已恢复但自动迁移失败 (v%d → v%d): %s。请重启服务让迁移自动完成。",
+				uploadedVersion, currentVersion, err.Error(),
+			))
+			return
+		}
+		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&migratedTo)
+		log.Printf("[INFO] restore: auto-migrated from v%d to v%d", uploadedVersion, migratedTo)
+	} else {
+		migratedTo = uploadedVersion
+	}
+
 	ok(c, gin.H{
 		"message":          "数据恢复成功，数据库已更新",
 		"restored_version": uploadedVersion,
+		"migrated_to":      migratedTo,
 	})
 }
 

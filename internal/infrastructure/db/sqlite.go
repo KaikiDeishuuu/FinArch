@@ -68,6 +68,22 @@ func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	return database, nil
 }
 
+// ReapplyPragmas re-sets critical pragmas after a restore (Backup API may reset them).
+func ReapplyPragmas(ctx context.Context, database *sql.DB) error {
+	pragmas := []string{
+		"PRAGMA foreign_keys = ON;",
+		"PRAGMA journal_mode = WAL;",
+		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA busy_timeout = 5000;",
+	}
+	for _, q := range pragmas {
+		if _, err := database.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("reapply pragma: %w", err)
+		}
+	}
+	return nil
+}
+
 // Migrate executes schema migrations in order, tracking applied versions.
 func Migrate(ctx context.Context, database *sql.DB) error {
 	// Ensure migrations tracking table exists.
