@@ -233,6 +233,10 @@ export async function renameAccount(id: string, name: string): Promise<void> {
   await client.patch(`/accounts/${id}`, { name })
 }
 
+export async function deleteAccount(id: string): Promise<void> {
+  await client.delete(`/accounts/${id}`)
+}
+
 // ─── Match ────────────────────────────────────────────────────────────────────
 
 export interface MatchResultItem {

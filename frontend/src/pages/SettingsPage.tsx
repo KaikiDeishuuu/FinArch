@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import {
   changePassword, downloadBackup, restoreBackup,
   requestDeleteAccount, requestEmailChange, getMe,
-  createAccount, renameAccount,
+  createAccount, renameAccount, deleteAccount,
 } from '../api/client'
 import type { UserProfile } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -194,6 +194,9 @@ export default function SettingsPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [renameLoading, setRenameLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteAcctLoading, setDeleteAcctLoading] = useState(false)
+  const [deleteAcctError, setDeleteAcctError] = useState('')
 
   async function handleCreateAccount(e: FormEvent) {
     e.preventDefault()
@@ -222,6 +225,27 @@ export default function SettingsPage() {
       setRenamingId(null)
     } catch { /* ignore */ } finally { setRenameLoading(false) }
   }
+
+  async function handleDeleteAccount(id: string) {
+    setDeleteAcctError('')
+    setDeleteAcctLoading(true)
+    try {
+      await deleteAccount(id)
+      await invalidateAccounts()
+      setDeletingId(null)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setDeleteAcctError(msg || '删除失败')
+    } finally { setDeleteAcctLoading(false) }
+  }
+
+  // Count accounts per type to determine if delete is allowed
+  const personalCount = accounts.filter(a => a.type === 'personal').length
+  const publicCount = accounts.filter(a => a.type === 'public').length
+  function canDelete(a: { type: string }) {
+    return a.type === 'personal' ? personalCount > 1 : publicCount > 1
+  }
+
   const displayName = profile?.username || user?.username || user?.email || '—'
   const currentEmail = profile?.email || user?.email || '—'
   const pendingEmail = profile?.pending_email
@@ -287,6 +311,29 @@ export default function SettingsPage() {
                             onClick={() => { setRenamingId(a.id); setRenameValue(a.name) }}
                             className="text-xs text-gray-400 hover:text-violet-600 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
                           >改名</button>
+                          {canDelete(a) && (
+                            deletingId === a.id ? (
+                              <span className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={deleteAcctLoading}
+                                  onClick={() => handleDeleteAccount(a.id)}
+                                  className="text-xs text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 px-2.5 py-1 rounded-lg transition-colors"
+                                >{deleteAcctLoading ? '删除中…' : '确认删除'}</button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setDeletingId(null); setDeleteAcctError('') }}
+                                  className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-1"
+                                >取消</button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setDeletingId(a.id); setDeleteAcctError('') }}
+                                className="text-xs text-gray-400 hover:text-rose-500 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                              >删除</button>
+                            )
+                          )}
                         </>
                       )}
                     </div>
@@ -294,6 +341,7 @@ export default function SettingsPage() {
                 })}
               </div>
             )}
+            {deleteAcctError && <p className="text-xs text-rose-500 mt-2">{deleteAcctError}</p>}
 
             {/* Create account form */}
             <div className="border-t border-gray-100 pt-4">

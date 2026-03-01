@@ -126,6 +126,7 @@ func (s *Server) registerRoutes() {
 	api.GET("/accounts", s.handleListAccounts)
 	api.POST("/accounts", s.handleCreateAccount)
 	api.PATCH("/accounts/:id", s.handleUpdateAccount)
+	api.DELETE("/accounts/:id", s.handleDeleteAccount)
 
 	// Categories (V9)
 	api.GET("/categories", s.handleListCategories)
@@ -1189,6 +1190,15 @@ func (s *Server) handleUpdateAccount(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"id": id, "name": req.Name})
+}
+
+func (s *Server) handleDeleteAccount(c *gin.Context) {
+	id := c.Param("id")
+	if err := s.acctSvc.DeleteAccount(c.Request.Context(), id, userID(c)); err != nil {
+		fail(c, 400, 40001, err.Error())
+		return
+	}
+	ok(c, gin.H{"id": id, "deleted": true})
 }
 
 // ─── Category handlers ───────────────────────────────────────────────────────

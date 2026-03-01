@@ -88,6 +88,35 @@ func (r *SQLiteAccountRepository) Update(ctx context.Context, a model.Account) e
 	return nil
 }
 
+// Delete soft-deletes an account by setting is_active = 0.
+func (r *SQLiteAccountRepository) Delete(ctx context.Context, id, userID string) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE accounts SET is_active = 0, updated_at = ? WHERE id = ? AND user_id = ? AND is_active = 1`,
+		time.Now().UTC().Format(time.RFC3339), id, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete account: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("account not found")
+	}
+	return nil
+}
+
+// CountByUserAndType returns how many active accounts of the given type a user has.
+func (r *SQLiteAccountRepository) CountByUserAndType(ctx context.Context, userID string, t model.AccountType) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM accounts WHERE user_id = ? AND type = ? AND is_active = 1`,
+		userID, string(t),
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count accounts: %w", err)
+	}
+	return count, nil
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 type accountScanner interface {

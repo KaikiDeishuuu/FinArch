@@ -79,6 +79,30 @@ func (s *AccountService) CreateAccount(ctx context.Context, userID, name string,
 	return a, nil
 }
 
+// DeleteAccount soft-deletes an account. The last account of each type
+// (personal / public) cannot be deleted — those are the system defaults.
+func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID string) error {
+	a, err := s.accounts.GetByID(ctx, accountID)
+	if err != nil {
+		return fmt.Errorf("account not found")
+	}
+	if a.UserID != userID {
+		return fmt.Errorf("permission denied")
+	}
+	count, err := s.accounts.CountByUserAndType(ctx, userID, a.Type)
+	if err != nil {
+		return err
+	}
+	if count <= 1 {
+		typeLabel := "个人"
+		if a.Type == model.AccountTypePublic {
+			typeLabel = "公共"
+		}
+		return fmt.Errorf("至少需要保留一个%s账户，无法删除", typeLabel)
+	}
+	return s.accounts.Delete(ctx, accountID, userID)
+}
+
 // RenameAccount renames an account.
 func (s *AccountService) RenameAccount(ctx context.Context, accountID, userID, newName string) error {
 	a, err := s.accounts.GetByID(ctx, accountID)
