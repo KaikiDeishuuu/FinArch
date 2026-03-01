@@ -104,6 +104,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
   await client.post('/auth/reset-password', { token, new_password: newPassword })
 }
 
+export async function verifyEmail(token: string): Promise<void> {
+  await client.post('/auth/verify-email', { token })
+}
+
 export async function resendVerification(email: string): Promise<void> {
   await client.post('/auth/resend-verification', { email })
 }

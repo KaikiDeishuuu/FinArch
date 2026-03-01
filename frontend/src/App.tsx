@@ -9,6 +9,7 @@ import PwaUpdatePrompt from './components/PwaUpdatePrompt'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
 import ConfirmDeleteAccountPage from './pages/ConfirmDeleteAccountPage'
 import ConfirmEmailChangePage from './pages/ConfirmEmailChangePage'
 import ConfirmOldEmailChangePage from './pages/ConfirmOldEmailChangePage'
@@ -64,6 +65,7 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginRouteWrapper />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />

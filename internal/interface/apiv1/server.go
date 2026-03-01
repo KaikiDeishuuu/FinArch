@@ -99,6 +99,7 @@ func (s *Server) registerRoutes() {
 	pub.POST("/auth/register", s.authRateLimitMiddleware(), s.handleRegister)
 	pub.POST("/auth/login", s.authRateLimitMiddleware(), s.handleLogin)
 	pub.GET("/auth/verify-email", s.handleVerifyEmail)
+	pub.POST("/auth/verify-email", s.handleVerifyEmailJSON)
 	pub.POST("/auth/resend-verification", s.authRateLimitMiddleware(), s.handleResendVerification)
 	pub.POST("/auth/forgot-password", s.authRateLimitMiddleware(), s.handleForgotPassword)
 	pub.POST("/auth/reset-password", s.handleResetPassword)
@@ -390,6 +391,23 @@ func (s *Server) handleVerifyEmail(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusFound, "/login?verified=1")
+}
+
+// handleVerifyEmailJSON is the JSON-returning counterpart for the frontend
+// VerifyEmailPage (PWA-safe: no server-side redirect).
+func (s *Server) handleVerifyEmailJSON(c *gin.Context) {
+	var req struct {
+		Token string `json:"token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, "缺少验证令牌")
+		return
+	}
+	if err := s.authSvc.VerifyEmail(c.Request.Context(), req.Token); err != nil {
+		fail(c, 400, 40002, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "邮箱验证成功"})
 }
 
 func (s *Server) handleResendVerification(c *gin.Context) {

@@ -137,7 +137,7 @@ func (s *ResendSender) send(to, subject, html string) error {
 }
 
 func (s *ResendSender) SendVerification(toEmail, toName, token string) error {
-	link := s.baseURL + "/api/v1/auth/verify-email?token=" + token
+	link := s.baseURL + "/verify-email?token=" + token
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">验证您的邮箱地址</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">完成注册，激活您的 FinArch 账号</p>
