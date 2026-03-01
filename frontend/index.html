@@ -54,9 +54,9 @@
     <!-- PWA splash screen: shown immediately, removed by React after mount -->
     <style>
       @keyframes splash-logo-in {
-        0%   { opacity:0; transform:scale(0.6) translateY(12px); }
-        60%  { opacity:1; transform:scale(1.04) translateY(-2px); }
-        100% { opacity:1; transform:scale(1) translateY(0); }
+        0%   { transform:scale(0.88); }
+        60%  { transform:scale(1.04); }
+        100% { transform:scale(1); }
       }
       @keyframes splash-bar-rise {
         0%   { transform:scaleY(0); opacity:0; }
@@ -81,7 +81,7 @@
     <div id="splash" style="
       position:fixed;inset:0;z-index:9999;
       display:flex;align-items:center;justify-content:center;
-      background:#faf9fb;
+      background:#FAFAF9;
     ">
       <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
         <!-- Logo card: violet-indigo gradient with entrance + pulse animation -->
@@ -91,8 +91,8 @@
           display:flex;align-items:center;justify-content:center;
           box-shadow:0 12px 40px rgba(13,11,20,0.35),0 2px 8px rgba(13,11,20,0.20);
           overflow:hidden;
-          animation: splash-logo-in 0.7s cubic-bezier(0.34,1.56,0.64,1) both,
-                     splash-pulse 2.4s ease-in-out 1s infinite;
+          animation: splash-logo-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both,
+                     splash-pulse 2.4s ease-in-out 0.8s infinite;
         ">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="80" height="80">
             <rect x="64"  y="272" width="112" height="144" rx="24" fill="#818cf8"
@@ -107,19 +107,19 @@
         <span style="
           color:#0d0b14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           font-size:22px;font-weight:700;letter-spacing:0.05em;
-          animation:splash-text-in 0.5s ease-out 0.6s both;
+          animation:splash-text-in 0.5s ease-out 0.4s both;
         ">FinArch</span>
         <!-- Tagline with staggered entrance -->
         <span style="
           color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           font-size:13px;
-          animation:splash-text-in 0.5s ease-out 0.8s both;
+          animation:splash-text-in 0.5s ease-out 0.55s both;
         ">记账 · 报销 · 统计</span>
         <!-- Loading dots indicator -->
         <div style="display:flex;gap:6px;margin-top:4px">
-          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1s infinite"></div>
-          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1.2s infinite"></div>
-          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1.4s infinite"></div>
+          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 0.7s infinite"></div>
+          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 0.9s infinite"></div>
+          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1.1s infinite"></div>
         </div>
       </div>
     </div>
