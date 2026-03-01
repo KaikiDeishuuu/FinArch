@@ -51,7 +51,7 @@ export default function TransactionsPage() {
 
   // Filtering (inline — no hooks; must be before useWindowVirtualizer)
   const baseFiltered = txs.filter((t) => {
-    if (filter === 'unreimbursed') return !t.reimbursed && t.source === 'personal'
+    if (filter === 'unreimbursed') return !t.reimbursed
     if (filter === 'reimbursed') return t.reimbursed
     return true
   })
@@ -120,7 +120,7 @@ export default function TransactionsPage() {
 
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
     { key: 'all', label: '全部', count: txs.length },
-    { key: 'unreimbursed', label: '待报销', count: txs.filter(t => !t.reimbursed && t.source === 'personal').length },
+    { key: 'unreimbursed', label: '待报销', count: txs.filter(t => !t.reimbursed).length },
     { key: 'reimbursed', label: '已报销', count: txs.filter(t => t.reimbursed).length },
   ]
 
@@ -323,8 +323,7 @@ export default function TransactionsPage() {
                         disabled={togglingId === tx.id}
                         loading={togglingId === tx.id}
                       />
-                      {tx.source === 'personal' ? (
-                        <StatusBadge
+                      <StatusBadge
                           active={tx.reimbursed}
                           activeLabel="已报销"
                           inactiveLabel="待报销"
@@ -334,9 +333,6 @@ export default function TransactionsPage() {
                           disabled={togglingId === tx.id || !tx.uploaded}
                           loading={togglingId === tx.id}
                         />
-                      ) : (
-                        <span className="text-gray-200 text-sm">—</span>
-                      )}
                       <button
                         onClick={() => copyId(tx.id)}
                         className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${
@@ -386,7 +382,7 @@ export default function TransactionsPage() {
               <tbody>
                 {filtered.map((tx) => {
                   const done = tx.reimbursed && tx.uploaded
-                  const urgent = !tx.reimbursed && !tx.uploaded && tx.source === 'personal'
+                  const urgent = !tx.reimbursed && !tx.uploaded
                   return (
                     <tr
                       key={tx.id}
@@ -451,8 +447,7 @@ export default function TransactionsPage() {
                         />
                       </td>
                       <td className="px-5 py-4 text-center whitespace-nowrap">
-                        {tx.source === 'personal' ? (
-                          <StatusBadge
+                        <StatusBadge
                             active={tx.reimbursed}
                             activeLabel="已报销"
                             inactiveLabel="待报销"
@@ -462,9 +457,6 @@ export default function TransactionsPage() {
                             disabled={togglingId === tx.id || !tx.uploaded}
                             loading={togglingId === tx.id}
                           />
-                        ) : (
-                          <span className="text-gray-300 text-lg">—</span>
-                        )}
                       </td>
                     </tr>
                   )

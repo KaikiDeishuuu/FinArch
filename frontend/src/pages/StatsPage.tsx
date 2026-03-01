@@ -8,7 +8,7 @@ import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions } from '../hooks/useTransactions'
 
 const PIE_COLORS = [
-  '#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6',
+  '#0d9488','#f59e0b','#10b981','#ef4444','#8b5cf6',
   '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
   '#14b8a6','#a855f7','#eab308',
 ]
@@ -167,6 +167,12 @@ export default function StatsPage() {
   const year = new Date().getFullYear()
   const { data: transactions = [], isLoading: loading } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'personal' | 'company'>('all')
+
+  const filteredBySource = useMemo(() =>
+    sourceFilter === 'all' ? transactions : transactions.filter(t => t.source === sourceFilter),
+    [transactions, sourceFilter]
+  )
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
   const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
@@ -175,7 +181,7 @@ export default function StatsPage() {
   // Compute monthly stats for current year
   const monthly = useMemo(() => {
     const map = new Map<number, { month: number; income: number; expense: number; reimbursed: number }>()
-    for (const t of transactions) {
+    for (const t of filteredBySource) {
       if (!t.occurred_at.startsWith(String(year))) continue
       const month = parseInt(t.occurred_at.substring(5, 7))
       if (!map.has(month)) map.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
@@ -185,16 +191,16 @@ export default function StatsPage() {
         entry.income += cny
       } else {
         entry.expense += cny
-        if (t.source === 'personal' && t.reimbursed) entry.reimbursed += cny
+        if (t.reimbursed) entry.reimbursed += cny
       }
     }
     return Array.from(map.values()).sort((a, b) => a.month - b.month)
-  }, [transactions, rates, year])
+  }, [filteredBySource, rates, year])
 
   // Compute category stats (all-time expense)
   const categories = useMemo(() => {
     const map = new Map<string, { total: number; count: number }>()
-    for (const t of transactions) {
+    for (const t of filteredBySource) {
       if (t.direction !== 'expense') continue
       const cat = t.category || '其他'
       if (!map.has(cat)) map.set(cat, { total: 0, count: 0 })
@@ -205,12 +211,12 @@ export default function StatsPage() {
     return Array.from(map.entries())
       .map(([category, v]) => ({ category, total: v.total, count: v.count }))
       .sort((a, b) => b.total - a.total)
-  }, [transactions, rates])
+  }, [filteredBySource, rates])
 
   // Compute project stats (all-time)
   const projects = useMemo(() => {
     const map = new Map<string, { project_name: string; income: number; expense: number }>()
-    for (const t of transactions) {
+    for (const t of filteredBySource) {
       if (!t.project_id) continue
       if (!map.has(t.project_id)) map.set(t.project_id, { project_name: t.project_id, income: 0, expense: 0 })
       const entry = map.get(t.project_id)!
@@ -221,7 +227,7 @@ export default function StatsPage() {
     return Array.from(map.entries())
       .map(([project_id, v]) => ({ project_id, project_name: v.project_name, income: v.income, expense: v.expense, net: v.income - v.expense }))
       .sort((a, b) => a.project_id.localeCompare(b.project_id))
-  }, [transactions, rates])
+  }, [filteredBySource, rates])
 
   const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
   const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
@@ -248,6 +254,23 @@ export default function StatsPage() {
             ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium mt-1">实时汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
             : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 text-amber-600 font-medium mt-1">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
         )}
+      </div>
+
+      {/* Source filter tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        {([['all', '全部'], ['personal', '个人账户'], ['company', '公司账户']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setSourceFilter(key)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              sourceFilter === key
+                ? 'bg-white text-teal-700 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Summary cards */}

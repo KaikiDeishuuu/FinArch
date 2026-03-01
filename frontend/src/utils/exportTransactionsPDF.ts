@@ -20,7 +20,7 @@ export function exportTransactionsPDF(
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const incSum = filtered.filter(t => t.direction === 'income').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
   const expSum = filtered.filter(t => t.direction === 'expense').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-  const reimbursedSum = filtered.filter(t => t.direction === 'expense' && t.source === 'personal' && t.reimbursed).reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
+  const reimbursedSum = filtered.filter(t => t.direction === 'expense' && t.reimbursed).reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
   const net = incSum - expSum + reimbursedSum
 
   const rows = filtered.map(t => {
@@ -31,8 +31,8 @@ export function exportTransactionsPDF(
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
     const uploaded = t.uploaded ? '✓ 已上传' : '✗ 未上传'
     const uploadedColor = t.uploaded ? '#7c3aed' : '#9ca3af'
-    const reimbursed = t.source === 'personal' ? (t.reimbursed ? '✓ 已报销' : '✗ 待报销') : '—'
-    const reimbursedColor = t.source === 'personal' ? (t.reimbursed ? '#15803d' : '#9ca3af') : '#d1d5db'
+    const reimbursed = t.reimbursed ? '✓ 已报销' : '✗ 待报销'
+    const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     return [
       '<tr>',
