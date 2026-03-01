@@ -130,12 +130,13 @@ export default function LoginPage() {
 
   if (pendingVerification) {
     return (
-      <div className="min-h-screen flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-6 md:py-10">
+      <div className="min-h-dvh flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-4 md:py-6">
         {/* Decorative orbs */}
         <div className="fixed top-1/4 -left-20 w-64 h-64 bg-violet-400/30 rounded-full blur-3xl pointer-events-none" />
         <div className="fixed bottom-1/4 -right-20 w-72 h-72 bg-fuchsia-400/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="mt-[8vh] mb-auto mx-auto w-full max-w-md shrink-0 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 text-center relative z-10">
+        <div className="flex-[1]" />
+        <div className="mx-auto w-full max-w-md shrink-0 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 text-center relative z-10">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-violet-500/25">
             <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.5} className="w-8 h-8">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
@@ -159,18 +160,21 @@ export default function LoginPage() {
             返回登录
           </button>
         </div>
+        <div className="flex-[3]" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-6 md:py-10">
+    <div className="min-h-dvh flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-4 md:py-6">
       {/* Decorative background orbs */}
       <div className="fixed top-10 -left-32 w-80 h-80 bg-violet-400/30 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '4s' }} />
       <div className="fixed -bottom-20 -right-32 w-96 h-96 bg-fuchsia-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '6s' }} />
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="mt-[8vh] mb-auto mx-auto w-full max-w-md shrink-0 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 relative z-10 transition-all duration-300 ease-in-out">
+      <div className="flex-[1]" />
+
+      <div className="mx-auto w-full max-w-md shrink-0 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 relative z-10 transition-all duration-300 ease-in-out">
         {/* Brand watermark */}
         <BrandWatermark className="absolute top-4 right-4" opacity={0.03} />
 
@@ -299,6 +303,8 @@ export default function LoginPage() {
           <p className="text-[10px] text-gray-300 tracking-wider">POWERED BY FINARCH · v2.2</p>
         </div>
       </div>
+
+      <div className="flex-[3]" />
     </div>
   )
 }
