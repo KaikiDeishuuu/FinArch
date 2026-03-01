@@ -54,6 +54,7 @@ export interface RegisterRequest {
   email: string
   username: string
   password: string
+  nickname?: string
   captcha_token?: string
 }
 
@@ -63,6 +64,7 @@ export interface AuthResponse {
   user_id: string
   email: string
   username: string
+  nickname: string
   role: string
 }
 
@@ -83,6 +85,7 @@ export interface RegisterResponse {
   user_id?: string
   email?: string
   username?: string
+  nickname?: string
   role?: string
   // 202: email verification sent
   message?: string
@@ -136,6 +139,7 @@ export interface UserProfile {
   id: string
   email: string
   username: string
+  nickname: string
   pending_email: string
   role: string
 }
@@ -143,6 +147,10 @@ export interface UserProfile {
 export async function getMe(): Promise<UserProfile> {
   const { data } = await client.get('/auth/me')
   return data.data as UserProfile
+}
+
+export async function updateNickname(nickname: string): Promise<void> {
+  await client.patch('/auth/nickname', { nickname })
 }
 
 export interface AppConfig {

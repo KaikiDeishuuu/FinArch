@@ -7,6 +7,7 @@ type User struct {
 	ID            string
 	Email         string
 	Username      string // unique, immutable after registration
+	Nickname      string // mutable display name; shown in greetings etc.
 	Name          string // kept for backward compat; mirrors Username
 	PendingEmail  string // unverified new email during email-change flow
 	PasswordHash  string

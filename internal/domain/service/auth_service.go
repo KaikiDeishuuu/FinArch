@@ -49,6 +49,7 @@ type RegisterRequest struct {
 	Email    string
 	Username string
 	Password string
+	Nickname string // optional; randomly generated if empty
 }
 
 type LoginResponse struct {
@@ -57,6 +58,7 @@ type LoginResponse struct {
 	UserID    string
 	Email     string
 	Username  string
+	Nickname  string
 	Role      string
 }
 
@@ -74,10 +76,15 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 		return model.User{}, err
 	}
 	now := time.Now()
+	nickname := req.Nickname
+	if nickname == "" {
+		nickname = randomNickname()
+	}
 	u := model.User{
 		ID:            uuid.NewString(),
 		Email:         req.Email,
 		Username:      req.Username,
+		Nickname:      nickname,
 		Name:          req.Username,
 		PasswordHash:  hash,
 		Role:          "owner",
@@ -359,6 +366,24 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	}
 	return LoginResponse{
 		Token: token, ExpiresAt: exp,
-		UserID: u.ID, Email: u.Email, Username: u.Username, Role: u.Role,
+		UserID: u.ID, Email: u.Email, Username: u.Username, Nickname: u.Nickname, Role: u.Role,
 	}, nil
+}
+
+// UpdateNickname changes the user's display nickname.
+func (s *AuthService) UpdateNickname(ctx context.Context, userID, nickname string) error {
+	if nickname == "" {
+		return fmt.Errorf("昵称不能为空")
+	}
+	if len([]rune(nickname)) > 20 {
+		return fmt.Errorf("昵称最长 20 个字符")
+	}
+	return s.users.UpdateNickname(ctx, userID, nickname)
+}
+
+// randomNickname produces a fun random display name for users who don't set one.
+func randomNickname() string {
+	adj := []string{"快乐的", "努力的", "认真的", "聪明的", "活力的", "优秀的", "可爱的", "勤奋的", "机智的", "阳光的", "温暖的", "真诚的"}
+	noun := []string{"小猫", "小狗", "兔子", "松鼠", "企鹅", "海豚", "熊猫", "考拉", "柴犬", "仓鼠", "水獭", "树袋熊"}
+	return adj[time.Now().UnixNano()%int64(len(adj))] + noun[time.Now().UnixNano()/7%int64(len(noun))]
 }

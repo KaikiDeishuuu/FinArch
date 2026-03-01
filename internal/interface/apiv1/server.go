@@ -113,6 +113,7 @@ func (s *Server) registerRoutes() {
 	api.POST("/auth/change-password", s.handleChangePassword)
 	api.POST("/auth/request-delete-account", s.handleRequestDeleteAccount)
 	api.POST("/auth/request-email-change", s.handleRequestEmailChange)
+	api.PATCH("/auth/nickname", s.handleUpdateNickname)
 
 	// Transactions
 	api.GET("/transactions", s.handleListTransactions)
@@ -290,6 +291,7 @@ func (s *Server) handleRegister(c *gin.Context) {
 		Email        string `json:"email"         binding:"required,email"`
 		Username     string `json:"username"      binding:"required"`
 		Password     string `json:"password"      binding:"required,min=8"`
+		Nickname     string `json:"nickname"`
 		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -301,7 +303,7 @@ func (s *Server) handleRegister(c *gin.Context) {
 		return
 	}
 	_, err := s.authSvc.Register(c.Request.Context(), service.RegisterRequest{
-		Email: req.Email, Username: req.Username, Password: req.Password,
+		Email: req.Email, Username: req.Username, Password: req.Password, Nickname: req.Nickname,
 	})
 	if err != nil {
 		if err.Error() == "register: username_taken" {
@@ -332,6 +334,7 @@ func (s *Server) handleRegister(c *gin.Context) {
 		"user_id":    resp.UserID,
 		"email":      resp.Email,
 		"username":   resp.Username,
+		"nickname":   resp.Nickname,
 		"role":       resp.Role,
 	})
 }
@@ -365,6 +368,7 @@ func (s *Server) handleLogin(c *gin.Context) {
 		"user_id":    resp.UserID,
 		"email":      resp.Email,
 		"username":   resp.Username,
+		"nickname":   resp.Nickname,
 		"role":       resp.Role,
 	})
 }
@@ -472,6 +476,7 @@ func (s *Server) handleGetMe(c *gin.Context) {
 		"id":            u.ID,
 		"email":         u.Email,
 		"username":      u.Username,
+		"nickname":      u.Nickname,
 		"pending_email": u.PendingEmail,
 		"role":          u.Role,
 	})
@@ -499,6 +504,7 @@ func (s *Server) handleRefreshToken(c *gin.Context) {
 		"user_id":    u.ID,
 		"email":      u.Email,
 		"username":   u.Username,
+		"nickname":   u.Nickname,
 		"role":       u.Role,
 	})
 }
@@ -546,6 +552,21 @@ func (s *Server) handleConfirmEmailChange(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"message": "邮箱已更新"})
+}
+
+func (s *Server) handleUpdateNickname(c *gin.Context) {
+	var req struct {
+		Nickname string `json:"nickname" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40030, err.Error())
+		return
+	}
+	if err := s.authSvc.UpdateNickname(c.Request.Context(), userID(c), req.Nickname); err != nil {
+		fail(c, 400, 40031, err.Error())
+		return
+	}
+	ok(c, gin.H{"message": "昵称已更新", "nickname": req.Nickname})
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────

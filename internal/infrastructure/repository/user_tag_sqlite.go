@@ -28,10 +28,13 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 	if u.Name == "" {
 		u.Name = u.Username
 	}
+	if u.Nickname == "" {
+		u.Nickname = u.Username
+	}
 	_, err := r.db.ExecContext(ctx, `
-			INSERT INTO users (id, email, name, username, password_hash, role, email_verified, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Email, u.Name, u.Username, u.PasswordHash, u.Role, verified,
+			INSERT INTO users (id, email, name, username, nickname, password_hash, role, email_verified, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Email, u.Name, u.Username, u.Nickname, u.PasswordHash, u.Role, verified,
 		u.CreatedAt.Unix(), u.UpdatedAt.Unix(),
 	)
 	if err != nil {
@@ -48,14 +51,14 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 
 func (r *SQLiteUserRepository) GetByEmail(ctx context.Context, email string) (model.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
+		`SELECT id, email, name, COALESCE(username,name), COALESCE(nickname,''), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
 			 FROM users WHERE email = ? AND deleted_at IS NULL`, email)
 	return scanUser(row)
 }
 
 func (r *SQLiteUserRepository) GetByID(ctx context.Context, id string) (model.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, email, name, COALESCE(username,name), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
+		`SELECT id, email, name, COALESCE(username,name), COALESCE(nickname,''), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
 			 FROM users WHERE id = ? AND deleted_at IS NULL`, id)
 	return scanUser(row)
 }
@@ -147,6 +150,17 @@ func (r *SQLiteUserRepository) DeleteEmailTokensByUser(ctx context.Context, user
 	return err
 }
 
+func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET nickname = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+		nickname, time.Now().Unix(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update nickname: %w", err)
+	}
+	return nil
+}
+
 // DeleteUser permanently deletes the user and (via CASCADE) all related tokens.
 // Transactions, tags, and fund_pools that reference the user are also cleaned up.
 func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error {
@@ -176,8 +190,8 @@ func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var createdAt, updatedAt int64
 	var verified int
-	// SELECT: id, email, name, username, password_hash, role, email_verified, created_at, updated_at, pending_email, pwd_version
-	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Username, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt, &u.PendingEmail, &u.PwdVersion); err != nil {
+	// SELECT: id, email, name, username, nickname, password_hash, role, email_verified, created_at, updated_at, pending_email, pwd_version
+	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Username, &u.Nickname, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt, &u.PendingEmail, &u.PwdVersion); err != nil {
 		if err == sql.ErrNoRows {
 			return model.User{}, fmt.Errorf("user not found")
 		}

@@ -51,6 +51,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
+  const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [captchaToken, setCaptchaToken] = useState<string>('')
   const [error, setError] = useState('')
@@ -90,7 +91,7 @@ export default function LoginPage() {
         await login({ email, password, captcha_token: captchaToken || undefined })
         navigate('/')
       } else {
-        const pending = await register({ email, username, password, captcha_token: captchaToken || undefined })
+        const pending = await register({ email, username, password, nickname: nickname || undefined, captcha_token: captchaToken || undefined })
         if (pending) {
           setPendingVerification(true)
         } else {
@@ -226,6 +227,15 @@ export default function LoginPage() {
               <p className="mt-1.5 text-xs text-gray-400">注册后无法修改，请谨慎选择。</p>
             </div>
           )}
+          {mode === 'register' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">昵称 <span className="text-gray-400 font-normal">(可选)</span></label>
+              <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
+                className={inputClass} placeholder="不填将随机生成一个可爱昵称"
+                maxLength={20} />
+              <p className="mt-1.5 text-xs text-gray-400">用于打招呼和展示，注册后可随时修改。</p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱</label>
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
@@ -239,12 +249,12 @@ export default function LoginPage() {
           </div>
 
           {turnstileSiteKey && configLoaded && (
-            <div className="flex justify-center">
+            <div className="flex justify-center min-h-[65px] overflow-hidden">
               <Turnstile ref={turnstileRef} siteKey={turnstileSiteKey}
                 onSuccess={(token) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken('')}
                 onError={() => { setCaptchaToken(''); setError('人机验证加载失败，请刷新页面重试') }}
-                options={{ theme: 'light', language: 'zh-cn' }} />
+                options={{ theme: 'light', language: 'zh-cn', size: 'flexible' }} />
             </div>
           )}
 

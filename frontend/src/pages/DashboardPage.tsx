@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
@@ -83,9 +83,94 @@ const FEATURES = [
   },
 ]
 
+// ─── Time-based greeting generator ─────────────────────────────────────────
+function generateGreeting() {
+  const hour = new Date().getHours()
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
+
+  let timeGreeting: string
+  let subMessage: string
+
+  if (hour >= 5 && hour < 9) {
+    timeGreeting = pick(['早安', '早上好', '清晨好'])
+    subMessage = pick([
+      '新的一天，充满可能 ✨',
+      '美好的早晨，精神满满！',
+      '今天也是元气满满的一天',
+      '一日之计在于晨，加油！',
+      '阳光正好，微风不燥',
+    ])
+  } else if (hour >= 9 && hour < 11) {
+    timeGreeting = pick(['上午好', '早上好'])
+    subMessage = pick([
+      '高效工作，专注当下',
+      '愿一切顺顺利利',
+      '上午效率最高，好好把握',
+      '保持专注，你很棒',
+    ])
+  } else if (hour >= 11 && hour < 13) {
+    timeGreeting = pick(['中午好', '午安'])
+    subMessage = pick([
+      '别忘了吃午饭哦 🍱',
+      '适当休息，下午更有活力',
+      '午间充电，养足精神',
+      '记得补充能量，劳逸结合',
+    ])
+  } else if (hour >= 13 && hour < 17) {
+    timeGreeting = pick(['下午好'])
+    subMessage = pick([
+      '来杯下午茶提提神 ☕',
+      '下午也要保持好状态',
+      '坚持就是胜利，加油！',
+      '下午过半了，继续加油',
+      '困了就活动活动筋骨',
+    ])
+  } else if (hour >= 17 && hour < 19) {
+    timeGreeting = pick(['傍晚好', '下午好'])
+    subMessage = pick([
+      '忙碌一天，辛苦了',
+      '快到下班时间啦 🌇',
+      '整理一下今天的收支吧',
+      '日落时分，放慢脚步',
+    ])
+  } else if (hour >= 19 && hour < 22) {
+    timeGreeting = pick(['晚上好'])
+    subMessage = pick([
+      '忙碌一天，放松一下',
+      '吃晚饭了吗？别饿着肚子',
+      '今天辛苦了，好好休息',
+      '夜间时光，属于自己 🌙',
+    ])
+  } else if (hour >= 22 || hour === 0) {
+    timeGreeting = pick(['夜深了', '晚安'])
+    subMessage = pick([
+      '早点休息，明天会更好',
+      '别熬夜哦，身体最重要 🌙',
+      '注意休息，晚安',
+      '夜已深，早些歇息吧',
+      '忙完了就早点睡吧',
+    ])
+  } else {
+    // 1:00–4:59 凌晨
+    timeGreeting = pick(['凌晨了', '夜很深了'])
+    subMessage = pick([
+      '这么晚还在忙？注意身体 💤',
+      '熬夜伤身哦，快去睡吧',
+      '凌晨了，记得早点休息',
+      '身体是革命的本钱，别太拼了',
+      '夜猫子也要按时休息呀 🦉',
+    ])
+  }
+
+  return { timeGreeting, subMessage }
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
+
+  // Greeting — generated once per mount, stable across re-renders
+  const [greeting] = useState(generateGreeting)
   const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
   const { data: accounts = [] } = useAccounts()
   const error = txError
@@ -128,6 +213,7 @@ export default function DashboardPage() {
   const notUploaded = pendingTxs.filter((t) => !t.uploaded)
   const uploadedNotReimbursed = pendingTxs.filter((t) => t.uploaded && !t.reimbursed)
   const companyNotUploaded = transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded)
+  const companyUploadedNotReimbursed = transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed)
 
   if (loading) {
     return (
@@ -159,7 +245,8 @@ export default function DashboardPage() {
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-white/70 text-xs font-medium mb-1">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">你好，{user?.username || user?.email?.split('@')[0]}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greeting.timeGreeting}，{user?.nickname || user?.username || user?.email?.split('@')[0]}</h1>
+            <p className="text-white/60 text-xs mt-1">{greeting.subMessage}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {ratesLoading
                 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">汇率加载中…</span>
@@ -243,7 +330,7 @@ export default function DashboardPage() {
       </StaggerContainer>
 
       {/* Pending action hints — Premium */}
-      {(notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0) && (
+      {(notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0) && (
         <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">待处理事项</h2>
           <div className="space-y-2">
@@ -275,6 +362,16 @@ export default function DashboardPage() {
                   <p className="text-xs text-slate-500 mt-0.5">公共支出记录上传后方可标记报销 → 点击前往明细</p>
                 </div>
                 <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+              </Link>
+            )}
+            {companyUploadedNotReimbursed.length > 0 && (
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 hover:border-emerald-300 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><IconSearch /></span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-emerald-800">有 {companyUploadedNotReimbursed.length} 笔公共支出已上传待报销</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">公共支出已提交，等待报销结算 → 点击前往匹配</p>
+                </div>
+                <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
           </div>

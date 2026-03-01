@@ -24,6 +24,9 @@ type UserRepository interface {
 	SetPendingEmail(ctx context.Context, id, pendingEmail string) error
 	UpdateEmail(ctx context.Context, id, newEmail string) error // also clears pending_email
 
+	// UpdateNickname updates the user's display nickname.
+	UpdateNickname(ctx context.Context, id, nickname string) error
+
 	// DeleteUser permanently removes the user and all their data.
 	DeleteUser(ctx context.Context, id string) error
 }

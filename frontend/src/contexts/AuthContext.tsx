@@ -9,7 +9,7 @@ const REFRESH_THRESHOLD_MS = 60 * 60 * 1000
 const CHECK_INTERVAL_MS = 10 * 60 * 1000
 
 interface AuthState {
-  user: { id: string; email: string; username: string; role: string } | null
+  user: { id: string; email: string; username: string; nickname: string; role: string } | null
   token: string | null
   expiresAt: number | null  // unix ms
 }
@@ -18,6 +18,7 @@ interface AuthContextValue extends Omit<AuthState, 'expiresAt'> {
   login: (req: LoginRequest) => Promise<void>
   register: (req: RegisterRequest) => Promise<boolean>
   logout: () => void
+  updateUser: (patch: Partial<NonNullable<AuthState['user']>>) => void
   isAuthenticated: boolean
 }
 
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const next: AuthState = {
       token: resp.token,
       expiresAt: exp,
-      user: { id: resp.user_id, email: resp.email, username: resp.username, role: resp.role },
+      user: { id: resp.user_id, email: resp.email, username: resp.username, nickname: resp.nickname || resp.username, role: resp.role },
     }
     localStorage.setItem(SESSION_KEY, JSON.stringify(next))
     setState(next)
@@ -84,6 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login'
   }, [])
 
+  const updateUser = useCallback((patch: Partial<NonNullable<AuthState['user']>>) => {
+    setState(prev => {
+      if (!prev.user) return prev
+      const next = { ...prev, user: { ...prev.user, ...patch } }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   // Sliding-window auto-refresh: when token has < 1h remaining, silently re-issue
   useEffect(() => {
     if (!state.token) return
@@ -103,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.token, state.expiresAt, applyAuth])
 
   return (
-    <AuthContext.Provider value={{ user: state.user, token: state.token, login, register, logout, isAuthenticated: !!state.token }}>
+    <AuthContext.Provider value={{ user: state.user, token: state.token, login, register, logout, updateUser, isAuthenticated: !!state.token }}>
       {children}
     </AuthContext.Provider>
   )

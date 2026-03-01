@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import {
   changePassword, downloadBackup, restoreBackup,
   requestDeleteAccount, requestEmailChange, getMe,
-  createAccount, renameAccount, deleteAccount,
+  createAccount, renameAccount, deleteAccount, updateNickname,
 } from '../api/client'
 import type { UserProfile } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -73,7 +73,7 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
   const { data: accounts = [], isLoading: acctLoading } = useAccounts()
   const invalidateAccounts = useInvalidateAccounts()
   // ── Profile data ──────────────────────────────────────────────────────────
@@ -81,6 +81,40 @@ export default function SettingsPage() {
   useEffect(() => {
     getMe().then(setProfile).catch(() => {/* ignore */})
   }, [])
+
+  // ── Nickname ──────────────────────────────────────────────────────────────
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [nicknameInput, setNicknameInput] = useState('')
+  const [nicknameLoading, setNicknameLoading] = useState(false)
+  const [nicknameError, setNicknameError] = useState('')
+  const [nicknameSuccess, setNicknameSuccess] = useState(false)
+
+  function startEditNickname() {
+    setNicknameInput(profile?.nickname || user?.nickname || '')
+    setNicknameError('')
+    setNicknameSuccess(false)
+    setEditingNickname(true)
+  }
+
+  async function handleSaveNickname() {
+    if (!nicknameInput.trim()) { setNicknameError('昵称不能为空'); return }
+    if (nicknameInput.length > 20) { setNicknameError('昵称最长 20 个字符'); return }
+    setNicknameLoading(true)
+    setNicknameError('')
+    try {
+      await updateNickname(nicknameInput.trim())
+      updateUser({ nickname: nicknameInput.trim() })
+      setProfile(prev => prev ? { ...prev, nickname: nicknameInput.trim() } : prev)
+      setNicknameSuccess(true)
+      setEditingNickname(false)
+      setTimeout(() => setNicknameSuccess(false), 2000)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setNicknameError(msg || '修改失败')
+    } finally {
+      setNicknameLoading(false)
+    }
+  }
 
   // ── Change password ───────────────────────────────────────────────────────
   const [currentPw, setCurrentPw] = useState('')
@@ -246,7 +280,7 @@ export default function SettingsPage() {
     return a.type === 'personal' ? personalCount > 1 : publicCount > 1
   }
 
-  const displayName = profile?.username || user?.username || user?.email || '—'
+  const displayName = profile?.nickname || profile?.username || user?.nickname || user?.username || user?.email || '—'
   const currentEmail = profile?.email || user?.email || '—'
   const pendingEmail = profile?.pending_email
 
@@ -395,10 +429,39 @@ export default function SettingsPage() {
                 {(displayName[0] ?? '?').toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
+                {/* Nickname row */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-gray-900 text-base">{displayName}</p>
-                  <span className="text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">用户名 · 不可修改</span>
+                  {editingNickname ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input type="text" value={nicknameInput} onChange={e => setNicknameInput(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-2.5 py-1 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent w-36"
+                        maxLength={20} autoFocus
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveNickname(); if (e.key === 'Escape') setEditingNickname(false) }} />
+                      <button onClick={handleSaveNickname} disabled={nicknameLoading}
+                        className="text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg transition-colors font-medium">
+                        {nicknameLoading ? '保存中…' : '保存'}
+                      </button>
+                      <button onClick={() => setEditingNickname(false)}
+                        className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-1 transition-colors">取消</button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="font-semibold text-gray-900 text-base">{displayName}</p>
+                      <button onClick={startEditNickname}
+                        className="text-[10px] font-medium bg-violet-50 text-violet-500 hover:bg-violet-100 px-2 py-0.5 rounded-full transition-colors cursor-pointer">
+                        昵称 · 点击修改
+                      </button>
+                      {nicknameSuccess && <span className="text-[10px] text-emerald-500 font-medium">✓ 已更新</span>}
+                    </>
+                  )}
                 </div>
+                {nicknameError && <p className="text-xs text-rose-500 mt-1">{nicknameError}</p>}
+                {/* Username */}
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-sm text-gray-400">@{profile?.username || user?.username}</p>
+                  <span className="text-[10px] font-medium bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">用户名 · 不可修改</span>
+                </div>
+                {/* Email */}
                 <p className="text-sm text-gray-500 mt-0.5">{currentEmail}</p>
                 {pendingEmail && (
                   <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
