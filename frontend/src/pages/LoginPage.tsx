@@ -164,13 +164,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative overflow-y-auto py-6 md:py-10">
+    <div className="min-h-screen overflow-x-hidden overflow-y-auto bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative flex flex-col items-center px-4 py-6 md:py-10">
       {/* Decorative background orbs */}
       <div className="fixed top-10 -left-32 w-80 h-80 bg-violet-400/30 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '4s' }} />
       <div className="fixed -bottom-20 -right-32 w-96 h-96 bg-fuchsia-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '6s' }} />
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 w-full max-w-md relative z-10 mx-4 my-auto h-fit transition-all duration-300 ease-in-out">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 w-full max-w-md relative z-10 my-auto shrink-0 transition-all duration-300 ease-in-out">
         {/* Brand watermark */}
         <BrandWatermark className="absolute top-4 right-4" opacity={0.03} />
 
