@@ -100,7 +100,7 @@ export default function AddTransactionPage() {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isExpense
                     ? 'bg-rose-500 border-red-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-400'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-rose-300 hover:text-rose-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
@@ -111,7 +111,7 @@ export default function AddTransactionPage() {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isExpense
                     ? 'bg-emerald-500 border-green-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-green-300 hover:text-green-400'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-emerald-300 hover:text-emerald-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
@@ -139,7 +139,7 @@ export default function AddTransactionPage() {
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isPersonal
                     ? 'bg-teal-500 border-teal-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-blue-300 hover:text-teal-400'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-teal-300 hover:text-teal-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
@@ -152,8 +152,8 @@ export default function AddTransactionPage() {
         {/* 金额 ── col 2 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between">
           <label className={labelClass}>金额（元）</label>
-          <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-red-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
-            <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-red-400' : 'text-green-400'}`}>
+          <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
+            <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
               {isExpense ? '−' : '+'}¥
             </span>
             <input
@@ -195,8 +195,8 @@ export default function AddTransactionPage() {
                 onClick={() => { set('category', c); setCustomCat('') }}
                 className={`flex items-center justify-center py-2.5 px-1 rounded-xl text-xs font-semibold border-2 transition-all ${
                   form.category === c
-                    ? 'bg-teal-600 border-blue-600 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300 hover:bg-teal-50 hover:text-teal-700'
+                    ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700'
                 }`}
               >
                 <span className="leading-tight text-center">{c}</span>
@@ -218,7 +218,7 @@ export default function AddTransactionPage() {
               className={`flex-1 text-xs rounded-xl border-2 py-2 px-3 outline-none transition-all placeholder-gray-300 ${
                 !CATEGORIES.includes(form.category) && customCat.trim() !== ''
                   ? 'border-teal-500 bg-teal-50 text-teal-700 font-semibold'
-                  : 'border-gray-200 bg-white text-gray-600 focus:border-blue-300 focus:bg-teal-50'
+                  : 'border-gray-200 bg-white text-gray-600 focus:border-teal-300 focus:bg-teal-50'
               }`}
             />
           </div>
@@ -261,7 +261,7 @@ export default function AddTransactionPage() {
         {/* 错误提示 + 操作按钮 ── full width */}
         <div className="md:col-span-2 space-y-3">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
               <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
               {error}
             </div>
@@ -272,8 +272,8 @@ export default function AddTransactionPage() {
               disabled={loading || success}
               className={`flex-1 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 shadow-sm ${
                 isExpense
-                  ? 'bg-rose-500 hover:bg-red-600 text-white'
-                  : 'bg-emerald-500 hover:bg-green-600 text-white'
+                  ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'
               }`}
             >
               {loading ? '提交中…' : `保存${isExpense ? '支出' : '收入'}`}

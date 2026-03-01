@@ -456,7 +456,7 @@ export default function TransactionsPage() {
                             active={tx.reimbursed}
                             activeLabel="已报销"
                             inactiveLabel="待报销"
-                            activeClass="bg-emerald-100 text-emerald-700 hover:bg-green-200"
+                            activeClass="bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                             inactiveClass="bg-gray-100 text-gray-500 hover:bg-emerald-50 hover:text-emerald-500"
                             onClick={() => handleToggle(tx.id)}
                             disabled={togglingId === tx.id || !tx.uploaded}

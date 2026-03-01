@@ -222,7 +222,7 @@ export default function MatchPage() {
           </div>
 
           {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+            <div className="mt-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
               <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
               {error}
             </div>
@@ -354,7 +354,7 @@ export default function MatchPage() {
                                 <div className="flex items-center gap-2 pt-0.5">
                                   <span className="text-xs text-gray-500">确认标记已报销？</span>
                                   <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
-                                    className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
+                                    className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
                                     {busy ? '…' : '确认'}
                                   </button>
                                   <button onClick={() => setConfirmId(null)}
@@ -416,7 +416,7 @@ export default function MatchPage() {
                                   ) : confirming ? (
                                     <div className="flex items-center justify-center gap-1.5">
                                       <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
-                                        className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
+                                        className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
                                         {busy ? '…' : '确认'}
                                       </button>
                                       <button onClick={() => setConfirmId(null)}

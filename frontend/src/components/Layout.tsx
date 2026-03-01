@@ -105,7 +105,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <button
               onClick={logout}
               title="退出登录"
-              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all"
+              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-400 transition-all"
             >
               <IconLogout />
             </button>

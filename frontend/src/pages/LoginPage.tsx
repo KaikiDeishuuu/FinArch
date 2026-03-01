@@ -178,7 +178,7 @@ export default function LoginPage() {
           </div>
         )}
         {tokenError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+          <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg px-3 py-2 text-sm">
             验证链接无效或已过期，请重新发送验证邮件
           </div>
         )}
@@ -223,7 +223,7 @@ export default function LoginPage() {
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{error}</div>
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg px-3 py-2 text-sm">{error}</div>
           )}
 
           {unverifiedEmail && (

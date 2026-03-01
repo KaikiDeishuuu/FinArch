@@ -71,7 +71,7 @@ export default function ConfirmEmailChangePage() {
 
         {status === 'error' && (
           <div className="space-y-4">
-            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center mx-auto">
               <svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth={2} className="w-7 h-7">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>

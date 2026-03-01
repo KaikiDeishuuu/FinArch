@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6 text-sm">
+      <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-6 text-sm">
         <p className="font-semibold mb-1">加载失败</p>
         <p>{error}</p>
       </div>
@@ -146,7 +146,7 @@ export default function DashboardPage() {
         </div>
         <Link
           to="/add"
-          className="shrink-0 bg-teal-600 hover:bg-teal-700 active:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm shadow-teal-200"
+          className="shrink-0 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm shadow-teal-200"
         >
           + 添加
         </Link>
@@ -202,10 +202,10 @@ export default function DashboardPage() {
               </Link>
             )}
             {uploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100 hover:border-blue-300 transition-colors">
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100 hover:border-teal-300 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-800">有 {uploadedNotReimbursed.length} 笔已上传等待报销</p>
+                  <p className="text-sm font-medium text-teal-800">有 {uploadedNotReimbursed.length} 笔已上传等待报销</p>
                   <p className="text-xs text-teal-600 mt-0.5">使用子集匹配找到报销组合 → 点击前往匹配</p>
                 </div>
                 <svg className="w-4 h-4 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>

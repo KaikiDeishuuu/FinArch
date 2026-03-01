@@ -17,7 +17,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-          <p className="text-red-600 text-sm mb-4">无效的重置链接，请重新申请。</p>
+          <p className="text-rose-600 text-sm mb-4">无效的重置链接，请重新申请。</p>
           <Link to="/forgot-password" className="text-sm text-teal-600 hover:underline">重新申请</Link>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
               />
             </div>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">{error}</div>
+              <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg px-3 py-2 text-sm">{error}</div>
             )}
             <button
               type="submit"

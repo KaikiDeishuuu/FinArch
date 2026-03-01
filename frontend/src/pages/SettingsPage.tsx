@@ -59,7 +59,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warning'; children: React.ReactNode }) {
   const cls = {
     success: 'bg-emerald-50 border-green-200 text-emerald-700',
-    error:   'bg-red-50 border-red-200 text-red-700',
+    error:   'bg-rose-50 border-rose-200 text-rose-700',
     info:    'bg-teal-50 border-teal-200 text-teal-700',
     warning: 'bg-amber-50 border-amber-200 text-amber-800',
   }[type]
@@ -343,7 +343,7 @@ export default function SettingsPage() {
               )}
               {restoreFile && restoreConfirm && (
                 <button type="button" onClick={handleRestore} disabled={restoreLoading}
-                  className="inline-flex items-center gap-2 bg-rose-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+                  className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                     <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
                   </svg>
@@ -357,10 +357,10 @@ export default function SettingsPage() {
         {/* ── Danger zone ─────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>危险区域</SectionLabel>
-          <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-red-600 mb-1">注销账户</h3>
+                <h3 className="text-sm font-semibold text-rose-600 mb-1">注销账户</h3>
                 <p className="text-xs text-gray-400">
                   将永久删除您的账户及所有数据（标签、资金池、交易记录），此操作<strong>不可撤销</strong>。
                 </p>
@@ -371,15 +371,15 @@ export default function SettingsPage() {
                     ✓ 验证邮件已发送至 <strong>{currentEmail}</strong>，请在 1 小时内点击链接以完成账户注销。
                   </Alert>
                 ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3 max-w-sm">
-                    <p className="text-sm font-semibold text-red-700">确认注销账户？</p>
-                    <p className="text-xs text-red-600">
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-3 max-w-sm">
+                    <p className="text-sm font-semibold text-rose-700">确认注销账户？</p>
+                    <p className="text-xs text-rose-600">
                       我们将向 <strong>{currentEmail}</strong> 发送确认邮件，点击链接后账户将被<strong>永久删除</strong>。
                     </p>
                     {deleteError && <Alert type="error">{deleteError}</Alert>}
                     <div className="flex gap-2">
                       <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
-                        className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                        className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
                         {deleteStep === 'loading' ? '发送中...' : '发送注销确认邮件'}
                       </button>
                       <button type="button" onClick={() => { setDeleteStep('idle'); setDeleteError('') }}
@@ -391,7 +391,7 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   <button type="button" onClick={() => setDeleteStep('confirm')}
-                    className="inline-flex items-center gap-2 border border-red-200 hover:bg-red-50 text-red-600 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+                    className="inline-flex items-center gap-2 border border-rose-200 hover:bg-rose-50 text-rose-600 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
                       <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
