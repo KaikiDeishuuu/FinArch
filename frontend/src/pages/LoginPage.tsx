@@ -6,6 +6,7 @@ import type { TurnstileInstance } from '@marsidev/react-turnstile'
 import { useAuth } from '../contexts/AuthContext'
 import { useConfig } from '../contexts/ConfigContext'
 import { resendVerification } from '../api/client'
+import { LogoMark, BrandWatermark } from '../components/Brand'
 
 // ─── Password Strength Indicator ─────────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -165,10 +166,13 @@ export default function LoginPage() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl" />
 
       <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 md:p-10 w-full max-w-md relative z-10 mx-4">
+        {/* Brand watermark */}
+        <BrandWatermark className="absolute top-4 right-4" opacity={0.03} />
+
         {/* Brand header */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-4">
-            <img src="/logo.svg" alt="FinArch" className="w-16 h-16 rounded-2xl shadow-lg shadow-violet-500/20" />
+            <LogoMark size={64} className="rounded-2xl shadow-lg shadow-violet-500/20" />
             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
               <svg viewBox="0 0 20 20" fill="white" className="w-3 h-3"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
             </div>

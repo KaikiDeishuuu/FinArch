@@ -154,6 +154,44 @@ button, a, [role="button"] {
   animation: page-in 0.18s ease-out both;
 }
 
+/* ── PWA Standalone Mode Enhancements ── */
+@media all and (display-mode: standalone) {
+  /* iOS 状态栏区域背景统一 */
+  body {
+    /* 防止弹性过滚造成白边 */
+    background-color: #FAFAF9;
+  }
+
+  /* 顶部安全区域（刘海屏） */
+  .scroll-main {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* 移动端 PWA 导航栏增强 — 更大的底部安全区域 */
+  @media (max-width: 767px) {
+    .scroll-main {
+      /* 略增底部留白，PWA 全屏模式底栏需要更多空间 */
+      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* 禁止文本选择溢出拖拽（PWA 全屏无地址栏时容易误触） */
+  * {
+    -webkit-touch-callout: none;
+  }
+
+  /* PWA 中禁用拉动刷新（交给 SW 管理） */
+  html {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* ── PWA install/update 相关过渡 ── */
+@keyframes pwa-slide-up {
+  from { opacity: 0; transform: translateY(100%) translateX(-50%); }
+  to   { opacity: 1; transform: translateY(0) translateX(-50%); }
+}
+
 /* ── Skeleton shimmer ── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }

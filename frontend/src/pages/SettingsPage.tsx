@@ -8,6 +8,7 @@ import {
 import type { UserProfile } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
+import Select from '../components/Select'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -297,30 +298,36 @@ export default function SettingsPage() {
             {/* Create account form */}
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">新建账户</p>
-              <form onSubmit={handleCreateAccount} className="flex flex-wrap gap-2">
+              <form onSubmit={handleCreateAccount} className="flex flex-wrap items-end gap-2">
                 <input
                   value={newAcctName}
                   onChange={(e) => setNewAcctName(e.target.value)}
                   placeholder="账户名称"
                   className={`${inputCls} flex-1 min-w-32 py-2`}
                 />
-                <select
-                  value={newAcctType}
-                  onChange={(e) => setNewAcctType(e.target.value as 'personal' | 'public')}
-                  className={`${inputCls} w-auto py-2`}
-                >
-                  <option value="personal">个人账户</option>
-                  <option value="public">公共账户</option>
-                </select>
-                <select
-                  value={newAcctCurrency}
-                  onChange={(e) => setNewAcctCurrency(e.target.value)}
-                  className={`${inputCls} w-auto py-2`}
-                >
-                  <option value="CNY">CNY</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                </select>
+                <div className="w-28">
+                  <Select
+                    value={newAcctType}
+                    onChange={(v) => setNewAcctType(v as 'personal' | 'public')}
+                    size="sm"
+                    options={[
+                      { value: 'personal', label: '个人账户' },
+                      { value: 'public', label: '公共账户' },
+                    ]}
+                  />
+                </div>
+                <div className="w-20">
+                  <Select
+                    value={newAcctCurrency}
+                    onChange={setNewAcctCurrency}
+                    size="sm"
+                    options={[
+                      { value: 'CNY', label: 'CNY' },
+                      { value: 'USD', label: 'USD' },
+                      { value: 'EUR', label: 'EUR' },
+                    ]}
+                  />
+                </div>
                 <button type="submit" disabled={newAcctLoading}
                   className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
                   {newAcctLoading ? '创建中…' : '+ 新建'}

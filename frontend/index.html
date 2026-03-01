@@ -16,8 +16,8 @@
     <meta name="apple-mobile-web-app-title" content="FinArch" />
 
     <!-- 主题色 (Edge / Chrome 地址栏) -->
-    <meta name="theme-color" content="#0d1b3e" />
-    <meta name="msapplication-TileColor" content="#0d1b3e" />
+    <meta name="theme-color" content="#FAFAF9" />
+    <meta name="msapplication-TileColor" content="#0d0b14" />
 
     <!-- SEO / 描述 -->
     <meta name="description" content="记账 · 报销 · 统计，轻量高效的多用户财务管理工具" />
@@ -26,32 +26,101 @@
     <!-- 禁止自动识别电话号码 -->
     <meta name="format-detection" content="telephone=no" />
 
+    <!-- iOS Apple Splash Screens -->
+    <!-- iPhone 14 Pro / 15 Pro (393pt @3x = 1179×2556) -->
+    <link rel="apple-touch-startup-image"
+          href="/splash-1179x2556.png"
+          media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 14 / 13 / 12 (390pt @3x = 1170×2532) -->
+    <link rel="apple-touch-startup-image"
+          href="/splash-1170x2532.png"
+          media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 13 mini / 12 mini / X / XS (375pt @3x = 1125×2436) -->
+    <link rel="apple-touch-startup-image"
+          href="/splash-1125x2436.png"
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone 14 Plus / 13 Pro Max / 12 Pro Max (428pt @3x = 1284×2778) -->
+    <link rel="apple-touch-startup-image"
+          href="/splash-1284x2778.png"
+          media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" />
+    <!-- iPhone XR / 11 (414pt @2x = 828×1792) -->
+    <link rel="apple-touch-startup-image"
+          href="/splash-828x1792.png"
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
+
     <title>FinArch</title>
   </head>
   <body>
     <!-- PWA splash screen: shown immediately, removed by React after mount -->
+    <style>
+      @keyframes splash-logo-in {
+        0%   { opacity:0; transform:scale(0.6) translateY(12px); }
+        60%  { opacity:1; transform:scale(1.04) translateY(-2px); }
+        100% { opacity:1; transform:scale(1) translateY(0); }
+      }
+      @keyframes splash-bar-rise {
+        0%   { transform:scaleY(0); opacity:0; }
+        60%  { transform:scaleY(1.08); opacity:1; }
+        100% { transform:scaleY(1); opacity:1; }
+      }
+      @keyframes splash-text-in {
+        0%   { opacity:0; transform:translateY(8px); }
+        100% { opacity:1; transform:translateY(0); }
+      }
+      @keyframes splash-pulse {
+        0%,100% { box-shadow:0 12px 40px rgba(13,11,20,0.35),0 2px 8px rgba(13,11,20,0.20); }
+        50%     { box-shadow:0 16px 56px rgba(13,11,20,0.45),0 4px 12px rgba(13,11,20,0.28); }
+      }
+      @keyframes splash-dots {
+        0%,80%,100% { opacity:0.3; transform:scale(0.85); }
+        40%         { opacity:1;   transform:scale(1); }
+      }
+      #splash { transition: opacity 0.45s cubic-bezier(0.4,0,0.2,1); }
+      #splash.splash-fade-out { opacity:0; pointer-events:none; }
+    </style>
     <div id="splash" style="
       position:fixed;inset:0;z-index:9999;
       display:flex;align-items:center;justify-content:center;
-      background:#f0f4ff;
+      background:#faf9fb;
     ">
       <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
-        <!-- Logo card: dark gradient on light background gives strong contrast -->
+        <!-- Logo card: violet-indigo gradient with entrance + pulse animation -->
         <div style="
           width:104px;height:104px;border-radius:26px;
-          background:linear-gradient(145deg,#0d1b3e 0%,#0b1f18 100%);
+          background:linear-gradient(145deg,#0d0b14 0%,#170f26 100%);
           display:flex;align-items:center;justify-content:center;
-          box-shadow:0 12px 40px rgba(13,27,62,0.22),0 2px 8px rgba(13,27,62,0.12);
+          box-shadow:0 12px 40px rgba(13,11,20,0.35),0 2px 8px rgba(13,11,20,0.20);
           overflow:hidden;
+          animation: splash-logo-in 0.7s cubic-bezier(0.34,1.56,0.64,1) both,
+                     splash-pulse 2.4s ease-in-out 1s infinite;
         ">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="80" height="80">
-            <rect x="64"  y="272" width="112" height="144" rx="24" fill="#3b82f6"/>
-            <rect x="200" y="192" width="112" height="224" rx="24" fill="#f97316"/>
-            <rect x="336" y="96"  width="112" height="320" rx="24" fill="#22c55e"/>
+            <rect x="64"  y="272" width="112" height="144" rx="24" fill="#818cf8"
+                  style="transform-origin:center bottom;animation:splash-bar-rise 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.25s both"/>
+            <rect x="200" y="192" width="112" height="224" rx="24" fill="#a78bfa"
+                  style="transform-origin:center bottom;animation:splash-bar-rise 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.40s both"/>
+            <rect x="336" y="96"  width="112" height="320" rx="24" fill="#34d399"
+                  style="transform-origin:center bottom;animation:splash-bar-rise 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.55s both"/>
           </svg>
         </div>
-        <span style="color:#0d1b3e;font-family:sans-serif;font-size:22px;font-weight:700;letter-spacing:0.05em">FinArch</span>
-        <span style="color:#6b7280;font-family:sans-serif;font-size:13px">记账 · 报销 · 统计</span>
+        <!-- Brand name with fade-slide in -->
+        <span style="
+          color:#0d0b14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+          font-size:22px;font-weight:700;letter-spacing:0.05em;
+          animation:splash-text-in 0.5s ease-out 0.6s both;
+        ">FinArch</span>
+        <!-- Tagline with staggered entrance -->
+        <span style="
+          color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+          font-size:13px;
+          animation:splash-text-in 0.5s ease-out 0.8s both;
+        ">记账 · 报销 · 统计</span>
+        <!-- Loading dots indicator -->
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1s infinite"></div>
+          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1.2s infinite"></div>
+          <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 1.4s infinite"></div>
+        </div>
       </div>
     </div>
     <div id="root"></div>

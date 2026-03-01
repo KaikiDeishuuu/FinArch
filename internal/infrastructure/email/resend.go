@@ -47,15 +47,15 @@ func NewResendSender(apiKey, from, baseURL string) Sender {
 // buildEmailHTML wraps body content in a consistent email shell.
 // The header contains an inline HTML bar-chart logo (email-client safe, no SVG/image needed).
 func buildEmailHTML(_, bodyHTML string) string {
-	// Inline 3-bar logo: blue→orange→green, bottom-aligned via vertical-align
+	// Inline 3-bar logo: indigo→violet→emerald, bottom-aligned via vertical-align
 	inlineLogo := `
           <table cellpadding="0" cellspacing="0" role="presentation" style="display:inline-table;margin-right:12px;vertical-align:middle">
             <tr>
-              <td style="width:9px;height:16px;background:#2563eb;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
+              <td style="width:9px;height:16px;background:#818cf8;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
               <td style="width:5px"></td>
-              <td style="width:9px;height:24px;background:#f97316;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
+              <td style="width:9px;height:24px;background:#a78bfa;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
               <td style="width:5px"></td>
-              <td style="width:9px;height:34px;background:#22c55e;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
+              <td style="width:9px;height:34px;background:#34d399;border-radius:3px 3px 0 0;vertical-align:bottom"></td>
             </tr>
           </table>
           <span style="font-size:22px;font-weight:800;color:#ffffff;vertical-align:middle;letter-spacing:-0.3px">FinArch</span>`
@@ -75,14 +75,14 @@ func buildEmailHTML(_, bodyHTML string) string {
 
           <!-- ── Header ── -->
           <tr>
-            <td align="center" style="background:linear-gradient(135deg,#0b1f18 0%%,#0d1b3e 100%%);border-radius:14px 14px 0 0;padding:28px 40px 24px">
+            <td align="center" style="background:linear-gradient(135deg,#0d0b14 0%%,#170f26 100%%);border-radius:14px 14px 0 0;padding:28px 40px 24px">
               %s
             </td>
           </tr>
 
           <!-- ── Accent bar ── -->
           <tr>
-            <td style="height:4px;background:linear-gradient(90deg,#2563eb,#f97316,#22c55e)"></td>
+            <td style="height:4px;background:linear-gradient(90deg,#818cf8,#a78bfa,#34d399)"></td>
           </tr>
 
           <!-- ── Body ── -->

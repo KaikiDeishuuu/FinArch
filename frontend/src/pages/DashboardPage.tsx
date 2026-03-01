@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
 import CompactAmount from '../components/CompactAmount'
+import { BrandWatermark } from '../components/Brand'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { StaggerContainer, StaggerItem, AnimatedCard, CardSkeleton } from '../motion'
@@ -154,6 +155,7 @@ export default function DashboardPage() {
       <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20">
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
         <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-fuchsia-400/20 rounded-full blur-2xl" />
+        <BrandWatermark className="absolute -bottom-2 right-4 opacity-[0.08]" opacity={0.12} />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-white/70 text-xs font-medium mb-1">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>

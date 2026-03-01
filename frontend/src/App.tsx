@@ -48,11 +48,13 @@ function App() {
   useEffect(() => {
     const splash = document.getElementById('splash')
     if (!splash) return
-    // Delay so splash is visible for ~3 s (2600 ms display + 400 ms fade)
-    const delay = setTimeout(() => {
-      splash.remove()
-    }, 5000)
-    return () => clearTimeout(delay)
+    // Show splash ~2.5s, then fade-out 450ms, then remove
+    const fadeTimer = setTimeout(() => {
+      splash.classList.add('splash-fade-out')
+      const removeTimer = setTimeout(() => splash.remove(), 500)
+      return () => clearTimeout(removeTimer)
+    }, 2500)
+    return () => clearTimeout(fadeTimer)
   }, [])
 
   return (

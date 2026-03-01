@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction } from '../api/client'
 import { StaggerContainer, StaggerItem, CardSkeleton, RowSkeleton } from '../motion'
+import Select from '../components/Select'
 import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
@@ -204,36 +205,34 @@ export default function TransactionsPage() {
 
         {/* Category filter */}
         {allCategories.length > 0 && (
-          <select
-            value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className={`h-9 rounded-xl border text-sm px-2.5 pr-7 outline-none transition-all appearance-none bg-no-repeat cursor-pointer ${
-              filterCategory
-                ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold'
-                : 'border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300'
-            }`}
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center' }}
-          >
-            <option value="">全部类别</option>
-            {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <div className="w-36">
+            <Select
+              value={filterCategory}
+              onChange={setFilterCategory}
+              placeholder="全部类别"
+              activeHighlight
+              options={[
+                { value: '', label: '全部类别' },
+                ...allCategories.map(c => ({ value: c, label: c })),
+              ]}
+            />
+          </div>
         )}
 
         {/* Project filter */}
         {allProjects.length > 0 && (
-          <select
-            value={filterProject}
-            onChange={e => setFilterProject(e.target.value)}
-            className={`h-9 rounded-xl border text-sm px-2.5 pr-7 outline-none transition-all appearance-none bg-no-repeat cursor-pointer ${
-              filterProject
-                ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold'
-                : 'border-gray-200 bg-gray-100 text-gray-500 hover:border-gray-300'
-            }`}
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundPosition: 'right 8px center' }}
-          >
-            <option value="">全部项目</option>
-            {allProjects.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <div className="w-36">
+            <Select
+              value={filterProject}
+              onChange={setFilterProject}
+              placeholder="全部项目"
+              activeHighlight
+              options={[
+                { value: '', label: '全部项目' },
+                ...allProjects.map(p => ({ value: p, label: p })),
+              ]}
+            />
+          </div>
         )}
 
         {/* Clear extra filters */}
@@ -378,17 +377,27 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-fixed">
+              <colgroup>
+                <col className="w-[130px]" />{/* 日期 */}
+                <col className="w-[110px]" />{/* 类别 */}
+                <col className="w-[100px]" />{/* 项目 */}
+                <col />{/* 备注 — 自适应 */}
+                <col className="w-[72px]" />{/* 来源 */}
+                <col className="w-[110px]" />{/* 金额 */}
+                <col className="w-[80px]" />{/* 上传 */}
+                <col className="w-[80px]" />{/* 报销 */}
+              </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 border-b border-gray-100">
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">日期</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">类别</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">项目</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">备注</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">来源</th>
-                  <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">金额</th>
-                  <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">上传</th>
-                  <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">报销</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">日期</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">类别</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">项目</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">备注</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">来源</th>
+                  <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">金额</th>
+                  <th className="px-2 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">上传</th>
+                  <th className="px-2 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">报销</th>
                 </tr>
               </thead>
               <tbody>
@@ -399,16 +408,17 @@ export default function TransactionsPage() {
                   return (
                     <tr
                       key={tx.id}
-                      className={`border-b border-gray-100 last:border-0 transition-colors ${
+                      className={`border-b border-gray-100/80 last:border-0 transition-colors ${
                         done ? 'opacity-40' : 'hover:bg-violet-50/30'
                       }`}
                     >
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <p className="text-sm font-medium text-gray-700 tabular-nums">{tx.occurred_at}</p>
+                      {/* 日期 + ID */}
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <p className="text-[13px] font-medium text-gray-700 tabular-nums leading-tight">{tx.occurred_at}</p>
                         <button
                           onClick={() => copyId(tx.id)}
                           title="点击复制完整 ID"
-                          className={`font-mono text-[11px] rounded px-1 py-0.5 transition-all mt-0.5 block ${
+                          className={`font-mono text-[10px] rounded px-1 py-0.5 transition-all mt-0.5 block leading-none ${
                             copiedId === tx.id
                               ? 'bg-emerald-100 text-emerald-500'
                               : 'text-gray-300 hover:text-violet-400 hover:bg-violet-50'
@@ -417,37 +427,43 @@ export default function TransactionsPage() {
                           {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
                         </button>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex items-center gap-2 text-sm font-semibold ${urgent ? 'text-gray-900' : 'text-gray-700'}`}>
-                          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                          {tx.category}
+                      {/* 类别 */}
+                      <td className="px-3 py-3">
+                        <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900' : 'text-gray-700'}`}>
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          <span className="truncate">{tx.category}</span>
                         </span>
                       </td>
-                      <td className="px-5 py-4 max-w-[140px]">
+                      {/* 项目 */}
+                      <td className="px-3 py-3">
                         {tx.project_id
-                          ? <span className="inline-flex items-center text-xs font-mono font-semibold bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-md">{tx.project_id}</span>
-                          : <span className="text-gray-300 text-sm">—</span>
+                          ? <span className="inline-flex items-center text-[11px] font-mono font-semibold bg-violet-50 text-violet-600 border border-violet-200/60 px-1.5 py-0.5 rounded-md truncate max-w-full">{tx.project_id}</span>
+                          : <span className="text-gray-300 text-[13px]">—</span>
                         }
                       </td>
-                      <td className="px-5 py-4 max-w-[180px]">
+                      {/* 备注 */}
+                      <td className="px-3 py-3">
                         {tx.note
-                          ? <span className="text-sm text-gray-600 truncate block" title={tx.note}>{tx.note}</span>
-                          : <span className="text-gray-300 text-sm">—</span>
+                          ? <span className="text-[13px] text-gray-500 truncate block leading-snug" title={tx.note}>{tx.note}</span>
+                          : <span className="text-gray-300 text-[13px]">—</span>
                         }
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                      {/* 来源 */}
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                           tx.source === 'company'
-                            ? 'bg-sky-100 text-sky-700'
-                            : 'bg-amber-100 text-amber-700'
+                            ? 'bg-sky-50 text-sky-600'
+                            : 'bg-amber-50 text-amber-600'
                         }`}>
                           {tx.source === 'company' ? '公共' : '个人'}
                         </span>
                       </td>
-                      <td className={`px-5 py-4 text-right font-bold text-base tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {/* 金额 */}
+                      <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
-                      <td className="px-5 py-4 text-center whitespace-nowrap">
+                      {/* 上传 */}
+                      <td className="px-2 py-3 text-center whitespace-nowrap">
                         {tx.direction === 'expense' ? (
                           <StatusBadge
                             active={tx.uploaded}
@@ -460,10 +476,11 @@ export default function TransactionsPage() {
                             loading={togglingId === tx.id}
                           />
                         ) : (
-                          <span className="text-gray-300 text-sm">—</span>
+                          <span className="text-gray-300 text-[13px]">—</span>
                         )}
                       </td>
-                      <td className="px-5 py-4 text-center whitespace-nowrap">
+                      {/* 报销 */}
+                      <td className="px-2 py-3 text-center whitespace-nowrap">
                         {tx.direction === 'expense' ? (
                           <StatusBadge
                             active={tx.reimbursed}
@@ -476,7 +493,7 @@ export default function TransactionsPage() {
                             loading={togglingId === tx.id}
                           />
                         ) : (
-                          <span className="text-gray-300 text-sm">—</span>
+                          <span className="text-gray-300 text-[13px]">—</span>
                         )}
                       </td>
                     </tr>

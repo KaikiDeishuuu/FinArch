@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { PageTransition } from '../motion'
+import { LogoMark, LogoBars, BrandDivider } from './Brand'
 
 // SVG icon components
 const IconHome = () => (
@@ -68,7 +69,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Brand */}
         <div className="px-5 pt-6 pb-5">
           <div className="flex items-center gap-3">
-            <img src="/logo.svg" alt="FinArch" className="w-9 h-9 rounded-xl shrink-0" />
+            <LogoMark size={36} className="rounded-xl" />
             <div>
               <h1 className="font-extrabold text-gray-900 text-base leading-tight tracking-tight">FinArch</h1>
               <p className="text-[10px] text-gray-400 mt-0.5 tracking-wide">收支 · 报销 · 统计</p>
@@ -118,7 +119,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Mobile Top Header ── */}
       <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 backdrop-blur-sm border-b border-gray-100/80 flex items-center justify-between px-4">
         <div className="flex items-center gap-2.5">
-          <img src="/logo.svg" alt="FinArch" className="w-7 h-7 rounded-xl shrink-0" />
+          <LogoMark size={28} className="rounded-lg" />
           <span className="font-extrabold text-gray-900 text-[15px] tracking-tight">FinArch</span>
         </div>
         <div className="flex items-center gap-2.5">
@@ -142,16 +143,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </PageTransition>
         </div>
 
-        {/* ── Footer — Premium: refined ── */}
+        {/* ── Footer — Premium: brand accent ── */}
         <footer className="shrink-0 mt-auto">
-          <div className="h-px bg-gradient-to-r from-transparent via-gray-200/60 to-transparent mx-6 md:mx-8" />
+          <BrandDivider className="mx-6 md:mx-8" />
           <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              <LogoBars size={16} opacity={0.25} />
               <span className="text-[11px] font-semibold text-gray-300 tracking-wide">FinArch</span>
               <span className="text-[11px] text-gray-200">·</span>
               <span className="text-[11px] text-gray-300">记账 · 报销 · 智能匹配</span>
             </div>
-            <span className="text-[10px] text-gray-300 font-mono">v2.2</span>
+            <span className="text-[10px] text-gray-300 font-mono">v2.3</span>
           </div>
         </footer>
       </main>

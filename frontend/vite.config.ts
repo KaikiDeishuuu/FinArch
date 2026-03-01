@@ -11,13 +11,18 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',          // 不自动更新，由组件提示用户
       injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'pwa-192.png', 'pwa-512.png'],
+      includeAssets: [
+        'favicon.svg', 'apple-touch-icon.png',
+        'pwa-192.png', 'pwa-512.png',
+        'pwa-maskable-192.png', 'pwa-maskable-512.png',
+        'splash-*.png',
+      ],
       manifest: {
         name: 'FinArch',
         short_name: 'FinArch',
         description: '记账 · 报销 · 统计，轻量高效的多用户财务管理工具',
-        theme_color: '#0D9488',
-        background_color: '#F8FAFC',
+        theme_color: '#FAFAF9',
+        background_color: '#FAFAF9',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',

@@ -3,9 +3,11 @@
  * 在屏幕底部弹出更新提示条，用户点击后刷新页面加载新版本。
  *
  * 配合 vite-plugin-pwa 的 registerType: 'prompt' 使用。
+ * 使用 Framer Motion 实现流畅的滑入/退出动画。
  */
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function PwaUpdatePrompt() {
   const [show, setShow] = useState(false)
@@ -26,38 +28,51 @@ export default function PwaUpdatePrompt() {
     if (needRefresh) setShow(true)
   }, [needRefresh])
 
-  if (!show) return null
-
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm">
-      <div className="bg-gray-900 text-white rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3">
-        {/* 图标 */}
-        <div className="shrink-0 w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-        </div>
-        {/* 文字 */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold leading-tight">发现新版本</p>
-          <p className="text-xs text-gray-400 leading-tight mt-0.5">点击立即更新以获取最新功能</p>
-        </div>
-        {/* 按钮组 */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setShow(false)}
-            className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded-lg transition-colors"
-          >
-            稍后
-          </button>
-          <button
-            onClick={() => updateServiceWorker(true)}
-            className="text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-lg transition-colors"
-          >
-            立即更新
-          </button>
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          className="fixed bottom-4 left-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm"
+          initial={{ opacity: 0, y: 60, x: '-50%' }}
+          animate={{ opacity: 1, y: 0, x: '-50%' }}
+          exit={{ opacity: 0, y: 40, x: '-50%', transition: { duration: 0.25, ease: 'easeIn' } }}
+          transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+        >
+          <div className="bg-gray-900/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl shadow-black/20 px-4 py-3 flex items-center gap-3 ring-1 ring-white/10">
+            {/* 图标 — 带呼吸脉动 */}
+            <motion.div
+              className="shrink-0 w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center"
+              animate={{ scale: [1, 1.08, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </motion.div>
+            {/* 文字 */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-tight">发现新版本</p>
+              <p className="text-xs text-gray-400 leading-tight mt-0.5">点击立即更新以获取最新功能</p>
+            </div>
+            {/* 按钮组 */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShow(false)}
+                className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded-lg transition-colors"
+              >
+                稍后
+              </button>
+              <motion.button
+                onClick={() => updateServiceWorker(true)}
+                className="text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-xl transition-colors"
+                whileTap={{ scale: 0.95 }}
+              >
+                立即更新
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
