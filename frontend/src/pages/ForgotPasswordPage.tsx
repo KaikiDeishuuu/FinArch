@@ -2,8 +2,10 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { forgotPassword } from '../api/client'
+import { useThemeColor } from '../hooks/useThemeColor'
 
 export default function ForgotPasswordPage() {
+  useThemeColor('#7c3aed')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)

@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useConfig } from '../contexts/ConfigContext'
 import { resendVerification } from '../api/client'
 import { LogoMark, BrandWatermark } from '../components/Brand'
+import { useThemeColor } from '../hooks/useThemeColor'
 
 // ─── Password Strength Indicator ─────────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -61,6 +62,9 @@ export default function LoginPage() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendDone, setResendDone] = useState(false)
   const turnstileRef = useRef<TurnstileInstance>(null)
+
+  // Match status-bar colour with purple login background
+  useThemeColor('#7c3aed')
 
   const justVerified = searchParams.get('verified') === '1'
   const tokenError = searchParams.get('error') === 'invalid_token'
@@ -166,7 +170,7 @@ export default function LoginPage() {
       <div className="fixed -bottom-20 -right-32 w-96 h-96 bg-fuchsia-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '6s' }} />
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 w-full max-w-md relative z-10 mx-4 my-auto h-fit">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 w-full max-w-md relative z-10 mx-4 my-auto h-fit transition-all duration-300 ease-in-out">
         {/* Brand watermark */}
         <BrandWatermark className="absolute top-4 right-4" opacity={0.03} />
 

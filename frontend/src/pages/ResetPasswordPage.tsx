@@ -2,8 +2,10 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { resetPassword } from '../api/client'
+import { useThemeColor } from '../hooks/useThemeColor'
 
 export default function ResetPasswordPage() {
+  useThemeColor('#7c3aed')
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
 
