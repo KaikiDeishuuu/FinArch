@@ -62,7 +62,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const displayName = user?.username || user?.email || '—'
 
   return (
-    <div className="flex bg-slate-50" style={{ height: '100dvh' }}>
+    <div className="flex bg-slate-50 overflow-x-hidden" style={{ height: '100dvh' }}>
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex w-[220px] bg-white border-r border-gray-100/80 flex-col shrink-0">
