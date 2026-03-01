@@ -345,6 +345,18 @@ export async function getStatsByProject(): Promise<ProjectStat[]> {
 }
 
 // ─── Backup & Restore ────────────────────────────────────────────────────────
+export interface BackupInfo {
+  transactions: number
+  accounts: number
+  schema_version: number
+  db_size_bytes: number
+}
+
+export async function getBackupInfo(): Promise<BackupInfo> {
+  const { data } = await client.get('/backup/info')
+  return data.data
+}
+
 export async function downloadBackup(): Promise<void> {
   const resp = await client.get('/backup/download', { responseType: 'blob' })
   const cd = resp.headers['content-disposition'] ?? ''
@@ -358,10 +370,11 @@ export async function downloadBackup(): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
-export async function restoreBackup(file: File): Promise<void> {
+export async function restoreBackup(file: File): Promise<{ message: string; restored_version: number }> {
   const form = new FormData()
   form.append('file', file)
-  await client.post('/backup/restore', form, {
+  const { data } = await client.post('/backup/restore', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
+  return data.data
 }

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import {
-  changePassword, downloadBackup, restoreBackup,
+  changePassword, downloadBackup, restoreBackup, getBackupInfo,
   requestDeleteAccount, requestEmailChange, getMe,
   createAccount, renameAccount, deleteAccount, updateNickname,
 } from '../api/client'
-import type { UserProfile } from '../api/client'
+import type { UserProfile, BackupInfo } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
 import Select from '../components/Select'
@@ -74,6 +76,7 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user, updateUser } = useAuth()
+  const queryClient = useQueryClient()
   const { data: accounts = [], isLoading: acctLoading } = useAccounts()
   const invalidateAccounts = useInvalidateAccounts()
   // ── Profile data ──────────────────────────────────────────────────────────
@@ -170,35 +173,52 @@ export default function SettingsPage() {
 
   // ── Backup ────────────────────────────────────────────────────────────────
   const [backupLoading, setBackupLoading] = useState(false)
-  const [backupError, setBackupError] = useState('')
+  const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null)
+
+  // Load backup info on mount
+  useEffect(() => {
+    getBackupInfo().then(setBackupInfo).catch(() => {/* ignore */})
+  }, [])
 
   async function handleDownloadBackup() {
-    setBackupError('')
     setBackupLoading(true)
-    try { await downloadBackup() }
-    catch { setBackupError('备份下载失败，请重试') }
-    finally { setBackupLoading(false) }
+    try {
+      await downloadBackup()
+      toast.success('备份下载已开始')
+    } catch {
+      toast.error('备份下载失败，请重试')
+    } finally {
+      setBackupLoading(false)
+    }
   }
 
   // ── Restore ───────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreLoading, setRestoreLoading] = useState(false)
-  const [restoreError, setRestoreError] = useState('')
-  const [restoreSuccess, setRestoreSuccess] = useState(false)
   const [restoreConfirm, setRestoreConfirm] = useState(false)
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / 1048576).toFixed(1) + ' MB'
+  }
 
   async function handleRestore() {
     if (!restoreFile) return
-    setRestoreError(''); setRestoreSuccess(false); setRestoreLoading(true)
+    setRestoreLoading(true)
     try {
       await restoreBackup(restoreFile)
-      setRestoreSuccess(true)
+      toast.success('数据恢复成功！页面数据已刷新')
       setRestoreFile(null); setRestoreConfirm(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
+      // Invalidate ALL queries so every page reflects the restored data
+      queryClient.invalidateQueries()
+      // Refresh backup info
+      getBackupInfo().then(setBackupInfo).catch(() => {})
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setRestoreError(msg || '恢复失败，请检查文件是否为有效的 FinArch 备份')
+      toast.error(msg || '恢复失败，请检查文件是否为有效的 FinArch 备份')
     } finally { setRestoreLoading(false) }
   }
 
@@ -555,13 +575,24 @@ export default function SettingsPage() {
         <div className="flex flex-col">
           <SectionLabel>数据备份</SectionLabel>
           <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm flex-1">
-            <p className="text-xs text-gray-400 mb-4">下载当前数据库的完整快照（标准 SQLite 格式），可用于迁移或恢复。</p>
-            {backupError && <div className="mb-3"><Alert type="error">{backupError}</Alert></div>}
+            <p className="text-xs text-gray-400 mb-3">一键下载当前数据库的完整快照，可用于迁移或恢复。</p>
+            {backupInfo && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-500">
+                <span className="tabular-nums">{backupInfo.transactions} 笔交易</span>
+                <span className="tabular-nums">{backupInfo.accounts} 个账户</span>
+                <span className="tabular-nums">Schema v{backupInfo.schema_version}</span>
+                <span className="tabular-nums">{formatFileSize(backupInfo.db_size_bytes)}</span>
+              </div>
+            )}
             <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}
               className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
+              {backupLoading ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              )}
               {backupLoading ? '生成中...' : '下载备份'}
             </button>
           </div>
@@ -571,36 +602,41 @@ export default function SettingsPage() {
         <div className="flex flex-col">
           <SectionLabel>数据恢复</SectionLabel>
           <div className="bg-white rounded-2xl border border-amber-100 p-5 flex-1">
-            <p className="text-xs text-gray-400 mb-4">
-              上传之前下载的 <code className="font-mono bg-gray-100 px-1 rounded">.db</code> 备份文件，将<strong>覆盖当前所有数据</strong>，操作不可撤销。
+            <p className="text-xs text-gray-400 mb-3">
+              上传 <code className="font-mono bg-gray-100 px-1 rounded">.db</code> 备份文件恢复数据。系统会自动保留当前数据的安全快照。
             </p>
-            {restoreSuccess && <div className="mb-3"><Alert type="success">✓ 数据恢复成功！</Alert></div>}
-            {restoreError && <div className="mb-3"><Alert type="error">{restoreError}</Alert></div>}
             <div className="space-y-3">
               <input ref={fileInputRef} type="file" accept=".db"
                 onChange={(e) => {
                   const f = e.target.files?.[0] ?? null
                   setRestoreFile(f); setRestoreConfirm(false)
-                  setRestoreError(''); setRestoreSuccess(false)
                 }}
                 className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 transition"
               />
               {restoreFile && !restoreConfirm && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
-                  <p className="font-semibold mb-1">确认恢复：{restoreFile.name}</p>
-                  <p className="text-xs text-amber-600 mb-2">此操作将<strong>覆盖当前所有数据</strong>，恢复为备份时的状态。</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <p className="font-semibold">{restoreFile.name}</p>
+                    <span className="text-xs text-amber-600 tabular-nums">({formatFileSize(restoreFile.size)})</span>
+                  </div>
+                  <p className="text-xs text-amber-600 mb-2">将<strong>覆盖当前数据</strong>恢复为此备份。恢复前系统会自动保存安全快照。</p>
                   <button type="button" onClick={() => setRestoreConfirm(true)}
                     className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
-                    我已了解，确认恢复
+                    确认恢复
                   </button>
                 </div>
               )}
               {restoreFile && restoreConfirm && (
                 <button type="button" onClick={handleRestore} disabled={restoreLoading}
                   className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                    <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
-                  </svg>
+                  {restoreLoading ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                      <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                    </svg>
+                  )}
                   {restoreLoading ? '恢复中...' : '立即恢复数据'}
                 </button>
               )}

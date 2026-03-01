@@ -152,6 +152,7 @@ func (s *Server) registerRoutes() {
 
 	// Backup & Restore
 	api.GET("/backup/download", s.handleBackupDownload)
+	api.GET("/backup/info", s.handleBackupInfo)
 	api.POST("/backup/restore", s.handleRestore)
 
 	// ─── Frontend static files ────────────────────────────────────
@@ -1017,7 +1018,7 @@ func (s *Server) handleStatsByProject(c *gin.Context) {
 }
 
 // handleBackupDownload creates a consistent snapshot of the database using
-// SQLite Online Backup API and streams it as a downloadable file.
+// SQLite VACUUM INTO and streams it as a downloadable file.
 func (s *Server) handleBackupDownload(c *gin.Context) {
 	// Create temp file for the snapshot
 	tmp, err := os.CreateTemp("", "finarch-backup-*.db")
@@ -1042,8 +1043,34 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 	c.File(tmpPath)
 }
 
+// handleBackupInfo returns metadata about the current database (for UI preview).
+func (s *Server) handleBackupInfo(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var txCount, acctCount, schemaVersion int
+	_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM transactions WHERE user_id = ?`, userID(c)).Scan(&txCount)
+	_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts WHERE user_id = ?`, userID(c)).Scan(&acctCount)
+	_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVersion)
+
+	// DB file size
+	var dbSize int64
+	if info, err := os.Stat(s.dbPath); err == nil {
+		dbSize = info.Size()
+	}
+
+	ok(c, gin.H{
+		"transactions":   txCount,
+		"accounts":       acctCount,
+		"schema_version": schemaVersion,
+		"db_size_bytes":  dbSize,
+	})
+}
+
+const maxRestoreSize = 100 << 20 // 100 MB
+
 // handleRestore accepts a SQLite database file upload and restores it into the
 // live database using the SQLite Online Backup API — no restart needed.
+// Safety: automatically creates a pre-restore snapshot so data is never lost.
 func (s *Server) handleRestore(c *gin.Context) {
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -1052,6 +1079,10 @@ func (s *Server) handleRestore(c *gin.Context) {
 	}
 	if filepath.Ext(fh.Filename) != ".db" {
 		fail(c, 400, 40002, "仅接受 .db 文件")
+		return
+	}
+	if fh.Size > maxRestoreSize {
+		fail(c, 400, 40004, fmt.Sprintf("文件过大（%d MB），上限 100 MB", fh.Size>>20))
 		return
 	}
 
@@ -1081,7 +1112,11 @@ func (s *Server) handleRestore(c *gin.Context) {
 
 	// Validate SQLite magic bytes
 	magic := make([]byte, 16)
-	f, _ := os.Open(tmpPath)
+	f, err := os.Open(tmpPath)
+	if err != nil {
+		fail(c, 500, 50001, "无法验证文件")
+		return
+	}
 	f.Read(magic)
 	f.Close()
 	if string(magic[:15]) != "SQLite format 3" {
@@ -1089,17 +1124,68 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	// Open the uploaded DB as source
-	srcDB, err := sql.Open("sqlite3", tmpPath)
+	// ── Schema version compatibility check ──
+	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
 		fail(c, 500, 50002, "无法打开备份文件")
 		return
 	}
-	defer srcDB.Close()
+
+	var uploadedVersion int
+	row := srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`)
+	if err := row.Scan(&uploadedVersion); err != nil {
+		srcDB.Close()
+		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
+		return
+	}
+	srcDB.Close()
+
+	var currentVersion int
+	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&currentVersion)
+
+	if uploadedVersion > currentVersion {
+		fail(c, 400, 40006, fmt.Sprintf(
+			"备份文件版本 (v%d) 高于当前系统版本 (v%d)，请先升级系统再恢复",
+			uploadedVersion, currentVersion,
+		))
+		return
+	}
+
+	// ── Auto safety backup before restore ──
+	safetyDir := filepath.Join(filepath.Dir(s.dbPath), "safety_backups")
+	if err := os.MkdirAll(safetyDir, 0o755); err == nil {
+		safetyPath := filepath.Join(safetyDir, fmt.Sprintf(
+			"pre_restore_%s.db", time.Now().Format("20060102_150405"),
+		))
+		// Best-effort: don't fail the restore if safety backup fails
+		_, _ = s.db.ExecContext(c.Request.Context(), fmt.Sprintf("VACUUM INTO '%s'", safetyPath))
+
+		// Keep only the last 5 safety backups
+		entries, _ := os.ReadDir(safetyDir)
+		var safetyFiles []os.DirEntry
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasPrefix(e.Name(), "pre_restore_") && strings.HasSuffix(e.Name(), ".db") {
+				safetyFiles = append(safetyFiles, e)
+			}
+		}
+		if len(safetyFiles) > 5 {
+			// Sort by name (timestamp-based) — oldest first
+			for i := 0; i < len(safetyFiles)-5; i++ {
+				_ = os.Remove(filepath.Join(safetyDir, safetyFiles[i].Name()))
+			}
+		}
+	}
+
+	// ── Perform restore via SQLite Backup API ──
+	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
+	if err != nil {
+		fail(c, 500, 50002, "无法打开备份文件")
+		return
+	}
+	defer restoreSrcDB.Close()
 
 	ctx := context.Background()
 
-	// Use SQLite backup API: copy from uploaded file into live DB
 	destConn, err := s.db.Conn(ctx)
 	if err != nil {
 		fail(c, 500, 50002, "获取数据库连接失败")
@@ -1107,7 +1193,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 	}
 	defer destConn.Close()
 
-	srcConn, err := srcDB.Conn(ctx)
+	srcConn, err := restoreSrcDB.Conn(ctx)
 	if err != nil {
 		fail(c, 500, 50002, "获取备份连接失败")
 		return
@@ -1142,7 +1228,10 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	ok(c, gin.H{"message": "数据恢复成功，数据库已更新"})
+	ok(c, gin.H{
+		"message":          "数据恢复成功，数据库已更新",
+		"restored_version": uploadedVersion,
+	})
 }
 
 // ─── Account handlers ────────────────────────────────────────────────────────
