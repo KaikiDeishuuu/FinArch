@@ -82,6 +82,21 @@ func main() {
 	acctSvc := service.NewAccountService(acctRepo)
 
 	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc)
+
+	// Background goroutine: purge unverified accounts older than 24 hours.
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			n, err := authSvc.CleanupExpiredUnverified(context.Background())
+			if err != nil {
+				log.Printf("[cleanup] failed to purge unverified users: %v", err)
+			} else if n > 0 {
+				log.Printf("[cleanup] purged %d expired unverified user(s)", n)
+			}
+		}
+	}()
+
 	log.Printf("FinArch API server listening on %s", addr)
 	log.Fatal(srv.Run())
 }

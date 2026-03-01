@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"finarch/internal/domain/model"
 )
@@ -29,6 +30,10 @@ type UserRepository interface {
 
 	// DeleteUser permanently removes the user and all their data.
 	DeleteUser(ctx context.Context, id string) error
+
+	// DeleteExpiredUnverifiedUsers removes unverified users whose created_at < olderThan,
+	// along with their tokens. Returns the number of deleted users.
+	DeleteExpiredUnverifiedUsers(ctx context.Context, olderThan time.Time) (int64, error)
 }
 
 // TagRepository defines tag data access.

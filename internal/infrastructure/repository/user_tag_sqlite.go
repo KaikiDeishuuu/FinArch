@@ -186,6 +186,62 @@ func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error 
 	return tx.Commit()
 }
 
+// DeleteExpiredUnverifiedUsers removes unverified users whose created_at is before olderThan,
+// along with all their owned data and tokens. Returns the count of deleted users.
+func (r *SQLiteUserRepository) DeleteExpiredUnverifiedUsers(ctx context.Context, olderThan time.Time) (int64, error) {
+	// Collect IDs of expired unverified users first.
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id FROM users WHERE email_verified = 0 AND created_at < ? AND deleted_at IS NULL`,
+		olderThan.Unix(),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("query expired unverified users: %w", err)
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("scan user id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	// Delete each user in a transaction (reusing the same cascade logic as DeleteUser).
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, uid := range ids {
+		for _, q := range []string{
+			`DELETE FROM email_tokens WHERE user_id = ?`,
+			`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE owner_id = ?)`,
+			`DELETE FROM transactions WHERE owner_id = ?`,
+			`DELETE FROM tags WHERE owner_id = ?`,
+			`DELETE FROM fund_pools WHERE owner_id = ?`,
+			`DELETE FROM users WHERE id = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, q, uid); err != nil {
+				return 0, fmt.Errorf("cleanup user %s: %w", uid, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit cleanup: %w", err)
+	}
+	return int64(len(ids)), nil
+}
+
 func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var createdAt, updatedAt int64

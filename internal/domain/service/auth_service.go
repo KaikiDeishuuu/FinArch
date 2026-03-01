@@ -64,6 +64,9 @@ type LoginResponse struct {
 
 // Register creates a new user. If email verification is required, the user starts
 // as unverified and a verification email is sent. Returns the created user.
+//
+// Before inserting, any unverified user with the same email whose registration
+// has expired (>24 h) is automatically purged so the email can be reused.
 func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.User, error) {
 	if req.Email == "" || req.Password == "" || req.Username == "" {
 		return model.User{}, fmt.Errorf("email, username and password are required")
@@ -71,6 +74,15 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 	if len(req.Password) < 8 {
 		return model.User{}, fmt.Errorf("password must be at least 8 characters")
 	}
+
+	// Purge expired unverified occupants so the email/username can be reused.
+	cutoff := time.Now().Add(-24 * time.Hour)
+	if existing, err := s.users.GetByEmail(ctx, req.Email); err == nil {
+		if !existing.EmailVerified && existing.CreatedAt.Before(cutoff) {
+			_ = s.users.DeleteUser(ctx, existing.ID)
+		}
+	}
+
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		return model.User{}, err
@@ -386,4 +398,11 @@ func randomNickname() string {
 	adj := []string{"快乐的", "努力的", "认真的", "聪明的", "活力的", "优秀的", "可爱的", "勤奋的", "机智的", "阳光的", "温暖的", "真诚的"}
 	noun := []string{"小猫", "小狗", "兔子", "松鼠", "企鹅", "海豚", "熊猫", "考拉", "柴犬", "仓鼠", "水獭", "树袋熊"}
 	return adj[time.Now().UnixNano()%int64(len(adj))] + noun[time.Now().UnixNano()/7%int64(len(noun))]
+}
+
+// CleanupExpiredUnverified removes all unverified users whose registration is
+// older than 24 hours. It returns the number of deleted users.
+func (s *AuthService) CleanupExpiredUnverified(ctx context.Context) (int64, error) {
+	cutoff := time.Now().Add(-24 * time.Hour)
+	return s.users.DeleteExpiredUnverifiedUsers(ctx, cutoff)
 }
