@@ -106,6 +106,9 @@ func (s *Server) registerRoutes() {
 	pub.POST("/auth/confirm-email-change-old", s.handleConfirmOldEmailChange)
 	pub.POST("/auth/confirm-email-change", s.handleConfirmEmailChange)
 
+	// Shortcut: /verify-email → same handler (for emails already sent with old link)
+	r.GET("/verify-email", s.handleVerifyEmail)
+
 	// ─── Protected routes (JWT required) ──────────────────────────
 	api := r.Group("/api/v1", s.jwtMiddleware())
 
