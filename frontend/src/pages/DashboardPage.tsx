@@ -215,6 +215,91 @@ export default function DashboardPage() {
   const companyNotUploaded = transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded)
   const companyUploadedNotReimbursed = transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed)
 
+  // ─── Smart pending item analysis ───────────────────────────────────────────
+  const hasPending = notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0
+  const allClear = !loading && !hasPending && transactions.length > 0
+
+  const pendingAnalysis = useMemo(() => {
+    const now = Date.now()
+    const DAY = 86400000
+
+    // Calculate amounts
+    const notUploadedAmount = notUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
+    const uploadedNotReimbursedAmount = uploadedNotReimbursed.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
+    const companyNotUploadedAmount = companyNotUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
+    const companyUploadedAmount = companyUploadedNotReimbursed.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
+
+    // Find oldest pending dates
+    const oldestDate = (txs: typeof transactions) => {
+      if (txs.length === 0) return null
+      const dates = txs.map(t => new Date(t.occurred_at).getTime()).filter(d => !isNaN(d))
+      return dates.length > 0 ? Math.min(...dates) : null
+    }
+
+    const oldestNotUploaded = oldestDate(notUploaded)
+    const oldestUploaded = oldestDate(uploadedNotReimbursed)
+    const oldestCompanyNotUploaded = oldestDate(companyNotUploaded)
+    const oldestCompanyUploaded = oldestDate(companyUploadedNotReimbursed)
+
+    const daysSince = (ts: number | null) => ts ? Math.floor((now - ts) / DAY) : 0
+
+    // Generate smart sub-messages
+    const notUploadedSub = (() => {
+      if (notUploaded.length === 0) return ''
+      const days = daysSince(oldestNotUploaded)
+      const amt = fmtExact(notUploadedAmount)
+      if (days > 30) return `累计 ${amt}，最早一笔已超 ${days} 天，建议尽快上传避免遗漏`
+      if (days > 14) return `累计 ${amt}，部分已超两周，及时上传以免影响报销进度`
+      if (days > 7) return `累计 ${amt}，有超过一周的记录待上传`
+      if (notUploaded.length >= 10) return `累计 ${amt}，积累较多，建议批量上传处理`
+      if (notUploadedAmount >= 5000) return `累计 ${amt}，金额较大，建议优先处理`
+      return `累计 ${amt}，上传后才可进入报销流程`
+    })()
+
+    const uploadedNotReimbursedSub = (() => {
+      if (uploadedNotReimbursed.length === 0) return ''
+      const days = daysSince(oldestUploaded)
+      const amt = fmtExact(uploadedNotReimbursedAmount)
+      if (days > 60) return `累计 ${amt}，最早一笔已超 ${days} 天，请确认报销单是否提交`
+      if (days > 30) return `累计 ${amt}，已等待超一个月，建议跟进报销进度`
+      if (days > 14) return `累计 ${amt}，等待超两周，可用子集匹配组合报销`
+      if (uploadedNotReimbursed.length >= 5) return `累计 ${amt}，已有 ${uploadedNotReimbursed.length} 笔可组合，试试智能匹配`
+      return `累计 ${amt}，使用子集匹配找到最佳报销组合`
+    })()
+
+    const companyNotUploadedSub = (() => {
+      if (companyNotUploaded.length === 0) return ''
+      const days = daysSince(oldestCompanyNotUploaded)
+      const amt = fmtExact(companyNotUploadedAmount)
+      if (days > 30) return `累计 ${amt}，最早已超 ${days} 天，请尽快在系统中登记`
+      if (days > 7) return `累计 ${amt}，部分超一周未上传，注意及时处理`
+      if (companyNotUploaded.length >= 5) return `累计 ${amt}，${companyNotUploaded.length} 笔待上传，建议集中处理`
+      return `累计 ${amt}，上传到系统后方可进行报销结算`
+    })()
+
+    const companyUploadedSub = (() => {
+      if (companyUploadedNotReimbursed.length === 0) return ''
+      const days = daysSince(oldestCompanyUploaded)
+      const amt = fmtExact(companyUploadedAmount)
+      if (days > 30) return `累计 ${amt}，已提交超一个月，建议确认结算进度`
+      if (days > 14) return `累计 ${amt}，等待超两周，可关注结算状态`
+      return `累计 ${amt}，已提交系统，等待财务结算`
+    })()
+
+    // Urgency level for header
+    const maxDays = Math.max(daysSince(oldestNotUploaded), daysSince(oldestUploaded), daysSince(oldestCompanyNotUploaded), daysSince(oldestCompanyUploaded))
+    const totalPending = notUploaded.length + uploadedNotReimbursed.length + companyNotUploaded.length + companyUploadedNotReimbursed.length
+    const totalAmount = notUploadedAmount + uploadedNotReimbursedAmount + companyNotUploadedAmount + companyUploadedAmount
+
+    let headerHint = ''
+    if (maxDays > 30) headerHint = `⚠️ 有超过 ${maxDays} 天未处理的事项`
+    else if (totalAmount >= 10000) headerHint = `共 ${totalPending} 项待处理，累计 ${fmtExact(totalAmount)}`
+    else if (totalPending >= 8) headerHint = `共 ${totalPending} 项待处理，建议抽空集中处理`
+    else if (totalPending > 0) headerHint = `共 ${totalPending} 项待处理`
+
+    return { notUploadedSub, uploadedNotReimbursedSub, companyNotUploadedSub, companyUploadedSub, headerHint }
+  }, [notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates])
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -329,17 +414,22 @@ export default function DashboardPage() {
         </StaggerItem>
       </StaggerContainer>
 
-      {/* Pending action hints — Premium */}
-      {(notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0) && (
+      {/* Pending action hints — Smart context-aware */}
+      {hasPending && (
         <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">待处理事项</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">待处理事项</h2>
+            {pendingAnalysis.headerHint && (
+              <span className="text-[10px] text-gray-400 font-medium">{pendingAnalysis.headerHint}</span>
+            )}
+          </div>
           <div className="space-y-2">
             {notUploaded.length > 0 && (
               <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-100 hover:border-amber-300 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-800">有 {notUploaded.length} 笔垫付尚未上传系统</p>
-                  <p className="text-xs text-amber-600 mt-0.5">上传后才可标记报销 → 点击前往交易明细</p>
+                  <p className="text-sm font-medium text-amber-800">{notUploaded.length} 笔个人垫付尚未上传</p>
+                  <p className="text-xs text-amber-600 mt-0.5">{pendingAnalysis.notUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
@@ -348,8 +438,8 @@ export default function DashboardPage() {
               <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 border border-violet-100 hover:border-violet-300 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-violet-800">有 {uploadedNotReimbursed.length} 笔已上传等待报销</p>
-                  <p className="text-xs text-violet-600 mt-0.5">使用子集匹配找到报销组合 → 点击前往匹配</p>
+                  <p className="text-sm font-medium text-violet-800">{uploadedNotReimbursed.length} 笔个人垫付已上传待报销</p>
+                  <p className="text-xs text-violet-600 mt-0.5">{pendingAnalysis.uploadedNotReimbursedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
@@ -358,8 +448,8 @@ export default function DashboardPage() {
               <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-violet-300 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700">有 {companyNotUploaded.length} 笔公共支出未上传</p>
-                  <p className="text-xs text-slate-500 mt-0.5">公共支出记录上传后方可标记报销 → 点击前往明细</p>
+                  <p className="text-sm font-medium text-slate-700">{companyNotUploaded.length} 笔公共支出未上传</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{pendingAnalysis.companyNotUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
@@ -368,12 +458,23 @@ export default function DashboardPage() {
               <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 hover:border-emerald-300 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-emerald-800">有 {companyUploadedNotReimbursed.length} 笔公共支出已上传待报销</p>
-                  <p className="text-xs text-emerald-600 mt-0.5">公共支出已提交，等待报销结算 → 点击前往匹配</p>
+                  <p className="text-sm font-medium text-emerald-800">{companyUploadedNotReimbursed.length} 笔公共支出已上传待报销</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">{pendingAnalysis.companyUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
+          </div>
+        </div>
+      )}
+      {allClear && (
+        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0"><IconCheck /></span>
+            <div>
+              <p className="text-sm font-medium text-gray-700">所有事项已处理完毕</p>
+              <p className="text-xs text-gray-400 mt-0.5">暂无待上传或待报销的记录，保持下去！</p>
+            </div>
           </div>
         </div>
       )}
