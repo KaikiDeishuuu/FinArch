@@ -28,9 +28,9 @@ function PasswordStrength({ password }: { password: string }) {
   const s = calcStrength(password)
   if (!password) return null
   const bar = { none: 'w-0', weak: 'w-1/3', medium: 'w-2/3', strong: 'w-full' }[s]
-  const color = { none: '', weak: 'bg-red-400', medium: 'bg-amber-400', strong: 'bg-green-500' }[s]
+  const color = { none: '', weak: 'bg-rose-400', medium: 'bg-amber-400', strong: 'bg-emerald-500' }[s]
   const label = { none: '', weak: '弱 — 建议混入大小写字母、数字和符号', medium: '中等 — 添加特殊字符可进一步增强', strong: '强' }[s]
-  const tc = { none: '', weak: 'text-red-500', medium: 'text-amber-600', strong: 'text-green-600' }[s]
+  const tc = { none: '', weak: 'text-rose-500', medium: 'text-amber-600', strong: 'text-emerald-500' }[s]
   return (
     <div className="mt-1.5 space-y-1">
       <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -120,13 +120,13 @@ export default function LoginPage() {
     }
   }
 
-  const inputClass = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white'
+  const inputClass = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white'
 
   if (pendingVerification) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-          <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center mx-auto mb-4">
             <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth={1.5} className="w-7 h-7">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
@@ -138,11 +138,11 @@ export default function LoginPage() {
           </p>
           {!resendDone ? (
             <button onClick={handleResend} disabled={resendLoading}
-              className="text-sm text-blue-600 hover:underline disabled:opacity-50">
+              className="text-sm text-teal-600 hover:underline disabled:opacity-50">
               {resendLoading ? '发送中...' : '没收到邮件？重新发送'}
             </button>
           ) : (
-            <p className="text-sm text-green-600">验证邮件已重新发送</p>
+            <p className="text-sm text-emerald-500">验证邮件已重新发送</p>
           )}
           <button onClick={() => switchMode('login')}
             className="mt-4 block w-full text-center text-sm text-gray-400 hover:text-gray-600">
@@ -163,7 +163,7 @@ export default function LoginPage() {
         </div>
 
         {justVerified && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
+          <div className="mb-4 bg-emerald-50 border border-green-200 text-emerald-700 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
             <span>✓</span><span>邮箱验证成功，请登录</span>
           </div>
         )}
@@ -173,7 +173,7 @@ export default function LoginPage() {
           </div>
         )}
         {emailChanged && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
+          <div className="mb-4 bg-emerald-50 border border-green-200 text-emerald-700 rounded-xl px-3 py-2 text-sm flex items-center gap-2">
             <span>✓</span><span>邮箱已更新，请使用新邮箱登录。</span>
           </div>
         )}
@@ -184,9 +184,9 @@ export default function LoginPage() {
         )}
 
         <div className="flex rounded-lg bg-gray-100 p-1 mb-6">
-          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'login' ? 'bg-white shadow text-teal-600' : 'text-gray-500'}`}
             onClick={() => switchMode('login')}>登录</button>
-          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+          <button type="button" className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === 'register' ? 'bg-white shadow text-teal-600' : 'text-gray-500'}`}
             onClick={() => switchMode('register')}>注册</button>
         </div>
 
@@ -231,24 +231,24 @@ export default function LoginPage() {
               <p>邮箱尚未验证，请检查收件箱并点击验证链接。</p>
               {!resendDone ? (
                 <button type="button" onClick={handleResend} disabled={resendLoading}
-                  className="text-blue-600 hover:underline text-xs disabled:opacity-50">
+                  className="text-teal-600 hover:underline text-xs disabled:opacity-50">
                   {resendLoading ? '发送中...' : '重新发送验证邮件'}
                 </button>
               ) : (
-                <p className="text-xs text-green-600">验证邮件已重新发送</p>
+                <p className="text-xs text-emerald-500">验证邮件已重新发送</p>
               )}
             </div>
           )}
 
           <button type="submit" disabled={loading || (!!turnstileSiteKey && !captchaToken)}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg py-2 text-sm transition-colors">
+            className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-lg py-2 text-sm transition-colors">
             {loading ? '处理中...' : mode === 'login' ? '登录' : '注册'}
           </button>
         </form>
 
         {mode === 'login' && (
           <div className="text-center mt-4">
-            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">
+            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-teal-600 transition-colors">
               忘记密码？
             </Link>
           </div>

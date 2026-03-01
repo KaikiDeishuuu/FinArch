@@ -26,9 +26,9 @@ function PasswordStrength({ password }: { password: string }) {
   const s = calcStrength(password)
   if (!password) return null
   const bar = { none: 'w-0', weak: 'w-1/3', medium: 'w-2/3', strong: 'w-full' }[s]
-  const color = { none: '', weak: 'bg-red-400', medium: 'bg-amber-400', strong: 'bg-green-500' }[s]
+  const color = { none: '', weak: 'bg-rose-400', medium: 'bg-amber-400', strong: 'bg-emerald-500' }[s]
   const label = { none: '', weak: '弱', medium: '中等 — 添加特殊字符可进一步增强', strong: '强' }[s]
-  const tc = { none: '', weak: 'text-red-500', medium: 'text-amber-600', strong: 'text-green-600' }[s]
+  const tc = { none: '', weak: 'text-rose-500', medium: 'text-amber-600', strong: 'text-emerald-500' }[s]
   return (
     <div className="mt-1.5 space-y-1">
       <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -41,7 +41,7 @@ function PasswordStrength({ password }: { password: string }) {
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
-const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white'
+const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition bg-white'
 
 // ─── Section header ───────────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -58,9 +58,9 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Alert components ─────────────────────────────────────────────────────────
 function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warning'; children: React.ReactNode }) {
   const cls = {
-    success: 'bg-green-50 border-green-200 text-green-700',
+    success: 'bg-emerald-50 border-green-200 text-emerald-700',
     error:   'bg-red-50 border-red-200 text-red-700',
-    info:    'bg-blue-50 border-blue-200 text-blue-700',
+    info:    'bg-teal-50 border-teal-200 text-teal-700',
     warning: 'bg-amber-50 border-amber-200 text-amber-800',
   }[type]
   return (
@@ -200,7 +200,7 @@ export default function SettingsPage() {
           <SectionLabel>账户信息</SectionLabel>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm">
                 {(displayName[0] ?? '?').toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -252,7 +252,7 @@ export default function SettingsPage() {
                 </div>
                 {emailError && <Alert type="error">{emailError}</Alert>}
                 <button type="submit" disabled={emailLoading}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
+                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
                   {emailLoading ? '发送中...' : '发送授权邮件'}
                 </button>
               </form>
@@ -285,12 +285,12 @@ export default function SettingsPage() {
                   onChange={(e) => setConfirmPw(e.target.value)}
                   className={inputCls} placeholder="再次输入新密码" autoComplete="new-password" />
                 {confirmPw && newPw !== confirmPw && (
-                  <p className="mt-1 text-xs text-red-500">两次输入的密码不一致</p>
+                  <p className="mt-1 text-xs text-rose-500">两次输入的密码不一致</p>
                 )}
               </div>
               {pwError && <Alert type="error">{pwError}</Alert>}
               <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
+                className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
                 {pwLoading ? '提交中...' : '修改密码'}
               </button>
             </form>
@@ -304,7 +304,7 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-400 mb-4">下载当前数据库的完整快照（标准 SQLite 格式），可用于迁移或恢复。</p>
             {backupError && <div className="mb-3"><Alert type="error">{backupError}</Alert></div>}
             <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+              className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
@@ -343,7 +343,7 @@ export default function SettingsPage() {
               )}
               {restoreFile && restoreConfirm && (
                 <button type="button" onClick={handleRestore} disabled={restoreLoading}
-                  className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+                  className="inline-flex items-center gap-2 bg-rose-500 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                     <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
                   </svg>

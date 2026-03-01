@@ -231,7 +231,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -269,7 +269,7 @@ export default function StatsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
           <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${totalNet >= 0 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`} />
           <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">净结余</p>
-          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1 ${totalNet >= 0 ? 'text-blue-600' : 'text-orange-500'}`}>
+          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1 ${totalNet >= 0 ? 'text-teal-600' : 'text-orange-500'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
         </div>

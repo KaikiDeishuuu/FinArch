@@ -51,16 +51,16 @@ const FEATURES = [
     Icon: IconList,
     title: '交易明细',
     desc: '查看、筛选所有收支记录，标记上传与报销状态',
-    color: 'bg-blue-50 border-blue-100',
-    iconBg: 'bg-blue-100 text-blue-600',
+    color: 'bg-teal-50 border-teal-100',
+    iconBg: 'bg-teal-100 text-teal-600',
   },
   {
     to: '/add',
     Icon: IconPlus,
     title: '添加交易',
     desc: '新增一笔收入或支出，支持多类别与项目归属',
-    color: 'bg-green-50 border-green-100',
-    iconBg: 'bg-green-100 text-green-600',
+    color: 'bg-emerald-50 border-emerald-100',
+    iconBg: 'bg-emerald-100 text-emerald-500',
   },
   {
     to: '/match',
@@ -114,7 +114,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -146,7 +146,7 @@ export default function DashboardPage() {
         </div>
         <Link
           to="/add"
-          className="shrink-0 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm shadow-blue-200"
+          className="shrink-0 bg-teal-600 hover:bg-teal-700 active:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm shadow-teal-200"
         >
           + 添加
         </Link>
@@ -202,13 +202,13 @@ export default function DashboardPage() {
               </Link>
             )}
             {uploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-100 hover:border-blue-300 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><IconSearch /></span>
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100 hover:border-blue-300 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-blue-800">有 {uploadedNotReimbursed.length} 笔已上传等待报销</p>
-                  <p className="text-xs text-blue-600 mt-0.5">使用子集匹配找到报销组合 → 点击前往匹配</p>
+                  <p className="text-xs text-teal-600 mt-0.5">使用子集匹配找到报销组合 → 点击前往匹配</p>
                 </div>
-                <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-4 h-4 text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
           </div>
@@ -253,7 +253,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-3 md:hidden">
                 {steps.map((s) => (
                   <div key={s.step} className="bg-gray-50 rounded-xl p-3 flex items-start gap-2.5">
-                    <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{s.step}</div>
+                    <div className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{s.step}</div>
                     <div>
                       <div className="text-gray-400 mb-1"><s.Icon /></div>
                       <p className="text-xs font-semibold text-gray-700">{s.title}</p>
@@ -267,7 +267,7 @@ export default function DashboardPage() {
                 {steps.map((s, i, arr) => (
                   <div key={s.step} className="flex items-start flex-1">
                     <div className="flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{s.step}</div>
+                      <div className="w-8 h-8 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{s.step}</div>
                       <div className="text-center mt-2 px-1">
                         <div className="flex justify-center text-gray-400"><s.Icon /></div>
                         <p className="text-xs font-semibold text-gray-700 mt-1">{s.title}</p>

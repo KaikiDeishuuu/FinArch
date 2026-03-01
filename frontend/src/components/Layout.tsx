@@ -59,7 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const displayName = user?.username || user?.email || '—'
 
   return (
-    <div className="flex bg-[#f5f6f8]" style={{ height: '100dvh' }}>
+    <div className="flex bg-slate-50" style={{ height: '100dvh' }}>
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex w-56 bg-white border-r border-gray-100/80 flex-col shrink-0">
@@ -84,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                    ? 'bg-teal-600 text-white shadow-sm shadow-teal-200'
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                 }`
               }
@@ -98,7 +98,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* User section */}
         <div className="px-3 pb-4 pt-3 border-t border-gray-100/80">
           <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors group">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
               {initial}
             </div>
             <p className="flex-1 text-[12px] text-gray-700 truncate font-medium">{displayName}</p>
@@ -118,9 +118,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-gray-300 font-medium">v2.0</span>
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             </div>
           </div>
         </div>
@@ -133,12 +133,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <span className="font-extrabold text-gray-900 text-[15px] tracking-tight">FinArch</span>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center text-xs font-bold shadow-sm">
             {initial}
           </div>
           <button
             onClick={logout}
-            className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+            className="text-xs text-gray-400 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50"
           >
             退出
           </button>
@@ -147,7 +147,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ── */}
       <main className="scroll-main flex-1 overflow-y-scroll pt-14 md:pt-0 md:pb-0 flex flex-col">
-        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 md:px-8 md:py-8">
+        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 md:px-8 md:py-8 page-enter">
           {children}
         </div>
 
@@ -158,9 +158,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               </div>
               <span className="text-[11px] font-semibold text-gray-400 tracking-wide">FinArch</span>
               <span className="text-[11px] text-gray-300">·</span>
@@ -186,7 +186,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={item.to}
                 className="flex-1 flex flex-col items-center pb-2 pt-1 -mt-5"
               >
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-300/50 active:scale-95 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-300/50 active:scale-95 transition-transform">
                   <item.Icon />
                 </div>
                 <span className="text-[10px] font-medium text-gray-400 mt-0.5">{item.label}</span>
@@ -200,16 +200,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               end={item.end}
               className={({ isActive }) =>
                 `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  isActive ? 'text-blue-600' : 'text-gray-400 active:text-gray-500'
+                  isActive ? 'text-teal-600' : 'text-gray-400 active:text-gray-500'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-blue-50' : ''}`}>
+                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-teal-50' : ''}`}>
                     <item.Icon />
                   </div>
-                  <span className={`text-[10px] font-medium ${isActive ? 'text-blue-600' : ''}`}>{item.label}</span>
+                  <span className={`text-[10px] font-medium ${isActive ? 'text-teal-600' : ''}`}>{item.label}</span>
                 </>
               )}
             </NavLink>

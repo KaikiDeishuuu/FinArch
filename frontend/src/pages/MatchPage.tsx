@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
+import { toast } from 'sonner'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { MatchResult, MatchResultItem } from '../api/client'
 import { formatAmount, toCNY } from '../utils/format'
@@ -56,6 +57,7 @@ export default function MatchPage() {
         ...(alreadyUploaded ? [] : [toggleUploaded(id)]),
       ])
       setReimbursedIds(prev => new Set(prev).add(id))
+      toast.success('已标记为已报销')
       invalidate()
     } finally {
       setLoadingId(null)
@@ -158,7 +160,7 @@ export default function MatchPage() {
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
-  const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white tabular-nums'
+  const inputClass = 'w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-gray-50 transition-all hover:bg-white tabular-nums'
   const labelClass = 'block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider'
 
   return (
@@ -172,11 +174,11 @@ export default function MatchPage() {
       {/* Form card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Info bar */}
-        <div className="bg-blue-50 border-b border-blue-100 px-5 py-3 flex items-start gap-2.5">
-          <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+        <div className="bg-teal-50 border-b border-teal-100 px-5 py-3 flex items-start gap-2.5">
+          <svg className="w-4 h-4 text-teal-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
           <div>
-            <p className="text-sm text-blue-700">在<strong>已上传、未报销</strong>的个人庞付记录中，找出金额之和与目标最接近的组合</p>
-            <p className="text-xs text-blue-500/80 mt-1">注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。</p>
+            <p className="text-sm text-teal-700">在<strong>已上传、未报销</strong>的个人庞付记录中，找出金额之和与目标最接近的组合</p>
+            <p className="text-xs text-teal-500/80 mt-1">注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。</p>
           </div>
         </div>
 
@@ -229,7 +231,7 @@ export default function MatchPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-5 w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
+            className="mt-5 w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -266,9 +268,9 @@ export default function MatchPage() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-green-500 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
                 <span className="text-sm text-gray-600">
-                  共找到 <span className="text-blue-600 font-bold text-base">{results.length}</span> 个匹配方案
+                  共找到 <span className="text-teal-600 font-bold text-base">{results.length}</span> 个匹配方案
                 </span>
               </div>
             )}
@@ -280,7 +282,7 @@ export default function MatchPage() {
               'bg-gray-400',    // silver
               'bg-amber-700',   // bronze
             ]
-            const rankBg = i < 3 ? rankColors[i] : 'bg-blue-600'
+            const rankBg = i < 3 ? rankColors[i] : 'bg-teal-600'
             return (
             <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               {/* Card header (clickable) */}
@@ -296,10 +298,10 @@ export default function MatchPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold text-gray-800 text-base">{fmt(cnyTotal(r), 'CNY')}</p>
                       {r.error <= 0.01 && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">精确匹配</span>
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">精确匹配</span>
                       )}
                       {r.score != null && (
-                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium tabular-nums">
+                        <span className="text-xs bg-teal-50 text-teal-600 px-2 py-0.5 rounded-full font-medium tabular-nums">
                           Score {r.score.toFixed(3)}
                         </span>
                       )}
@@ -314,7 +316,7 @@ export default function MatchPage() {
                     </p>
                   </div>
                 </div>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-blue-100 text-blue-600 rotate-180' : 'bg-gray-100 text-gray-400'}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-teal-100 text-teal-600 rotate-180' : 'bg-gray-100 text-gray-400'}`}>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </div>
               </button>
@@ -334,7 +336,7 @@ export default function MatchPage() {
                             <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
                               <div className="flex items-center justify-between gap-2">
                                 <span className={`font-semibold text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.category}</span>
-                                <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
+                                <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
                               </div>
                               <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
                                 <span className="tabular-nums">{item.occurred_at}</span>
@@ -344,7 +346,7 @@ export default function MatchPage() {
                                 {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
                               </div>
                               {done ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                                <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
                                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                                   已报销
                                 </span>
@@ -362,7 +364,7 @@ export default function MatchPage() {
                                 </div>
                               ) : (
                                 <button onClick={() => setConfirmId(item.id)}
-                                  className="text-xs text-blue-500 hover:text-blue-700 font-medium">
+                                  className="text-xs text-teal-500 hover:text-teal-700 font-medium">
                                   标记已报销
                                 </button>
                               )}
@@ -371,7 +373,7 @@ export default function MatchPage() {
                         })}
                         <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
                           <span className="text-xs font-semibold text-gray-500">合计（按实时汇率）</span>
-                          <span className="font-bold text-red-600 tabular-nums whitespace-nowrap text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
+                          <span className="font-bold text-rose-600 tabular-nums whitespace-nowrap text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
                         </div>
                       </div>
                       {/* Desktop: table */}
@@ -393,7 +395,7 @@ export default function MatchPage() {
                             const confirming = confirmId === item.id
                             const busy = loadingId === item.id
                             return (
-                              <tr key={item.id} className={`border-b border-gray-50 last:border-0 transition-colors ${done ? 'opacity-50 bg-green-50/30' : idx % 2 === 0 ? 'hover:bg-gray-50/60' : 'bg-gray-50/30 hover:bg-gray-50/60'}`}>
+                              <tr key={item.id} className={`border-b border-gray-50 last:border-0 transition-colors ${done ? 'opacity-50 bg-emerald-50/30' : idx % 2 === 0 ? 'hover:bg-gray-50/60' : 'bg-gray-50/30 hover:bg-gray-50/60'}`}>
                                 <td className="px-4 py-2.5 font-mono text-gray-400 bg-gray-50/50">{item.id.slice(0, 8)}…</td>
                                 <td className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${done ? 'text-gray-400 line-through' : 'text-gray-500'}`}>{item.occurred_at}</td>
                                 <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 line-through' : 'text-gray-600'}`}>{item.category}</td>
@@ -404,10 +406,10 @@ export default function MatchPage() {
                                   }
                                 </td>
                                 <td className="px-4 py-2.5 text-gray-400 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 line-through' : 'text-red-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
+                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
                                 <td className="px-4 py-2.5 text-center">
                                   {done ? (
-                                    <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium whitespace-nowrap">
                                       <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                                       已报销
                                     </span>
@@ -424,7 +426,7 @@ export default function MatchPage() {
                                     </div>
                                   ) : (
                                     <button onClick={() => setConfirmId(item.id)}
-                                      className="text-xs text-blue-500 hover:text-blue-700 font-medium whitespace-nowrap">
+                                      className="text-xs text-teal-500 hover:text-teal-700 font-medium whitespace-nowrap">
                                       标记报销
                                     </button>
                                   )}
@@ -436,7 +438,7 @@ export default function MatchPage() {
                         <tfoot>
                           <tr className="bg-gray-50 border-t border-gray-200">
                             <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500">合计（按实时汇率）</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-red-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-rose-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
                             <td />
                           </tr>
                         </tfoot>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
@@ -72,6 +73,11 @@ function App() {
       </ConfigProvider>
       </ExchangeRateProvider>
       <PwaUpdatePrompt />
+      <Toaster
+        position="bottom-right"
+        richColors
+        toastOptions={{ style: { fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' } }}
+      />
     </BrowserRouter>
   )
 }

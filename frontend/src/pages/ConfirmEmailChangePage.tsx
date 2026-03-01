@@ -35,7 +35,7 @@ export default function ConfirmEmailChangePage() {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-md mb-3">
+          <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center shadow-md mb-3">
             <span className="text-white text-xl font-bold">¥</span>
           </div>
           <h1 className="text-xl font-bold text-gray-800">FinArch</h1>
@@ -43,14 +43,14 @@ export default function ConfirmEmailChangePage() {
 
         {status === 'loading' && (
           <div className="space-y-3">
-            <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
+            <div className="w-10 h-10 border-4 border-teal-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
             <p className="text-gray-600 text-sm">正在验证邮箱变更请求...</p>
           </div>
         )}
 
         {status === 'success' && (
           <div className="space-y-4">
-            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
               <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={2} className="w-7 h-7">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
@@ -62,7 +62,7 @@ export default function ConfirmEmailChangePage() {
             <p className="text-gray-400 text-xs">3 秒后自动跳转至登录页...</p>
             <Link
               to="/login?email_changed=1"
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
+              className="inline-block bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
             >
               立即前往登录
             </Link>
@@ -81,7 +81,7 @@ export default function ConfirmEmailChangePage() {
             <div className="flex flex-col gap-2">
               <Link
                 to="/settings"
-                className="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
+                className="inline-block bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-6 py-2 rounded-xl transition-colors"
               >
                 返回设置页重新申请
               </Link>
