@@ -160,26 +160,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative overflow-auto py-6 md:py-10">
       {/* Decorative background orbs */}
-      <div className="absolute top-10 -left-32 w-80 h-80 bg-violet-400/30 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
-      <div className="absolute -bottom-20 -right-32 w-96 h-96 bg-fuchsia-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '6s' }} />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl" />
+      <div className="fixed top-10 -left-32 w-80 h-80 bg-violet-400/30 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '4s' }} />
+      <div className="fixed -bottom-20 -right-32 w-96 h-96 bg-fuchsia-400/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDuration: '6s' }} />
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-300/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 md:p-10 w-full max-w-md relative z-10 mx-4">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-6 md:p-10 w-full max-w-md relative z-10 mx-4">
         {/* Brand watermark */}
         <BrandWatermark className="absolute top-4 right-4" opacity={0.03} />
 
-        {/* Brand header */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative mb-4">
-            <LogoMark size={64} className="rounded-2xl shadow-lg shadow-violet-500/20" />
+        {/* Brand header — compact on mobile register */}
+        <div className={`flex flex-col items-center ${mode === 'register' ? 'mb-5' : 'mb-8'}`}>
+          <div className="relative mb-3 md:mb-4">
+            <LogoMark size={mode === 'register' ? 48 : 64} className="rounded-2xl shadow-lg shadow-violet-500/20" />
             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-br from-emerald-400 to-emerald-500 rounded-full border-2 border-white flex items-center justify-center">
               <svg viewBox="0 0 20 20" fill="white" className="w-3 h-3"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">FinArch</h1>
-          <p className="text-xs text-gray-400 mt-1 tracking-wide">收支 · 报销 · 智能匹配</p>
+          <h1 className={`font-bold text-gray-900 tracking-tight ${mode === 'register' ? 'text-xl' : 'text-2xl'}`}>FinArch</h1>
+          <p className="text-xs text-gray-400 mt-0.5 tracking-wide">收支 · 报销 · 智能匹配</p>
         </div>
 
         {justVerified && (
@@ -210,39 +210,39 @@ export default function LoginPage() {
         )}
 
         {/* Login/Register tabs */}
-        <div className="flex rounded-xl bg-gray-100/80 p-1 mb-6">
+        <div className={`flex rounded-xl bg-gray-100/80 p-1 ${mode === 'register' ? 'mb-4' : 'mb-6'}`}>
           <button type="button" className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${mode === 'login' ? 'bg-white shadow-sm text-violet-600' : 'text-gray-400 hover:text-gray-600'}`}
             onClick={() => switchMode('login')}>登录</button>
           <button type="button" className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${mode === 'register' ? 'bg-white shadow-sm text-violet-600' : 'text-gray-400 hover:text-gray-600'}`}
             onClick={() => switchMode('register')}>注册</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className={mode === 'register' ? 'space-y-3' : 'space-y-4'}>
           {mode === 'register' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">用户名</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
               <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
                 className={inputClass} placeholder="字母、数字或下划线，注册后不可更改"
                 autoComplete="username" />
-              <p className="mt-1.5 text-xs text-gray-400">注册后无法修改，请谨慎选择。</p>
+              <p className="mt-1 text-[11px] text-gray-400">注册后无法修改，请谨慎选择</p>
             </div>
           )}
           {mode === 'register' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">昵称 <span className="text-gray-400 font-normal">(可选)</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">昵称 <span className="text-gray-400 font-normal">(可选)</span></label>
               <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
                 className={inputClass} placeholder="不填将随机生成一个可爱昵称"
                 maxLength={20} />
-              <p className="mt-1.5 text-xs text-gray-400">用于打招呼和展示，注册后可随时修改。</p>
+              <p className="mt-1 text-[11px] text-gray-400">用于打招呼和展示，注册后可随时修改</p>
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">邮箱</label>
+            <label className={`block text-sm font-medium text-gray-700 ${mode === 'register' ? 'mb-1' : 'mb-1.5'}`}>邮箱</label>
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
               className={inputClass} placeholder="user@example.com" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">密码</label>
+            <label className={`block text-sm font-medium text-gray-700 ${mode === 'register' ? 'mb-1' : 'mb-1.5'}`}>密码</label>
             <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
               className={inputClass} placeholder={mode === 'register' ? '至少 8 位，建议大小写 + 数字 + 符号' : '请输入密码'} />
             {mode === 'register' && <PasswordStrength password={password} />}
@@ -291,7 +291,7 @@ export default function LoginPage() {
         )}
 
         {/* Footer */}
-        <div className="mt-8 pt-5 border-t border-gray-100 text-center">
+        <div className={`${mode === 'register' ? 'mt-5 pt-4' : 'mt-8 pt-5'} border-t border-gray-100 text-center`}>
           <p className="text-[10px] text-gray-300 tracking-wider">POWERED BY FINARCH · v2.2</p>
         </div>
       </div>
