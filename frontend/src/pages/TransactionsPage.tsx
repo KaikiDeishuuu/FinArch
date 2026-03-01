@@ -151,24 +151,24 @@ export default function TransactionsPage() {
           </button>
           <Link
             to="/add"
-            className="shrink-0 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+            className="shrink-0 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             + 添加
           </Link>
         </div>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — Wise-style: flat */}
       <div className="grid grid-cols-3 gap-2 md:gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-4">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">筛选结果</p>
           <p className="text-lg md:text-2xl font-bold text-gray-700">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400">笔</span></p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-4">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">收入</p>
           <p className="text-sm md:text-2xl font-bold text-emerald-500 tabular-nums truncate">{totalIncomeStr}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-4">
           <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">支出</p>
           <p className="text-sm md:text-2xl font-bold text-rose-500 tabular-nums truncate">{totalExpenseStr}</p>
         </div>
@@ -275,7 +275,7 @@ export default function TransactionsPage() {
                   }}
                 >
                   <div
-                    className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-4 transition-opacity ${
+                    className={`bg-white rounded-2xl border border-gray-100 p-4 transition-opacity ${
                       done ? 'opacity-40' : ''
                     }`}
                   >
@@ -352,8 +352,8 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Desktop Table — Wise-style: flat */}
+      <div className="hidden md:block bg-white rounded-2xl border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
@@ -368,15 +368,15 @@ export default function TransactionsPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b-2 border-gray-200">
-                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">日期</th>
-                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">类别</th>
-                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">项目</th>
-                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">备注</th>
-                  <th className="px-5 py-4 text-left text-sm font-bold text-gray-700">来源</th>
-                  <th className="px-5 py-4 text-right text-sm font-bold text-gray-700">金额</th>
-                  <th className="px-5 py-4 text-center text-sm font-bold text-gray-700">上传</th>
-                  <th className="px-5 py-4 text-center text-sm font-bold text-gray-700">报销</th>
+                <tr className="bg-gray-50/80 border-b border-gray-100">
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">日期</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">类别</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">项目</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">备注</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">来源</th>
+                  <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">金额</th>
+                  <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">上传</th>
+                  <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">报销</th>
                 </tr>
               </thead>
               <tbody>

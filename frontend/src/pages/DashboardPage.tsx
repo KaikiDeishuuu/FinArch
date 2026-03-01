@@ -162,83 +162,71 @@ export default function DashboardPage() {
         </div>
         <Link
           to="/add"
-          className="shrink-0 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm shadow-teal-200"
+          className="shrink-0 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
         >
           + 添加
         </Link>
       </div>
 
-      {/* Balance cards — 2×2 grid */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Balance cards — 2×2 grid — Wise-style: flat, clean */}
+      <div className="grid grid-cols-2 gap-3">
         {/* 公司账户余额 */}
-        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-green-100/60 pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">公司账户</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-emerald-700 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
-            </p>
-            <p className="text-xs text-emerald-500/80 mt-1.5">当前可用资金</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公司账户</p>
           </div>
+          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+            <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1.5">当前可用资金</p>
         </div>
         {/* 个人账户余额 */}
-        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-50 to-indigo-100/60 pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-violet-500 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">个人账户</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-violet-700 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
-            </p>
-            <p className="text-xs text-violet-500/80 mt-1.5">个人账户余额</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">个人账户</p>
           </div>
+          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+            <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1.5">个人账户余额</p>
         </div>
         {/* 个人待报销 */}
-        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-100/60 pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">个人待报销</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-amber-700 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
-            </p>
-            <p className="text-xs text-amber-500/80 mt-1.5">个人垫付未报销合计</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">个人待报销</p>
           </div>
+          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+            <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1.5">个人垫付未报销</p>
         </div>
         {/* 公司待报销 */}
-        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-rose-50 to-pink-100/60 pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-rose-500 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-rose-700 uppercase tracking-wider">公司待报销</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
             </div>
-            <p className="text-xl md:text-2xl font-bold text-rose-600 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
-            </p>
-            <p className="text-xs text-rose-400/80 mt-1.5">公司支出未结算合计</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公司待报销</p>
           </div>
+          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+            <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1.5">公司支出未结算</p>
         </div>
       </div>
 
-      {/* Pending action hints */}
+      {/* Pending action hints — Wise-style */}
       {(notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0) && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <h2 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">待处理事项</h2>
           <div className="space-y-2">
             {notUploaded.length > 0 && (
@@ -275,30 +263,30 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Feature guide */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      {/* Feature guide — Wise-style: clean, flat */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">功能导航</h2>
         <div className="grid grid-cols-2 gap-3">
           {FEATURES.map((f) => (
             <Link
               key={f.to}
               to={f.to}
-              className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all hover:shadow-sm ${f.color}`}
+              className="flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 transition-all hover:border-gray-200 hover:bg-gray-50/50 group"
             >
-              <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg}`}>
+              <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
                 <f.Icon />
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-gray-700">{f.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{f.desc}</p>
+                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{f.desc}</p>
               </div>
             </Link>
           ))}
         </div>
       </div>
 
-      {/* Workflow guide */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      {/* Workflow guide — Wise-style */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">使用流程</h2>
         <div className="space-y-4">
           {/* Personal advance flow */}

@@ -13,6 +13,7 @@ export default function MatchPage() {
   const [target, setTarget] = useState('')
   const [tolerance, setTolerance] = useState('0.01')
   const [maxItems, setMaxItems] = useState('10')
+  const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>('personal')
   const [results, setResults] = useState<MatchResult[]>([])
   const [timePruned, setTimePruned] = useState(false)
   const [error, setError] = useState('')
@@ -84,9 +85,9 @@ export default function MatchPage() {
     // Build a lookup map from tx id → tx
     const txMap = new Map(txs.map(tx => [tx.id, tx]))
 
-    // Filter: uploaded, unreimbursed, personal-expense
+    // Filter: uploaded, unreimbursed, matching source type expense
     const candidates = txs.filter(tx =>
-      tx.source === 'personal' &&
+      tx.source === sourceFilter &&
       tx.direction === 'expense' &&
       tx.uploaded &&
       !tx.reimbursed
@@ -171,13 +172,33 @@ export default function MatchPage() {
         <p className="text-sm text-gray-400 mt-1">自动搜索与报销总额精确匹配的交易组合</p>
       </div>
 
-      {/* Form card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Form card — Wise-style */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        {/* Source filter tabs */}
+        <div className="border-b border-gray-100 px-5 pt-4 pb-0">
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-4">
+            {([['personal', '个人垫付'], ['company', '公司账户']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => { setSourceFilter(key); setResults([]); setSearched(false) }}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  sourceFilter === key
+                    ? 'bg-white text-teal-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Info bar */}
         <div className="bg-teal-50 border-b border-teal-100 px-5 py-3 flex items-start gap-2.5">
           <svg className="w-4 h-4 text-teal-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
           <div>
-            <p className="text-sm text-teal-700">在<strong>已上传、未报销</strong>的个人庞付记录中，找出金额之和与目标最接近的组合</p>
+            <p className="text-sm text-teal-700">在<strong>已上传、未报销</strong>的{sourceFilter === 'personal' ? '个人垫付' : '公司账户'}记录中，找出金额之和与目标最接近的组合</p>
             <p className="text-xs text-teal-500/80 mt-1">注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。</p>
           </div>
         </div>
@@ -284,14 +305,14 @@ export default function MatchPage() {
             ]
             const rankBg = i < 3 ? rankColors[i] : 'bg-teal-600'
             return (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               {/* Card header (clickable) */}
               <button
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/60 transition-colors"
                 onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
               >
                 <div className="flex items-center gap-4 text-left">
-                  <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0 shadow-sm`}>
+                  <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0`}>
                     {i + 1}
                   </span>
                   <div>

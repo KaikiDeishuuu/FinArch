@@ -237,7 +237,7 @@ export default function SettingsPage() {
         {/* ── Fund Accounts ───────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>资金账户</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
             {/* Account list */}
             {acctLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -334,9 +334,9 @@ export default function SettingsPage() {
         {/* ── Profile ─────────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>账户信息</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center text-xl font-bold shrink-0 shadow-sm">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
                 {(displayName[0] ?? '?').toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -359,7 +359,7 @@ export default function SettingsPage() {
         {/* ── Change email ─────────────────────────────────────── col 1 ── */}
         <div className="flex flex-col">
           <SectionLabel>更换邮箱</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 flex-1">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 flex-1">
             <div className="space-y-0.5">
               <p className="text-sm text-gray-700 font-medium">当前邮箱</p>
               <p className="text-sm text-gray-500">{currentEmail}</p>
@@ -399,7 +399,7 @@ export default function SettingsPage() {
         {/* ── Change password ──────────────────────────────────── col 2 ── */}
         <div className="flex flex-col">
           <SectionLabel>安全</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex-1">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 flex-1">
             {pwSuccess && <div className="mb-4"><Alert type="success">✓ 密码修改成功！</Alert></div>}
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
@@ -436,7 +436,7 @@ export default function SettingsPage() {
         {/* ── Backup ───────────────────────────────────────────── col 1 ── */}
         <div className="flex flex-col">
           <SectionLabel>数据备份</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex-1">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 flex-1">
             <p className="text-xs text-gray-400 mb-4">下载当前数据库的完整快照（标准 SQLite 格式），可用于迁移或恢复。</p>
             {backupError && <div className="mb-3"><Alert type="error">{backupError}</Alert></div>}
             <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}
@@ -452,7 +452,7 @@ export default function SettingsPage() {
         {/* ── Restore ──────────────────────────────────────────── col 2 ── */}
         <div className="flex flex-col">
           <SectionLabel>数据恢复</SectionLabel>
-          <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5 flex-1">
+          <div className="bg-white rounded-2xl border border-amber-100 p-5 flex-1">
             <p className="text-xs text-gray-400 mb-4">
               上传之前下载的 <code className="font-mono bg-gray-100 px-1 rounded">.db</code> 备份文件，将<strong>覆盖当前所有数据</strong>，操作不可撤销。
             </p>
@@ -493,7 +493,7 @@ export default function SettingsPage() {
         {/* ── Danger zone ─────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>危险区域</SectionLabel>
-          <div className="bg-white rounded-2xl border border-rose-200 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-rose-200 p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-rose-600 mb-1">注销账户</h3>

@@ -62,29 +62,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex bg-slate-50" style={{ height: '100dvh' }}>
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-56 bg-white border-r border-gray-100/80 flex-col shrink-0">
+      <aside className="hidden md:flex w-[220px] bg-white border-r border-gray-100/80 flex-col shrink-0">
         {/* Brand */}
-        <div className="px-5 pt-5 pb-4">
-          <div className="flex items-center gap-2.5">
-            <img src="/logo.svg" alt="FinArch" className="w-8 h-8 rounded-xl shrink-0 shadow-sm" />
+        <div className="px-5 pt-6 pb-5">
+          <div className="flex items-center gap-3">
+            <img src="/logo.svg" alt="FinArch" className="w-9 h-9 rounded-xl shrink-0" />
             <div>
-              <h1 className="font-extrabold text-gray-900 text-[15px] leading-tight tracking-tight">FinArch</h1>
+              <h1 className="font-extrabold text-gray-900 text-base leading-tight tracking-tight">FinArch</h1>
               <p className="text-[10px] text-gray-400 mt-0.5 tracking-wide">收支 · 报销 · 统计</p>
             </div>
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-1 space-y-0.5">
+        {/* Nav — Wise-style: clean, generous, flat active state */}
+        <nav className="flex-1 px-3 py-2 space-y-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
+                `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-teal-600 text-white shadow-sm shadow-teal-200'
+                    ? 'bg-teal-50 text-teal-700'
                     : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                 }`
               }
@@ -95,17 +95,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* User section */}
-        <div className="px-3 pb-4 pt-3 border-t border-gray-100/80">
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors group">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+        {/* User section — Wise-style: minimal */}
+        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 mt-auto">
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
               {initial}
             </div>
             <p className="flex-1 text-[12px] text-gray-700 truncate font-medium">{displayName}</p>
             <button
               onClick={logout}
               title="退出登录"
-              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-400 transition-all"
+              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-400 transition-all p-1"
             >
               <IconLogout />
             </button>
@@ -113,27 +113,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Footer area in sidebar */}
-        <div className="px-5 pb-4">
-          <div className="h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent mb-3" />
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-gray-300 font-medium">v2.0</span>
-            <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* ── Mobile Top Header ── */}
       <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="FinArch" className="w-7 h-7 rounded-xl shrink-0 shadow-sm" />
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.svg" alt="FinArch" className="w-7 h-7 rounded-xl shrink-0" />
           <span className="font-extrabold text-gray-900 text-[15px] tracking-tight">FinArch</span>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-[11px] font-bold">
             {initial}
           </div>
           <button
@@ -147,37 +136,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ── */}
       <main className="scroll-main flex-1 overflow-y-scroll pt-14 md:pt-0 md:pb-0 flex flex-col">
-        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 md:px-8 md:py-8 page-enter">
+        <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 md:px-8 md:py-8 page-enter">
           {children}
         </div>
 
-        {/* ── Footer ── */}
+        {/* ── Footer — Wise-style: minimal ── */}
         <footer className="shrink-0 mt-auto">
-          {/* Gradient divider */}
-          <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mx-6 md:mx-8" />
+          <div className="h-px bg-gradient-to-r from-transparent via-gray-100 to-transparent mx-6 md:mx-8" />
           <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              </div>
-              <span className="text-[11px] font-semibold text-gray-400 tracking-wide">FinArch</span>
-              <span className="text-[11px] text-gray-300">·</span>
+              <span className="text-[11px] font-semibold text-gray-300 tracking-wide">FinArch</span>
+              <span className="text-[11px] text-gray-200">·</span>
               <span className="text-[11px] text-gray-300">记账 · 报销 · 统计</span>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="hidden sm:inline text-[11px] text-gray-300">
-                &copy; {new Date().getFullYear()} All rights reserved
-              </span>
-              <span className="text-[10px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full font-mono">v2.0</span>
-            </div>
+            <span className="text-[10px] text-gray-300 font-mono">v2.1</span>
           </div>
         </footer>
       </main>
 
       {/* ── Mobile Bottom Navigation ── */}
-      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-100 flex items-end shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
+      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-100 flex items-end">
         {navItems.map((item) => {
           if (item.isPrimary) {
             return (

@@ -2,20 +2,22 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Shadcn-compatible CSS variables (Tailwind v4 approach: defined in CSS).
-   Primary brand: Teal (#0D9488 light / #14B8A6 dark)
-   Background: Slate-50 (#F8FAFC light / Slate-900 dark)
+   Wise-inspired design system
+   Primary: Teal/Emerald (#0D9488 primary · #D1FAE5 accent surfaces)
+   Background: #F8FAFC (slate-50)
+   Cards: white with very subtle borders
+   Typography: high-contrast, generous spacing
 ───────────────────────────────────────────────────────────────────────────── */
 :root {
   /* Background / Surface */
   --background: 210 40% 98%;           /* slate-50  #F8FAFC */
   --foreground: 222 47% 11%;           /* slate-900 #0F172A */
-  --card: 0 0% 100%;                   /* white     #FFFFFF */
+  --card: 0 0% 100%;                   /* white */
   --card-foreground: 222 47% 11%;
 
-  /* Primary — Teal */
+  /* Primary — Teal (Wise-inspired green treatment) */
   --primary: 173 80% 30%;              /* teal-600  #0D9488 */
-  --primary-foreground: 0 0% 100%;     /* white */
+  --primary-foreground: 0 0% 100%;
 
   /* Ring / focus */
   --ring: 173 80% 40%;                 /* teal-500  #14B8A6 */
@@ -25,12 +27,18 @@
   --muted-foreground: 215 16% 47%;     /* slate-500 */
 
   /* Semantic */
-  --income: 160 64% 43%;              /* emerald-500 #10B981 */
-  --expense: 345 83% 60%;             /* rose-500    #F43F5E */
-  --pending: 38 92% 50%;              /* amber-500   #F59E0B */
+  --income: 160 64% 43%;              /* emerald-500 */
+  --expense: 345 83% 60%;             /* rose-500 */
+  --pending: 38 92% 50%;              /* amber-500 */
 
   /* Border */
   --border: 214 32% 91%;              /* slate-200 */
+
+  /* Wise-specific: larger radii, softer shadows */
+  --radius-card: 1rem;                 /* 16px */
+  --radius-btn: 0.75rem;              /* 12px */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  --shadow-hover: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 /* ── 视口基础：防止 html/body 双重滚动 ── */

@@ -112,7 +112,7 @@ export default function AddTransactionPage() {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* 收支方向 + 资金来源 ── col 1 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
           <div>
             <label className={labelClass}>收支方向</label>
             <div className="grid grid-cols-2 gap-2">
@@ -120,8 +120,8 @@ export default function AddTransactionPage() {
                 onClick={() => set('direction', 'expense')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isExpense
-                    ? 'bg-rose-500 border-red-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-rose-300 hover:text-rose-400'
+                    ? 'bg-rose-50 border-rose-200 text-rose-600'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-rose-200 hover:text-rose-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
@@ -131,8 +131,8 @@ export default function AddTransactionPage() {
                 onClick={() => set('direction', 'income')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isExpense
-                    ? 'bg-emerald-500 border-green-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-emerald-300 hover:text-emerald-400'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-emerald-200 hover:text-emerald-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
@@ -148,8 +148,8 @@ export default function AddTransactionPage() {
                 onClick={() => set('source', 'personal')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isPersonal
-                    ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-400'
+                    ? 'bg-amber-50 border-amber-200 text-amber-600'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-amber-200 hover:text-amber-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -159,8 +159,8 @@ export default function AddTransactionPage() {
                 onClick={() => set('source', 'company')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isPersonal
-                    ? 'bg-teal-500 border-teal-500 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-teal-300 hover:text-teal-400'
+                    ? 'bg-teal-50 border-teal-200 text-teal-600'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-teal-200 hover:text-teal-400'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
@@ -192,7 +192,7 @@ export default function AddTransactionPage() {
         </div>
 
         {/* 金额 ── col 2 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col justify-between">
           <label className={labelClass}>金额（元）</label>
           <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 focus-within:border-red-400' : 'border-green-200 focus-within:border-green-400'}`}>
             <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -227,7 +227,7 @@ export default function AddTransactionPage() {
         </div>
 
         {/* 费用类别 ── full width */}
-        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 p-5">
           <label className={labelClass}>费用类别</label>
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
             {CATEGORIES.map((c) => (
@@ -237,8 +237,8 @@ export default function AddTransactionPage() {
                 onClick={() => { set('category', c); setCustomCat('') }}
                 className={`flex items-center justify-center py-2.5 px-1 rounded-xl text-xs font-semibold border-2 transition-all ${
                   form.category === c
-                    ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700'
+                    ? 'bg-teal-50 border-teal-300 text-teal-700'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-teal-200 hover:bg-teal-50/50 hover:text-teal-700'
                 }`}
               >
                 <span className="leading-tight text-center">{c}</span>
@@ -267,13 +267,13 @@ export default function AddTransactionPage() {
         </div>
 
         {/* 日期 ── col 1 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <label className={labelClass}>日期</label>
           <input type="date" required className={inputClass} value={form.occurred_at} onChange={(e) => set('occurred_at', e.target.value)} />
         </div>
 
         {/* 项目编号 + 备注 ── col 2 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
           <div>
             <label className={labelClass}>
               项目编号 <span className="text-gray-300 font-normal normal-case tracking-normal">选填</span>
@@ -312,7 +312,7 @@ export default function AddTransactionPage() {
             <button
               type="submit"
               disabled={loading || success}
-              className={`flex-1 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 shadow-sm ${
+              className={`flex-1 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 ${
                 isExpense
                   ? 'bg-rose-500 hover:bg-rose-600 text-white'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white'

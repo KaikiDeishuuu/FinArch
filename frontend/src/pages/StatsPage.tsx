@@ -273,33 +273,30 @@ export default function StatsPage() {
         ))}
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — Wise-style: flat, clean */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-indigo-400 to-violet-500" />
-          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度收入</p>
-          <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1">
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
+          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度收入</p>
+          <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-gradient-to-r from-rose-400 to-pink-500" />
-          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">年度支出</p>
-          <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1">
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
+          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度支出</p>
+          <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-5 overflow-hidden relative">
-          <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${totalNet >= 0 ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'}`} />
-          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold mt-2">净结余</p>
-          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1 ${totalNet >= 0 ? 'text-teal-600' : 'text-orange-500'}`}>
+        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
+          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">净结余</p>
+          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-teal-600' : 'text-orange-500'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
         </div>
       </div>
 
-      {/* Monthly bar chart */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      {/* Monthly bar chart — Wise-style */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="font-semibold text-gray-800">{year} 年月度收支</h2>
@@ -323,7 +320,7 @@ export default function StatsPage() {
 
       {/* Income vs expense overview pie */}
       {monthly.length > 0 && totalIncome + totalExpense > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <h2 className="font-semibold text-gray-800 mb-4">收支比例</h2>
           <div className="flex items-center gap-6">
             <div className="w-32 h-32 shrink-0">
@@ -386,8 +383,8 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* Category pie chart */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      {/* Category pie chart — Wise-style */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h2 className="font-semibold text-gray-800 mb-4">分类支出</h2>
         {categories.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
@@ -440,8 +437,8 @@ export default function StatsPage() {
         )}
       </div>
 
-      {/* Project breakdown */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Project breakdown — Wise-style */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-800">项目汇总</h2>
           <span className="text-xs text-gray-400">{projects.length} 个项目</span>
