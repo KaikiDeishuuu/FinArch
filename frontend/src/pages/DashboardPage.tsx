@@ -7,6 +7,8 @@ import CompactAmount from '../components/CompactAmount'
 import { BrandWatermark } from '../components/Brand'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
+import { useHeartbeat } from '../hooks/useHeartbeat'
+import { useOnlineDevices } from '../hooks/useOnlineDevices'
 import { StaggerContainer, StaggerItem, AnimatedCard, CardSkeleton } from '../motion'
 
 const IconList = () => (
@@ -168,6 +170,10 @@ function generateGreeting() {
 export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
+
+  // Device heartbeat — keeps this device marked as online
+  useHeartbeat()
+  const { data: onlineDeviceCount } = useOnlineDevices()
 
   // Greeting — generated once per mount, stable across re-renders
   const [greeting] = useState(generateGreeting)
@@ -345,8 +351,12 @@ export default function DashboardPage() {
                 : rateDate
                   ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium">💱 $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
                   : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
-              }
-            </div>
+              }              {onlineDeviceCount != null && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 backdrop-blur-sm font-medium inline-flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300"></span></span>
+                  {onlineDeviceCount} 台设备在线
+                </span>
+              )}            </div>
           </div>
           <Link
             to="/add"

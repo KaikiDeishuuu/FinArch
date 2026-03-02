@@ -182,6 +182,13 @@ export default function StatsPage() {
     [accounts]
   )
 
+  // Filter accounts by selected source tab
+  const filteredAccounts = useMemo(() => {
+    if (sourceFilter === 'all') return activeAccounts
+    const acctType = sourceFilter === 'company' ? 'public' : 'personal'
+    return activeAccounts.filter((a: Account) => a.type === acctType)
+  }, [activeAccounts, sourceFilter])
+
   const allCategories = useMemo(
     () => Array.from(new Set(transactions.map(t => t.category).filter(Boolean))).sort() as string[],
     [transactions]
@@ -289,7 +296,7 @@ export default function StatsPage() {
           {([['all', '全部'], ['personal', '个人账户'], ['company', '公共账户']] as const).map(([key, label]) => (
             <button
               key={key}
-              onClick={() => setSourceFilter(key)}
+              onClick={() => { setSourceFilter(key); setFilterAccount('') }}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 sourceFilter === key
                   ? 'bg-white text-violet-700 shadow-sm'
@@ -302,7 +309,7 @@ export default function StatsPage() {
         </div>
 
         {/* Account filter */}
-        {activeAccounts.length > 1 && (
+        {filteredAccounts.length > 1 && (
           <div className="w-36">
             <Select
               value={filterAccount}
@@ -311,7 +318,7 @@ export default function StatsPage() {
               activeHighlight
               options={[
                 { value: '', label: '全部账户' },
-                ...activeAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+                ...filteredAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
               ]}
             />
           </div>

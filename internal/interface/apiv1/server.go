@@ -47,6 +47,13 @@ type Server struct {
 	acctSvc          *service.AccountService
 	emailSvc         email.Sender
 	pendingRestores  sync.Map // restoreID → *pendingRestore
+	activeDevices    sync.Map // "userID:deviceID" → *deviceSession
+}
+
+// deviceSession tracks a single device's last heartbeat.
+type deviceSession struct {
+	LastSeen  time.Time
+	UserAgent string
 }
 
 // pendingRestore holds temporary state for a disaster recovery restore session.
@@ -142,6 +149,8 @@ func (s *Server) registerRoutes() {
 	api.POST("/auth/request-delete-account", s.handleRequestDeleteAccount)
 	api.POST("/auth/request-email-change", s.handleRequestEmailChange)
 	api.PATCH("/auth/nickname", s.handleUpdateNickname)
+	api.POST("/auth/heartbeat", s.handleHeartbeat)
+	api.GET("/auth/devices/online", s.handleOnlineDevices)
 
 	// Transactions
 	api.GET("/transactions", s.handleListTransactions)
@@ -613,6 +622,58 @@ func (s *Server) handleUpdateNickname(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"message": "昵称已更新", "nickname": req.Nickname})
+}
+
+// ─── Device Heartbeat & Online Count ─────────────────────────────────────────
+
+// handleHeartbeat records a device heartbeat for the current user.
+// POST /auth/heartbeat  { "device_id": "..." }
+func (s *Server) handleHeartbeat(c *gin.Context) {
+	var req struct {
+		DeviceID string `json:"device_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40040, "device_id is required")
+		return
+	}
+	key := userID(c) + ":" + req.DeviceID
+	s.activeDevices.Store(key, &deviceSession{
+		LastSeen:  time.Now(),
+		UserAgent: c.GetHeader("User-Agent"),
+	})
+	ok(c, gin.H{"status": "ok"})
+}
+
+// handleOnlineDevices returns the count of recently-active devices for the current user.
+// GET /auth/devices/online
+func (s *Server) handleOnlineDevices(c *gin.Context) {
+	uid := userID(c)
+	prefix := uid + ":"
+	cutoff := time.Now().Add(-5 * time.Minute)
+	count := 0
+	s.activeDevices.Range(func(key, value any) bool {
+		k := key.(string)
+		if len(k) > len(prefix) && k[:len(prefix)] == prefix {
+			ds := value.(*deviceSession)
+			if ds.LastSeen.After(cutoff) {
+				count++
+			}
+		}
+		return true
+	})
+	ok(c, gin.H{"count": count})
+}
+
+// CleanupStaleDevices removes device sessions that haven't sent a heartbeat in 10 minutes.
+func (s *Server) CleanupStaleDevices() {
+	cutoff := time.Now().Add(-10 * time.Minute)
+	s.activeDevices.Range(func(key, value any) bool {
+		ds := value.(*deviceSession)
+		if ds.LastSeen.Before(cutoff) {
+			s.activeDevices.Delete(key)
+		}
+		return true
+	})
 }
 
 // ─── Transactions ────────────────────────────────────────────────────────────

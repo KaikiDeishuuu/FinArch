@@ -97,6 +97,15 @@ func main() {
 		}
 	}()
 
+	// Background goroutine: clean up stale device heartbeat entries every 5 minutes.
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			srv.CleanupStaleDevices()
+		}
+	}()
+
 	log.Printf("FinArch API server listening on %s", addr)
 	log.Fatal(srv.Run())
 }

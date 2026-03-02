@@ -38,6 +38,12 @@ export default function MatchPage() {
     [accounts]
   )
 
+  // Filter accounts by selected source tab
+  const filteredAccounts = useMemo(() => {
+    const acctType = sourceFilter === 'company' ? 'public' : 'personal'
+    return activeAccounts.filter((a: Account) => a.type === acctType)
+  }, [activeAccounts, sourceFilter])
+
   const allCategories = useMemo(
     () => Array.from(new Set(txs.map(t => t.category).filter(Boolean))).sort() as string[],
     [txs]
@@ -200,7 +206,7 @@ export default function MatchPage() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => { setSourceFilter(key); setResults([]); setSearched(false) }}
+                  onClick={() => { setSourceFilter(key); setFilterAccount(''); setResults([]); setSearched(false) }}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     sourceFilter === key
                       ? 'bg-white text-violet-700 shadow-sm'
@@ -213,7 +219,7 @@ export default function MatchPage() {
             </div>
 
             {/* Account filter */}
-            {activeAccounts.length > 1 && (
+            {filteredAccounts.length > 1 && (
               <div className="w-36">
                 <Select
                   value={filterAccount}
@@ -222,7 +228,7 @@ export default function MatchPage() {
                   activeHighlight
                   options={[
                     { value: '', label: '全部账户' },
-                    ...activeAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+                    ...filteredAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
                   ]}
                 />
               </div>

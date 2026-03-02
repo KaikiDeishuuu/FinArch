@@ -66,6 +66,13 @@ export default function TransactionsPage() {
     [accounts]
   )
 
+  // Filter accounts by selected source tab
+  const filteredAccounts = useMemo(() => {
+    if (!filterSource) return activeAccounts
+    const acctType = filterSource === 'company' ? 'public' : 'personal'
+    return activeAccounts.filter((a: Account) => a.type === acctType)
+  }, [activeAccounts, filterSource])
+
   // Filtering (inline — no hooks; must be before useWindowVirtualizer)
   const baseFiltered = txs.filter((t) => {
     if (filter === 'unreimbursed') return !t.reimbursed
@@ -235,7 +242,10 @@ export default function TransactionsPage() {
         <div className="w-28">
           <Select
             value={filterSource}
-            onChange={(v) => setFilterSource(v as '' | 'personal' | 'company')}
+            onChange={(v) => {
+              setFilterSource(v as '' | 'personal' | 'company')
+              setFilterAccount('')
+            }}
             placeholder="全部来源"
             activeHighlight
             options={[
@@ -247,7 +257,7 @@ export default function TransactionsPage() {
         </div>
 
         {/* Account filter */}
-        {activeAccounts.length > 1 && (
+        {filteredAccounts.length > 1 && (
           <div className="w-36">
             <Select
               value={filterAccount}
@@ -256,7 +266,7 @@ export default function TransactionsPage() {
               activeHighlight
               options={[
                 { value: '', label: '全部账户' },
-                ...activeAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+                ...filteredAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
               ]}
             />
           </div>

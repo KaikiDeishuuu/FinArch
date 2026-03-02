@@ -414,3 +414,16 @@ export async function disasterRestoreConfirm(
   })
   return data.data
 }
+
+// ─── Device Heartbeat & Online Count ──────────────────────────────────────────
+
+/** Send device heartbeat to keep this device marked as online */
+export async function sendHeartbeat(deviceId: string): Promise<void> {
+  await client.post('/auth/heartbeat', { device_id: deviceId })
+}
+
+/** Get the number of currently online devices for the authenticated user */
+export async function getOnlineDevices(): Promise<{ count: number }> {
+  const { data } = await client.get('/auth/devices/online')
+  return data.data
+}
