@@ -13,6 +13,7 @@ import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { categoryLabel } from '../utils/categoryLabel'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -114,7 +115,7 @@ export default function TransactionsPage() {
 
   function exportPDF() {
     const parts: string[] = [{ all: t('transactions.reimbursementTabs.all'), unreimbursed: t('transactions.reimbursementTabs.pending'), reimbursed: t('transactions.reimbursementTabs.done') }[filter]]
-    if (filterCategory) parts.push(`${t('transactions.table.category')}: ${filterCategory}`)
+    if (filterCategory) parts.push(`${t('transactions.table.category')}: ${categoryLabel(filterCategory)}`)
     if (filterProject) parts.push(`${t('transactions.table.project')}: ${filterProject}`)
     exportTransactionsPDF(filtered, parts.join(' · '), user, rates)
   }
@@ -288,7 +289,7 @@ export default function TransactionsPage() {
               activeHighlight
               options={[
                 { value: '', label: t('transactions.filterPlaceholders.category') },
-                ...allCategories.map(c => ({ value: c, label: c })),
+                ...allCategories.map(c => ({ value: c, label: categoryLabel(c) })),
               ]}
             />
           </div>
@@ -367,7 +368,7 @@ export default function TransactionsPage() {
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                           tx.direction === 'income' ? 'bg-emerald-400' : 'bg-rose-400'
                         }`} />
-                        <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{tx.category}</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{categoryLabel(tx.category)}</span>
                         {tx.project_id && (
                           <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded shrink-0">
                             {tx.project_id}
@@ -507,7 +508,7 @@ export default function TransactionsPage() {
                       <td className="px-3 py-3">
                         <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
                           <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                          <span className="truncate">{tx.category}</span>
+                          <span className="truncate">{categoryLabel(tx.category)}</span>
                         </span>
                       </td>
                       <td className="px-3 py-3">

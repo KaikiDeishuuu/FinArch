@@ -9,11 +9,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
 import DatePicker from '../components/DatePicker'
-
-const CATEGORIES = [
-  '耗材', '材料', '设备', '仪器', 'CNC加工', '加工费',
-  '差旅', '劳务', '软件', '培训', '会议', '测试', '其他',
-]
+import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 
 
 export default function AddTransactionPage() {
@@ -33,7 +29,7 @@ export default function AddTransactionPage() {
     direction: 'expense',
     source: 'personal',
     account_id: '',
-    category: CATEGORIES[0],
+    category: CATEGORY_KEYS[0],
     amount_yuan: '',
     currency: 'CNY',
     note: '',
@@ -183,7 +179,7 @@ export default function AddTransactionPage() {
                 size="lg"
                 options={sourceAccounts.map(a => ({
                   value: a.id,
-                  label: `${a.name}（余额 ¥${a.balance_yuan.toFixed(2)}）`,
+                  label: `${a.name}（${t('common.balance')} ¥${a.balance_yuan.toFixed(2)}）`,
                 }))}
               />
             </div>
@@ -230,7 +226,7 @@ export default function AddTransactionPage() {
         <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
           <label className={labelClass}>{t('addTransaction.form.category')}</label>
           <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-            {CATEGORIES.map((c) => (
+            {CATEGORY_KEYS.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -241,7 +237,7 @@ export default function AddTransactionPage() {
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-violet-200 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 hover:text-violet-700 dark:hover:text-violet-400'
                 }`}
               >
-                <span className="leading-tight text-center">{c}</span>
+                <span className="leading-tight text-center">{categoryLabel(c)}</span>
               </button>
             ))}
           </div>
@@ -254,11 +250,11 @@ export default function AddTransactionPage() {
               onChange={e => {
                 const v = e.target.value
                 setCustomCat(v)
-                set('category', v.trim() !== '' ? v.trim() : CATEGORIES[0])
+                set('category', v.trim() !== '' ? v.trim() : CATEGORY_KEYS[0])
               }}
               placeholder={t('addTransaction.form.customPlaceholder')}
               className={`flex-1 text-xs rounded-xl border-2 py-2 px-3 outline-none transition-all placeholder-gray-300 dark:placeholder-gray-600 ${
-                !CATEGORIES.includes(form.category) && customCat.trim() !== ''
+                !CATEGORY_KEYS.includes(form.category as typeof CATEGORY_KEYS[number]) && customCat.trim() !== ''
                   ? 'border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 font-semibold'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 focus:border-violet-300 dark:focus:border-violet-500/30 focus:bg-violet-50 dark:focus:bg-violet-500/5'
               }`}

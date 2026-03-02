@@ -2,6 +2,7 @@ import type { Transaction } from '../api/client'
 import { formatAmount, toCNY } from './format'
 import { FALLBACK_RATES } from './exchangeRates'
 import i18n from '../i18n'
+import { categoryLabel } from './categoryLabel'
 
 function fmt(t: Transaction) {
   return formatAmount(t.amount_yuan, t.currency)
@@ -50,7 +51,7 @@ export function exportTransactionsPDF(
     return [
       '<tr>',
       `<td>${t.occurred_at}</td>`,
-      `<td><span class="${dotClass}"></span>${t.category}</td>`,
+      `<td><span class="${dotClass}"></span>${categoryLabel(t.category)}</td>`,
       `<td>${src}</td>`,
       `<td>${t.project_id ?? '—'}</td>`,
       `<td class="note">${t.note || '—'}</td>`,

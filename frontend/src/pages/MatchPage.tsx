@@ -11,6 +11,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import Select from '../components/Select'
 import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
 import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
+import { categoryLabel } from '../utils/categoryLabel'
 
 export default function MatchPage() {
   const [target, setTarget] = useState('')
@@ -247,7 +248,7 @@ export default function MatchPage() {
                   activeHighlight
                   options={[
                     { value: '', label: t('match.filters.allCategories') },
-                    ...allCategories.map(c => ({ value: c, label: c })),
+                    ...allCategories.map(c => ({ value: c, label: categoryLabel(c) })),
                   ]}
                 />
               </div>
@@ -428,7 +429,7 @@ export default function MatchPage() {
                           return (
                             <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
                               <div className="flex items-center justify-between gap-2">
-                                <span className={`font-semibold text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{item.category}</span>
+                                <span className={`font-semibold text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{categoryLabel(item.category)}</span>
                                 <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
                               </div>
                               <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
@@ -491,7 +492,7 @@ export default function MatchPage() {
                               <tr key={item.id} className={`border-b border-gray-50 dark:border-gray-800 last:border-0 transition-colors ${done ? 'opacity-50 bg-emerald-50/30 dark:bg-emerald-500/5' : idx % 2 === 0 ? 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40' : 'bg-gray-50/30 dark:bg-gray-800/20 hover:bg-gray-50/60 dark:hover:bg-gray-800/40'}`}>
                                 <td className="px-4 py-2.5 font-mono text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-800/30">{item.id.slice(0, 8)}…</td>
                                 <td className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>{item.occurred_at}</td>
-                                <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{item.category}</td>
+                                <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{categoryLabel(item.category)}</td>
                                 <td className="px-4 py-2.5">
                                   {item.project_id
                                     ? <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>

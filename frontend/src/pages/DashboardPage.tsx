@@ -103,6 +103,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { t, i18n } = useTranslation()
+  const [workflowTab, setWorkflowTab] = useState<'personal' | 'company'>('personal')
 
   // Device heartbeat — keeps this device marked as online
   useHeartbeat()
@@ -465,59 +466,86 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Workflow guide */}
+      {/* Workflow guide — timeline style with tabs */}
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
-        <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4 uppercase tracking-wider">{t('dashboard.workflowTitle')}</h2>
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center gap-1.5 mb-2.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">{t('dashboard.workflow.personalTitle')}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 md:flex md:items-start md:gap-0">
-              {([
-                { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.personalStep1' },
-                { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.personalStep2' },
-                { step: '3', Icon: IconSearch, titleKey: 'dashboard.workflow.personalStep3' },
-                { step: '4', Icon: IconCheck, titleKey: 'dashboard.workflow.personalStep4' },
-              ] as const).map((s, i, arr) => (
-                <div key={s.step} className="bg-amber-50/60 dark:bg-amber-500/5 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
-                  <div className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 md:w-7 md:h-7">{s.step}</div>
-                  <div className="md:text-center md:mt-1.5 md:px-1">
-                    <div className="text-amber-500 dark:text-amber-400 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
-                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t(s.titleKey)}</p>
-                  </div>
-                  {i < arr.length - 1 && <div className="hidden md:block flex-1 h-px bg-gray-200 dark:bg-gray-700 mt-3.5 mx-1" />}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 dark:border-gray-800" />
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-2.5">
-              <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
-              <p className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">{t('dashboard.workflow.companyTitle')}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-2 md:flex md:items-start md:gap-0">
-              {([
-                { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1' },
-                { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.companyStep2' },
-                { step: '3', Icon: IconCheck, titleKey: 'dashboard.workflow.companyStep3' },
-              ] as const).map((s, i, arr) => (
-                <div key={s.step} className="bg-sky-50/60 dark:bg-sky-500/5 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
-                  <div className="w-5 h-5 rounded-full bg-sky-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 md:w-7 md:h-7">{s.step}</div>
-                  <div className="md:text-center md:mt-1.5 md:px-1">
-                    <div className="text-sky-500 dark:text-sky-400 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
-                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t(s.titleKey)}</p>
-                  </div>
-                  {i < arr.length - 1 && <div className="hidden md:block flex-1 h-px bg-gray-200 dark:bg-gray-700 mt-3.5 mx-1" />}
-                </div>
-              ))}
-            </div>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('dashboard.workflowTitle')}</h2>
+          <div className="flex bg-gray-100 dark:bg-gray-800/60 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setWorkflowTab('personal')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${workflowTab === 'personal' ? 'bg-white dark:bg-gray-700 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
+            >
+              💳 {t('dashboard.workflow.personalTitle')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkflowTab('company')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${workflowTab === 'company' ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
+            >
+              🏦 {t('dashboard.workflow.companyTitle')}
+            </button>
           </div>
         </div>
+
+        {/* Personal flow */}
+        {workflowTab === 'personal' && (
+          <div className="space-y-0">
+            {([
+              { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.personalStep1', descKey: 'dashboard.workflow.personalDesc1', color: 'amber' },
+              { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.personalStep2', descKey: 'dashboard.workflow.personalDesc2', color: 'amber' },
+              { step: '3', Icon: IconSearch, titleKey: 'dashboard.workflow.personalStep3', descKey: 'dashboard.workflow.personalDesc3', color: 'amber' },
+              { step: '4', Icon: IconCheck, titleKey: 'dashboard.workflow.personalStep4', descKey: 'dashboard.workflow.personalDesc4', color: 'amber' },
+            ] as const).map((s, i, arr) => (
+              <div key={s.step} className="flex gap-3">
+                {/* Timeline spine */}
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <s.Icon />
+                  </div>
+                  {i < arr.length - 1 && <div className="w-px flex-1 bg-amber-200/60 dark:bg-amber-500/20 my-1" />}
+                </div>
+                {/* Content */}
+                <div className={`pb-4 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-amber-500/60 dark:text-amber-400/50">STEP {s.step}</span>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t(s.titleKey)}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(s.descKey)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Company flow */}
+        {workflowTab === 'company' && (
+          <div className="space-y-0">
+            {([
+              { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1', descKey: 'dashboard.workflow.companyDesc1', color: 'sky' },
+              { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.companyStep2', descKey: 'dashboard.workflow.companyDesc2', color: 'sky' },
+              { step: '3', Icon: IconCheck, titleKey: 'dashboard.workflow.companyStep3', descKey: 'dashboard.workflow.companyDesc3', color: 'sky' },
+            ] as const).map((s, i, arr) => (
+              <div key={s.step} className="flex gap-3">
+                {/* Timeline spine */}
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                    <s.Icon />
+                  </div>
+                  {i < arr.length - 1 && <div className="w-px flex-1 bg-sky-200/60 dark:bg-sky-500/20 my-1" />}
+                </div>
+                {/* Content */}
+                <div className={`pb-4 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-sky-500/60 dark:text-sky-400/50">STEP {s.step}</span>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t(s.titleKey)}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(s.descKey)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
