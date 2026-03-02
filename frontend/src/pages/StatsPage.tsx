@@ -452,6 +452,8 @@ export default function StatsPage() {
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
+                    itemStyle={{ color: 'var(--tooltip-text, #374151)' }}
+                    labelStyle={{ color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -518,6 +520,8 @@ export default function StatsPage() {
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
+                    itemStyle={{ color: 'var(--tooltip-text, #374151)' }}
+                    labelStyle={{ color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
