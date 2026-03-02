@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
-import type { Transaction } from '../api/client'
+import type { Transaction, Account } from '../api/client'
 import { StaggerContainer, StaggerItem, CardSkeleton, RowSkeleton } from '../motion'
 import Select from '../components/Select'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,30 +10,36 @@ import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
+import { useAccounts } from '../hooks/useAccounts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
-  onClick, disabled, loading,
+  onClick, disabled, loading, locked,
 }: {
   active: boolean; activeLabel: string; inactiveLabel: string
   activeClass: string; inactiveClass: string
-  onClick: () => void; disabled?: boolean; loading?: boolean
+  onClick: () => void; disabled?: boolean; loading?: boolean; locked?: boolean
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all disabled:opacity-40 disabled:cursor-not-allowed ${active ? activeClass : inactiveClass}`}
+      title={locked ? '请先取消报销状态' : undefined}
+      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 ease-in-out transform active:scale-95 ${
+        disabled && !loading ? 'opacity-40 cursor-not-allowed' : ''
+      } ${locked ? 'opacity-50 cursor-not-allowed ring-1 ring-gray-200' : ''} ${active ? activeClass : inactiveClass}`}
     >
       {loading ? (
         <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
       ) : active ? (
-        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+        <svg className="w-3 h-3 transition-transform duration-200" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+      ) : locked ? (
+        <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
       ) : (
-        <span className="w-3 h-3 rounded-full border-2 border-current opacity-50" />
+        <span className="w-3 h-3 rounded-full border-2 border-current opacity-50 transition-all duration-200" />
       )}
       {loading ? '…' : active ? activeLabel : inactiveLabel}
     </button>
@@ -44,12 +50,21 @@ export default function TransactionsPage() {
   const { user } = useAuth()
   const { rates } = useExchangeRates()
   const { data: txs = [], isLoading: loading } = useTransactions()
+  const { data: accounts = [] } = useAccounts()
   const invalidate = useInvalidateTransactions()
   const [filter, setFilter] = useState<FilterTab>('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
+  const [filterSource, setFilterSource] = useState<'' | 'personal' | 'company'>('')
+  const [filterAccount, setFilterAccount] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  // Build account lookup for filter display
+  const activeAccounts = useMemo(() =>
+    accounts.filter((a: Account) => a.is_active),
+    [accounts]
+  )
 
   // Filtering (inline — no hooks; must be before useWindowVirtualizer)
   const baseFiltered = txs.filter((t) => {
@@ -60,6 +75,8 @@ export default function TransactionsPage() {
   const filtered = baseFiltered
     .filter((t) => !filterCategory || t.category === filterCategory)
     .filter((t) => !filterProject || (t.project_id ?? '') === filterProject)
+    .filter((t) => !filterSource || t.source === filterSource)
+    .filter((t) => !filterAccount || t.account_id === filterAccount)
 
   const allCategories = useMemo(
     () => Array.from(new Set(txs.map(t => t.category).filter(Boolean))).sort() as string[],
@@ -106,6 +123,12 @@ export default function TransactionsPage() {
   }
 
   async function handleToggleUpload(id: string) {
+    // Rollback protection: if uploaded AND reimbursed, must cancel reimburse first
+    const tx = txs.find(t => t.id === id)
+    if (tx && tx.uploaded && tx.reimbursed) {
+      toast.error('请先取消报销状态，再取消上传')
+      return
+    }
     setTogglingId(id)
     try {
       await toggleUploaded(id)
@@ -208,6 +231,37 @@ export default function TransactionsPage() {
           ))}
         </div>
 
+        {/* Source filter (个人/公共) */}
+        <div className="w-28">
+          <Select
+            value={filterSource}
+            onChange={(v) => setFilterSource(v as '' | 'personal' | 'company')}
+            placeholder="全部来源"
+            activeHighlight
+            options={[
+              { value: '', label: '全部来源' },
+              { value: 'personal', label: '个人' },
+              { value: 'company', label: '公共' },
+            ]}
+          />
+        </div>
+
+        {/* Account filter */}
+        {activeAccounts.length > 1 && (
+          <div className="w-36">
+            <Select
+              value={filterAccount}
+              onChange={setFilterAccount}
+              placeholder="全部账户"
+              activeHighlight
+              options={[
+                { value: '', label: '全部账户' },
+                ...activeAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+              ]}
+            />
+          </div>
+        )}
+
         {/* Category filter */}
         {allCategories.length > 0 && (
           <div className="w-36">
@@ -241,9 +295,9 @@ export default function TransactionsPage() {
         )}
 
         {/* Clear extra filters */}
-        {(filterCategory || filterProject) && (
+        {(filterCategory || filterProject || filterSource || filterAccount) && (
           <button
-            onClick={() => { setFilterCategory(''); setFilterProject('') }}
+            onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterSource(''); setFilterAccount('') }}
             className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
           >
             清除筛选
@@ -333,8 +387,9 @@ export default function TransactionsPage() {
                             activeClass="bg-purple-100 text-purple-700"
                             inactiveClass="bg-gray-100 text-gray-400"
                             onClick={() => handleToggleUpload(tx.id)}
-                            disabled={togglingId === tx.id}
+                            disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
                             loading={togglingId === tx.id}
+                            locked={tx.uploaded && tx.reimbursed}
                           />
                           <StatusBadge
                             active={tx.reimbursed}
@@ -477,8 +532,9 @@ export default function TransactionsPage() {
                             activeClass="bg-purple-100 text-purple-700 hover:bg-purple-200"
                             inactiveClass="bg-gray-100 text-gray-500 hover:bg-purple-50 hover:text-purple-600"
                             onClick={() => handleToggleUpload(tx.id)}
-                            disabled={togglingId === tx.id}
+                            disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
                             loading={togglingId === tx.id}
+                            locked={tx.uploaded && tx.reimbursed}
                           />
                         ) : (
                           <span className="text-gray-300 text-[13px]">—</span>

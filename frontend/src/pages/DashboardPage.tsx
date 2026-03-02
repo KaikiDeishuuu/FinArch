@@ -185,11 +185,18 @@ export default function DashboardPage() {
     [accounts]
   )
 
-  const personalBalance = useMemo(() =>
-    accounts
-      .filter(a => a.type === 'personal' && a.is_active)
-      .reduce((s, a) => s + a.balance_yuan, 0),
-    [accounts]
+  const personalTotalExpense = useMemo(() =>
+    transactions
+      .filter(t => t.source === 'personal' && t.direction === 'expense')
+      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
+    [transactions, rates]
+  )
+
+  const personalReimbursed = useMemo(() =>
+    transactions
+      .filter(t => t.source === 'personal' && t.direction === 'expense' && t.reimbursed)
+      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
+    [transactions, rates]
   )
 
   const personalOutstanding = useMemo(() =>
@@ -367,19 +374,21 @@ export default function DashboardPage() {
           <p className="text-[11px] text-gray-400 mt-1.5">当前可用资金</p>
         </div>
         </StaggerItem>
-        {/* 个人账户余额 */}
+        {/* 个人总垫付 */}
         <StaggerItem>
         <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">个人账户</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">个人总垫付</p>
           </div>
           <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
-            <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
+            <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
           </p>
-          <p className="text-[11px] text-gray-400 mt-1.5">个人账户余额</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="text-[11px] text-emerald-500 font-medium tabular-nums">已报销 {fmtCompact(personalReimbursed)}</span>
+          </div>
         </div>
         </StaggerItem>
         {/* 个人待报销 */}

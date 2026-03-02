@@ -174,6 +174,7 @@ export interface Transaction {
   occurred_at: string
   direction: 'income' | 'expense'
   source: 'company' | 'personal'
+  account_id: string
   category: string
   amount_yuan: number
   currency: string
