@@ -49,7 +49,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		req.AmountCents = int64(req.AmountYuan * 100)
 	}
 	if req.AmountCents <= 0 {
-		return model.Transaction{}, fmt.Errorf("amount must be positive")
+		return model.Transaction{}, fmt.Errorf("金额必须为正数")
 	}
 	if req.ExchangeRate <= 0 {
 		req.ExchangeRate = 1.0
@@ -67,7 +67,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		}
 	}
 	if txType != model.TxTypeIncome && txType != model.TxTypeExpense && txType != model.TxTypeTransfer {
-		return model.Transaction{}, fmt.Errorf("invalid type")
+		return model.Transaction{}, fmt.Errorf("无效的交易类型")
 	}
 	ledgerDir := model.LedgerCredit
 	if txType == model.TxTypeExpense || txType == model.TxTypeTransfer {
@@ -83,14 +83,14 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		}
 		acct, err := s.accounts.GetByUserAndType(ctx, req.UserID, acctT)
 		if err != nil {
-			return model.Transaction{}, fmt.Errorf("resolve account: %w", err)
+			return model.Transaction{}, fmt.Errorf("未找到对应账户，请先在设置中创建")
 		}
 		accountID = acct.ID
 		accountType = acct.Type
 	} else {
 		acct, err := s.accounts.GetByID(ctx, accountID)
 		if err != nil {
-			return model.Transaction{}, fmt.Errorf("get account: %w", err)
+			return model.Transaction{}, fmt.Errorf("所选账户不存在")
 		}
 		accountType = acct.Type
 	}
@@ -100,7 +100,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		reimb = model.ReimbStatusPending
 	}
 	if req.Category == "" {
-		return model.Transaction{}, fmt.Errorf("category is required")
+		return model.Transaction{}, fmt.Errorf("请选择分类")
 	}
 	now := time.Now()
 	txnDate := req.OccurredAt.Format("2006-01-02")
@@ -133,7 +133,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		UpdatedAt:  now,
 	}
 	if err := s.transactions.Create(ctx, t); err != nil {
-		return model.Transaction{}, err
+		return model.Transaction{}, fmt.Errorf("创建交易失败，请稍后重试")
 	}
 	return t, nil
 }

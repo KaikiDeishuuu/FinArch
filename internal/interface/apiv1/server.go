@@ -241,12 +241,12 @@ func (s *Server) jwtMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "missing token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "缺少认证令牌"})
 			return
 		}
 		claims, err := s.jwtSvc.Verify(strings.TrimPrefix(header, "Bearer "))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "invalid token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "认证令牌无效或已过期"})
 			return
 		}
 		// Verify pwd_version matches DB — invalidates tokens from before a password change.
@@ -312,6 +312,17 @@ func fail(c *gin.Context, status, code int, msg string) {
 	c.AbortWithStatusJSON(status, gin.H{"code": code, "message": msg})
 }
 
+// failBind returns a user-friendly validation error instead of raw Gin binding errors.
+func failBind(c *gin.Context, code int) {
+	fail(c, 422, code, "请求参数不正确，请检查输入")
+}
+
+// failInternal logs the real error and returns a generic message to the user.
+func failInternal(c *gin.Context, err error) {
+	log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
+	fail(c, 500, 50001, "服务器内部错误，请稍后重试")
+}
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 // handleConfig returns public runtime configuration consumed by the frontend.
@@ -333,27 +344,31 @@ func (s *Server) handleRegister(c *gin.Context) {
 		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if err := s.captchaVerifier.Verify(req.CaptchaToken, realIP(c)); err != nil {
-		fail(c, 400, 40003, "人机验证失败："+err.Error())
+		fail(c, 400, 40003, err.Error())
 		return
 	}
-	_, err := s.authSvc.Register(c.Request.Context(), service.RegisterRequest{
+	newUser, err := s.authSvc.Register(c.Request.Context(), service.RegisterRequest{
 		Email: req.Email, Username: req.Username, Password: req.Password, Nickname: req.Nickname,
 	})
 	if err != nil {
-		if err.Error() == "register: username_taken" {
+		if err.Error() == "username_taken" {
 			fail(c, 409, 40902, "该用户名已被使用")
 			return
 		}
-		if err.Error() == "register: email_taken" {
+		if err.Error() == "email_taken" {
 			fail(c, 409, 40901, "该邮箱已被注册")
 			return
 		}
 		fail(c, 409, 40901, err.Error())
 		return
+	}
+	// Create default personal & public accounts for the new user.
+	if err := s.acctSvc.EnsureDefaultAccounts(c.Request.Context(), newUser.ID); err != nil {
+		log.Printf("[WARN] failed to create default accounts for user %s: %v", newUser.ID, err)
 	}
 	// If email verification is required, don't auto-login.
 	if s.authSvc.EmailVerificationRequired() {
@@ -363,7 +378,7 @@ func (s *Server) handleRegister(c *gin.Context) {
 	// Auto-login after registration (email not required)
 	resp, err := s.authSvc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	created(c, gin.H{
@@ -384,11 +399,11 @@ func (s *Server) handleLogin(c *gin.Context) {
 		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if err := s.captchaVerifier.Verify(req.CaptchaToken, realIP(c)); err != nil {
-		fail(c, 400, 40003, "人机验证失败："+err.Error())
+		fail(c, 400, 40003, err.Error())
 		return
 	}
 	resp, err := s.authSvc.Login(c.Request.Context(), req.Email, req.Password)
@@ -446,7 +461,7 @@ func (s *Server) handleResendVerification(c *gin.Context) {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	_ = s.authSvc.ResendVerification(c.Request.Context(), req.Email)
@@ -458,7 +473,7 @@ func (s *Server) handleForgotPassword(c *gin.Context) {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	_ = s.authSvc.ForgotPassword(c.Request.Context(), req.Email)
@@ -471,7 +486,7 @@ func (s *Server) handleResetPassword(c *gin.Context) {
 		NewPassword string `json:"new_password" binding:"required,min=8"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if err := s.authSvc.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
@@ -488,7 +503,7 @@ func (s *Server) handleChangePassword(c *gin.Context) {
 		NewPassword     string `json:"new_password"     binding:"required,min=8"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if err := s.authSvc.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
@@ -511,7 +526,7 @@ func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
 		Token string `json:"token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40011, err.Error())
+		failBind(c, 40011)
 		return
 	}
 	if err := s.authSvc.ConfirmAccountDeletion(c.Request.Context(), req.Token); err != nil {
@@ -550,7 +565,7 @@ func (s *Server) handleRefreshToken(c *gin.Context) {
 	).Scan(&pwdVer)
 	token, exp, err := s.jwtSvc.Issue(u.ID, u.Email, u.Role, pwdVer)
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	ok(c, gin.H{
@@ -569,7 +584,7 @@ func (s *Server) handleRequestEmailChange(c *gin.Context) {
 		NewEmail string `json:"new_email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40020, err.Error())
+		failBind(c, 40020)
 		return
 	}
 	if err := s.authSvc.RequestEmailChange(c.Request.Context(), userID(c), req.NewEmail); err != nil {
@@ -584,7 +599,7 @@ func (s *Server) handleConfirmOldEmailChange(c *gin.Context) {
 		Token string `json:"token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40024, err.Error())
+		failBind(c, 40024)
 		return
 	}
 	if err := s.authSvc.ConfirmOldEmailForChange(c.Request.Context(), req.Token); err != nil {
@@ -599,7 +614,7 @@ func (s *Server) handleConfirmEmailChange(c *gin.Context) {
 		Token string `json:"token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40022, err.Error())
+		failBind(c, 40022)
 		return
 	}
 	if err := s.authSvc.ConfirmEmailChange(c.Request.Context(), req.Token); err != nil {
@@ -614,7 +629,7 @@ func (s *Server) handleUpdateNickname(c *gin.Context) {
 		Nickname string `json:"nickname" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40030, err.Error())
+		failBind(c, 40030)
 		return
 	}
 	if err := s.authSvc.UpdateNickname(c.Request.Context(), userID(c), req.Nickname); err != nil {
@@ -633,7 +648,7 @@ func (s *Server) handleHeartbeat(c *gin.Context) {
 		DeviceID string `json:"device_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40040, "device_id is required")
+		fail(c, 422, 40040, "缺少设备标识")
 		return
 	}
 	key := userID(c) + ":" + req.DeviceID
@@ -681,7 +696,7 @@ func (s *Server) CleanupStaleDevices() {
 func (s *Server) handleListTransactions(c *gin.Context) {
 	txs, err := s.txRepo.ListByUser(c.Request.Context(), userID(c))
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	type txDTO struct {
@@ -757,11 +772,11 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		TagIDs    []string `json:"tag_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if req.AmountYuan <= 0 && req.AmountCents <= 0 {
-		fail(c, 422, 40001, "amount_yuan or amount_cents is required and must be positive")
+		fail(c, 422, 40001, "请输入有效的金额")
 		return
 	}
 	txDate := time.Now()
@@ -788,10 +803,13 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 			`INSERT OR IGNORE INTO projects(id, name, code, created_at) VALUES (?, ?, ?, ?)`,
 			*projID, *projID, *projID, time.Now().Unix(),
 		); err != nil {
-			fail(c, 500, 50001, "auto-create project: "+err.Error())
+			fail(c, 500, 50001, "创建项目失败，请稍后重试")
 			return
 		}
 	}
+	// Ensure default accounts exist (idempotent; covers legacy users without accounts).
+	_ = s.acctSvc.EnsureDefaultAccounts(c.Request.Context(), userID(c))
+
 	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
 		UserID:       userID(c),
 		OccurredAt:   txDate,
@@ -813,7 +831,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	}
 	for _, tagID := range req.TagIDs {
 		if err := s.tagRepo.AddToTransaction(c.Request.Context(), created_.ID, tagID); err != nil {
-			fail(c, 422, 40002, "tag not found: "+tagID)
+			fail(c, 422, 40002, "标签不存在")
 			return
 		}
 	}
@@ -852,11 +870,11 @@ func (s *Server) handleAddTag(c *gin.Context) {
 		TagID string `json:"tag_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if err := s.tagRepo.AddToTransaction(c.Request.Context(), txID, req.TagID); err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	ok(c, gin.H{"transaction_id": txID, "tag_id": req.TagID})
@@ -864,7 +882,7 @@ func (s *Server) handleAddTag(c *gin.Context) {
 
 func (s *Server) handleRemoveTag(c *gin.Context) {
 	if err := s.tagRepo.RemoveFromTransaction(c.Request.Context(), c.Param("id"), c.Param("tagID")); err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	ok(c, gin.H{"removed": true})
@@ -875,7 +893,7 @@ func (s *Server) handleRemoveTag(c *gin.Context) {
 func (s *Server) handleListTags(c *gin.Context) {
 	tags, err := s.tagRepo.ListByOwner(c.Request.Context(), userID(c))
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	if tags == nil {
@@ -890,7 +908,7 @@ func (s *Server) handleCreateTag(c *gin.Context) {
 		Color string `json:"color"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if req.Color == "" {
@@ -901,7 +919,7 @@ func (s *Server) handleCreateTag(c *gin.Context) {
 		Name: req.Name, Color: req.Color, CreatedAt: time.Now(),
 	}
 	if err := s.tagRepo.Create(c.Request.Context(), tag); err != nil {
-		fail(c, 409, 40901, err.Error())
+		fail(c, 409, 40901, "标签名称已存在")
 		return
 	}
 	created(c, tag)
@@ -909,7 +927,7 @@ func (s *Server) handleCreateTag(c *gin.Context) {
 
 func (s *Server) handleDeleteTag(c *gin.Context) {
 	if err := s.tagRepo.Delete(c.Request.Context(), c.Param("id"), userID(c)); err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	ok(c, gin.H{"deleted": true})
@@ -929,7 +947,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 		ProjectID     *string `json:"project_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	// Resolve target: cents takes priority over yuan.
@@ -941,7 +959,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 		targetYuan = model.Money(req.TargetYuan)
 		toleranceYuan = model.Money(req.ToleranceYuan)
 	} else {
-		fail(c, 422, 40001, "target_cents or target_yuan is required and must be > 0")
+		fail(c, 422, 40001, "请输入有效的目标金额")
 		return
 	}
 	maxDepth := req.MaxItems
@@ -956,7 +974,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 		maxDepth, req.ProjectID, limit,
 	)
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	// Collect all unique IDs for batch fetch
@@ -974,7 +992,8 @@ func (s *Server) handleMatch(c *gin.Context) {
 	if len(allIDs) > 0 {
 		txList, ferr := s.txRepo.GetByIDs(c.Request.Context(), allIDs)
 		if ferr != nil {
-			fail(c, 500, 50001, ferr.Error())
+			log.Printf("[ERROR] match fetch: %v", ferr)
+			fail(c, 500, 50001, "获取交易详情失败")
 			return
 		}
 		for _, t := range txList {
@@ -1054,7 +1073,7 @@ func (s *Server) handleCreateReimbursement(c *gin.Context) {
 		RequestNo      string   `json:"request_no"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	reim, err := s.reimSvc.CreateReimbursement(c.Request.Context(), service.CreateReimbursementRequest{
@@ -1075,7 +1094,7 @@ func (s *Server) handleCreateReimbursement(c *gin.Context) {
 func (s *Server) handleStatsSummary(c *gin.Context) {
 	b, err := s.statsSvc.Summary(c.Request.Context(), userID(c))
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	ok(c, b)
@@ -1090,7 +1109,7 @@ func (s *Server) handleStatsMonthly(c *gin.Context) {
 	}
 	stats, err := s.statsSvc.Monthly(c.Request.Context(), userID(c), year)
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	if stats == nil {
@@ -1102,7 +1121,7 @@ func (s *Server) handleStatsMonthly(c *gin.Context) {
 func (s *Server) handleStatsByCategory(c *gin.Context) {
 	stats, err := s.statsSvc.ByCategory(c.Request.Context(), userID(c), c.Query("date_from"), c.Query("date_to"))
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	if stats == nil {
@@ -1114,7 +1133,7 @@ func (s *Server) handleStatsByCategory(c *gin.Context) {
 func (s *Server) handleStatsByProject(c *gin.Context) {
 	stats, err := s.statsSvc.ByProject(c.Request.Context(), userID(c))
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	if stats == nil {
@@ -1138,7 +1157,7 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 
 	// Use VACUUM INTO to produce a defragmented, consistent snapshot
 	if _, err := s.db.ExecContext(c.Request.Context(), fmt.Sprintf("VACUUM INTO '%s'", tmpPath)); err != nil {
-		fail(c, 500, 50001, "备份失败: "+err.Error())
+		fail(c, 500, 50001, "备份失败，请稍后重试")
 		return
 	}
 
@@ -1338,7 +1357,8 @@ func (s *Server) handleRestore(c *gin.Context) {
 	})
 
 	if restoreErr != nil {
-		fail(c, 500, 50003, "恢复失败: "+restoreErr.Error())
+		log.Printf("[ERROR] restore: %v", restoreErr)
+		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
 		return
 	}
 
@@ -1665,7 +1685,8 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 	})
 
 	if restoreErr != nil {
-		fail(c, 500, 50003, "恢复失败: "+restoreErr.Error())
+		log.Printf("[ERROR] restore: %v", restoreErr)
+		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
 		return
 	}
 
@@ -1705,7 +1726,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 func (s *Server) handleListAccounts(c *gin.Context) {
 	accounts, err := s.acctSvc.ListAccounts(c.Request.Context(), userID(c))
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	dtos := make([]gin.H, 0, len(accounts))
@@ -1730,7 +1751,7 @@ func (s *Server) handleCreateAccount(c *gin.Context) {
 		Currency string `json:"currency"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	cur := req.Currency
@@ -1758,7 +1779,7 @@ func (s *Server) handleUpdateAccount(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	if err := s.acctSvc.RenameAccount(c.Request.Context(), id, userID(c), req.Name); err != nil {
@@ -1785,7 +1806,7 @@ func (s *Server) handleListCategories(c *gin.Context) {
 		userID(c),
 	)
 	if err != nil {
-		fail(c, 500, 50001, err.Error())
+		failInternal(c, err)
 		return
 	}
 	defer rows.Close()
@@ -1802,7 +1823,7 @@ func (s *Server) handleListCategories(c *gin.Context) {
 		var d catDTO
 		var isActive int
 		if err := rows.Scan(&d.ID, &d.Name, &d.Type, &d.ParentID, &d.SortOrder, &isActive); err != nil {
-			fail(c, 500, 50001, err.Error())
+			failInternal(c, err)
 			return
 		}
 		d.IsActive = isActive == 1
@@ -1822,7 +1843,7 @@ func (s *Server) handleCreateCategory(c *gin.Context) {
 		SortOrder int     `json:"sort_order"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fail(c, 422, 40001, err.Error())
+		failBind(c, 40001)
 		return
 	}
 	id := uuid.NewString()
@@ -1830,7 +1851,12 @@ func (s *Server) handleCreateCategory(c *gin.Context) {
 		`INSERT INTO categories(id, user_id, name, type, parent_id, sort_order, is_active, created_at) VALUES(?,?,?,?,?,?,1,?)`,
 		id, userID(c), req.Name, req.Type, req.ParentID, req.SortOrder, time.Now().UTC().Format(time.RFC3339),
 	); err != nil {
-		fail(c, 422, 40001, err.Error())
+		log.Printf("[ERROR] create category: %v", err)
+		if strings.Contains(err.Error(), "UNIQUE") {
+			fail(c, 422, 40001, "该分类名称已存在")
+		} else {
+			fail(c, 422, 40001, "创建分类失败，请稍后重试")
+		}
 		return
 	}
 	created(c, gin.H{"id": id, "name": req.Name, "type": req.Type})

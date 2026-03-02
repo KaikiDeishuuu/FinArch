@@ -40,7 +40,7 @@ func (v *TurnstileVerifier) Verify(token, remoteIP string) error {
 		return nil
 	}
 	if token == "" {
-		return fmt.Errorf("captcha token is missing")
+		return fmt.Errorf("请完成人机验证")
 	}
 
 	form := url.Values{}
@@ -53,7 +53,7 @@ func (v *TurnstileVerifier) Verify(token, remoteIP string) error {
 	resp, err := v.client.Post(turnstileVerifyURL, "application/x-www-form-urlencoded",
 		strings.NewReader(form.Encode()))
 	if err != nil {
-		return fmt.Errorf("captcha verify request failed: %w", err)
+		return fmt.Errorf("验证服务请求失败，请稍后重试")
 	}
 	defer resp.Body.Close()
 
@@ -62,10 +62,10 @@ func (v *TurnstileVerifier) Verify(token, remoteIP string) error {
 		Errors  []string `json:"error-codes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("captcha response decode error: %w", err)
+		return fmt.Errorf("验证服务异常，请稍后重试")
 	}
 	if !result.Success {
-		return fmt.Errorf("captcha verification failed: %v", result.Errors)
+		return fmt.Errorf("人机验证失败，请重试")
 	}
 	return nil
 }

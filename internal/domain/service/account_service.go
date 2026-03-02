@@ -57,7 +57,7 @@ func (s *AccountService) ListAccounts(ctx context.Context, userID string) ([]mod
 // CreateAccount creates a new named account for a user.
 func (s *AccountService) CreateAccount(ctx context.Context, userID, name string, t model.AccountType, currency string) (model.Account, error) {
 	if name == "" {
-		return model.Account{}, fmt.Errorf("account name is required")
+		return model.Account{}, fmt.Errorf("账户名称不能为空")
 	}
 	if currency == "" {
 		currency = "CNY"
@@ -74,7 +74,7 @@ func (s *AccountService) CreateAccount(ctx context.Context, userID, name string,
 		UpdatedAt: now,
 	}
 	if err := s.accounts.Create(ctx, a); err != nil {
-		return model.Account{}, fmt.Errorf("create account: %w", err)
+		return model.Account{}, fmt.Errorf("创建账户失败，请稍后重试")
 	}
 	return a, nil
 }
@@ -84,14 +84,14 @@ func (s *AccountService) CreateAccount(ctx context.Context, userID, name string,
 func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID string) error {
 	a, err := s.accounts.GetByID(ctx, accountID)
 	if err != nil {
-		return fmt.Errorf("account not found")
+		return fmt.Errorf("账户不存在")
 	}
 	if a.UserID != userID {
-		return fmt.Errorf("permission denied")
+		return fmt.Errorf("无权操作该账户")
 	}
 	count, err := s.accounts.CountByUserAndType(ctx, userID, a.Type)
 	if err != nil {
-		return err
+		return fmt.Errorf("删除失败，请稍后重试")
 	}
 	if count <= 1 {
 		typeLabel := "个人"
@@ -107,10 +107,10 @@ func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID st
 func (s *AccountService) RenameAccount(ctx context.Context, accountID, userID, newName string) error {
 	a, err := s.accounts.GetByID(ctx, accountID)
 	if err != nil {
-		return fmt.Errorf("account not found")
+		return fmt.Errorf("账户不存在")
 	}
 	if a.UserID != userID {
-		return fmt.Errorf("permission denied")
+		return fmt.Errorf("无权操作该账户")
 	}
 	a.Name = newName
 	return s.accounts.Update(ctx, a)

@@ -42,15 +42,15 @@ type CreateReimbursementRequest struct {
 // CreateReimbursement creates one reimbursement from transactions atomically.
 func (s *ReimbursementService) CreateReimbursement(ctx context.Context, req CreateReimbursementRequest) (model.Reimbursement, error) {
 	if req.Applicant == "" {
-		return model.Reimbursement{}, fmt.Errorf("applicant is required")
+		return model.Reimbursement{}, fmt.Errorf("申请人不能为空")
 	}
 	if len(req.TransactionIDs) == 0 {
-		return model.Reimbursement{}, fmt.Errorf("transaction_ids is empty")
+		return model.Reimbursement{}, fmt.Errorf("请选择至少一笔交易")
 	}
 
 	unique := deduplicate(req.TransactionIDs)
 	if len(unique) != len(req.TransactionIDs) {
-		return model.Reimbursement{}, fmt.Errorf("transaction_ids contains duplicates")
+		return model.Reimbursement{}, fmt.Errorf("交易记录不能重复")
 	}
 
 	if req.RequestNo == "" {
@@ -61,10 +61,10 @@ func (s *ReimbursementService) CreateReimbursement(ctx context.Context, req Crea
 	err := s.transactionManager.WithinTransaction(ctx, func(txCtx context.Context) error {
 		txs, err := s.transactions.GetByIDs(txCtx, unique)
 		if err != nil {
-			return err
+			return fmt.Errorf("查询交易记录失败")
 		}
 		if len(txs) != len(unique) {
-			return fmt.Errorf("some transaction IDs do not exist")
+			return fmt.Errorf("部分交易记录不存在")
 		}
 
 		var total model.Money
@@ -72,10 +72,10 @@ func (s *ReimbursementService) CreateReimbursement(ctx context.Context, req Crea
 		reimID := uuid.NewString()
 		for _, t := range txs {
 			if t.Source != model.SourcePersonal || t.Direction != model.DirectionExpense {
-				return fmt.Errorf("transaction %s is not personal expense", t.ID)
+				return fmt.Errorf("包含非个人支出的交易，无法报销")
 			}
 			if t.Reimbursed {
-				return fmt.Errorf("transaction %s already reimbursed", t.ID)
+				return fmt.Errorf("包含已报销的交易，请检查")
 			}
 			total += t.AmountYuan
 			items = append(items, model.ReimbursementItem{
@@ -97,13 +97,13 @@ func (s *ReimbursementService) CreateReimbursement(ctx context.Context, req Crea
 		}
 
 		if err := s.reimbursements.Create(txCtx, reimbursement); err != nil {
-			return err
+			return fmt.Errorf("创建报销单失败，请稍后重试")
 		}
 		if err := s.reimbursements.AddItems(txCtx, items); err != nil {
-			return err
+			return fmt.Errorf("创建报销单失败，请稍后重试")
 		}
 		if err := s.transactions.MarkReimbursed(txCtx, unique, reimID); err != nil {
-			return err
+			return fmt.Errorf("标记报销失败，请稍后重试")
 		}
 		created = reimbursement
 		return nil

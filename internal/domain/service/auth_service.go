@@ -69,10 +69,10 @@ type LoginResponse struct {
 // has expired (>24 h) is automatically purged so the email can be reused.
 func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.User, error) {
 	if req.Email == "" || req.Password == "" || req.Username == "" {
-		return model.User{}, fmt.Errorf("email, username and password are required")
+		return model.User{}, fmt.Errorf("邮箱、用户名和密码不能为空")
 	}
 	if len(req.Password) < 8 {
-		return model.User{}, fmt.Errorf("password must be at least 8 characters")
+		return model.User{}, fmt.Errorf("密码至少需要 8 位")
 	}
 
 	// Purge expired unverified occupants so the email/username can be reused.
@@ -85,7 +85,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		return model.User{}, err
+		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
 	}
 	now := time.Now()
 	nickname := req.Nickname
@@ -105,7 +105,12 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 		UpdatedAt:     now,
 	}
 	if err := s.users.Create(ctx, u); err != nil {
-		return model.User{}, fmt.Errorf("register: %w", err)
+		// pass through specific repo sentinel errors so the handler can
+		// return a precise 409 response
+		if err.Error() == "username_taken" || err.Error() == "email_taken" {
+			return model.User{}, err
+		}
+		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
 	}
 	if s.emailReq {
 		if err := s.sendVerificationEmail(ctx, u); err != nil {
@@ -174,7 +179,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, emailAddr string) erro
 		CreatedAt: time.Now(),
 	}
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
-		return err
+		return fmt.Errorf("操作失败，请稍后重试")
 	}
 	return s.emailSvc.SendPasswordReset(u.Email, u.Username, token)
 }
@@ -195,7 +200,7 @@ func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail s
 		return fmt.Errorf("新邮箱与当前邮箱相同")
 	}
 	if err := s.users.SetPendingEmail(ctx, u.ID, newEmail); err != nil {
-		return err
+		return fmt.Errorf("操作失败，请稍后重试")
 	}
 	// Clear any pre-existing old-verify or new-verify tokens.
 	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "change_email_old")
@@ -207,10 +212,13 @@ func (s *AuthService) RequestEmailChange(ctx context.Context, userID, newEmail s
 		CreatedAt: time.Now(),
 	}
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
-		return err
+		return fmt.Errorf("操作失败，请稍后重试")
 	}
 	// Step 1: send authorization request to the CURRENT email.
-	return s.emailSvc.SendEmailChangeOldVerify(u.Email, u.Username, newEmail, token)
+	if err := s.emailSvc.SendEmailChangeOldVerify(u.Email, u.Username, newEmail, token); err != nil {
+		return fmt.Errorf("邮件发送失败，请稍后重试")
+	}
+	return nil
 }
 
 // ConfirmOldEmailForChange is called when the user clicks the authorization link
@@ -246,10 +254,13 @@ func (s *AuthService) ConfirmOldEmailForChange(ctx context.Context, token string
 		CreatedAt: time.Now(),
 	}
 	if err := s.users.CreateEmailToken(ctx, net); err != nil {
-		return err
+		return fmt.Errorf("操作失败，请稍后重试")
 	}
 	// Step 2: send verification link to the NEW email.
-	return s.emailSvc.SendEmailChange(newEmail, u.Username, newToken)
+	if err := s.emailSvc.SendEmailChange(newEmail, u.Username, newToken); err != nil {
+		return fmt.Errorf("邮件发送失败，请稍后重试")
+	}
+	return nil
 }
 
 // ConfirmEmailChange validates the token and applies the email change.
@@ -269,7 +280,7 @@ func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) erro
 		if err.Error() == "email_taken" {
 			return fmt.Errorf("该邮箱已被其他账户使用，请重新申请")
 		}
-		return err
+		return fmt.Errorf("邮箱更新失败，请稍后重试")
 	}
 	_ = s.users.DeleteEmailToken(ctx, token)
 	return nil
@@ -290,10 +301,10 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 	}
 	hash, err := auth.HashPassword(newPassword)
 	if err != nil {
-		return err
+		return fmt.Errorf("密码设置失败，请稍后重试")
 	}
 	if err := s.users.UpdatePassword(ctx, et.UserID, hash); err != nil {
-		return err
+		return fmt.Errorf("密码重置失败，请稍后重试")
 	}
 	_ = s.users.DeleteEmailToken(ctx, token)
 	return nil
@@ -302,20 +313,23 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 // ChangePassword verifies currentPassword then replaces it with newPassword.
 func (s *AuthService) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
 	if len(newPassword) < 8 {
-		return fmt.Errorf("new password must be at least 8 characters")
+		return fmt.Errorf("新密码至少需要 8 位")
 	}
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("user not found")
+		return fmt.Errorf("用户不存在")
 	}
 	if err := auth.CheckPassword(u.PasswordHash, currentPassword); err != nil {
-		return fmt.Errorf("current password is incorrect")
+		return fmt.Errorf("当前密码不正确")
 	}
 	hash, err := auth.HashPassword(newPassword)
 	if err != nil {
-		return err
+		return fmt.Errorf("密码设置失败，请稍后重试")
 	}
-	return s.users.UpdatePassword(ctx, userID, hash)
+	if err := s.users.UpdatePassword(ctx, userID, hash); err != nil {
+		return fmt.Errorf("密码修改失败，请稍后重试")
+	}
+	return nil
 }
 
 // RequestAccountDeletion sends an account-deletion confirmation email.
@@ -335,9 +349,12 @@ func (s *AuthService) RequestAccountDeletion(ctx context.Context, userID string)
 		CreatedAt: time.Now(),
 	}
 	if err := s.users.CreateEmailToken(ctx, et); err != nil {
-		return err
+		return fmt.Errorf("操作失败，请稍后重试")
 	}
-	return s.emailSvc.SendAccountDeletion(u.Email, u.Username, token)
+	if err := s.emailSvc.SendAccountDeletion(u.Email, u.Username, token); err != nil {
+		return fmt.Errorf("邮件发送失败，请稍后重试")
+	}
+	return nil
 }
 
 // ConfirmAccountDeletion validates the token and permanently deletes the user and all their data.
@@ -361,11 +378,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	u, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		s.tracker.RecordFailure(email)
-		return LoginResponse{}, fmt.Errorf("invalid credentials")
+		return LoginResponse{}, fmt.Errorf("邮箱或密码错误")
 	}
 	if err := auth.CheckPassword(u.PasswordHash, password); err != nil {
 		s.tracker.RecordFailure(email)
-		return LoginResponse{}, fmt.Errorf("invalid credentials")
+		return LoginResponse{}, fmt.Errorf("邮箱或密码错误")
 	}
 	if !u.EmailVerified {
 		return LoginResponse{}, fmt.Errorf("email_not_verified")
@@ -374,7 +391,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	s.tracker.RecordSuccess(email)
 	token, exp, err := s.jwt.Issue(u.ID, u.Email, u.Role, u.PwdVersion)
 	if err != nil {
-		return LoginResponse{}, err
+		return LoginResponse{}, fmt.Errorf("登录失败，请稍后重试")
 	}
 	return LoginResponse{
 		Token: token, ExpiresAt: exp,
@@ -390,7 +407,10 @@ func (s *AuthService) UpdateNickname(ctx context.Context, userID, nickname strin
 	if len([]rune(nickname)) > 20 {
 		return fmt.Errorf("昵称最长 20 个字符")
 	}
-	return s.users.UpdateNickname(ctx, userID, nickname)
+	if err := s.users.UpdateNickname(ctx, userID, nickname); err != nil {
+		return fmt.Errorf("昵称更新失败，请稍后重试")
+	}
+	return nil
 }
 
 // randomNickname produces a fun random display name for users who don't set one.

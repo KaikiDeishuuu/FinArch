@@ -199,12 +199,12 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 		`SELECT reimb_status, user_id FROM transactions WHERE id = ?`, id,
 	).Scan(&cur, &ownerID); err != nil {
 		if err == sql.ErrNoRows {
-			return false, fmt.Errorf("transaction %s not found", id)
+			return false, fmt.Errorf("交易记录不存在")
 		}
 		return false, fmt.Errorf("read reimb_status: %w", err)
 	}
 	if ownerID != userID {
-		return false, fmt.Errorf("permission denied: transaction %s does not belong to you", id)
+		return false, fmt.Errorf("无权操作该交易")
 	}
 	var newStatus string
 	if cur == string(model.ReimbStatusReimbursed) {
@@ -234,12 +234,12 @@ func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id str
 		`SELECT uploaded, user_id FROM transactions WHERE id = ?`, id,
 	).Scan(&cur, &ownerID); err != nil {
 		if err == sql.ErrNoRows {
-			return false, fmt.Errorf("transaction %s not found", id)
+			return false, fmt.Errorf("交易记录不存在")
 		}
 		return false, fmt.Errorf("read uploaded: %w", err)
 	}
 	if ownerID != userID {
-		return false, fmt.Errorf("permission denied: transaction %s does not belong to you", id)
+		return false, fmt.Errorf("无权操作该交易")
 	}
 	newVal := 1 - cur
 	nowStr := time.Now().UTC().Format(time.RFC3339)
@@ -379,4 +379,3 @@ func boolToInt(v bool) int {
 	}
 	return 0
 }
-
