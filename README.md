@@ -14,6 +14,8 @@
 
 **[在线体验 →](https://fund.wulab.tech)**
 
+简体中文 | [English](README.en.md)
+
 </div>
 
 <br/>
@@ -31,13 +33,13 @@
 一键标记报销状态，自动汇总待报销金额。输入报销单总额即可**智能匹配**对应交易组合，告别手动凑单。
 
 ### 📊 可视化统计
-年度/月度收支趋势、分类占比饼图、项目维度汇总——个人与公共账户分别统计，净结余自动扣除已报销部分。
+年度/月度收支趋势、分类占比饼图、项目维度汇总——个人与公共账户分别统计，净结余自动扣除已报销部分。支持按来源、账户、类别、项目多维筛选。
 
 </td>
 <td width="50%">
 
 ### 🏦 多账户管理
-自由创建和管理多个个人/公共账户，余额由系统自动维护。总览页一目了然各账户状态。
+自由创建和管理多个个人/公共账户，余额由系统自动维护。总览页一目了然各账户状态。筛选器自动根据来源类型过滤可选账户。
 
 ### 💱 实时汇率
 接入欧洲央行数据，所有汇总自动折算为人民币。离线时自动降级为内置备用汇率，确保不间断使用。
@@ -55,7 +57,10 @@
 - **🔐 企业级安全**：邮箱验证注册 · 密码重置 · 邮箱变更双重验证 · 改密即时踢出全部设备
 - **📱 PWA 支持**：可安装至桌面/主屏，原生应用体验
 - **☁️ 自动备份**：可选 Litestream 实时流式备份至 Cloudflare R2
+- **🛡️ 灾难恢复**：邮箱验证的公开恢复流程，即使 JWT 认证不可用也能恢复数据
+- **📡 在线设备监控**：Dashboard 实时显示当前在线设备数量（心跳机制，2 分钟间隔）
 - **🤖 人机验证**：可选 Cloudflare Turnstile 防护
+- **🧹 自动清理**：未验证账户 24 小时后自动清除，设备心跳 10 分钟超时自动回收
 
 ---
 
@@ -96,12 +101,12 @@ docker compose up -d
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | 人机验证 | 可选 |
 | `LITESTREAM_*` | R2 备份 | 可选 |
 
-> 留空可选变量时，相关功能自动跳过。详细部署指南见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+> 留空可选变量时，相关功能自动跳过。详细部署指南见 [DEPLOYMENT.md](DEPLOYMENT.md)（[English](DEPLOYMENT.en.md)）。
 
 ### CI/CD
 
 ```
-git push → GitHub Actions 构建镜像 → Watchtower 自动拉取并无缝重启
+git push → GitHub Actions 构建镜像 → GHCR → VPS 拉取并重启
 ```
 
 ---
@@ -110,18 +115,36 @@ git push → GitHub Actions 构建镜像 → Watchtower 自动拉取并无缝重
 
 ```
 FinArch/
-├── cmd/cli/                 命令行入口
+├── cmd/
+│   ├── cli/                 命令行入口（本地开发）
+│   ├── server/              生产服务器入口（Docker）
+│   └── desktop/             桌面端入口（Wails）
 ├── internal/
-│   ├── domain/              领域模型 · 仓储接口 · 业务逻辑
-│   ├── infrastructure/      JWT · 数据库 · 邮件 · 仓储实现
-│   └── interface/apiv1/     API 路由与处理器
+│   ├── domain/
+│   │   ├── model/           领域模型
+│   │   ├── repository/      仓储接口
+│   │   └── service/         业务逻辑服务
+│   ├── infrastructure/
+│   │   ├── auth/            JWT · 密码 · 限流 · 验证码
+│   │   ├── db/              SQLite 迁移与触发器
+│   │   ├── email/           邮件发送（Resend）
+│   │   ├── repository/      SQLite 仓储实现
+│   │   └── plugin/          插件系统
+│   └── interface/
+│       ├── apiv1/           REST API 路由与处理器
+│       └── httpserver/      嵌入式文件服务
 ├── frontend/src/
-│   ├── api/                 API 客户端
-│   ├── components/          公共组件
-│   ├── pages/               页面
-│   └── utils/               工具函数
+│   ├── api/                 Axios API 客户端
+│   ├── components/          公共组件（Select · DatePicker · Brand …）
+│   ├── contexts/            Auth · ExchangeRate · Config
+│   ├── hooks/               useTransactions · useAccounts · useHeartbeat …
+│   ├── motion/              Framer Motion 动画系统
+│   ├── pages/               页面组件
+│   ├── utils/               工具函数（格式化 · 汇率 · PDF 导出）
+│   └── workers/             Web Worker（子集匹配）
+├── .github/workflows/       CI/CD（Build → GHCR → SSH deploy）
 ├── docker-compose.yml       生产编排
-├── Dockerfile               多阶段构建
+├── Dockerfile               多阶段构建（Node → Go → Alpine）
 └── DEPLOYMENT.md            部署文档
 ```
 
@@ -131,12 +154,13 @@ FinArch/
 
 | | |
 |---|---|
-| **后端** | Go · Gin · SQLite (WAL) |
-| **前端** | React · Vite · Tailwind CSS · Framer Motion · Recharts |
-| **部署** | Docker · Nginx · GitHub Actions · Watchtower |
-| **安全** | JWT · Cloudflare Turnstile |
-| **邮件** | Resend |
-| **备份** | Litestream → Cloudflare R2 |
+| **后端** | Go 1.24 · Gin · SQLite (WAL) |
+| **前端** | React 19 · Vite 7 · Tailwind CSS v4 · Framer Motion · Recharts |
+| **部署** | Docker 多阶段构建 · GitHub Actions → GHCR → SSH Deploy |
+| **安全** | JWT (HMAC HS256) · Cloudflare Turnstile · IP 限流 · 账户锁定 |
+| **邮件** | Resend（验证 · 重置 · 灾难恢复） |
+| **备份** | Litestream → Cloudflare R2 · 应用内下载/恢复 · 灾难恢复 |
+| **PWA** | Workbox Service Worker · 离线缓存 · 主屏安装 |
 
 ---
 
