@@ -191,18 +191,62 @@ export default function DashboardPage() {
 
     const daysSince = (ts: number | null) => ts ? Math.floor((now - ts) / DAY) : 0
 
-    const notUploadedSub = notUploaded.length > 0 ? fmtExact(notUploadedAmount) : ''
-    const uploadedNotReimbursedSub = uploadedNotReimbursed.length > 0 ? fmtExact(uploadedNotReimbursedAmount) : ''
-    const companyNotUploadedSub = companyNotUploaded.length > 0 ? fmtExact(companyNotUploadedAmount) : ''
-    const companyUploadedSub = companyUploadedNotReimbursed.length > 0 ? fmtExact(companyUploadedAmount) : ''
+    // Smart sub-messages: notUploaded
+    const notUploadedSub = (() => {
+      if (notUploaded.length === 0) return ''
+      const days = daysSince(oldestNotUploaded)
+      const amt = fmtExact(notUploadedAmount)
+      if (days > 30) return t('dashboard.pending.notUploaded.over30d', { amt, days })
+      if (days > 14) return t('dashboard.pending.notUploaded.over14d', { amt })
+      if (days > 7) return t('dashboard.pending.notUploaded.over7d', { amt })
+      if (notUploaded.length >= 10) return t('dashboard.pending.notUploaded.manyItems', { amt })
+      if (notUploadedAmount >= 5000) return t('dashboard.pending.notUploaded.highAmount', { amt })
+      return t('dashboard.pending.notUploaded.default', { amt })
+    })()
 
+    // Smart sub-messages: uploadedNotReimbursed
+    const uploadedNotReimbursedSub = (() => {
+      if (uploadedNotReimbursed.length === 0) return ''
+      const days = daysSince(oldestUploaded)
+      const amt = fmtExact(uploadedNotReimbursedAmount)
+      if (days > 60) return t('dashboard.pending.uploadedPending.over60d', { amt, days })
+      if (days > 30) return t('dashboard.pending.uploadedPending.over30d', { amt })
+      if (days > 14) return t('dashboard.pending.uploadedPending.over14d', { amt })
+      if (uploadedNotReimbursed.length >= 5) return t('dashboard.pending.uploadedPending.manyItems', { amt, count: uploadedNotReimbursed.length })
+      return t('dashboard.pending.uploadedPending.default', { amt })
+    })()
+
+    // Smart sub-messages: companyNotUploaded
+    const companyNotUploadedSub = (() => {
+      if (companyNotUploaded.length === 0) return ''
+      const days = daysSince(oldestCompanyNotUploaded)
+      const amt = fmtExact(companyNotUploadedAmount)
+      if (days > 30) return t('dashboard.pending.companyNotUploaded.over30d', { amt, days })
+      if (days > 7) return t('dashboard.pending.companyNotUploaded.over7d', { amt })
+      if (companyNotUploaded.length >= 5) return t('dashboard.pending.companyNotUploaded.manyItems', { amt, count: companyNotUploaded.length })
+      return t('dashboard.pending.companyNotUploaded.default', { amt })
+    })()
+
+    // Smart sub-messages: companyUploadedNotReimbursed
+    const companyUploadedSub = (() => {
+      if (companyUploadedNotReimbursed.length === 0) return ''
+      const days = daysSince(oldestCompanyUploaded)
+      const amt = fmtExact(companyUploadedAmount)
+      if (days > 30) return t('dashboard.pending.companyUploaded.over30d', { amt })
+      if (days > 14) return t('dashboard.pending.companyUploaded.over14d', { amt })
+      return t('dashboard.pending.companyUploaded.default', { amt })
+    })()
+
+    // Urgency header
     const maxDays = Math.max(daysSince(oldestNotUploaded), daysSince(oldestUploaded), daysSince(oldestCompanyNotUploaded), daysSince(oldestCompanyUploaded))
     const totalPending = notUploaded.length + uploadedNotReimbursed.length + companyNotUploaded.length + companyUploadedNotReimbursed.length
     const totalAmount = notUploadedAmount + uploadedNotReimbursedAmount + companyNotUploadedAmount + companyUploadedAmount
 
     let headerHint = ''
-    if (maxDays > 30) headerHint = `⚠️ ${maxDays}d+`
-    else if (totalPending > 0) headerHint = `${totalPending} ${t('dashboard.pending.title').toLowerCase()} · ${fmtExact(totalAmount)}`
+    if (maxDays > 30) headerHint = t('dashboard.pending.header.overdue', { days: maxDays })
+    else if (totalAmount >= 10000) headerHint = t('dashboard.pending.header.highAmount', { count: totalPending, amt: fmtExact(totalAmount) })
+    else if (totalPending >= 8) headerHint = t('dashboard.pending.header.manyItems', { count: totalPending })
+    else if (totalPending > 0) headerHint = t('dashboard.pending.header.default', { count: totalPending })
 
     return { notUploadedSub, uploadedNotReimbursedSub, companyNotUploadedSub, companyUploadedSub, headerHint }
   }, [notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates, t])
