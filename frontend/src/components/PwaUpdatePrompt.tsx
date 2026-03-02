@@ -8,8 +8,10 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 export default function PwaUpdatePrompt() {
+  const { t } = useTranslation()
   const [show, setShow] = useState(false)
 
   const {
@@ -51,8 +53,8 @@ export default function PwaUpdatePrompt() {
             </motion.div>
             {/* 文字 */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold leading-tight">发现新版本</p>
-              <p className="text-xs text-gray-400 leading-tight mt-0.5">点击立即更新以获取最新功能</p>
+              <p className="text-sm font-semibold leading-tight">{t('pwa.newVersion')}</p>
+              <p className="text-xs text-gray-400 leading-tight mt-0.5">{t('pwa.updateDesc')}</p>
             </div>
             {/* 按钮组 */}
             <div className="flex items-center gap-2 shrink-0">
@@ -60,14 +62,14 @@ export default function PwaUpdatePrompt() {
                 onClick={() => setShow(false)}
                 className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded-lg transition-colors"
               >
-                稍后
+                {t('pwa.later')}
               </button>
               <motion.button
                 onClick={() => updateServiceWorker(true)}
                 className="text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-xl transition-colors"
                 whileTap={{ scale: 0.95 }}
               >
-                立即更新
+                {t('pwa.update')}
               </motion.button>
             </div>
           </div>

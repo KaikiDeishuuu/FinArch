@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
+import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 import Layout from './components/Layout'
 import PwaUpdatePrompt from './components/PwaUpdatePrompt'
 import LoginPage from './pages/LoginPage'
@@ -45,6 +46,18 @@ function LoginRouteWrapper() {
   return <LoginPage />
 }
 
+function ThemedToaster() {
+  const { resolved } = useTheme()
+  return (
+    <Toaster
+      position="bottom-right"
+      richColors
+      theme={resolved}
+      toastOptions={{ style: { fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' } }}
+    />
+  )
+}
+
 function App() {
   // Fade out the inline splash screen after React mounts
   useEffect(() => {
@@ -60,6 +73,7 @@ function App() {
   }, [])
 
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <ExchangeRateProvider>
       <ConfigProvider>
@@ -79,12 +93,9 @@ function App() {
       </ConfigProvider>
       </ExchangeRateProvider>
       <PwaUpdatePrompt />
-      <Toaster
-        position="bottom-right"
-        richColors
-        toastOptions={{ style: { fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' } }}
-      />
+      <ThemedToaster />
     </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

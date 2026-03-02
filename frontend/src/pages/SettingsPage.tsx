@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   changePassword, downloadBackup, restoreBackup, getBackupInfo,
   requestDeleteAccount, requestEmailChange, getMe,
@@ -27,16 +28,16 @@ function calcStrength(pw: string): Strength {
   if (s === 2) return 'medium'
   return 'strong'
 }
-function PasswordStrength({ password }: { password: string }) {
+function PasswordStrength({ password, t }: { password: string; t: (key: string) => string }) {
   const s = calcStrength(password)
   if (!password) return null
   const bar = { none: 'w-0', weak: 'w-1/3', medium: 'w-2/3', strong: 'w-full' }[s]
   const color = { none: '', weak: 'bg-rose-400', medium: 'bg-amber-400', strong: 'bg-emerald-500' }[s]
-  const label = { none: '', weak: '弱', medium: '中等 — 添加特殊字符可进一步增强', strong: '强' }[s]
+  const label = { none: '', weak: t('settings.password.strength.weak'), medium: t('settings.password.strength.medium'), strong: t('settings.password.strength.strong') }[s]
   const tc = { none: '', weak: 'text-rose-500', medium: 'text-amber-600', strong: 'text-emerald-500' }[s]
   return (
     <div className="mt-1.5 space-y-1">
-      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-300 ${color} ${bar}`} />
       </div>
       {s !== 'none' && <p className={`text-xs ${tc}`}>{label}</p>}
@@ -45,17 +46,17 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
-const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
-const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition bg-white'
+const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
+const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition bg-white dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder-gray-500'
 
 // ─── Section header ───────────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 mb-3">
-      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider whitespace-nowrap">
         {children}
       </span>
-      <div className="flex-1 h-px bg-gray-100" />
+      <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
     </div>
   )
 }
@@ -63,10 +64,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Alert components ─────────────────────────────────────────────────────────
 function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warning'; children: React.ReactNode }) {
   const cls = {
-    success: 'bg-emerald-50 border-green-200 text-emerald-700',
-    error:   'bg-rose-50 border-rose-200 text-rose-700',
-    info:    'bg-violet-50 border-violet-200 text-violet-700',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
+    success: 'bg-emerald-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
+    error:   'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400',
+    info:    'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400',
+    warning: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-400',
   }[type]
   return (
     <div className={`border rounded-xl px-4 py-3 text-sm ${cls}`}>{children}</div>
@@ -75,6 +76,7 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
+  const { t } = useTranslation()
   const { user, updateUser } = useAuth()
   const queryClient = useQueryClient()
   const { data: accounts = [], isLoading: acctLoading } = useAccounts()
@@ -100,8 +102,8 @@ export default function SettingsPage() {
   }
 
   async function handleSaveNickname() {
-    if (!nicknameInput.trim()) { setNicknameError('昵称不能为空'); return }
-    if (nicknameInput.length > 20) { setNicknameError('昵称最长 20 个字符'); return }
+    if (!nicknameInput.trim()) { setNicknameError(t('settings.profile.nicknameRequired')); return }
+    if (nicknameInput.length > 20) { setNicknameError(t('settings.profile.nicknameMaxLen')); return }
     setNicknameLoading(true)
     setNicknameError('')
     try {
@@ -113,7 +115,7 @@ export default function SettingsPage() {
       setTimeout(() => setNicknameSuccess(false), 2000)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setNicknameError(msg || '修改失败')
+      setNicknameError(msg || t('settings.profile.toast.error'))
     } finally {
       setNicknameLoading(false)
     }
@@ -131,8 +133,8 @@ export default function SettingsPage() {
     e.preventDefault()
     setPwError('')
     setPwSuccess(false)
-    if (newPw !== confirmPw) { setPwError('两次输入的新密码不一致'); return }
-    if (newPw.length < 8) { setPwError('新密码至少需要 8 位'); return }
+    if (newPw !== confirmPw) { setPwError(t('settings.password.toast.mismatch')); return }
+    if (newPw.length < 8) { setPwError(t('settings.password.minLength')); return }
     setPwLoading(true)
     try {
       await changePassword(currentPw, newPw)
@@ -140,7 +142,7 @@ export default function SettingsPage() {
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setPwError(msg || '修改失败，请检查当前密码是否正确')
+      setPwError(msg || t('settings.password.toast.error'))
     } finally {
       setPwLoading(false)
     }
@@ -165,7 +167,7 @@ export default function SettingsPage() {
       getMe().then(setProfile).catch(() => {/* ignore */})
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setEmailError(msg || '请求失败，请稍后重试')
+      setEmailError(msg || t('settings.changeEmail.toast.error'))
     } finally {
       setEmailLoading(false)
     }
@@ -184,9 +186,9 @@ export default function SettingsPage() {
     setBackupLoading(true)
     try {
       await downloadBackup()
-      toast.success('备份下载已开始')
+      toast.success(t('settings.backup.toast.success'))
     } catch {
-      toast.error('备份下载失败，请重试')
+      toast.error(t('settings.backup.toast.error'))
     } finally {
       setBackupLoading(false)
     }
@@ -211,8 +213,8 @@ export default function SettingsPage() {
       const result = await restoreBackup(restoreFile)
       toast.success(
         result.migrated_to > result.restored_version
-          ? `数据恢复成功！已自动从 v${result.restored_version} 迁移到 v${result.migrated_to}`
-          : '数据恢复成功！页面数据已刷新'
+          ? t('settings.restore.toast.successMigrated', { from: result.restored_version, to: result.migrated_to })
+          : t('settings.restore.toast.success')
       )
       setRestoreFile(null); setRestoreConfirm(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -222,7 +224,7 @@ export default function SettingsPage() {
       getBackupInfo().then(setBackupInfo).catch(() => {})
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(msg || '恢复失败，请检查文件是否为有效的 FinArch 备份')
+      toast.error(msg || t('settings.restore.toast.error'))
     } finally { setRestoreLoading(false) }
   }
 
@@ -238,7 +240,7 @@ export default function SettingsPage() {
       setDeleteStep('sent')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setDeleteError(msg || '请求失败，请重试')
+      setDeleteError(msg || t('settings.danger.toast.error'))
       setDeleteStep('confirm')
     }
   }
@@ -260,7 +262,7 @@ export default function SettingsPage() {
     e.preventDefault()
     setNewAcctError('')
     setNewAcctSuccess(false)
-    if (!newAcctName.trim()) { setNewAcctError('请输入账户名称'); return }
+    if (!newAcctName.trim()) { setNewAcctError(t('settings.accounts.nameRequired')); return }
     setNewAcctLoading(true)
     try {
       await createAccount(newAcctName.trim(), newAcctType, newAcctCurrency)
@@ -270,7 +272,7 @@ export default function SettingsPage() {
       setTimeout(() => setNewAcctSuccess(false), 2000)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setNewAcctError(msg || '创建失败')
+      setNewAcctError(msg || t('settings.accounts.toast.createError'))
     } finally { setNewAcctLoading(false) }
   }
 
@@ -293,7 +295,7 @@ export default function SettingsPage() {
       setDeletingId(null)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setDeleteAcctError(msg || '删除失败')
+      setDeleteAcctError(msg || t('settings.accounts.toast.deleteError'))
     } finally { setDeleteAcctLoading(false) }
   }
 
@@ -312,32 +314,32 @@ export default function SettingsPage() {
     <div className="pb-8 max-w-4xl">
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">账户设置</h1>
-        <p className="text-sm text-gray-400 mt-1">管理您的账户信息、安全设置与数据备份</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('settings.title')}</h1>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('settings.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* ── Fund Accounts ───────────────────────────── full width ── */}
         <div className="md:col-span-2">
-          <SectionLabel>资金账户</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm space-y-4">
+          <SectionLabel>{t('settings.sections.accounts')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
             {/* Account list */}
             {acctLoading ? (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span className="w-4 h-4 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
-                加载中…
+              <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+                <span className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-violet-500 rounded-full animate-spin" />
+                {t('common.loading')}
               </div>
             ) : accounts.length === 0 ? (
-              <p className="text-sm text-gray-400">暂无账户，请在下方创建第一个资金账户。</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">{t('settings.accounts.noAccounts')}</p>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
                 {accounts.map(a => {
                   const isPublic = a.type === 'public'
                   const typeBadge = isPublic
-                    ? 'bg-sky-50 text-sky-700 border border-sky-100'
-                    : 'bg-amber-50 text-amber-700 border border-amber-100'
-                  const typeLabel = isPublic ? '公共' : '个人'
-                  const balanceColor = a.balance_yuan >= 0 ? 'text-emerald-600' : 'text-rose-500'
+                    ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-100 dark:border-sky-500/30'
+                    : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-500/30'
+                  const typeLabel = isPublic ? t('settings.accounts.publicLabel') : t('settings.accounts.personalLabel')
+                  const balanceColor = a.balance_yuan >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
                   return (
                     <div key={a.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${typeBadge}`}>{typeLabel}</span>
@@ -348,27 +350,27 @@ export default function SettingsPage() {
                             autoFocus
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            className="flex-1 border border-violet-300 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+                            className="flex-1 border border-violet-300 dark:border-violet-600 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 dark:bg-gray-800/50 dark:text-gray-200"
                           />
                           <button type="submit" disabled={renameLoading}
                             className="text-xs bg-violet-600 text-white px-3 py-1 rounded-lg disabled:opacity-50">
-                            {renameLoading ? '保存中…' : '保存'}
+                            {renameLoading ? t('common.saving') : t('common.save')}
                           </button>
                           <button type="button" onClick={() => setRenamingId(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">取消</button>
+                            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1">{t('common.cancel')}</button>
                         </form>
                       ) : (
                         <>
-                          <span className="flex-1 text-sm font-medium text-gray-800 min-w-0 truncate">{a.name}</span>
+                          <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200 min-w-0 truncate">{a.name}</span>
                           <span className={`text-sm font-bold tabular-nums shrink-0 ${balanceColor}`}>
                             {a.balance_yuan >= 0 ? '' : '−'}¥{Math.abs(a.balance_yuan).toFixed(2)}
-                            <span className="text-xs font-normal text-gray-400 ml-1">{a.currency}</span>
+                            <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">{a.currency}</span>
                           </span>
                           <button
                             type="button"
                             onClick={() => { setRenamingId(a.id); setRenameValue(a.name) }}
-                            className="text-xs text-gray-400 hover:text-violet-600 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
-                          >改名</button>
+                            className="text-xs text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors shrink-0"
+                          >{t('settings.accounts.rename')}</button>
                           {canDelete(a) && (
                             deletingId === a.id ? (
                               <span className="flex items-center gap-1.5 shrink-0">
@@ -377,19 +379,19 @@ export default function SettingsPage() {
                                   disabled={deleteAcctLoading}
                                   onClick={() => handleDeleteAccount(a.id)}
                                   className="text-xs text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 px-2.5 py-1 rounded-lg transition-colors"
-                                >{deleteAcctLoading ? '删除中…' : '确认删除'}</button>
+                                >{deleteAcctLoading ? t('settings.accounts.deleting') : t('settings.accounts.confirmDelete')}</button>
                                 <button
                                   type="button"
                                   onClick={() => { setDeletingId(null); setDeleteAcctError('') }}
-                                  className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-1"
-                                >取消</button>
+                                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1"
+                                >{t('common.cancel')}</button>
                               </span>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => { setDeletingId(a.id); setDeleteAcctError('') }}
-                                className="text-xs text-gray-400 hover:text-rose-500 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
-                              >删除</button>
+                                className="text-xs text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors shrink-0"
+                              >{t('settings.accounts.delete')}</button>
                             )
                           )}
                         </>
@@ -402,13 +404,13 @@ export default function SettingsPage() {
             {deleteAcctError && <p className="text-xs text-rose-500 mt-2">{deleteAcctError}</p>}
 
             {/* Create account form */}
-            <div className="border-t border-gray-100 pt-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">新建账户</p>
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">{t('settings.accounts.newTitle')}</p>
               <form onSubmit={handleCreateAccount} className="flex flex-wrap items-end gap-2">
                 <input
                   value={newAcctName}
                   onChange={(e) => setNewAcctName(e.target.value)}
-                  placeholder="账户名称"
+                  placeholder={t('settings.accounts.namePlaceholder')}
                   className={`${inputCls} flex-1 min-w-32 py-2`}
                 />
                 <div className="w-28">
@@ -417,8 +419,8 @@ export default function SettingsPage() {
                     onChange={(v) => setNewAcctType(v as 'personal' | 'public')}
                     size="sm"
                     options={[
-                      { value: 'personal', label: '个人账户' },
-                      { value: 'public', label: '公共账户' },
+                      { value: 'personal', label: t('settings.accounts.personalAccount') },
+                      { value: 'public', label: t('settings.accounts.publicAccount') },
                     ]}
                   />
                 </div>
@@ -436,18 +438,18 @@ export default function SettingsPage() {
                 </div>
                 <button type="submit" disabled={newAcctLoading}
                   className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-                  {newAcctLoading ? '创建中…' : '+ 新建'}
+                  {newAcctLoading ? t('settings.accounts.creating') : t('settings.accounts.create')}
                 </button>
               </form>
               {newAcctError && <p className="text-xs text-rose-500 mt-2">{newAcctError}</p>}
-              {newAcctSuccess && <p className="text-xs text-emerald-600 mt-2">✓ 账户已创建</p>}
+              {newAcctSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">{t('settings.accounts.toast.created')}</p>}
             </div>
           </div>
         </div>
         {/* ── Profile ─────────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
-          <SectionLabel>账户信息</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
+          <SectionLabel>{t('settings.sections.profile')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-400 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
                 {(displayName[0] ?? '?').toUpperCase()}
@@ -458,39 +460,39 @@ export default function SettingsPage() {
                   {editingNickname ? (
                     <div className="flex items-center gap-2 flex-wrap">
                       <input type="text" value={nicknameInput} onChange={e => setNicknameInput(e.target.value)}
-                        className="border border-gray-200 rounded-lg px-2.5 py-1 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent w-36"
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent w-36 dark:bg-gray-800/50"
                         maxLength={20} autoFocus
                         onKeyDown={e => { if (e.key === 'Enter') handleSaveNickname(); if (e.key === 'Escape') setEditingNickname(false) }} />
                       <button onClick={handleSaveNickname} disabled={nicknameLoading}
                         className="text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg transition-colors font-medium">
-                        {nicknameLoading ? '保存中…' : '保存'}
+                        {nicknameLoading ? t('common.saving') : t('common.save')}
                       </button>
                       <button onClick={() => setEditingNickname(false)}
-                        className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-1 transition-colors">取消</button>
+                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1 transition-colors">{t('common.cancel')}</button>
                     </div>
                   ) : (
                     <>
-                      <p className="font-semibold text-gray-900 text-base">{displayName}</p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100 text-base">{displayName}</p>
                       <button onClick={startEditNickname}
-                        className="text-[10px] font-medium bg-violet-50 text-violet-500 hover:bg-violet-100 px-2 py-0.5 rounded-full transition-colors cursor-pointer">
-                        昵称 · 点击修改
+                        className="text-[10px] font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-500 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/20 px-2 py-0.5 rounded-full transition-colors cursor-pointer">
+                        {t('settings.profile.nicknameTip')}
                       </button>
-                      {nicknameSuccess && <span className="text-[10px] text-emerald-500 font-medium">✓ 已更新</span>}
+                      {nicknameSuccess && <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">{t('settings.profile.toast.updated')}</span>}
                     </>
                   )}
                 </div>
                 {nicknameError && <p className="text-xs text-rose-500 mt-1">{nicknameError}</p>}
                 {/* Username */}
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-sm text-gray-400">@{profile?.username || user?.username}</p>
-                  <span className="text-[10px] font-medium bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">用户名 · 不可修改</span>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">@{profile?.username || user?.username}</p>
+                  <span className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-1.5 py-0.5 rounded-full">{t('settings.profile.usernameTip')}</span>
                 </div>
                 {/* Email */}
-                <p className="text-sm text-gray-500 mt-0.5">{currentEmail}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{currentEmail}</p>
                 {pendingEmail && (
-                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                    待验证新邮箱：{pendingEmail}
+                    {t('settings.changeEmail.pendingTo')}{pendingEmail}
                   </p>
                 )}
               </div>
@@ -500,38 +502,37 @@ export default function SettingsPage() {
 
         {/* ── Change email ─────────────────────────────────────── col 1 ── */}
         <div className="flex flex-col">
-          <SectionLabel>更换邮箱</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm space-y-4 flex-1">
+          <SectionLabel>{t('settings.sections.changeEmail')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4 flex-1">
             <div className="space-y-0.5">
-              <p className="text-sm text-gray-700 font-medium">当前邮箱</p>
-              <p className="text-sm text-gray-500">{currentEmail}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('settings.changeEmail.currentEmail')}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{currentEmail}</p>
             </div>
 
             {pendingEmail && !emailSent && (
               <Alert type="warning">
-                <p className="font-medium mb-0.5">有待验证的邮箱变更请求</p>
-                <p>授权邮件将发至当前邮箱，新邮箱 <strong>{pendingEmail}</strong> 尚待验证。<br />请先完成当前请求再提交新申请。</p>
+                <p className="font-medium mb-0.5">{t('settings.changeEmail.pendingTitle')}</p>
+                <p dangerouslySetInnerHTML={{ __html: t('settings.changeEmail.pendingDesc', { email: pendingEmail }) }} />
               </Alert>
             )}
 
             {emailSent ? (
               <Alert type="success">
-                <p className="font-medium mb-0.5">授权邮件已发送至当前邮箱</p>
-                请检查 <strong>{currentEmail}</strong> 的收件箱，点击邮件中的「授权更换」链接。<br />
-                授权后系统将向新邮箱 <strong>{profile?.pending_email}</strong> 发送最终验证邮件。
+                <p className="font-medium mb-0.5">{t('settings.changeEmail.sentTitle')}</p>
+                <p dangerouslySetInnerHTML={{ __html: t('settings.changeEmail.sentDesc', { currentEmail, pendingEmail: profile?.pending_email }) }} />
               </Alert>
             ) : (
               <form onSubmit={handleRequestEmailChange} className="space-y-3">
                 <div>
-                  <label className={labelCls}>新邮箱地址</label>
+                  <label className={labelCls}>{t('settings.changeEmail.newEmail')}</label>
                   <input type="email" required value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className={inputCls} placeholder="输入新邮箱地址" />
+                    className={inputCls} placeholder={t('settings.changeEmail.placeholder')} />
                 </div>
                 {emailError && <Alert type="error">{emailError}</Alert>}
                 <button type="submit" disabled={emailLoading}
                   className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
-                  {emailLoading ? '发送中...' : '发送授权邮件'}
+                  {emailLoading ? t('settings.changeEmail.sending') : t('settings.changeEmail.submit')}
                 </button>
               </form>
             )}
@@ -540,36 +541,36 @@ export default function SettingsPage() {
 
         {/* ── Change password ──────────────────────────────────── col 2 ── */}
         <div className="flex flex-col">
-          <SectionLabel>安全</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm flex-1">
-            {pwSuccess && <div className="mb-4"><Alert type="success">✓ 密码修改成功！</Alert></div>}
+          <SectionLabel>{t('settings.sections.security')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
+            {pwSuccess && <div className="mb-4"><Alert type="success">{t('settings.password.toast.success')}</Alert></div>}
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className={labelCls}>当前密码</label>
+                <label className={labelCls}>{t('settings.password.current')}</label>
                 <input type="password" required value={currentPw}
                   onChange={(e) => setCurrentPw(e.target.value)}
-                  className={inputCls} placeholder="请输入当前密码" autoComplete="current-password" />
+                  className={inputCls} placeholder={t('settings.password.currentPlaceholder')} autoComplete="current-password" />
               </div>
               <div>
-                <label className={labelCls}>新密码</label>
+                <label className={labelCls}>{t('settings.password.new')}</label>
                 <input type="password" required minLength={8} value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
-                  className={inputCls} placeholder="至少 8 位，建议大小写 + 数字 + 符号" autoComplete="new-password" />
-                <PasswordStrength password={newPw} />
+                  className={inputCls} placeholder={t('settings.password.newPlaceholder')} autoComplete="new-password" />
+                <PasswordStrength password={newPw} t={t} />
               </div>
               <div>
-                <label className={labelCls}>确认新密码</label>
+                <label className={labelCls}>{t('settings.password.confirm')}</label>
                 <input type="password" required minLength={8} value={confirmPw}
                   onChange={(e) => setConfirmPw(e.target.value)}
-                  className={inputCls} placeholder="再次输入新密码" autoComplete="new-password" />
+                  className={inputCls} placeholder={t('settings.password.confirmPlaceholder')} autoComplete="new-password" />
                 {confirmPw && newPw !== confirmPw && (
-                  <p className="mt-1 text-xs text-rose-500">两次输入的密码不一致</p>
+                  <p className="mt-1 text-xs text-rose-500">{t('settings.password.toast.mismatch')}</p>
                 )}
               </div>
               {pwError && <Alert type="error">{pwError}</Alert>}
               <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
                 className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
-                {pwLoading ? '提交中...' : '修改密码'}
+                {pwLoading ? t('settings.password.submitting') : t('settings.password.submit')}
               </button>
             </form>
           </div>
@@ -577,18 +578,18 @@ export default function SettingsPage() {
 
         {/* ── Backup ───────────────────────────────────────────── col 1 ── */}
         <div className="flex flex-col">
-          <SectionLabel>数据备份</SectionLabel>
-          <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm flex-1">
-            <p className="text-xs text-gray-400 mb-3">一键下载当前数据库的完整快照，可用于迁移或恢复。</p>
+          <SectionLabel>{t('settings.sections.backup')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('settings.backup.desc')}</p>
             {backupInfo && (
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-500">
-                <span className="tabular-nums">{backupInfo.transactions} 笔交易</span>
-                <span className="tabular-nums">{backupInfo.accounts} 个账户</span>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-500 dark:text-gray-400">
+                <span className="tabular-nums">{backupInfo.transactions} {t('settings.backup.transactions')}</span>
+                <span className="tabular-nums">{backupInfo.accounts} {t('settings.backup.accounts')}</span>
                 <span className="tabular-nums">Schema v{backupInfo.schema_version}</span>
                 <span className="tabular-nums">{formatFileSize(backupInfo.db_size_bytes)}</span>
-                <span className={`inline-flex items-center gap-1 ${backupInfo.journal_mode === 'wal' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                <span className={`inline-flex items-center gap-1 ${backupInfo.journal_mode === 'wal' ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${backupInfo.journal_mode === 'wal' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  {backupInfo.journal_mode === 'wal' ? 'WAL 模式' : backupInfo.journal_mode.toUpperCase()}
+                  {backupInfo.journal_mode === 'wal' ? 'WAL' : backupInfo.journal_mode.toUpperCase()}
                 </span>
               </div>
             )}
@@ -601,17 +602,17 @@ export default function SettingsPage() {
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
               )}
-              {backupLoading ? '生成中...' : '下载备份'}
+              {backupLoading ? t('settings.backup.generating') : t('settings.backup.download')}
             </button>
           </div>
         </div>
 
         {/* ── Restore ──────────────────────────────────────────── col 2 ── */}
         <div className="flex flex-col">
-          <SectionLabel>数据恢复</SectionLabel>
-          <div className="bg-white rounded-2xl border border-amber-100 p-5 flex-1">
-            <p className="text-xs text-gray-400 mb-3">
-              上传 <code className="font-mono bg-gray-100 px-1 rounded">.db</code> 备份文件恢复数据。系统会自动保留当前数据的安全快照。
+          <SectionLabel>{t('settings.sections.restore')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-amber-100 dark:border-amber-500/30 p-5 flex-1">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+              {t('settings.restore.desc')}
             </p>
             <div className="space-y-3">
               <input ref={fileInputRef} type="file" accept=".db"
@@ -619,19 +620,19 @@ export default function SettingsPage() {
                   const f = e.target.files?.[0] ?? null
                   setRestoreFile(f); setRestoreConfirm(false)
                 }}
-                className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 transition"
+                className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-gray-800 file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-700 transition"
               />
               {restoreFile && !restoreConfirm && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-sm text-amber-800 dark:text-amber-400">
                   <div className="flex items-center gap-2 mb-1">
                     <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     <p className="font-semibold">{restoreFile.name}</p>
-                    <span className="text-xs text-amber-600 tabular-nums">({formatFileSize(restoreFile.size)})</span>
+                    <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums">({formatFileSize(restoreFile.size)})</span>
                   </div>
-                  <p className="text-xs text-amber-600 mb-2">将<strong>覆盖当前数据</strong>恢复为此备份。恢复前系统会自动保存安全快照。</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-2" dangerouslySetInnerHTML={{ __html: t('settings.restore.warning') }} />
                   <button type="button" onClick={() => setRestoreConfirm(true)}
                     className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
-                    确认恢复
+                    {t('settings.restore.confirmButton')}
                   </button>
                 </div>
               )}
@@ -645,7 +646,7 @@ export default function SettingsPage() {
                       <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
                     </svg>
                   )}
-                  {restoreLoading ? '恢复中...' : '立即恢复数据'}
+                  {restoreLoading ? t('settings.restore.restoring') : t('settings.restore.restoreNow')}
                 </button>
               )}
             </div>
@@ -654,47 +655,43 @@ export default function SettingsPage() {
 
         {/* ── Danger zone ─────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
-          <SectionLabel>危险区域</SectionLabel>
-          <div className="bg-white rounded-2xl border border-rose-200 p-5">
+          <SectionLabel>{t('settings.sections.danger')}</SectionLabel>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-rose-200 dark:border-rose-500/30 p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-rose-600 mb-1">注销账户</h3>
-                <p className="text-xs text-gray-400">
-                  将永久删除您的账户及所有数据（标签、资金池、交易记录），此操作<strong>不可撤销</strong>。
-                </p>
+                <h3 className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-1">{t('settings.danger.deleteAccount')}</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500" dangerouslySetInnerHTML={{ __html: t('settings.danger.deleteDesc') }} />
               </div>
               <div className="shrink-0">
                 {deleteStep === 'sent' ? (
                   <Alert type="success">
-                    ✓ 验证邮件已发送至 <strong>{currentEmail}</strong>，请在 1 小时内点击链接以完成账户注销。
+                    <span dangerouslySetInnerHTML={{ __html: t('settings.danger.emailSent', { email: currentEmail }) }} />
                   </Alert>
                 ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
-                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-3 max-w-sm">
-                    <p className="text-sm font-semibold text-rose-700">确认注销账户？</p>
-                    <p className="text-xs text-rose-600">
-                      我们将向 <strong>{currentEmail}</strong> 发送确认邮件，点击链接后账户将被<strong>永久删除</strong>。
-                    </p>
+                  <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl p-4 space-y-3 max-w-sm">
+                    <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">{t('settings.danger.confirmTitle')}</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400" dangerouslySetInnerHTML={{ __html: t('settings.danger.confirmDesc', { email: currentEmail }) }} />
                     {deleteError && <Alert type="error">{deleteError}</Alert>}
                     <div className="flex gap-2">
                       <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
                         className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                        {deleteStep === 'loading' ? '发送中...' : '发送注销确认邮件'}
+                        {deleteStep === 'loading' ? t('settings.danger.sending') : t('settings.danger.sendConfirm')}
                       </button>
                       <button type="button" onClick={() => { setDeleteStep('idle'); setDeleteError('') }}
                         disabled={deleteStep === 'loading'}
-                        className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
-                        取消
+                        className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
+                        {t('common.cancel')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setDeleteStep('confirm')}
-                    className="inline-flex items-center gap-2 border border-rose-200 hover:bg-rose-50 text-rose-600 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+                    className="inline-flex items-center gap-2 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
                       <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
                     </svg>
-                    申请注销账户
+                    {t('settings.danger.deleteButton')}
                   </button>
                 )}
               </div>

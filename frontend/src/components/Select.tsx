@@ -31,6 +31,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { EASE_STANDARD, DURATION_NORMAL } from '../motion/tokens'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -98,6 +99,8 @@ export default function Select({
   className = '',
   activeHighlight = false,
 }: SelectProps) {
+  const { t } = useTranslation()
+  const resolvedPlaceholder = placeholder === '请选择' ? t('select.placeholder') : placeholder
   const [open, setOpen] = useState(false)
   const [highlightIndex, setHighlightIndex] = useState(-1)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -239,14 +242,14 @@ export default function Select({
     'focus:ring-2',
     SIZE_MAP[size],
     disabled
-      ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400'
+      ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500'
       : error
-        ? 'bg-white border-rose-400 ring-2 ring-rose-500/20 text-gray-700'
+        ? 'bg-white dark:bg-gray-900 border-rose-400 ring-2 ring-rose-500/20 text-gray-700 dark:text-gray-300'
         : isActive
-          ? 'border-violet-400 bg-violet-50 text-violet-700 font-semibold focus:ring-violet-500/20'
+          ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold focus:ring-violet-500/20'
           : open
-            ? 'bg-white border-violet-400 ring-2 ring-violet-500/20 text-gray-700'
-            : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-white hover:border-gray-300 focus:ring-violet-500/20 focus:border-violet-400',
+            ? 'bg-white dark:bg-gray-900 border-violet-400 ring-2 ring-violet-500/20 text-gray-700 dark:text-gray-300'
+            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-violet-500/20 focus:border-violet-400',
     className,
   ].join(' ')
 
@@ -276,13 +279,13 @@ export default function Select({
         onClick={() => open ? closeDropdown() : openDropdown()}
         onKeyDown={handleKeyDown}
       >
-        <span className={`block truncate ${hasValue ? '' : 'text-gray-400'}`}>
-          {selected?.label ?? placeholder}
+        <span className={`block truncate ${hasValue ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+          {selected?.label ?? resolvedPlaceholder}
         </span>
 
         {/* Chevron */}
         <svg
-          className={`absolute top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 transition-transform duration-200 ${CHEVRON_SIZE[size]} ${open ? 'rotate-180' : ''}`}
+          className={`absolute top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 dark:text-gray-500 transition-transform duration-200 ${CHEVRON_SIZE[size]} ${open ? 'rotate-180' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -305,7 +308,7 @@ export default function Select({
               exit="exit"
               transition={dropdownTransition}
               style={dropdownStyle}
-              className="bg-white rounded-xl border border-gray-200/80 shadow-lg py-1 max-h-60 overflow-y-auto overscroll-contain"
+              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-lg py-1 max-h-60 overflow-y-auto overscroll-contain"
             >
               {options.map((opt, idx) => {
                 const isSelected = opt.value === value
@@ -320,10 +323,10 @@ export default function Select({
                     className={[
                       'flex items-center justify-between gap-2 px-3 py-2 mx-1 rounded-lg text-sm cursor-pointer transition-colors duration-150 select-none',
                       opt.disabled
-                        ? 'opacity-40 cursor-not-allowed text-gray-400'
+                        ? 'opacity-40 cursor-not-allowed text-gray-400 dark:text-gray-500'
                         : isHighlighted
-                          ? 'bg-violet-50 text-violet-700'
-                          : 'text-gray-700 hover:bg-gray-50',
+                          ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
                     ].join(' ')}
                     onClick={() => selectOption(opt)}
                     onMouseEnter={() => !opt.disabled && setHighlightIndex(idx)}

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { verifyEmail } from '../api/client'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
 
 export default function VerifyEmailPage() {
   useThemeColor('#7c3aed')
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
   const navigate = useNavigate()
@@ -16,7 +18,7 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     if (!token) {
       setStatus('error')
-      setErrorMsg('无效的验证链接，请重新申请。')
+      setErrorMsg(t('verifyEmail.invalidLink'))
       return
     }
     verifyEmail(token)
@@ -26,7 +28,7 @@ export default function VerifyEmailPage() {
       })
       .catch((err: unknown) => {
         const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        setErrorMsg(msg || '验证失败，链接可能已过期，请重新发送验证邮件。')
+        setErrorMsg(msg || t('verifyEmail.errorDefault'))
         setStatus('error')
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -35,18 +37,18 @@ export default function VerifyEmailPage() {
   return (
     <div className="min-h-dvh flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-4 md:py-6">
       <div className="flex-[1]" />
-      <div className="mx-auto w-full max-w-md shrink-0 bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 text-center relative z-10">
+      <div className="mx-auto w-full max-w-md shrink-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-violet-900/20 p-8 text-center relative z-10">
         {/* Logo */}
         <div className="flex flex-col items-center mb-6">
           <LogoMark size={48} className="rounded-2xl shadow-lg shadow-violet-500/20 mb-3" />
-          <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">FinArch</h1>
-          <p className="text-xs text-gray-400 mt-0.5">收支 · 报销 · 智能匹配</p>
+          <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">FinArch</h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('login.subtitle')}</p>
         </div>
 
         {status === 'loading' && (
           <div className="space-y-3">
-            <div className="w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin mx-auto" />
-            <p className="text-gray-500 text-sm">正在验证邮箱...</p>
+            <div className="w-10 h-10 border-4 border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin mx-auto" />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('verifyEmail.verifying')}</p>
           </div>
         )}
 
@@ -57,16 +59,16 @@ export default function VerifyEmailPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
               </svg>
             </div>
-            <h2 className="text-lg font-bold text-gray-800">邮箱验证成功！</h2>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              您的邮箱已通过验证，现在可以登录了。
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('verifyEmail.success')}</h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+              {t('verifyEmail.successDesc')}
             </p>
-            <p className="text-gray-400 text-xs">3 秒后自动跳转至登录页...</p>
+            <p className="text-gray-400 dark:text-gray-500 text-xs">{t('verifyEmail.redirecting')}</p>
             <Link
               to="/login?verified=1"
               className="inline-block bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-8 py-2.5 rounded-xl transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 active:scale-[0.98]"
             >
-              立即登录
+              {t('verifyEmail.loginNow')}
             </Link>
           </div>
         )}
@@ -78,16 +80,16 @@ export default function VerifyEmailPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </div>
-            <h2 className="text-lg font-bold text-gray-800">验证失败</h2>
-            <p className="text-rose-600 text-sm">{errorMsg}</p>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('verifyEmail.errorTitle')}</h2>
+            <p className="text-rose-600 dark:text-rose-400 text-sm">{errorMsg}</p>
             <div className="flex flex-col gap-2">
               <Link
                 to="/login"
                 className="inline-block bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-8 py-2.5 rounded-xl transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 active:scale-[0.98]"
               >
-                返回登录
+                {t('verifyEmail.backToLogin')}
               </Link>
-              <p className="text-xs text-gray-400">登录后可重新发送验证邮件</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{t('verifyEmail.resendHint')}</p>
             </div>
           </div>
         )}

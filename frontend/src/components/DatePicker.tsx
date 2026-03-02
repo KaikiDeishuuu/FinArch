@@ -15,6 +15,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 interface DatePickerProps {
   value: string        // 'YYYY-MM-DD'
@@ -24,8 +25,8 @@ interface DatePickerProps {
   placeholder?: string
 }
 
-const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
-const MONTH_NAMES = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+const WEEKDAYS_ZH = ['一', '二', '三', '四', '五', '六', '日']
+const MONTH_NAMES_ZH = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
 
 function pad2(n: number) { return String(n).padStart(2, '0') }
 
@@ -48,20 +49,26 @@ function firstDayOfWeek(year: number, month: number) {
   return d === 0 ? 6 : d - 1
 }
 
-function formatDisplay(val: string) {
-  if (!val) return ''
-  const { year, month, day } = parseDate(val)
-  const date = new Date(year, month, day)
-  const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]
-  return `${year} 年 ${month + 1} 月 ${day} 日 ${weekday}`
-}
-
 function isToday(y: number, m: number, d: number) {
   const t = new Date()
   return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d
 }
 
-export default function DatePicker({ value, onChange, className = '', required, placeholder = '选择日期' }: DatePickerProps) {
+export default function DatePicker({ value, onChange, className = '', required, placeholder }: DatePickerProps) {
+  const { t } = useTranslation()
+  const WEEKDAYS = (t('datePicker.weekdays', { returnObjects: true }) as string[]) || WEEKDAYS_ZH
+  const MONTH_NAMES = (t('datePicker.months', { returnObjects: true }) as string[]) || MONTH_NAMES_ZH
+  const weekdaysFull = (t('datePicker.weekdaysFull', { returnObjects: true }) as string[]) || ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+  function formatDisplayI18n(val: string) {
+    if (!val) return ''
+    const { year, month, day } = parseDate(val)
+    const date = new Date(year, month, day)
+    const weekday = weekdaysFull[date.getDay()]
+    return t('datePicker.displayFormat', { year, month: MONTH_NAMES[month], day, weekday })
+  }
+
+  const resolvedPlaceholder = placeholder ?? t('datePicker.placeholder')
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -171,7 +178,7 @@ export default function DatePicker({ value, onChange, className = '', required, 
   // Pad to full rows
   while (cells.length % 7 !== 0) cells.push(null)
 
-  const display = formatDisplay(value)
+  const display = formatDisplayI18n(value)
 
   const handleTriggerClick = () => {
     if (isMobile) {
@@ -202,21 +209,21 @@ export default function DatePicker({ value, onChange, className = '', required, 
         type="button"
         onClick={handleTriggerClick}
         className={`
-          w-full flex items-center gap-3 border border-gray-200 rounded-xl px-3.5 py-2.5 text-left
-          text-sm bg-gray-50 transition-all hover:bg-white hover:border-gray-300
+          w-full flex items-center gap-3 border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-left
+          text-sm bg-gray-50 dark:bg-gray-800 transition-all hover:bg-white dark:hover:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600
           focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
-          ${open ? 'ring-2 ring-violet-500 border-transparent bg-white' : ''}
+          ${open ? 'ring-2 ring-violet-500 border-transparent bg-white dark:bg-gray-900' : ''}
         `}
       >
         {/* Calendar icon */}
         <svg className="w-[18px] h-[18px] text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <span className={display ? 'text-gray-800 font-medium' : 'text-gray-400'}>
-          {display || placeholder}
+        <span className={display ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-400 dark:text-gray-500'}>
+          {display || resolvedPlaceholder}
         </span>
         {/* Chevron */}
-        <svg className={`w-4 h-4 text-gray-400 ml-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 ml-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -232,24 +239,24 @@ export default function DatePicker({ value, onChange, className = '', required, 
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
               style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 50 }}
-              className="bg-white rounded-2xl border border-gray-200/80 shadow-xl shadow-gray-200/60 p-4 select-none"
+              className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-xl shadow-gray-200/60 dark:shadow-black/30 p-4 select-none"
             >
               {/* Month nav header */}
               <div className="flex items-center justify-between mb-3">
                 <button
                   type="button"
                   onClick={prevMonth}
-                  className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+                  className="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <span className="text-sm font-bold text-gray-800">
-                  {viewYear} 年 {MONTH_NAMES[viewMonth]}
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                  {t('datePicker.yearMonth', { year: viewYear, month: MONTH_NAMES[viewMonth] })}
                 </span>
                 <button
                   type="button"
                   onClick={nextMonth}
-                  className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors"
+                  className="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
@@ -258,7 +265,7 @@ export default function DatePicker({ value, onChange, className = '', required, 
               {/* Weekday headers */}
               <div className="grid grid-cols-7 gap-0.5 mb-1">
                 {WEEKDAYS.map(w => (
-                  <div key={w} className="text-center text-[10px] font-semibold text-gray-400 uppercase py-1">{w}</div>
+                  <div key={w} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase py-1">{w}</div>
                 ))}
               </div>
 
@@ -277,8 +284,8 @@ export default function DatePicker({ value, onChange, className = '', required, 
                         selected
                           ? 'bg-violet-600 text-white shadow-sm shadow-violet-300/40'
                           : today
-                            ? 'bg-violet-50 text-violet-700 font-bold ring-1 ring-violet-200'
-                            : 'text-gray-700 hover:bg-gray-100'
+                            ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-bold ring-1 ring-violet-200 dark:ring-violet-700'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       }`}
                     >
                       {day}
@@ -288,16 +295,16 @@ export default function DatePicker({ value, onChange, className = '', required, 
               </div>
 
               {/* Footer: today button */}
-              <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+              <div className="mt-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
                 <button
                   type="button"
                   onClick={goToday}
-                  className="text-xs font-semibold text-violet-600 hover:text-violet-700 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-colors"
+                  className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 px-3 py-1.5 rounded-lg transition-colors"
                 >
-                  今天
+                  {t('datePicker.today')}
                 </button>
-                <span className="text-[10px] text-gray-400 tabular-nums">
-                  {value || '未选择'}
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
+                  {value || t('datePicker.notSelected')}
                 </span>
               </div>
             </motion.div>

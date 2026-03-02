@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
 @import "tailwindcss";
 
+/* Tailwind v4: class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ─────────────────────────────────────────────────────────────────────────────
    Premium design system — Violet/Purple
    Primary: Violet (#7C3AED · #8B5CF6 accents)
@@ -39,6 +42,41 @@
   --radius-btn: 0.75rem;              /* 12px */
   --shadow-card: 0 1px 3px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.02);
   --shadow-hover: 0 8px 24px rgba(124,58,237,0.08);
+
+  /* Recharts tooltip */
+  --tooltip-bg: #fff;
+  --tooltip-text: #374151;
+}
+
+/* ── Dark theme overrides ── */
+.dark {
+  --background: 260 20% 6%;            /* #0f0d18 deep violet-black */
+  --foreground: 220 13% 91%;           /* #e2e5ea */
+  --card: 260 15% 11%;                 /* #1a1626 */
+  --card-foreground: 220 13% 91%;
+
+  --primary: 263 70% 65%;              /* lighter violet for dark bg */
+  --primary-foreground: 0 0% 100%;
+
+  --ring: 258 80% 72%;
+
+  --muted: 260 12% 16%;
+  --muted-foreground: 220 10% 60%;
+
+  --income: 160 64% 50%;
+  --expense: 345 83% 65%;
+  --pending: 38 92% 55%;
+
+  --border: 260 10% 20%;
+
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-hover: 0 8px 24px rgba(124,58,237,0.2);
+
+  /* Recharts tooltip */
+  --tooltip-bg: hsl(260, 15%, 11%);
+  --tooltip-text: #d1d5db;
+
+  color-scheme: dark;
 }
 
 /* ── 视口基础：防止 html/body 双重滚动 ── */
@@ -51,22 +89,18 @@ html {
 
 body {
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  background-color: #FAFAF9;           /* stone-50 — warm premium canvas */
+  background-color: hsl(var(--background));
   height: 100%;
-  /* 禁止 body 层自身滚动，统一收口到 main 滚动容器 */
   overflow: hidden;
   overscroll-behavior: none;
-  /* 消除 iOS 300ms 点击延迟 */
   touch-action: manipulation;
-  /* 禁止长按选中文字导致 UI 抖动 */
   -webkit-user-select: none;
   user-select: none;
-  /* 去除 iOS tap 高亮蓝框 */
   -webkit-tap-highlight-color: transparent;
-  /* 字体平滑渲染 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #0F172A;                       /* slate-900 default text */
+  color: hsl(var(--foreground));
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* 允许输入框/文本区域选中文字 */
@@ -133,17 +167,26 @@ button, a, [role="button"] {
   background: transparent;
 }
 .scroll-main::-webkit-scrollbar-thumb {
-  background: #cbd5e1;                 /* slate-300 */
+  background: #cbd5e1;
   border-radius: 99px;
 }
 .scroll-main::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;                 /* slate-400 */
+  background: #94a3b8;
+}
+.dark .scroll-main::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+.dark .scroll-main::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
 }
 
 /* ── Vaul Drawer backdrop ── */
 [data-vaul-overlay] {
-  background-color: rgba(15, 23, 42, 0.5);  /* slate-900/50 */
+  background-color: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(2px);
+}
+.dark [data-vaul-overlay] {
+  background-color: rgba(0, 0, 0, 0.6);
 }
 
 /* ── Page enter animation ── */
@@ -157,10 +200,8 @@ button, a, [role="button"] {
 
 /* ── PWA Standalone Mode Enhancements ── */
 @media all and (display-mode: standalone) {
-  /* iOS 状态栏区域背景统一 */
   body {
-    /* 防止弹性过滚造成白边 */
-    background-color: #FAFAF9;
+    background-color: hsl(var(--background));
   }
 
   /* 移动端 PWA：header 需要避开刘海/状态栏区域 */
@@ -218,4 +259,8 @@ button, a, [role="button"] {
   background-size: 800px 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 8px;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, hsl(260 12% 16%) 25%, hsl(260 10% 22%) 50%, hsl(260 12% 16%) 75%);
+  background-size: 800px 100%;
 }

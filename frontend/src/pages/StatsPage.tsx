@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
@@ -43,7 +44,8 @@ function MonthlyBarChart({
     return () => ro.disconnect()
   }, [])
 
-  const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+  const { t } = useTranslation()
+  const MONTH_LABELS = t('stats.monthLabels', { returnObjects: true }) as string[]
   const PAD_L = 72   // room for Y-axis labels
   const PAD_R = 12
   const PAD_T = 12
@@ -79,10 +81,11 @@ function MonthlyBarChart({
             <g key={v}>
               <line
                 x1={PAD_L} y1={y} x2={PAD_L + chartW} y2={y}
-                stroke={v === 0 ? '#d1d5db' : '#f3f4f6'} strokeWidth={1}
+                className={v === 0 ? 'stroke-gray-300 dark:stroke-gray-600' : 'stroke-gray-100 dark:stroke-gray-800'}
+                strokeWidth={1}
               />
               <text x={PAD_L - 6} y={y} dominantBaseline="middle" textAnchor="end"
-                fontSize={10} fill="#9ca3af" fontFamily="inherit">
+                fontSize={10} className="fill-gray-400 dark:fill-gray-500" fontFamily="inherit">
                 {fmtShort(v)}
               </text>
             </g>
@@ -129,7 +132,7 @@ function MonthlyBarChart({
               )}
               {/* X label */}
               <text x={labelX} y={PAD_T + chartH + 18} textAnchor="middle"
-                fontSize={10} fill="#9ca3af" fontFamily="inherit">
+                fontSize={10} className="fill-gray-400 dark:fill-gray-500" fontFamily="inherit">
                 {MONTH_LABELS[d.month - 1]}
               </text>
             </g>
@@ -140,7 +143,7 @@ function MonthlyBarChart({
       {/* Floating tooltip */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-10 bg-white border border-gray-100 rounded-xl shadow-lg px-3 py-2.5 text-xs"
+          className="pointer-events-none absolute z-10 bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100 dark:border-gray-800/50 rounded-xl shadow-lg px-3 py-2.5 text-xs"
           style={{
             left: tooltip.x,
             top: Math.max(4, tooltip.y - 72),
@@ -148,16 +151,16 @@ function MonthlyBarChart({
             minWidth: 130,
           }}
         >
-          <p className="font-semibold text-gray-700 mb-1.5 border-b border-gray-50 pb-1">{tooltip.label}</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1.5 border-b border-gray-50 dark:border-gray-800 pb-1">{tooltip.label}</p>
           <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1.5 text-gray-500">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#22c55e' }} />收入
+            <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
             </span>
             <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(tooltip.income)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 mt-1">
-            <span className="flex items-center gap-1.5 text-gray-500">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#f43f5e' }} />支出
+            <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
             </span>
             <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(tooltip.expense)}</span>
           </div>
@@ -176,6 +179,7 @@ export default function StatsPage() {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
+  const { t } = useTranslation()
 
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
@@ -232,10 +236,11 @@ export default function StatsPage() {
 
   // Compute category stats (all-time expense)
   const categories = useMemo(() => {
+    const otherLabel = t('stats.other')
     const map = new Map<string, { total: number; count: number }>()
     for (const t of filteredBySource) {
       if (t.direction !== 'expense') continue
-      const cat = t.category || '其他'
+      const cat = t.category || otherLabel
       if (!map.has(cat)) map.set(cat, { total: 0, count: 0 })
       const entry = map.get(cat)!
       entry.total += toCNY(t.amount_yuan, t.currency || 'CNY', rates)
@@ -244,7 +249,7 @@ export default function StatsPage() {
     return Array.from(map.entries())
       .map(([category, v]) => ({ category, total: v.total, count: v.count }))
       .sort((a, b) => b.total - a.total)
-  }, [filteredBySource, rates])
+  }, [filteredBySource, rates, t])
 
   // Compute project stats (all-time)
   const projects = useMemo(() => {
@@ -279,31 +284,31 @@ export default function StatsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">统计分析</h1>
-          <p className="text-sm text-gray-400 mt-1">{year} 年度资金概览</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('stats.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stats.subtitle', { year })}</p>
         </div>
         {!ratesLoading && (
           rateDate
-            ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium mt-1">实时汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-            : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 text-amber-600 font-medium mt-1">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
+            ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium mt-1">{t('stats.rateLabel.live')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+            : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium mt-1">{t('stats.rateLabel.fallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
         )}
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
         {/* Source filter tabs */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-          {([['all', '全部'], ['personal', '个人'], ['company', '公共']] as const).map(([key, label]) => (
+        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+          {(['all', 'personal', 'company'] as const).map((key) => (
             <button
               key={key}
               onClick={() => { setSourceFilter(key); setFilterAccount('') }}
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                 sourceFilter === key
-                  ? 'bg-white text-violet-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-white dark:bg-[hsl(260,15%,11%)] text-violet-700 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              {label}
+              {t(`stats.sourceTabs.${key}`)}
             </button>
           ))}
         </div>
@@ -314,11 +319,11 @@ export default function StatsPage() {
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
-              placeholder="全部账户"
+              placeholder={t('stats.filter.allAccounts')}
               size="sm"
               activeHighlight
               options={[
-                { value: '', label: '全部账户' },
+                { value: '', label: t('stats.filter.allAccounts') },
                 ...filteredAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
               ]}
             />
@@ -331,11 +336,11 @@ export default function StatsPage() {
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
-              placeholder="全部类别"
+              placeholder={t('stats.filter.allCategories')}
               size="sm"
               activeHighlight
               options={[
-                { value: '', label: '全部类别' },
+                { value: '', label: t('stats.filter.allCategories') },
                 ...allCategories.map(c => ({ value: c, label: c })),
               ]}
             />
@@ -348,11 +353,11 @@ export default function StatsPage() {
             <Select
               value={filterProject}
               onChange={setFilterProject}
-              placeholder="全部项目"
+              placeholder={t('stats.filter.allProjects')}
               size="sm"
               activeHighlight
               options={[
-                { value: '', label: '全部项目' },
+                { value: '', label: t('stats.filter.allProjects') },
                 ...allProjects.map(p => ({ value: p, label: p })),
               ]}
             />
@@ -363,9 +368,9 @@ export default function StatsPage() {
         {(filterCategory || filterProject || filterAccount) && (
           <button
             onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterAccount('') }}
-            className="h-8 px-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-xs transition-all"
+            className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs transition-all"
           >
-            清除
+            {t('stats.filter.clear')}
           </button>
         )}
       </div>
@@ -373,24 +378,24 @@ export default function StatsPage() {
       {/* Summary cards — Premium: flat, clean */}
       <StaggerContainer className="grid grid-cols-3 gap-3">
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度收入</p>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">{t('stats.yearlyIncome')}</p>
           <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
           </p>
         </div>
         </StaggerItem>
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">年度支出</p>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">{t('stats.yearlyExpense')}</p>
           <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
           </p>
         </div>
         </StaggerItem>
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-wider font-semibold">净结余</p>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">{t('stats.yearlyNet')}</p>
           <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600' : 'text-orange-500'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
@@ -399,23 +404,23 @@ export default function StatsPage() {
       </StaggerContainer>
 
       {/* Monthly bar chart — Premium */}
-      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="font-semibold text-gray-800">{year} 年月度收支</h2>
-            <p className="text-xs text-gray-400 mt-0.5">按月统计收入与支出</p>
+            <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.monthlyTitle', { year })}</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('stats.chart.monthlySubtitle')}</p>
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400">
+          <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#22c55e' }} />收入
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#f43f5e' }} />支出
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
             </span>
           </div>
         </div>
         {monthly.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-10">暂无数据</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-10">{t('stats.noData')}</p>
         ) : (
           <MonthlyBarChart data={monthly} fmt={fmt} fmtShort={fmtShort} />
         )}
@@ -423,16 +428,16 @@ export default function StatsPage() {
 
       {/* Income vs expense overview pie */}
       {monthly.length > 0 && totalIncome + totalExpense > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
-          <h2 className="font-semibold text-gray-800 mb-4">收支比例</h2>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.pieTitle')}</h2>
           <div className="flex items-center gap-6">
             <div className="w-32 h-32 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={[
-                      { name: '收入', value: totalIncome },
-                      { name: '支出', value: totalExpense },
+                      { name: t('stats.pie.incomeLabel'), value: totalIncome },
+                      { name: t('stats.pie.expenseLabel'), value: totalExpense },
                     ]}
                     dataKey="value"
                     cx="50%" cy="50%"
@@ -445,7 +450,7 @@ export default function StatsPage() {
                     <Cell fill="#f43f5e" />
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -453,30 +458,30 @@ export default function StatsPage() {
             <div className="space-y-3 flex-1">
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="flex items-center gap-2 text-gray-500 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#22c55e' }} />收入
+                  <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
                   </span>
                   <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(totalIncome)}</span>
                 </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div className="h-full rounded-full" style={{ background: '#22c55e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="flex items-center gap-2 text-gray-500 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#f43f5e' }} />支出
+                  <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
                   </span>
                   <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(totalExpense)}</span>
                 </div>
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div className="h-full rounded-full" style={{ background: '#f43f5e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               {totalReimbursed > 0 && (
-                <div className="pt-1 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>已报销抵扣</span>
+                <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
+                    <span>{t('stats.reimbursed')}</span>
                     <span className="font-semibold text-violet-500 tabular-nums whitespace-nowrap">+{fmt(totalReimbursed)}</span>
                   </div>
                 </div>
@@ -487,10 +492,10 @@ export default function StatsPage() {
       )}
 
       {/* Category pie chart — Premium */}
-      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-800 mb-4">分类支出</h2>
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
+        <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.categoryTitle')}</h2>
         {categories.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
         ) : (
           <div className="flex flex-col md:flex-row gap-6 items-start">
             <div className="w-full md:w-64 h-44 md:h-56 shrink-0">
@@ -510,7 +515,7 @@ export default function StatsPage() {
                     ))}
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -522,17 +527,17 @@ export default function StatsPage() {
                     <div key={c.category} className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                        <span className="text-sm font-medium text-gray-700 truncate">{c.category}</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{c.category}</span>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-sm font-bold text-gray-800 tabular-nums">{fmt(c.total)}</span>
-                        <span className="text-xs text-gray-400 ml-1.5">{c.count} 笔</span>
+                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200 tabular-nums">{fmt(c.total)}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{t('stats.transactionUnit', { count: c.count })}</span>
                       </div>
                     </div>
                   ))}
                 </div>
                 {categories.length > 6 && (
-                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent rounded-b" />
+                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-[hsl(260,15%,11%)] to-transparent rounded-b" />
                 )}
               </div>
             </div>
@@ -541,30 +546,30 @@ export default function StatsPage() {
       </div>
 
       {/* Project breakdown — Premium */}
-      <div className="bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">项目汇总</h2>
-          <span className="text-xs text-gray-400">{projects.length} 个项目</span>
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.projectTitle')}</h2>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{t('stats.projectCount', { count: projects.length })}</span>
         </div>
         {projects.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">暂无数据</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[320px]">
             <thead>
-              <tr className="bg-gray-50/80 text-gray-400 text-xs uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-3 text-left font-semibold">项目</th>
-                <th className="px-5 py-3 text-right font-semibold">收入</th>
-                <th className="px-5 py-3 text-right font-semibold">支出</th>
-                <th className="px-5 py-3 text-right font-semibold">结余</th>
+              <tr className="bg-gray-50/80 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100 dark:border-gray-800/50">
+                <th className="px-5 py-3 text-left font-semibold">{t('stats.project.name')}</th>
+                <th className="px-5 py-3 text-right font-semibold">{t('stats.project.income')}</th>
+                <th className="px-5 py-3 text-right font-semibold">{t('stats.project.expense')}</th>
+                <th className="px-5 py-3 text-right font-semibold">{t('stats.project.net')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
               {projects.map((p) => (
-                <tr key={p.project_id} className="hover:bg-gray-50/60 transition-colors">
+                <tr key={p.project_id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-gray-700">{p.project_id}</p>
-                    {p.project_name && <p className="text-xs text-gray-400 mt-0.5">{p.project_name}</p>}
+                    <p className="font-medium text-gray-700 dark:text-gray-300">{p.project_id}</p>
+                    {p.project_name && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.project_name}</p>}
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     <span className="text-indigo-600 font-medium tabular-nums whitespace-nowrap">
@@ -578,7 +583,7 @@ export default function StatsPage() {
                   </td>
                   <td className="px-5 py-3.5 text-right">
                     <span className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs ${
-                      p.net >= 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-600'
+                      p.net >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
                     }`}>
                       <CompactAmount compact={fmtShort(p.net)} exact={fmtExact(p.net)} prefix={p.net >= 0 ? '+' : ''} />
                     </span>

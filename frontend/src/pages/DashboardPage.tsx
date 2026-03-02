@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
@@ -54,133 +55,69 @@ const FEATURES = [
   {
     to: '/transactions',
     Icon: IconList,
-    title: '交易明细',
-    desc: '查看、筛选所有收支记录，标记上传与报销状态',
-    color: 'bg-violet-50 border-violet-100',
-    iconBg: 'bg-violet-100 text-violet-600',
+    titleKey: 'dashboard.features.smartAccounting.title',
+    descKey: 'dashboard.features.smartAccounting.desc',
+    color: 'bg-violet-50 dark:bg-violet-500/10 border-violet-100 dark:border-violet-500/20',
+    iconBg: 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400',
   },
   {
     to: '/add',
     Icon: IconPlus,
-    title: '添加交易',
-    desc: '新增一笔收入或支出，支持多类别与项目归属',
-    color: 'bg-emerald-50 border-emerald-100',
-    iconBg: 'bg-emerald-100 text-emerald-500',
+    titleKey: 'dashboard.features.reimbursement.title',
+    descKey: 'dashboard.features.reimbursement.desc',
+    color: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20',
+    iconBg: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400',
   },
   {
     to: '/match',
     Icon: IconSearch,
-    title: '子集匹配',
-    desc: '输入报销总额，自动寻找与之精确匹配的交易组合',
-    color: 'bg-purple-50 border-purple-100',
-    iconBg: 'bg-purple-100 text-purple-600',
+    titleKey: 'dashboard.features.smartMatch.title',
+    descKey: 'dashboard.features.smartMatch.desc',
+    color: 'bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20',
+    iconBg: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400',
   },
   {
     to: '/stats',
     Icon: IconChart,
-    title: '统计分析',
-    desc: '月度趋势、分类支出和项目汇总可视化报告',
-    color: 'bg-orange-50 border-orange-100',
-    iconBg: 'bg-orange-100 text-orange-600',
+    titleKey: 'dashboard.features.dataVisualization.title',
+    descKey: 'dashboard.features.dataVisualization.desc',
+    color: 'bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20',
+    iconBg: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400',
   },
 ]
 
-// ─── Time-based greeting generator ─────────────────────────────────────────
-function generateGreeting() {
+// ─── Time-based greeting key selector ─────────────────────────────────────
+function getGreetingKey() {
   const hour = new Date().getHours()
-  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
-
-  let timeGreeting: string
-  let subMessage: string
-
-  if (hour >= 5 && hour < 9) {
-    timeGreeting = pick(['早安', '早上好', '清晨好'])
-    subMessage = pick([
-      '新的一天，充满可能 ✨',
-      '美好的早晨，精神满满！',
-      '今天也是元气满满的一天',
-      '一日之计在于晨，加油！',
-      '阳光正好，微风不燥',
-    ])
-  } else if (hour >= 9 && hour < 11) {
-    timeGreeting = pick(['上午好', '早上好'])
-    subMessage = pick([
-      '高效工作，专注当下',
-      '愿一切顺顺利利',
-      '上午效率最高，好好把握',
-      '保持专注，你很棒',
-    ])
-  } else if (hour >= 11 && hour < 13) {
-    timeGreeting = pick(['中午好', '午安'])
-    subMessage = pick([
-      '别忘了吃午饭哦 🍱',
-      '适当休息，下午更有活力',
-      '午间充电，养足精神',
-      '记得补充能量，劳逸结合',
-    ])
-  } else if (hour >= 13 && hour < 17) {
-    timeGreeting = pick(['下午好'])
-    subMessage = pick([
-      '来杯下午茶提提神 ☕',
-      '下午也要保持好状态',
-      '坚持就是胜利，加油！',
-      '下午过半了，继续加油',
-      '困了就活动活动筋骨',
-    ])
-  } else if (hour >= 17 && hour < 19) {
-    timeGreeting = pick(['傍晚好', '下午好'])
-    subMessage = pick([
-      '忙碌一天，辛苦了',
-      '快到下班时间啦 🌇',
-      '整理一下今天的收支吧',
-      '日落时分，放慢脚步',
-    ])
-  } else if (hour >= 19 && hour < 22) {
-    timeGreeting = pick(['晚上好'])
-    subMessage = pick([
-      '忙碌一天，放松一下',
-      '吃晚饭了吗？别饿着肚子',
-      '今天辛苦了，好好休息',
-      '夜间时光，属于自己 🌙',
-    ])
-  } else if (hour >= 22 || hour === 0) {
-    timeGreeting = pick(['夜深了', '晚安'])
-    subMessage = pick([
-      '早点休息，明天会更好',
-      '别熬夜哦，身体最重要 🌙',
-      '注意休息，晚安',
-      '夜已深，早些歇息吧',
-      '忙完了就早点睡吧',
-    ])
-  } else {
-    // 1:00–4:59 凌晨
-    timeGreeting = pick(['凌晨了', '夜很深了'])
-    subMessage = pick([
-      '这么晚还在忙？注意身体 💤',
-      '熬夜伤身哦，快去睡吧',
-      '凌晨了，记得早点休息',
-      '身体是革命的本钱，别太拼了',
-      '夜猫子也要按时休息呀 🦉',
-    ])
-  }
-
-  return { timeGreeting, subMessage }
+  if (hour >= 1 && hour < 5)   return 'dawn'
+  if (hour >= 5 && hour < 8)   return 'earlyMorning'
+  if (hour >= 8 && hour < 11)  return 'morning'
+  if (hour >= 11 && hour < 12) return 'beforeNoon'
+  if (hour >= 12 && hour < 14) return 'lunch'
+  if (hour >= 14 && hour < 18) return 'afternoon'
+  if (hour >= 18 && hour < 21) return 'evening'
+  return 'night' // 21-0, 0-1
 }
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
+  const { t, i18n } = useTranslation()
 
   // Device heartbeat — keeps this device marked as online
   useHeartbeat()
   const { data: onlineDeviceCount } = useOnlineDevices()
 
-  // Greeting — generated once per mount, stable across re-renders
-  const [greeting] = useState(generateGreeting)
+  // Greeting — generated once per mount, pick random from i18n array
+  const [greetingKey] = useState(getGreetingKey)
+  const greetingMessages = t(`dashboard.greeting.${greetingKey}`, { returnObjects: true }) as string[]
+  const [greetingIdx] = useState(() => Math.floor(Math.random() * greetingMessages.length))
+  const greetingText = greetingMessages[greetingIdx] || greetingMessages[0]
+
   const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
   const { data: accounts = [] } = useAccounts()
   const error = txError
-    ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '数据加载失败，请刷新页面重试')
+    ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.error'))
     : ''
 
   // Use server-side cached account balances
@@ -236,13 +173,11 @@ export default function DashboardPage() {
     const now = Date.now()
     const DAY = 86400000
 
-    // Calculate amounts
     const notUploadedAmount = notUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
     const uploadedNotReimbursedAmount = uploadedNotReimbursed.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
     const companyNotUploadedAmount = companyNotUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
     const companyUploadedAmount = companyUploadedNotReimbursed.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
 
-    // Find oldest pending dates
     const oldestDate = (txs: typeof transactions) => {
       if (txs.length === 0) return null
       const dates = txs.map(t => new Date(t.occurred_at).getTime()).filter(d => !isNaN(d))
@@ -256,62 +191,21 @@ export default function DashboardPage() {
 
     const daysSince = (ts: number | null) => ts ? Math.floor((now - ts) / DAY) : 0
 
-    // Generate smart sub-messages
-    const notUploadedSub = (() => {
-      if (notUploaded.length === 0) return ''
-      const days = daysSince(oldestNotUploaded)
-      const amt = fmtExact(notUploadedAmount)
-      if (days > 30) return `累计 ${amt}，最早一笔已超 ${days} 天，建议尽快上传避免遗漏`
-      if (days > 14) return `累计 ${amt}，部分已超两周，及时上传以免影响报销进度`
-      if (days > 7) return `累计 ${amt}，有超过一周的记录待上传`
-      if (notUploaded.length >= 10) return `累计 ${amt}，积累较多，建议批量上传处理`
-      if (notUploadedAmount >= 5000) return `累计 ${amt}，金额较大，建议优先处理`
-      return `累计 ${amt}，上传后才可进入报销流程`
-    })()
+    const notUploadedSub = notUploaded.length > 0 ? fmtExact(notUploadedAmount) : ''
+    const uploadedNotReimbursedSub = uploadedNotReimbursed.length > 0 ? fmtExact(uploadedNotReimbursedAmount) : ''
+    const companyNotUploadedSub = companyNotUploaded.length > 0 ? fmtExact(companyNotUploadedAmount) : ''
+    const companyUploadedSub = companyUploadedNotReimbursed.length > 0 ? fmtExact(companyUploadedAmount) : ''
 
-    const uploadedNotReimbursedSub = (() => {
-      if (uploadedNotReimbursed.length === 0) return ''
-      const days = daysSince(oldestUploaded)
-      const amt = fmtExact(uploadedNotReimbursedAmount)
-      if (days > 60) return `累计 ${amt}，最早一笔已超 ${days} 天，请确认报销单是否提交`
-      if (days > 30) return `累计 ${amt}，已等待超一个月，建议跟进报销进度`
-      if (days > 14) return `累计 ${amt}，等待超两周，可用子集匹配组合报销`
-      if (uploadedNotReimbursed.length >= 5) return `累计 ${amt}，已有 ${uploadedNotReimbursed.length} 笔可组合，试试智能匹配`
-      return `累计 ${amt}，使用子集匹配找到最佳报销组合`
-    })()
-
-    const companyNotUploadedSub = (() => {
-      if (companyNotUploaded.length === 0) return ''
-      const days = daysSince(oldestCompanyNotUploaded)
-      const amt = fmtExact(companyNotUploadedAmount)
-      if (days > 30) return `累计 ${amt}，最早已超 ${days} 天，请尽快在系统中登记`
-      if (days > 7) return `累计 ${amt}，部分超一周未上传，注意及时处理`
-      if (companyNotUploaded.length >= 5) return `累计 ${amt}，${companyNotUploaded.length} 笔待上传，建议集中处理`
-      return `累计 ${amt}，上传到系统后方可进行报销结算`
-    })()
-
-    const companyUploadedSub = (() => {
-      if (companyUploadedNotReimbursed.length === 0) return ''
-      const days = daysSince(oldestCompanyUploaded)
-      const amt = fmtExact(companyUploadedAmount)
-      if (days > 30) return `累计 ${amt}，已提交超一个月，建议确认结算进度`
-      if (days > 14) return `累计 ${amt}，等待超两周，可关注结算状态`
-      return `累计 ${amt}，已提交系统，等待财务结算`
-    })()
-
-    // Urgency level for header
     const maxDays = Math.max(daysSince(oldestNotUploaded), daysSince(oldestUploaded), daysSince(oldestCompanyNotUploaded), daysSince(oldestCompanyUploaded))
     const totalPending = notUploaded.length + uploadedNotReimbursed.length + companyNotUploaded.length + companyUploadedNotReimbursed.length
     const totalAmount = notUploadedAmount + uploadedNotReimbursedAmount + companyNotUploadedAmount + companyUploadedAmount
 
     let headerHint = ''
-    if (maxDays > 30) headerHint = `⚠️ 有超过 ${maxDays} 天未处理的事项`
-    else if (totalAmount >= 10000) headerHint = `共 ${totalPending} 项待处理，累计 ${fmtExact(totalAmount)}`
-    else if (totalPending >= 8) headerHint = `共 ${totalPending} 项待处理，建议抽空集中处理`
-    else if (totalPending > 0) headerHint = `共 ${totalPending} 项待处理`
+    if (maxDays > 30) headerHint = `⚠️ ${maxDays}d+`
+    else if (totalPending > 0) headerHint = `${totalPending} ${t('dashboard.pending.title').toLowerCase()} · ${fmtExact(totalAmount)}`
 
     return { notUploadedSub, uploadedNotReimbursedSub, companyNotUploadedSub, companyUploadedSub, headerHint }
-  }, [notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates])
+  }, [notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates, t])
 
   if (loading) {
     return (
@@ -326,39 +220,40 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-6 text-sm">
-        <p className="font-semibold mb-1">加载失败</p>
+      <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 rounded-xl p-6 text-sm">
+        <p className="font-semibold mb-1">{t('common.error')}</p>
         <p>{error}</p>
       </div>
     )
   }
 
+  const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
+
   return (
     <div className="space-y-6">
-            {/* Hero Header — Premium gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20">
+            {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20 dark:shadow-violet-900/30">
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
         <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-fuchsia-400/20 rounded-full blur-2xl" />
         <BrandWatermark className="absolute -bottom-2 right-4 opacity-[0.08]" opacity={0.12} />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-white/70 text-xs font-medium">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="text-white/70 text-xs font-medium">{new Date().toLocaleDateString(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
               {onlineDeviceCount != null && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 backdrop-blur-sm inline-flex items-center gap-1">
                   <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300"></span></span>
-                  {onlineDeviceCount} 设备
+                  {t('common.devices', { count: onlineDeviceCount })}
                 </span>
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greeting.timeGreeting}，{user?.nickname || user?.username || user?.email?.split('@')[0]}</h1>
-            <p className="text-white/60 text-xs mt-1">{greeting.subMessage}</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greetingText}{i18n.language === 'zh' ? '，' : ', '}{user?.nickname || user?.username || user?.email?.split('@')[0]}</h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {ratesLoading
-                ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">汇率加载中…</span>
+                ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">{t('dashboard.hero.exRateLoading')}</span>
                 : rateDate
                   ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium">💱 $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
+                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">{t('dashboard.hero.exRateFallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
               }
             </div>
           </div>
@@ -366,123 +261,119 @@ export default function DashboardPage() {
             to="/add"
             className="shrink-0 bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all border border-white/20"
           >
-            + 添加
+            {t('dashboard.addButton')}
           </Link>
         </div>
       </div>
 
-      {/* Balance cards — 2×2 grid — Premium */}
+      {/* Balance cards — 2×2 grid */}
       <StaggerContainer className="grid grid-cols-2 gap-3">
-        {/* 公共账户余额 */}
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公共账户</p>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('dashboard.balance.public')}</p>
           </div>
-          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+          <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
             <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
           </p>
-          <p className="text-[11px] text-gray-400 mt-1.5">当前可用资金</p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
         </div>
         </StaggerItem>
-        {/* 个人总垫付 */}
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div className="w-8 h-8 rounded-xl bg-violet-50 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">个人总垫付</p>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('dashboard.balance.personalAdvance')}</p>
           </div>
-          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+          <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
             <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
           </p>
           <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] text-emerald-500 font-medium tabular-nums">已报销 {fmtCompact(personalReimbursed)}</span>
+            <span className="text-[11px] text-emerald-500 dark:text-emerald-400 font-medium tabular-nums">{t('transactions.badges.reimbursed')} {fmtCompact(personalReimbursed)}</span>
           </div>
         </div>
         </StaggerItem>
-        {/* 个人待报销 */}
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">个人待报销</p>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('dashboard.balance.personalPending')}</p>
           </div>
-          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+          <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
             <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
           </p>
-          <p className="text-[11px] text-gray-400 mt-1.5">个人垫付未报销</p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
         </div>
         </StaggerItem>
-        {/* 公共待报销 */}
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
             </div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">公共待报销</p>
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('dashboard.balance.publicPending')}</p>
           </div>
-          <p className="text-xl md:text-2xl font-bold text-gray-800 leading-tight tabular-nums whitespace-nowrap truncate">
+          <p className="text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
             <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
           </p>
-          <p className="text-[11px] text-gray-400 mt-1.5">公共支出未结算</p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
         </div>
         </StaggerItem>
       </StaggerContainer>
 
-      {/* Pending action hints — Smart context-aware */}
+      {/* Pending action hints */}
       {hasPending && (
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">待处理事项</h2>
+            <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('dashboard.pending.title')}</h2>
             {pendingAnalysis.headerHint && (
-              <span className="text-[10px] text-gray-400 font-medium">{pendingAnalysis.headerHint}</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{pendingAnalysis.headerHint}</span>
             )}
           </div>
           <div className="space-y-2">
             {notUploaded.length > 0 && (
-              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-100 hover:border-amber-300 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0"><IconUpload /></span>
+              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-400/40 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-800">{notUploaded.length} 笔个人垫付尚未上传</p>
-                  <p className="text-xs text-amber-600 mt-0.5">{pendingAnalysis.notUploadedSub}</p>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{notUploaded.length} {t('transactions.badges.notUploaded')}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400/70 mt-0.5">{pendingAnalysis.notUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
             {uploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 border border-violet-100 hover:border-violet-300 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0"><IconSearch /></span>
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-100 dark:border-violet-500/20 hover:border-violet-300 dark:hover:border-violet-400/40 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-violet-800">{uploadedNotReimbursed.length} 笔个人垫付已上传待报销</p>
-                  <p className="text-xs text-violet-600 mt-0.5">{pendingAnalysis.uploadedNotReimbursedSub}</p>
+                  <p className="text-sm font-medium text-violet-800 dark:text-violet-300">{uploadedNotReimbursed.length} {t('transactions.badges.pending')}</p>
+                  <p className="text-xs text-violet-600 dark:text-violet-400/70 mt-0.5">{pendingAnalysis.uploadedNotReimbursedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
             {companyNotUploaded.length > 0 && (
-              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-violet-300 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"><IconUpload /></span>
+              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-500/10 border border-slate-200 dark:border-slate-500/20 hover:border-violet-300 dark:hover:border-violet-400/40 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700">{companyNotUploaded.length} 笔公共支出未上传</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{pendingAnalysis.companyNotUploadedSub}</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{companyNotUploaded.length} {t('common.company')} {t('transactions.badges.notUploaded')}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400/70 mt-0.5">{pendingAnalysis.companyNotUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
             {companyUploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 hover:border-emerald-300 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><IconSearch /></span>
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-400/40 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-emerald-800">{companyUploadedNotReimbursed.length} 笔公共支出已上传待报销</p>
-                  <p className="text-xs text-emerald-600 mt-0.5">{pendingAnalysis.companyUploadedSub}</p>
+                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{companyUploadedNotReimbursed.length} {t('common.company')} {t('transactions.badges.pending')}</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400/70 mt-0.5">{pendingAnalysis.companyUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
@@ -491,20 +382,20 @@ export default function DashboardPage() {
         </div>
       )}
       {allClear && (
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0"><IconCheck /></span>
+            <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconCheck /></span>
             <div>
-              <p className="text-sm font-medium text-gray-700">所有事项已处理完毕</p>
-              <p className="text-xs text-gray-400 mt-0.5">暂无待上传或待报销的记录，保持下去！</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('dashboard.pending.noPending')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('dashboard.pending.tip')}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Feature guide — Premium: clean, flat */}
-      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
-        <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">功能导航</h2>
+      {/* Feature guide */}
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4 uppercase tracking-wider">{t('dashboard.featureNavTitle')}</h2>
         <div className="grid grid-cols-2 gap-3">
           {FEATURES.map((f) => (
             <AnimatedCard
@@ -513,14 +404,14 @@ export default function DashboardPage() {
             >
             <Link
               to={f.to}
-              className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 transition-all hover:border-violet-200 hover:shadow-md hover:shadow-violet-100/30 group bg-white"
+              className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 transition-all hover:border-violet-200 dark:hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-100/30 dark:hover:shadow-violet-900/20 group bg-white dark:bg-transparent"
             >
               <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
                 <f.Icon />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-700">{f.title}</p>
-                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{f.desc}</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(f.titleKey)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(f.descKey)}</p>
               </div>
             </Link>
             </AnimatedCard>
@@ -528,58 +419,54 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Workflow guide — Premium */}
-      <div className="bg-white rounded-2xl border border-gray-100/80 p-5 shadow-sm hover:shadow-md transition-shadow">
-        <h2 className="text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">使用流程</h2>
+      {/* Workflow guide */}
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4 uppercase tracking-wider">{t('dashboard.workflowTitle')}</h2>
         <div className="space-y-4">
-          {/* Personal advance flow */}
           <div>
             <div className="flex items-center gap-1.5 mb-2.5">
               <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-              <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">个人垫付</p>
+              <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">{t('dashboard.workflow.personalTitle')}</p>
             </div>
             <div className="grid grid-cols-2 gap-2 md:flex md:items-start md:gap-0">
               {([
-                { step: '1', Icon: IconPen,    title: '记录垫付', desc: '添加个人垫付支出，填写类别和项目' },
-                { step: '2', Icon: IconUpload, title: '标记上传', desc: '在明细中标记已上传到报销系统' },
-                { step: '3', Icon: IconSearch, title: '子集匹配', desc: '输入报销单总额，自动找到对应组合' },
-                { step: '4', Icon: IconCheck,  title: '完成报销', desc: '确认报销完成，标记相关交易已报销' },
+                { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.personalStep1' },
+                { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.personalStep2' },
+                { step: '3', Icon: IconSearch, titleKey: 'dashboard.workflow.personalStep3' },
+                { step: '4', Icon: IconCheck, titleKey: 'dashboard.workflow.personalStep4' },
               ] as const).map((s, i, arr) => (
-                <div key={s.step} className="bg-amber-50/60 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
+                <div key={s.step} className="bg-amber-50/60 dark:bg-amber-500/5 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
                   <div className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 md:w-7 md:h-7">{s.step}</div>
                   <div className="md:text-center md:mt-1.5 md:px-1">
-                    <div className="text-amber-500 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
-                    <p className="text-xs font-semibold text-gray-700">{s.title}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{s.desc}</p>
+                    <div className="text-amber-500 dark:text-amber-400 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t(s.titleKey)}</p>
                   </div>
-                  {i < arr.length - 1 && <div className="hidden md:block flex-1 h-px bg-gray-200 mt-3.5 mx-1" />}
+                  {i < arr.length - 1 && <div className="hidden md:block flex-1 h-px bg-gray-200 dark:bg-gray-700 mt-3.5 mx-1" />}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="border-t border-gray-100" />
+          <div className="border-t border-gray-100 dark:border-gray-800" />
 
-          {/* Company account flow */}
           <div>
             <div className="flex items-center gap-1.5 mb-2.5">
               <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
-              <p className="text-[11px] font-semibold text-sky-600 uppercase tracking-wider">公共账户</p>
+              <p className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">{t('dashboard.workflow.companyTitle')}</p>
             </div>
             <div className="grid grid-cols-3 gap-2 md:flex md:items-start md:gap-0">
               {([
-                { step: '1', Icon: IconPen,    title: '设置账户', desc: '在设置页创建公共资金账户' },
-                { step: '2', Icon: IconUpload, title: '记录收支', desc: '添加公共账户的收入与支出' },
-                { step: '3', Icon: IconCheck,  title: '查看汇总', desc: '总览实时显示账户余额与待结算金额' },
+                { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1' },
+                { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.companyStep2' },
+                { step: '3', Icon: IconCheck, titleKey: 'dashboard.workflow.companyStep3' },
               ] as const).map((s, i, arr) => (
-                <div key={s.step} className="bg-sky-50/60 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
+                <div key={s.step} className="bg-sky-50/60 dark:bg-sky-500/5 rounded-xl p-2.5 flex items-start gap-2 md:flex-col md:items-center md:flex-1 md:bg-transparent md:p-0">
                   <div className="w-5 h-5 rounded-full bg-sky-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0 md:w-7 md:h-7">{s.step}</div>
                   <div className="md:text-center md:mt-1.5 md:px-1">
-                    <div className="text-sky-500 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
-                    <p className="text-xs font-semibold text-gray-700">{s.title}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{s.desc}</p>
+                    <div className="text-sky-500 dark:text-sky-400 mb-0.5 md:flex md:justify-center"><s.Icon /></div>
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{t(s.titleKey)}</p>
                   </div>
-                  {i < arr.length - 1 && <div className="hidden md:block flex-1 h-px bg-gray-200 mt-3.5 mx-1" />}
+                  {i < arr.length - 1 && <div className="hidden md:block flex-1 h-px bg-gray-200 dark:bg-gray-700 mt-3.5 mx-1" />}
                 </div>
               ))}
             </div>

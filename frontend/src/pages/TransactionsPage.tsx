@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction, Account } from '../api/client'
 import { StaggerContainer, StaggerItem, CardSkeleton, RowSkeleton } from '../motion'
@@ -17,20 +18,20 @@ type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
-  onClick, disabled, loading, locked,
+  onClick, disabled, loading, locked, lockedTitle,
 }: {
   active: boolean; activeLabel: string; inactiveLabel: string
   activeClass: string; inactiveClass: string
-  onClick: () => void; disabled?: boolean; loading?: boolean; locked?: boolean
+  onClick: () => void; disabled?: boolean; loading?: boolean; locked?: boolean; lockedTitle?: string
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      title={locked ? '请先取消报销状态' : undefined}
+      title={locked ? lockedTitle : undefined}
       className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 ease-in-out transform active:scale-95 ${
         disabled && !loading ? 'opacity-40 cursor-not-allowed' : ''
-      } ${locked ? 'opacity-50 cursor-not-allowed ring-1 ring-gray-200' : ''} ${active ? activeClass : inactiveClass}`}
+      } ${locked ? 'opacity-50 cursor-not-allowed ring-1 ring-gray-200 dark:ring-gray-600' : ''} ${active ? activeClass : inactiveClass}`}
     >
       {loading ? (
         <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -47,6 +48,7 @@ function StatusBadge({
 }
 
 export default function TransactionsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { rates } = useExchangeRates()
   const { data: txs = [], isLoading: loading } = useTransactions()
@@ -111,9 +113,9 @@ export default function TransactionsPage() {
   const fmt = (t: Transaction) => formatAmount(t.amount_yuan, t.currency)
 
   function exportPDF() {
-    const parts: string[] = [{ all: '全部', unreimbursed: '待报销', reimbursed: '已报销' }[filter]]
-    if (filterCategory) parts.push(`类别: ${filterCategory}`)
-    if (filterProject) parts.push(`项目: ${filterProject}`)
+    const parts: string[] = [{ all: t('transactions.reimbursementTabs.all'), unreimbursed: t('transactions.reimbursementTabs.pending'), reimbursed: t('transactions.reimbursementTabs.done') }[filter]]
+    if (filterCategory) parts.push(`${t('transactions.table.category')}: ${filterCategory}`)
+    if (filterProject) parts.push(`${t('transactions.table.project')}: ${filterProject}`)
     exportTransactionsPDF(filtered, parts.join(' · '), user, rates)
   }
 
@@ -123,7 +125,7 @@ export default function TransactionsPage() {
       await toggleReimbursed(id)
       invalidate()
     } catch {
-      toast.error('报销状态切换失败')
+      toast.error(t('transactions.toast.reimbursedError'))
     } finally {
       setTogglingId(null)
     }
@@ -133,7 +135,7 @@ export default function TransactionsPage() {
     // Rollback protection: if uploaded AND reimbursed, must cancel reimburse first
     const tx = txs.find(t => t.id === id)
     if (tx && tx.uploaded && tx.reimbursed) {
-      toast.error('请先取消报销状态，再取消上传')
+      toast.error(t('transactions.toast.cancelReimburseFirst'))
       return
     }
     setTogglingId(id)
@@ -142,7 +144,7 @@ export default function TransactionsPage() {
       invalidate()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(msg || '上传状态切换失败，请确认后端已重启')
+      toast.error(msg || t('transactions.toast.uploadError'))
     } finally {
       setTogglingId(null)
     }
@@ -156,9 +158,9 @@ export default function TransactionsPage() {
   }
 
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
-    { key: 'all', label: '全部', count: txs.length },
-    { key: 'unreimbursed', label: '待报销', count: txs.filter(t => !t.reimbursed).length },
-    { key: 'reimbursed', label: '已报销', count: txs.filter(t => t.reimbursed).length },
+    { key: 'all', label: t('transactions.reimbursementTabs.all'), count: txs.length },
+    { key: 'unreimbursed', label: t('transactions.reimbursementTabs.pending'), count: txs.filter(t => !t.reimbursed).length },
+    { key: 'reimbursed', label: t('transactions.reimbursementTabs.done'), count: txs.filter(t => t.reimbursed).length },
   ]
 
   const incomeItems = filtered.filter(t => t.direction === 'income')
@@ -171,67 +173,67 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">交易明细</h1>
-          <p className="text-sm text-gray-400 mt-0.5 hidden sm:block">管理所有收入与支出记录</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('transactions.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5 hidden sm:block">{t('transactions.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={exportPDF}
             disabled={loading || filtered.length === 0}
-            className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-3.5 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="导出当前筛选结果为 PDF"
+            className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold px-3.5 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={t('transactions.exportTooltip')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             </svg>
-            <span className="hidden sm:inline">导出 PDF</span>
+            <span className="hidden sm:inline">{t('transactions.exportPdf')}</span>
           </button>
           <Link
             to="/add"
-            className="shrink-0 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-violet-300/30"
+            className="shrink-0 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-violet-300/30 dark:shadow-violet-900/30"
           >
-            + 添加
+            {t('common.add')}
           </Link>
         </div>
       </div>
 
-      {/* Summary cards — Premium */}
+      {/* Summary cards */}
       <StaggerContainer className="grid grid-cols-3 gap-2 md:gap-3">
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
-          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">筛选结果</p>
-          <p className="text-lg md:text-2xl font-bold text-gray-700">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400">笔</span></p>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 md:p-4 shadow-sm">
+          <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1 md:mb-2">{t('transactions.summary.filtered')}</p>
+          <p className="text-lg md:text-2xl font-bold text-gray-700 dark:text-gray-200">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400 dark:text-gray-500">{t('transactions.unit')}</span></p>
         </div>
         </StaggerItem>
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
-          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">收入</p>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 md:p-4 shadow-sm">
+          <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1 md:mb-2">{t('transactions.summary.income')}</p>
           <p className="text-sm md:text-2xl font-bold text-emerald-500 tabular-nums truncate">{totalIncomeStr}</p>
         </div>
         </StaggerItem>
         <StaggerItem>
-        <div className="bg-white rounded-2xl border border-gray-100/80 p-3 md:p-4 shadow-sm">
-          <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider mb-1 md:mb-2">支出</p>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 md:p-4 shadow-sm">
+          <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1 md:mb-2">{t('transactions.summary.expense')}</p>
           <p className="text-sm md:text-2xl font-bold text-rose-500 tabular-nums truncate">{totalExpenseStr}</p>
         </div>
         </StaggerItem>
       </StaggerContainer>
 
       {/* Tabs */}
-      <div className="flex rounded-xl bg-gray-100 p-1 gap-0.5 w-fit">
-        {tabs.map((t) => (
+      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 gap-0.5 w-fit">
+        {tabs.map((tb) => (
           <button
-            key={t.key}
-            onClick={() => setFilter(t.key)}
+            key={tb.key}
+            onClick={() => setFilter(tb.key)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              filter === t.key ? 'bg-white shadow text-violet-600' : 'text-gray-500 hover:text-gray-700'
+              filter === tb.key ? 'bg-white dark:bg-gray-700 shadow text-violet-600 dark:text-violet-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
-            {t.label}
-            {t.count !== undefined && (
+            {tb.label}
+            {tb.count !== undefined && (
               <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold tabular-nums ${
-                filter === t.key ? 'bg-violet-100 text-violet-600' : 'bg-gray-200 text-gray-500'
-              }`}>{t.count}</span>
+                filter === tb.key ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+              }`}>{tb.count}</span>
             )}
           </button>
         ))}
@@ -239,7 +241,7 @@ export default function TransactionsPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Source filter (个人/公共) */}
+        {/* Source filter */}
         <div className="w-24">
           <Select
             value={filterSource}
@@ -247,13 +249,13 @@ export default function TransactionsPage() {
               setFilterSource(v as '' | 'personal' | 'company')
               setFilterAccount('')
             }}
-            placeholder="全部来源"
+            placeholder={t('transactions.filterPlaceholders.source')}
             size="sm"
             activeHighlight
             options={[
-              { value: '', label: '全部来源' },
-              { value: 'personal', label: '个人' },
-              { value: 'company', label: '公共' },
+              { value: '', label: t('transactions.filterPlaceholders.source') },
+              { value: 'personal', label: t('common.personal') },
+              { value: 'company', label: t('common.company') },
             ]}
           />
         </div>
@@ -264,11 +266,11 @@ export default function TransactionsPage() {
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
-              placeholder="全部账户"
+              placeholder={t('transactions.filterPlaceholders.account')}
               size="sm"
               activeHighlight
               options={[
-                { value: '', label: '全部账户' },
+                { value: '', label: t('transactions.filterPlaceholders.account') },
                 ...filteredAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
               ]}
             />
@@ -281,11 +283,11 @@ export default function TransactionsPage() {
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
-              placeholder="全部类别"
+              placeholder={t('transactions.filterPlaceholders.category')}
               size="sm"
               activeHighlight
               options={[
-                { value: '', label: '全部类别' },
+                { value: '', label: t('transactions.filterPlaceholders.category') },
                 ...allCategories.map(c => ({ value: c, label: c })),
               ]}
             />
@@ -298,11 +300,11 @@ export default function TransactionsPage() {
             <Select
               value={filterProject}
               onChange={setFilterProject}
-              placeholder="全部项目"
+              placeholder={t('transactions.filterPlaceholders.project')}
               size="sm"
               activeHighlight
               options={[
-                { value: '', label: '全部项目' },
+                { value: '', label: t('transactions.filterPlaceholders.project') },
                 ...allProjects.map(p => ({ value: p, label: p })),
               ]}
             />
@@ -313,9 +315,9 @@ export default function TransactionsPage() {
         {(filterCategory || filterProject || filterSource || filterAccount) && (
           <button
             onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterSource(''); setFilterAccount('') }}
-            className="h-8 px-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-xs transition-all"
+            className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs transition-all"
           >
-            清除
+            {t('common.clear')}
           </button>
         )}
       </div>
@@ -328,8 +330,8 @@ export default function TransactionsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            <p className="text-sm text-gray-400">暂无记录</p>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200 dark:text-gray-700"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{t('transactions.noRecords')}</p>
           </div>
         ) : (
           <div
@@ -355,7 +357,7 @@ export default function TransactionsPage() {
                   }}
                 >
                   <div
-                    className={`bg-white rounded-2xl border border-gray-100/80 p-4 shadow-sm transition-opacity ${
+                    className={`bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 shadow-sm transition-opacity ${
                       done ? 'opacity-40' : ''
                     }`}
                   >
@@ -365,9 +367,9 @@ export default function TransactionsPage() {
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                           tx.direction === 'income' ? 'bg-emerald-400' : 'bg-rose-400'
                         }`} />
-                        <span className="font-semibold text-gray-800 text-sm truncate">{tx.category}</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{tx.category}</span>
                         {tx.project_id && (
-                          <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
+                          <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded shrink-0">
                             {tx.project_id}
                           </span>
                         )}
@@ -380,16 +382,16 @@ export default function TransactionsPage() {
                     </div>
                     {/* Row 2: date + source */}
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs text-gray-400 tabular-nums">{tx.occurred_at}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">{tx.occurred_at}</span>
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        tx.source === 'company' ? 'bg-sky-50 text-sky-600' : 'bg-amber-50 text-amber-600'
+                        tx.source === 'company' ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400' : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
                       }`}>
-                        {tx.source === 'company' ? '公共' : '个人'}
+                        {tx.source === 'company' ? t('common.company') : t('common.personal')}
                       </span>
                     </div>
-                    {/* Row 3: note (if any) */}
+                    {/* Row 3: note */}
                     {tx.note && (
-                      <p className="text-xs text-gray-400 mb-2.5 truncate">{tx.note}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-2.5 truncate">{tx.note}</p>
                     )}
                     {/* Row 4: action badges + copy ID */}
                     <div className="flex items-center gap-2 flex-wrap pt-0.5">
@@ -397,38 +399,39 @@ export default function TransactionsPage() {
                         <>
                           <StatusBadge
                             active={tx.uploaded}
-                            activeLabel="已上传"
-                            inactiveLabel="未上传"
-                            activeClass="bg-purple-100 text-purple-700"
-                            inactiveClass="bg-gray-100 text-gray-400"
+                            activeLabel={t('transactions.badges.uploaded')}
+                            inactiveLabel={t('transactions.badges.notUploaded')}
+                            activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300"
+                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggleUpload(tx.id)}
                             disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
                             loading={togglingId === tx.id}
                             locked={tx.uploaded && tx.reimbursed}
+                            lockedTitle={t('transactions.lockTitle')}
                           />
                           <StatusBadge
                             active={tx.reimbursed}
-                            activeLabel="已报销"
-                            inactiveLabel="待报销"
-                            activeClass="bg-emerald-100 text-emerald-700"
-                            inactiveClass="bg-gray-100 text-gray-400"
+                            activeLabel={t('transactions.badges.reimbursed')}
+                            inactiveLabel={t('transactions.badges.pending')}
+                            activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggle(tx.id)}
                             disabled={togglingId === tx.id || !tx.uploaded}
                             loading={togglingId === tx.id}
                           />
                         </>
                       ) : (
-                        <span className="text-xs text-gray-300 px-1">收入无需报销</span>
+                        <span className="text-xs text-gray-300 dark:text-gray-600 px-1">{t('transactions.incomeNoReimburse')}</span>
                       )}
                       <button
                         onClick={() => copyId(tx.id)}
                         className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${
                           copiedId === tx.id
-                            ? 'bg-emerald-100 text-emerald-500'
-                            : 'bg-gray-100 text-gray-400'
+                            ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
                         }`}
                       >
-                        {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                        {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
                       </button>
                     </div>
                   </div>
@@ -439,40 +442,40 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Desktop Table — Premium */}
-      <div className="hidden md:block bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
+{/* Desktop Table */}
+      <div className="hidden md:block bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {[0,1,2,3,4,5].map(i => <RowSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            <p className="text-sm text-gray-400">暂无记录</p>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200 dark:text-gray-700"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <p className="text-sm text-gray-400 dark:text-gray-500">{t('transactions.noRecords')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full" style={{ minWidth: '820px' }}>
               <colgroup>
-                <col style={{ width: '120px' }} />{/* 日期 */}
-                <col style={{ width: '100px' }} />{/* 类别 */}
-                <col style={{ width: '90px' }} />{/* 项目 */}
-                <col />{/* 备注 — 自适应 */}
-                <col style={{ width: '68px' }} />{/* 来源 */}
-                <col style={{ width: '110px' }} />{/* 金额 */}
-                <col style={{ width: '88px' }} />{/* 上传 */}
-                <col style={{ width: '88px' }} />{/* 报销 */}
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '90px' }} />
+                <col />
+                <col style={{ width: '68px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '88px' }} />
+                <col style={{ width: '88px' }} />
               </colgroup>
               <thead>
-                <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">日期</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">类别</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">项目</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">备注</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">来源</th>
-                  <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wider">金额</th>
-                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider">上传</th>
-                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider pr-4">报销</th>
+                <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">
+                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.date')}</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.category')}</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.project')}</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.note')}</th>
+                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.source')}</th>
+                  <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.amount')}</th>
+                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.uploaded')}</th>
+                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pr-4">{t('transactions.table.reimbursed')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -483,93 +486,86 @@ export default function TransactionsPage() {
                   return (
                     <tr
                       key={tx.id}
-                      className={`border-b border-gray-100/80 last:border-0 transition-colors ${
-                        done ? 'opacity-40' : 'hover:bg-violet-50/30'
+                      className={`border-b border-gray-100/80 dark:border-gray-800/50 last:border-0 transition-colors ${
+                        done ? 'opacity-40' : 'hover:bg-violet-50/30 dark:hover:bg-violet-500/5'
                       }`}
                     >
-                      {/* 日期 + ID */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <p className="text-[13px] font-medium text-gray-700 tabular-nums leading-tight">{tx.occurred_at}</p>
+                        <p className="text-[13px] font-medium text-gray-700 dark:text-gray-300 tabular-nums leading-tight">{tx.occurred_at}</p>
                         <button
                           onClick={() => copyId(tx.id)}
-                          title="点击复制完整 ID"
+                          title={t('transactions.copyIdTooltip')}
                           className={`font-mono text-[10px] rounded px-1 py-0.5 transition-all mt-0.5 block leading-none ${
                             copiedId === tx.id
-                              ? 'bg-emerald-100 text-emerald-500'
-                              : 'text-gray-300 hover:text-violet-400 hover:bg-violet-50'
+                              ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
+                              : 'text-gray-300 dark:text-gray-600 hover:text-violet-400 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10'
                           }`}
                         >
-                          {copiedId === tx.id ? '✓ 已复制' : tx.id.slice(0, 8) + '…'}
+                          {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
                         </button>
                       </td>
-                      {/* 类别 */}
                       <td className="px-3 py-3">
-                        <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900' : 'text-gray-700'}`}>
+                        <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
                           <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                           <span className="truncate">{tx.category}</span>
                         </span>
                       </td>
-                      {/* 项目 */}
                       <td className="px-3 py-3">
                         {tx.project_id
-                          ? <span className="inline-flex items-center text-[11px] font-mono font-semibold bg-violet-50 text-violet-600 border border-violet-200/60 px-1.5 py-0.5 rounded-md truncate max-w-full">{tx.project_id}</span>
-                          : <span className="text-gray-300 text-[13px]">—</span>
+                          ? <span className="inline-flex items-center text-[11px] font-mono font-semibold bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/60 dark:border-violet-500/30 px-1.5 py-0.5 rounded-md truncate max-w-full">{tx.project_id}</span>
+                          : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         }
                       </td>
-                      {/* 备注 */}
                       <td className="px-3 py-3">
                         {tx.note
-                          ? <span className="text-[13px] text-gray-500 truncate block leading-snug" title={tx.note}>{tx.note}</span>
-                          : <span className="text-gray-300 text-[13px]">—</span>
+                          ? <span className="text-[13px] text-gray-500 dark:text-gray-400 truncate block leading-snug" title={tx.note}>{tx.note}</span>
+                          : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         }
                       </td>
-                      {/* 来源 */}
                       <td className="px-3 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
                           tx.source === 'company'
-                            ? 'bg-sky-50 text-sky-600'
-                            : 'bg-amber-50 text-amber-600'
+                            ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                            : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
                         }`}>
-                          {tx.source === 'company' ? '公共' : '个人'}
+                          {tx.source === 'company' ? t('common.company') : t('common.personal')}
                         </span>
                       </td>
-                      {/* 金额 */}
                       <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
-                      {/* 上传 */}
                       <td className="px-3 py-3 text-center whitespace-nowrap">
                         {tx.direction === 'expense' ? (
                           <StatusBadge
                             active={tx.uploaded}
-                            activeLabel="已上传"
-                            inactiveLabel="未上传"
-                            activeClass="bg-purple-100 text-purple-700 hover:bg-purple-200"
-                            inactiveClass="bg-gray-100 text-gray-500 hover:bg-purple-50 hover:text-purple-600"
+                            activeLabel={t('transactions.badges.uploaded')}
+                            inactiveLabel={t('transactions.badges.notUploaded')}
+                            activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-500/30"
+                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
                             onClick={() => handleToggleUpload(tx.id)}
                             disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
                             loading={togglingId === tx.id}
                             locked={tx.uploaded && tx.reimbursed}
+                            lockedTitle={t('transactions.lockTitle')}
                           />
                         ) : (
-                          <span className="text-gray-300 text-[13px]">—</span>
+                          <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         )}
                       </td>
-                      {/* 报销 */}
                       <td className="px-3 py-3 text-center whitespace-nowrap pr-4">
                         {tx.direction === 'expense' ? (
                           <StatusBadge
                             active={tx.reimbursed}
-                            activeLabel="已报销"
-                            inactiveLabel="待报销"
-                            activeClass="bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                            inactiveClass="bg-gray-100 text-gray-500 hover:bg-emerald-50 hover:text-emerald-500"
+                            activeLabel={t('transactions.badges.reimbursed')}
+                            inactiveLabel={t('transactions.badges.pending')}
+                            activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30"
+                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
                             onClick={() => handleToggle(tx.id)}
                             disabled={togglingId === tx.id || !tx.uploaded}
                             loading={togglingId === tx.id}
                           />
                         ) : (
-                          <span className="text-gray-300 text-[13px]">—</span>
+                          <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         )}
                       </td>
                     </tr>

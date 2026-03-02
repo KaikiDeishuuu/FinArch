@@ -1,4 +1,5 @@
 import { toCNYWithRates, FALLBACK_RATES } from './exchangeRates'
+import i18n from '../i18n'
 
 /** Mapping from currency code to display symbol. */
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -63,11 +64,11 @@ export function formatAmountCompact(amount: number, currency: string): string {
   const isCJK = currency === 'CNY' || currency === 'JPY'
   if (isCJK && Math.abs(amount) >= 1_0000_0000) {
     const v = amount / 1_0000_0000
-    return `${sym}${trimZeros(v.toFixed(2))}亿`
+    return `${sym}${trimZeros(v.toFixed(2))}${i18n.t('format.yi')}`
   }
   if (isCJK && Math.abs(amount) >= 1_0000) {
     const v = amount / 1_0000
-    return `${sym}${trimZeros(v.toFixed(2))}万`
+    return `${sym}${trimZeros(v.toFixed(2))}${i18n.t('format.wan')}`
   }
   const full = amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${sym}${full}`

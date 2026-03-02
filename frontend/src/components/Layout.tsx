@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
+import { useTranslation } from 'react-i18next'
 import { PageTransition } from '../motion'
 import { LogoMark, LogoBars, BrandDivider } from './Brand'
 
@@ -47,37 +49,58 @@ const IconLogout = () => (
 )
 
 const navItems = [
-  { to: '/', label: '概览', Icon: IconHome, end: true },
-  { to: '/transactions', label: '明细', Icon: IconList },
-  { to: '/add', label: '添加', Icon: IconPlus, isPrimary: true },
-  { to: '/match', label: '匹配', Icon: IconMatch },
-  { to: '/stats', label: '统计', Icon: IconChart },
-  { to: '/settings', label: '设置', Icon: IconSettings },
+  { to: '/', labelKey: 'nav.dashboard', Icon: IconHome, end: true },
+  { to: '/transactions', labelKey: 'nav.transactions', Icon: IconList },
+  { to: '/add', labelKey: 'nav.add', Icon: IconPlus, isPrimary: true },
+  { to: '/match', labelKey: 'nav.match', Icon: IconMatch },
+  { to: '/stats', labelKey: 'nav.stats', Icon: IconChart },
+  { to: '/settings', labelKey: 'nav.settings', Icon: IconSettings },
 ]
+
+// ── Theme toggle icons ──
+const IconSun = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </svg>
+)
+const IconMoon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+  </svg>
+)
+const IconLang = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+    <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+  </svg>
+)
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
+  const { resolved, toggle: toggleTheme } = useTheme()
+  const { t, i18n } = useTranslation()
   const location = useLocation()
   const initial = ((user?.username || user?.email || '?')[0]).toUpperCase()
   const displayName = user?.username || user?.email || '—'
+  const toggleLang = () => i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh')
+  const isDark = resolved === 'dark'
 
   return (
-    <div className="flex bg-slate-50 overflow-x-hidden" style={{ height: '100dvh' }}>
+    <div className="flex bg-slate-50 dark:bg-[hsl(260,20%,6%)] overflow-x-hidden" style={{ height: '100dvh' }}>
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[220px] bg-white border-r border-gray-100/80 flex-col shrink-0">
+      <aside className="hidden md:flex w-[220px] bg-white dark:bg-[hsl(260,15%,11%)] border-r border-gray-100/80 dark:border-gray-800/60 flex-col shrink-0">
         {/* Brand */}
         <div className="px-5 pt-6 pb-5">
           <div className="flex items-center gap-3">
             <LogoMark size={36} className="rounded-xl" />
             <div>
-              <h1 className="font-extrabold text-gray-900 text-base leading-tight tracking-tight">FinArch</h1>
-              <p className="text-[10px] text-gray-400 mt-0.5 tracking-wide">收支 · 报销 · 统计</p>
+              <h1 className="font-extrabold text-gray-900 dark:text-gray-100 text-base leading-tight tracking-tight">FinArch</h1>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tracking-wide">{t('nav.subtitle')}</p>
             </div>
           </div>
         </div>
 
-        {/* Nav — Premium: refined active state with left accent */}
+        {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5">
           {navItems.map((item) => (
             <NavLink
@@ -87,28 +110,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
                   isActive
-                    ? 'bg-violet-50 text-violet-700 shadow-sm shadow-violet-100/50'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                    ? 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 shadow-sm shadow-violet-100/50 dark:shadow-none'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-gray-200'
                 }`
               }
             >
               <item.Icon />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
 
-        {/* User section — Premium: gradient avatar */}
-        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 mt-auto">
-          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm shadow-violet-200/50">
+        {/* Theme + Language toggles */}
+        <div className="px-3 pb-2 flex gap-1.5">
+          <button
+            onClick={toggleTheme}
+            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+            title={t('theme.toggle')}
+          >
+            {isDark ? <IconSun /> : <IconMoon />}
+          </button>
+          <button
+            onClick={toggleLang}
+            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+            title={t('language.toggle')}
+          >
+            <IconLang />
+            <span>{i18n.language === 'zh' ? 'EN' : '中'}</span>
+          </button>
+        </div>
+
+        {/* User section */}
+        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 dark:border-gray-800/60 mt-auto">
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
               {initial}
             </div>
-            <p className="flex-1 text-[12px] text-gray-700 truncate font-medium">{displayName}</p>
+            <p className="flex-1 text-[12px] text-gray-700 dark:text-gray-300 truncate font-medium">{displayName}</p>
             <button
               onClick={logout}
-              title="退出登录"
-              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-rose-400 transition-all p-1"
+              title={t('nav.logout')}
+              className="opacity-0 group-hover:opacity-100 text-gray-300 dark:text-gray-600 hover:text-rose-400 transition-all p-1"
             >
               <IconLogout />
             </button>
@@ -117,49 +159,55 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Mobile Top Header ── */}
-      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 backdrop-blur-sm border-b border-gray-100/80 flex items-center justify-between px-4">
+      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-b border-gray-100/80 dark:border-gray-800/60 flex items-center justify-between px-4">
         <div className="flex items-center gap-2.5">
           <LogoMark size={28} className="rounded-lg" />
-          <span className="font-extrabold text-gray-900 text-[15px] tracking-tight">FinArch</span>
+          <span className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight">FinArch</span>
         </div>
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50">
+        <div className="flex items-center gap-1.5">
+          <button onClick={toggleTheme} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            {isDark ? <IconSun /> : <IconMoon />}
+          </button>
+          <button onClick={toggleLang} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-[11px] font-medium">
+            {i18n.language === 'zh' ? 'EN' : '中'}
+          </button>
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
             {initial}
           </div>
           <button
             onClick={logout}
-            className="text-xs text-gray-400 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50"
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10"
           >
-            退出
+            {t('nav.logoutShort')}
           </button>
         </div>
       </header>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: '#FAFAF9' }}>
+      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="flex-1 max-w-4xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
           <PageTransition motionKey={location.pathname}>
             {children}
           </PageTransition>
         </div>
 
-        {/* ── Footer — Premium: brand accent ── */}
+        {/* ── Footer ── */}
         <footer className="shrink-0 mt-auto">
           <BrandDivider className="mx-6 md:mx-8" />
           <div className="max-w-4xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <LogoBars size={16} opacity={0.25} />
-              <span className="text-[11px] font-semibold text-gray-300 tracking-wide">FinArch</span>
-              <span className="text-[11px] text-gray-200">·</span>
-              <span className="text-[11px] text-gray-300">记账 · 报销 · 智能匹配</span>
+              <span className="text-[11px] font-semibold text-gray-300 dark:text-gray-600 tracking-wide">FinArch</span>
+              <span className="text-[11px] text-gray-200 dark:text-gray-700">·</span>
+              <span className="text-[11px] text-gray-300 dark:text-gray-600">{t('nav.footer')}</span>
             </div>
-            <span className="text-[10px] text-gray-300 font-mono">v2.3</span>
+            <span className="text-[10px] text-gray-300 dark:text-gray-600 font-mono">v2.3</span>
           </div>
         </footer>
       </main>
 
       {/* ── Mobile Bottom Navigation ── */}
-      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-100/80 flex items-end">
+      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-t border-gray-100/80 dark:border-gray-800/60 flex items-end">
         {navItems.map((item) => {
           if (item.isPrimary) {
             return (
@@ -168,10 +216,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 to={item.to}
                 className="flex-1 flex flex-col items-center pb-2 pt-1 -mt-5"
               >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-violet-400/40 active:scale-95 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-violet-400/40 dark:shadow-violet-900/40 active:scale-95 transition-transform">
                   <item.Icon />
                 </div>
-                <span className="text-[10px] font-medium text-gray-400 mt-0.5">{item.label}</span>
+                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 mt-0.5">{t(item.labelKey)}</span>
               </NavLink>
             )
           }
@@ -182,16 +230,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               end={item.end}
               className={({ isActive }) =>
                 `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  isActive ? 'text-violet-600' : 'text-gray-400 active:text-gray-500'
+                  isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-violet-50' : ''}`}>
+                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-violet-50 dark:bg-violet-500/15' : ''}`}>
                     <item.Icon />
                   </div>
-                  <span className={`text-[10px] font-medium ${isActive ? 'text-violet-600' : ''}`}>{item.label}</span>
+                  <span className={`text-[10px] font-medium ${isActive ? 'text-violet-600 dark:text-violet-400' : ''}`}>{t(item.labelKey)}</span>
                 </>
               )}
             </NavLink>

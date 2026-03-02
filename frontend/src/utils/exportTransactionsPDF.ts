@@ -1,6 +1,7 @@
 import type { Transaction } from '../api/client'
 import { formatAmount, toCNY } from './format'
 import { FALLBACK_RATES } from './exchangeRates'
+import i18n from '../i18n'
 
 function fmt(t: Transaction) {
   return formatAmount(t.amount_yuan, t.currency)
@@ -38,12 +39,12 @@ export function exportTransactionsPDF(
   const rows = filtered.map(t => {
     const dir = t.direction === 'income' ? '收入' : '支出'
     void dir
-    const src = t.source === 'company' ? '公共' : '个人'
+    const src = t.source === 'company' ? i18n.t('exportPdf.companyLabel') : i18n.t('exportPdf.personalLabel')
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
-    const uploaded = t.uploaded ? '✓ 已上传' : '✗ 未上传'
+    const uploaded = t.uploaded ? i18n.t('exportPdf.uploadedYes') : i18n.t('exportPdf.uploadedNo')
     const uploadedColor = t.uploaded ? '#7c3aed' : '#9ca3af'
-    const reimbursed = t.reimbursed ? '✓ 已报销' : '✗ 待报销'
+    const reimbursed = t.reimbursed ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.reimbursedNo')
     const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     return [
@@ -62,10 +63,10 @@ export function exportTransactionsPDF(
 
   const head = [
     '<!DOCTYPE html>',
-    '<html lang="zh-CN">',
+    `<html lang="${i18n.language === 'en' ? 'en' : 'zh-CN'}">`,
     '<head>',
     '<meta charset="UTF-8">',
-    `<title>FinArch 交易明细 ${dateStr}</title>`,
+    `<title>${i18n.t('exportPdf.title')} ${dateStr}</title>`,
     '<style>',
     '* { box-sizing: border-box; margin: 0; padding: 0; }',
     'body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 24px 32px; }',
@@ -123,7 +124,7 @@ export function exportTransactionsPDF(
     return [
       `<tr class="${cls}">`,
       `  <td>${label}</td>`,
-      `  <td class="count">${s.count} 笔</td>`,
+      `  <td class="count">${s.count} ${i18n.t('exportPdf.unit')}</td>`,
       `  <td class="income">${fmtTotal(s.inc)}</td>`,
       `  <td class="expense">${fmtTotal(s.exp)}</td>`,
       `  <td class="reimb">+${fmtTotal(s.reimb)}</td>`,
@@ -143,8 +144,8 @@ export function exportTransactionsPDF(
     '    <rect x="336" y="96"  width="112" height="320" rx="24" fill="#34d399"/>',
     '  </svg>',
     '  <div>',
-    '    <h1>FinArch 财务系统 · 交易明细</h1>',
-    `    <p>筛选：${filterLabel} &nbsp;|&nbsp; 导出日期：${dateStr}</p>`,
+    `    <h1>${i18n.t('exportPdf.systemTitle')}</h1>`,
+    `    <p>${i18n.t('exportPdf.filter')}：${filterLabel} &nbsp;|&nbsp; ${i18n.t('exportPdf.exportDate')}：${dateStr}</p>`,
     '  </div>',
     '  </div>',
     '  <div class="header-right">',
@@ -154,25 +155,25 @@ export function exportTransactionsPDF(
     '</div>',
     '<div class="summary">',
     '  <table class="summary-table">',
-    '    <thead><tr><th></th><th>记录数</th><th>收入合计</th><th>支出合计</th><th>已报销</th><th>净结余</th></tr></thead>',
+    `    <thead><tr><th></th><th>${i18n.t('exportPdf.recordCount')}</th><th>${i18n.t('exportPdf.incomeTotal')}</th><th>${i18n.t('exportPdf.expenseTotal')}</th><th>${i18n.t('exportPdf.reimbursedTotal')}</th><th>${i18n.t('exportPdf.netTotal')}</th></tr></thead>`,
     '    <tbody>',
-    summaryRow('全部', 'row-all', allStats),
-    summaryRow('个人', 'row-personal', pStats),
-    summaryRow('公共', 'row-company', cStats),
+    summaryRow(i18n.t('exportPdf.allLabel'), 'row-all', allStats),
+    summaryRow(i18n.t('exportPdf.personalLabel'), 'row-personal', pStats),
+    summaryRow(i18n.t('exportPdf.companyLabel'), 'row-company', cStats),
     '    </tbody>',
     '  </table>',
     '</div>',
     '<table>',
     '  <thead>',
     '    <tr>',
-    '      <th>日期</th><th>类别</th><th>来源</th><th>项目</th><th>备注</th><th>金额</th><th>上传状态</th><th>报销状态</th>',
+    '      <th>' + i18n.t('exportPdf.thDate') + '</th><th>' + i18n.t('exportPdf.thCategory') + '</th><th>' + i18n.t('exportPdf.thSource') + '</th><th>' + i18n.t('exportPdf.thProject') + '</th><th>' + i18n.t('exportPdf.thNote') + '</th><th>' + i18n.t('exportPdf.thAmount') + '</th><th>' + i18n.t('exportPdf.thUploaded') + '</th><th>' + i18n.t('exportPdf.thReimbursed') + '</th>',
     '    </tr>',
     '  </thead>',
     `  <tbody>${rows}</tbody>`,
     '</table>',
     '<div class="footer">',
-    `  <span>由 FinArch 自动生成 · ${now.toLocaleString('zh-CN')}</span>`,
-    `  <span>共 ${allStats.count} 条记录</span>`,
+    `  <span>${i18n.t('exportPdf.footer')} · ${now.toLocaleString(i18n.language === 'en' ? 'en-US' : 'zh-CN')}</span>`,
+    `  <span>${i18n.t('exportPdf.totalRecords', { count: allStats.count })}</span>`,
     '</div>',
     '</body>',
     '</html>',
@@ -182,7 +183,7 @@ export function exportTransactionsPDF(
 
   const win = window.open('', '_blank', 'width=1100,height=800')
   if (!win) {
-    alert('弹出窗口被拦截，请允许本站弹窗后重试')
+    alert(i18n.t('exportPdf.popupBlocked'))
     return
   }
   win.document.write(html)
