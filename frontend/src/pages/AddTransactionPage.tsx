@@ -225,7 +225,7 @@ export default function AddTransactionPage() {
         {/* Category */}
         <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
           <label className={labelClass}>{t('addTransaction.form.category')}</label>
-          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2">
             {CATEGORY_KEYS.map((c) => (
               <button
                 key={c}

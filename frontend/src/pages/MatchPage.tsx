@@ -222,7 +222,7 @@ export default function MatchPage() {
 
             {/* Account filter */}
             {filteredAccounts.length > 1 && (
-              <div className="w-28">
+              <div className="w-fit min-w-[6.5rem]">
                 <Select
                   value={filterAccount}
                   onChange={(v) => { setFilterAccount(v); setResults([]); setSearched(false) }}
@@ -239,7 +239,7 @@ export default function MatchPage() {
 
             {/* Category filter */}
             {allCategories.length > 0 && (
-              <div className="w-28">
+              <div className="w-fit min-w-[6.5rem]">
                 <Select
                   value={filterCategory}
                   onChange={(v) => { setFilterCategory(v); setResults([]); setSearched(false) }}

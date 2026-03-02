@@ -243,7 +243,7 @@ export default function TransactionsPage() {
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Source filter */}
-        <div className="w-24">
+        <div className="w-fit min-w-[5.5rem]">
           <Select
             value={filterSource}
             onChange={(v) => {
@@ -263,7 +263,7 @@ export default function TransactionsPage() {
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
-          <div className="w-28">
+          <div className="w-fit min-w-[6.5rem]">
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
@@ -280,7 +280,7 @@ export default function TransactionsPage() {
 
         {/* Category filter */}
         {allCategories.length > 0 && (
-          <div className="w-28">
+          <div className="w-fit min-w-[6.5rem]">
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
@@ -297,7 +297,7 @@ export default function TransactionsPage() {
 
         {/* Project filter */}
         {allProjects.length > 0 && (
-          <div className="w-28">
+          <div className="w-fit min-w-[6.5rem]">
             <Select
               value={filterProject}
               onChange={setFilterProject}
@@ -456,16 +456,16 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: '820px' }}>
+            <table className="w-full" style={{ minWidth: '860px' }}>
               <colgroup>
                 <col style={{ width: '120px' }} />
-                <col style={{ width: '100px' }} />
+                <col style={{ width: '110px' }} />
                 <col style={{ width: '90px' }} />
                 <col />
-                <col style={{ width: '68px' }} />
+                <col style={{ width: '72px' }} />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '88px' }} />
-                <col style={{ width: '88px' }} />
+                <col style={{ width: '96px' }} />
+                <col style={{ width: '96px' }} />
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">

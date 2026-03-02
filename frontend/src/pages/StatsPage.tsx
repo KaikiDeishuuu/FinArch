@@ -316,7 +316,7 @@ export default function StatsPage() {
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
-          <div className="w-28">
+          <div className="w-fit min-w-[6.5rem]">
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
@@ -333,7 +333,7 @@ export default function StatsPage() {
 
         {/* Category filter */}
         {allCategories.length > 0 && (
-          <div className="w-28">
+          <div className="w-fit min-w-[6.5rem]">
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
@@ -350,7 +350,7 @@ export default function StatsPage() {
 
         {/* Project filter */}
         {allProjects.length > 0 && (
-          <div className="w-28">
+          <div className="w-fit min-w-[6.5rem]">
             <Select
               value={filterProject}
               onChange={setFilterProject}
@@ -380,7 +380,7 @@ export default function StatsPage() {
       <StaggerContainer className="grid grid-cols-3 gap-3">
         <StaggerItem>
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">{t('stats.yearlyIncome')}</p>
+          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
           <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
           </p>
@@ -388,7 +388,7 @@ export default function StatsPage() {
         </StaggerItem>
         <StaggerItem>
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">{t('stats.yearlyExpense')}</p>
+          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyExpense')}</p>
           <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
           </p>
@@ -396,7 +396,7 @@ export default function StatsPage() {
         </StaggerItem>
         <StaggerItem>
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">{t('stats.yearlyNet')}</p>
+          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyNet')}</p>
           <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600' : 'text-orange-500'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
