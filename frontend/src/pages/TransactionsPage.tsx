@@ -221,7 +221,7 @@ export default function TransactionsPage() {
       </StaggerContainer>
 
       {/* Tabs */}
-      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 gap-0.5 w-fit">
+      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 gap-0.5 w-full sm:w-fit overflow-x-auto">
         {tabs.map((tb) => (
           <button
             key={tb.key}

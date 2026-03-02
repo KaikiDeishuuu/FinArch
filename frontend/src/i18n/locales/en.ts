@@ -66,7 +66,7 @@ const en = {
 
     // ── Nav / Layout ──
     nav: {
-      dashboard: 'Dashboard',
+      dashboard: 'Home',
       transactions: 'Records',
       add: 'Add',
       match: 'Match',
@@ -147,8 +147,8 @@ const en = {
       },
       features: {
         smartAccounting: {
-          title: 'Smart Accounting',
-          desc: 'Multi-currency · Auto FX · Category stats',
+          title: 'Accounting',
+          desc: 'Multi-currency · Auto FX · Categories',
         },
         reimbursement: {
           title: 'Reimbursement',
@@ -159,8 +159,8 @@ const en = {
           desc: 'Amount matching · Quick reconcile · Batch',
         },
         dataVisualization: {
-          title: 'Data Visualization',
-          desc: 'Monthly trends · Pie charts · Project summary',
+          title: 'Analytics',
+          desc: 'Trends · Pie charts · Project stats',
         },
       },
       hero: {
@@ -222,10 +222,10 @@ const en = {
         },
       },
       addButton: '+ Add',
-      featureNavTitle: 'Feature Guide',
+      featureNavTitle: 'Features',
       workflowTitle: 'Workflow',
       workflow: {
-        personalTitle: 'Personal Advance',
+        personalTitle: 'Personal',
         personalStep1: 'Record',
         personalDesc1: 'Log the expense after paying out of pocket',
         personalStep2: 'Source',
@@ -234,7 +234,7 @@ const en = {
         personalDesc3: 'Attach invoice or receipt as proof',
         personalStep4: 'Reimburse',
         personalDesc4: 'Use Match tool to auto-match & reimburse',
-        companyTitle: 'Public Account',
+        companyTitle: 'Public',
         companyStep1: 'Record',
         companyDesc1: 'Log the transaction after using public funds',
         companyStep2: 'Source',
@@ -261,7 +261,7 @@ const en = {
       reimbursementTabs: {
         all: 'All',
         pending: 'Pending',
-        done: 'Reimbursed',
+        done: 'Done',
       },
       summary: {
         filtered: 'Filtered',
@@ -380,7 +380,7 @@ const en = {
         foundBefore: 'Found ',
         foundAfter: ' combinations',
         noResultsHint: 'No matches found. Try increasing tolerance.',
-        mixedCurrency: 'Multi-currency · FX converted',
+        mixedCurrency: 'Multi-FX',
         projects: '{{count}} projects',
         totalRealtime: 'Total (live FX rate)',
         idListTitle: 'Transaction IDs',
@@ -437,7 +437,7 @@ const en = {
       yearlyExpense: 'Expense',
       yearlyNet: 'Net',
       chart: {
-        monthlyTitle: '{{year}} Monthly Income & Expense',
+        monthlyTitle: '{{year}} Monthly Trend',
         monthlySubtitle: 'Monthly income and expense breakdown',
         pieTitle: 'Income vs Expense',
         categoryTitle: 'Expense by Category',
@@ -518,7 +518,7 @@ const en = {
       changeEmail: {
         newEmail: 'New Email Address',
         placeholder: 'Enter new email address',
-        submit: 'Send Authorization Email',
+        submit: 'Send Email',
         pending: 'Verification email sent. Check both old and new inbox.',
         pendingTo: 'Pending new email: ',
         cancelChange: 'Cancel change',
@@ -587,13 +587,13 @@ const en = {
       danger: {
         deleteAccount: 'Delete Account',
         deleteDesc: 'Permanently delete your account and all data (tags, fund pools, transactions). This action is irreversible.',
-        deleteButton: 'Request Account Deletion',
+        deleteButton: 'Delete Account',
         confirmMsg: 'Confirm deletion? Enter your email to proceed:',
         emailSent: '✓ Verification email sent to <strong>{{email}}</strong>. Please click the link within 1 hour to complete account deletion.',
         confirmTitle: 'Confirm account deletion?',
         confirmDesc: 'We will send a confirmation email to <strong>{{email}}</strong>. Your account will be <strong>permanently deleted</strong> after clicking the link.',
         sending: 'Sending...',
-        sendConfirm: 'Send Deletion Confirmation Email',
+        sendConfirm: 'Confirm Deletion',
         toast: {
           sent: 'Confirmation email sent. Please check your inbox.',
           error: 'Request failed. Please retry.',

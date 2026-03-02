@@ -46,6 +46,7 @@
   /* Recharts tooltip */
   --tooltip-bg: #fff;
   --tooltip-text: #374151;
+  --tooltip-border: #e5e7eb;
 }
 
 /* ── Dark theme overrides ── */
@@ -75,6 +76,7 @@
   /* Recharts tooltip */
   --tooltip-bg: hsl(260, 15%, 11%);
   --tooltip-text: #d1d5db;
+  --tooltip-border: hsl(260, 10%, 20%);
 
   color-scheme: dark;
 }

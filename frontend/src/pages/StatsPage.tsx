@@ -82,11 +82,11 @@ function MonthlyBarChart({
             <g key={v}>
               <line
                 x1={PAD_L} y1={y} x2={PAD_L + chartW} y2={y}
-                className={v === 0 ? 'stroke-gray-300 dark:stroke-gray-600' : 'stroke-gray-100 dark:stroke-gray-800'}
+                className={v === 0 ? 'stroke-gray-300 dark:stroke-gray-600' : 'stroke-gray-100 dark:stroke-gray-800/60'}
                 strokeWidth={1}
               />
               <text x={PAD_L - 6} y={y} dominantBaseline="middle" textAnchor="end"
-                fontSize={10} className="fill-gray-400 dark:fill-gray-500" fontFamily="inherit">
+                fontSize={10} className="fill-gray-400 dark:fill-gray-400" fontFamily="inherit">
                 {fmtShort(v)}
               </text>
             </g>
@@ -133,7 +133,7 @@ function MonthlyBarChart({
               )}
               {/* X label */}
               <text x={labelX} y={PAD_T + chartH + 18} textAnchor="middle"
-                fontSize={10} className="fill-gray-400 dark:fill-gray-500" fontFamily="inherit">
+                fontSize={10} className="fill-gray-400 dark:fill-gray-400" fontFamily="inherit">
                 {MONTH_LABELS[d.month - 1]}
               </text>
             </g>
@@ -381,7 +381,7 @@ export default function StatsPage() {
         <StaggerItem>
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
-          <p className="text-base md:text-2xl font-bold text-indigo-600 truncate tabular-nums mt-1.5">
+          <p className="text-base md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
           </p>
         </div>
@@ -389,7 +389,7 @@ export default function StatsPage() {
         <StaggerItem>
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyExpense')}</p>
-          <p className="text-base md:text-2xl font-bold text-rose-500 truncate tabular-nums mt-1.5">
+          <p className="text-base md:text-2xl font-bold text-rose-500 dark:text-rose-400 truncate tabular-nums mt-1.5">
             <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
           </p>
         </div>
@@ -397,7 +397,7 @@ export default function StatsPage() {
         <StaggerItem>
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
           <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyNet')}</p>
-          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600' : 'text-orange-500'}`}>
+          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-orange-500 dark:text-orange-400'}`}>
             <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
           </p>
         </div>
@@ -406,7 +406,7 @@ export default function StatsPage() {
 
       {/* Monthly bar chart — Premium */}
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
           <div>
             <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.monthlyTitle', { year })}</h2>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('stats.chart.monthlySubtitle')}</p>
@@ -451,7 +451,7 @@ export default function StatsPage() {
                     <Cell fill="#f43f5e" />
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -464,7 +464,7 @@ export default function StatsPage() {
                   </span>
                   <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(totalIncome)}</span>
                 </div>
-                <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div className="h-full rounded-full" style={{ background: '#22c55e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
@@ -475,7 +475,7 @@ export default function StatsPage() {
                   </span>
                   <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(totalExpense)}</span>
                 </div>
-                <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div className="h-full rounded-full" style={{ background: '#f43f5e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
@@ -510,13 +510,14 @@ export default function StatsPage() {
                     innerRadius={52}
                     outerRadius={82}
                     paddingAngle={2}
+                    strokeWidth={0}
                   >
                     {categories.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>

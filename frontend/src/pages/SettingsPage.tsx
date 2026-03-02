@@ -53,7 +53,7 @@ const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 mb-3">
-      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider whitespace-nowrap">
+      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide shrink-0">
         {children}
       </span>
       <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
@@ -341,7 +341,7 @@ export default function SettingsPage() {
                   const typeLabel = isPublic ? t('settings.accounts.publicLabel') : t('settings.accounts.personalLabel')
                   const balanceColor = a.balance_yuan >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
                   return (
-                    <div key={a.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div key={a.id} className="flex flex-wrap items-center gap-2 py-3 first:pt-0 last:pb-0">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${typeBadge}`}>{typeLabel}</span>
                       {renamingId === a.id ? (
                         <form onSubmit={(e) => { e.preventDefault(); handleRenameAccount(a.id) }}
@@ -405,7 +405,7 @@ export default function SettingsPage() {
 
             {/* Create account form */}
             <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">{t('settings.accounts.newTitle')}</p>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide mb-3">{t('settings.accounts.newTitle')}</p>
               <form onSubmit={handleCreateAccount} className="flex flex-wrap items-end gap-2">
                 <input
                   value={newAcctName}
@@ -620,8 +620,18 @@ export default function SettingsPage() {
                   const f = e.target.files?.[0] ?? null
                   setRestoreFile(f); setRestoreConfirm(false)
                 }}
-                className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 dark:file:bg-gray-800 file:text-gray-700 dark:file:text-gray-300 hover:file:bg-gray-200 dark:hover:file:bg-gray-700 transition"
+                className="hidden"
               />
+              {!restoreFile && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 text-sm font-medium text-gray-600 dark:text-gray-300 px-4 py-2.5 rounded-xl transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  {t('settings.restore.selectFile')}
+                </button>
+              )}
               {restoreFile && !restoreConfirm && (
                 <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-sm text-amber-800 dark:text-amber-400">
                   <div className="flex items-center gap-2 mb-1">
@@ -672,7 +682,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">{t('settings.danger.confirmTitle')}</p>
                     <p className="text-xs text-rose-600 dark:text-rose-400" dangerouslySetInnerHTML={{ __html: t('settings.danger.confirmDesc', { email: currentEmail }) }} />
                     {deleteError && <Alert type="error">{deleteError}</Alert>}
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
                         className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
                         {deleteStep === 'loading' ? t('settings.danger.sending') : t('settings.danger.sendConfirm')}
