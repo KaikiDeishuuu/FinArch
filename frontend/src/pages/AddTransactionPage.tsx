@@ -76,7 +76,7 @@ export default function AddTransactionPage() {
       })
       haptic.success()
       invalidate()
-      toast.success(t('addTransaction.toast.success'), { description: `¥${amount.toFixed(2)}` })
+      toast.success(t('addTransaction.toast.success'), { description: `${form.currency === 'USD' ? '$' : form.currency === 'EUR' ? '€' : '¥'}${amount.toFixed(2)}` })
       setSuccess(true)
       setTimeout(() => navigate('/transactions'), 1200)
     } catch (err: unknown) {
@@ -191,7 +191,7 @@ export default function AddTransactionPage() {
           <label className={labelClass}>{t('addTransaction.form.amount')}</label>
           <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 dark:border-rose-500/30 focus-within:border-red-400 dark:focus-within:border-rose-400' : 'border-green-200 dark:border-emerald-500/30 focus-within:border-green-400 dark:focus-within:border-emerald-400'}`}>
             <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {isExpense ? '−' : '+'}¥
+              {isExpense ? '−' : '+'}{form.currency === 'USD' ? '$' : form.currency === 'EUR' ? '€' : '¥'}
             </span>
             <input
               type="number"
