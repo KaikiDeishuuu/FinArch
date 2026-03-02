@@ -12,7 +12,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-**[在线体验 →](https://fund.wulab.tech)**
+**[在线体验 →](https://farc.dev)**
 
 简体中文 | [English](README.en.md)
 

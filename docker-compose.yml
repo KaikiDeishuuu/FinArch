@@ -16,7 +16,7 @@ services:
       # Get API key at https://resend.com — set RESEND_API_KEY to enable
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-}
-      # App base URL used in email links (defaults to https://farc.wulab.tech)
+      # App base URL used in email links (defaults to https://farc.dev)
       - APP_BASE_URL=${APP_BASE_URL:-}
     volumes:
       - finarch-data:/data

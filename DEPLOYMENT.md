@@ -92,7 +92,7 @@ APP_BASE_URL=https://yourdomain.com
 ```nginx
 server {
     listen 443 ssl;
-    server_name farc.wulab.tech;
+    server_name farc.dev;
 
     ssl_certificate     /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
@@ -109,7 +109,7 @@ server {
 
 server {
     listen 80;
-    server_name farc.wulab.tech;
+    server_name farc.dev;
     return 301 https://$host$request_uri;
 }
 ```
@@ -248,12 +248,12 @@ docker compose --profile backup up -d
    ```bash
    # 在 VPS 上加密并下载到本地
    gpg --symmetric --cipher-algo AES256 -o env_backup.gpg .env
-   scp root@farc.wulab.tech:~/FinArch/env_backup.gpg ~/
+   scp root@farc.dev:~/FinArch/env_backup.gpg ~/
    # 本地妥善保存 env_backup.gpg，解密时：gpg -o .env env_backup.gpg
    ```
 3. **直接 SCP 到本地后删除：**
    ```bash
-   scp root@farc.wulab.tech:~/FinArch/.env ~/finarch_env.txt
+   scp root@farc.dev:~/FinArch/.env ~/finarch_env.txt
    # 保存后立即存入密码管理器，删除本地明文
    ```
 

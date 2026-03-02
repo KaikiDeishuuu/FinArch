@@ -59,7 +59,7 @@ func main() {
 	// Email service (Resend). Set RESEND_API_KEY to enable email verification.
 	appBaseURL := os.Getenv("APP_BASE_URL")
 	if appBaseURL == "" {
-		appBaseURL = "https://farc.wulab.tech"
+		appBaseURL = "https://farc.dev"
 	}
 	emailSvc := email.NewResendSender(
 		os.Getenv("RESEND_API_KEY"),
