@@ -6,6 +6,9 @@ import { formatAmountCompact, formatAmount, formatAmountExact, toCNY } from '../
 import CompactAmount from '../components/CompactAmount'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions } from '../hooks/useTransactions'
+import { useAccounts } from '../hooks/useAccounts'
+import Select from '../components/Select'
+import type { Account } from '../api/client'
 import { StaggerContainer, StaggerItem } from '../motion'
 
 const PIE_COLORS = [
@@ -41,7 +44,7 @@ function MonthlyBarChart({
   }, [])
 
   const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
-  const PAD_L = 58   // room for Y-axis labels
+  const PAD_L = 72   // room for Y-axis labels
   const PAD_R = 12
   const PAD_T = 12
   const PAD_B = 28   // room for X-axis labels
@@ -67,7 +70,7 @@ function MonthlyBarChart({
   const CORNER = Math.min(barW / 2, 4)
 
   return (
-    <div ref={containerRef} className="relative w-full" style={{ height: SVG_H, overflow: 'hidden' }}>
+    <div ref={containerRef} className="relative w-full" style={{ height: SVG_H }}>
       <svg width={svgWidth} height={SVG_H}>
         {/* Grid lines + Y labels (drawn inside SVG bounds) */}
         {yTicks.map(v => {
@@ -168,11 +171,33 @@ export default function StatsPage() {
   const year = new Date().getFullYear()
   const { data: transactions = [], isLoading: loading } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
+  const { data: accounts = [] } = useAccounts()
   const [sourceFilter, setSourceFilter] = useState<'all' | 'personal' | 'company'>('all')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterProject, setFilterProject] = useState('')
+  const [filterAccount, setFilterAccount] = useState('')
+
+  const activeAccounts = useMemo(() =>
+    accounts.filter((a: Account) => a.is_active),
+    [accounts]
+  )
+
+  const allCategories = useMemo(
+    () => Array.from(new Set(transactions.map(t => t.category).filter(Boolean))).sort() as string[],
+    [transactions]
+  )
+
+  const allProjects = useMemo(
+    () => Array.from(new Set(transactions.map(t => t.project_id).filter(Boolean))).sort() as string[],
+    [transactions]
+  )
 
   const filteredBySource = useMemo(() =>
-    sourceFilter === 'all' ? transactions : transactions.filter(t => t.source === sourceFilter),
-    [transactions, sourceFilter]
+    (sourceFilter === 'all' ? transactions : transactions.filter(t => t.source === sourceFilter))
+      .filter(t => !filterCategory || t.category === filterCategory)
+      .filter(t => !filterProject || (t.project_id ?? '') === filterProject)
+      .filter(t => !filterAccount || t.account_id === filterAccount),
+    [transactions, sourceFilter, filterCategory, filterProject, filterAccount]
   )
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
@@ -257,21 +282,82 @@ export default function StatsPage() {
         )}
       </div>
 
-      {/* Source filter tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {([['all', '全部'], ['personal', '个人账户'], ['company', '公共账户']] as const).map(([key, label]) => (
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Source filter tabs */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+          {([['all', '全部'], ['personal', '个人账户'], ['company', '公共账户']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSourceFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                sourceFilter === key
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Account filter */}
+        {activeAccounts.length > 1 && (
+          <div className="w-36">
+            <Select
+              value={filterAccount}
+              onChange={setFilterAccount}
+              placeholder="全部账户"
+              activeHighlight
+              options={[
+                { value: '', label: '全部账户' },
+                ...activeAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+              ]}
+            />
+          </div>
+        )}
+
+        {/* Category filter */}
+        {allCategories.length > 0 && (
+          <div className="w-36">
+            <Select
+              value={filterCategory}
+              onChange={setFilterCategory}
+              placeholder="全部类别"
+              activeHighlight
+              options={[
+                { value: '', label: '全部类别' },
+                ...allCategories.map(c => ({ value: c, label: c })),
+              ]}
+            />
+          </div>
+        )}
+
+        {/* Project filter */}
+        {allProjects.length > 0 && (
+          <div className="w-36">
+            <Select
+              value={filterProject}
+              onChange={setFilterProject}
+              placeholder="全部项目"
+              activeHighlight
+              options={[
+                { value: '', label: '全部项目' },
+                ...allProjects.map(p => ({ value: p, label: p })),
+              ]}
+            />
+          </div>
+        )}
+
+        {/* Clear filters */}
+        {(filterCategory || filterProject || filterAccount) && (
           <button
-            key={key}
-            onClick={() => setSourceFilter(key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              sourceFilter === key
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterAccount('') }}
+            className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
           >
-            {label}
+            清除筛选
           </button>
-        ))}
+        )}
       </div>
 
       {/* Summary cards — Premium: flat, clean */}

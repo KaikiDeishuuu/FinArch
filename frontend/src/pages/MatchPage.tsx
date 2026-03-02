@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
-import type { MatchResult, MatchResultItem } from '../api/client'
+import type { MatchResult, MatchResultItem, Account } from '../api/client'
 import { formatAmount, toCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
+import { useAccounts } from '../hooks/useAccounts'
+import Select from '../components/Select'
 import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
 import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
 
@@ -14,6 +16,8 @@ export default function MatchPage() {
   const [tolerance, setTolerance] = useState('0.01')
   const [maxItems, setMaxItems] = useState('10')
   const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>('personal')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterAccount, setFilterAccount] = useState('')
   const [results, setResults] = useState<MatchResult[]>([])
   const [timePruned, setTimePruned] = useState(false)
   const [error, setError] = useState('')
@@ -25,8 +29,19 @@ export default function MatchPage() {
   const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
   const { rates } = useExchangeRates()
   const { data: txs = [] } = useTransactions()
+  const { data: accounts = [] } = useAccounts()
   const invalidate = useInvalidateTransactions()
   const workerRef = useRef<Worker | null>(null)
+
+  const activeAccounts = useMemo(() =>
+    accounts.filter((a: Account) => a.is_active),
+    [accounts]
+  )
+
+  const allCategories = useMemo(
+    () => Array.from(new Set(txs.map(t => t.category).filter(Boolean))).sort() as string[],
+    [txs]
+  )
 
   // Lazily create the worker on first use
   function getWorker(): Worker {
@@ -85,12 +100,14 @@ export default function MatchPage() {
     // Build a lookup map from tx id → tx
     const txMap = new Map(txs.map(tx => [tx.id, tx]))
 
-    // Filter: uploaded, unreimbursed, matching source type expense
+    // Filter: uploaded, unreimbursed, matching source type expense + extra filters
     const candidates = txs.filter(tx =>
       tx.source === sourceFilter &&
       tx.direction === 'expense' &&
       tx.uploaded &&
-      !tx.reimbursed
+      !tx.reimbursed &&
+      (!filterCategory || tx.category === filterCategory) &&
+      (!filterAccount || tx.account_id === filterAccount)
     )
 
     const workerItems: WorkerTxItem[] = candidates.map(tx => ({
@@ -176,21 +193,67 @@ export default function MatchPage() {
       <div className="bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
         {/* Source filter tabs */}
         <div className="border-b border-gray-100 px-5 pt-4 pb-0">
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-4">
-            {([['personal', '个人垫付'], ['company', '公共账户']] as const).map(([key, label]) => (
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {/* Source filter tabs */}
+            <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+              {([['personal', '个人垫付'], ['company', '公共账户']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => { setSourceFilter(key); setResults([]); setSearched(false) }}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    sourceFilter === key
+                      ? 'bg-white text-violet-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Account filter */}
+            {activeAccounts.length > 1 && (
+              <div className="w-36">
+                <Select
+                  value={filterAccount}
+                  onChange={(v) => { setFilterAccount(v); setResults([]); setSearched(false) }}
+                  placeholder="全部账户"
+                  activeHighlight
+                  options={[
+                    { value: '', label: '全部账户' },
+                    ...activeAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* Category filter */}
+            {allCategories.length > 0 && (
+              <div className="w-36">
+                <Select
+                  value={filterCategory}
+                  onChange={(v) => { setFilterCategory(v); setResults([]); setSearched(false) }}
+                  placeholder="全部类别"
+                  activeHighlight
+                  options={[
+                    { value: '', label: '全部类别' },
+                    ...allCategories.map(c => ({ value: c, label: c })),
+                  ]}
+                />
+              </div>
+            )}
+
+            {/* Clear extra filters */}
+            {(filterCategory || filterAccount) && (
               <button
-                key={key}
                 type="button"
-                onClick={() => { setSourceFilter(key); setResults([]); setSearched(false) }}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  sourceFilter === key
-                    ? 'bg-white text-violet-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                onClick={() => { setFilterCategory(''); setFilterAccount(''); setResults([]); setSearched(false) }}
+                className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
               >
-                {label}
+                清除筛选
               </button>
-            ))}
+            )}
           </div>
         </div>
 
