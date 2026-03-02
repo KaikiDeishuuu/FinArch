@@ -342,21 +342,25 @@ export default function DashboardPage() {
         <BrandWatermark className="absolute -bottom-2 right-4 opacity-[0.08]" opacity={0.12} />
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-white/70 text-xs font-medium mb-1">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-white/70 text-xs font-medium">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              {onlineDeviceCount != null && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 backdrop-blur-sm inline-flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300"></span></span>
+                  {onlineDeviceCount} 设备
+                </span>
+              )}
+            </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greeting.timeGreeting}，{user?.nickname || user?.username || user?.email?.split('@')[0]}</h1>
             <p className="text-white/60 text-xs mt-1">{greeting.subMessage}</p>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {ratesLoading
                 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">汇率加载中…</span>
                 : rateDate
-                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium">💱 $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
-              }              {onlineDeviceCount != null && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 backdrop-blur-sm font-medium inline-flex items-center gap-1">
-                  <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300"></span></span>
-                  {onlineDeviceCount} 台设备在线
-                </span>
-              )}            </div>
+                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium">💱 $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">备用汇率 · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
+              }
+            </div>
           </div>
           <Link
             to="/add"

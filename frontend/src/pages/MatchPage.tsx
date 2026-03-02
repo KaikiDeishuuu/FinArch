@@ -197,9 +197,9 @@ export default function MatchPage() {
 
       {/* Form card — Premium */}
       <div className="bg-white rounded-2xl border border-gray-100/80 shadow-sm overflow-hidden">
-        {/* Source filter tabs */}
+        {/* Source filter tabs + filters */}
         <div className="border-b border-gray-100 px-5 pt-4 pb-0">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             {/* Source filter tabs */}
             <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
               {([['personal', '个人垫付'], ['company', '公共账户']] as const).map(([key, label]) => (
@@ -207,7 +207,7 @@ export default function MatchPage() {
                   key={key}
                   type="button"
                   onClick={() => { setSourceFilter(key); setFilterAccount(''); setResults([]); setSearched(false) }}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                     sourceFilter === key
                       ? 'bg-white text-violet-700 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -220,11 +220,12 @@ export default function MatchPage() {
 
             {/* Account filter */}
             {filteredAccounts.length > 1 && (
-              <div className="w-36">
+              <div className="w-28">
                 <Select
                   value={filterAccount}
                   onChange={(v) => { setFilterAccount(v); setResults([]); setSearched(false) }}
                   placeholder="全部账户"
+                  size="sm"
                   activeHighlight
                   options={[
                     { value: '', label: '全部账户' },
@@ -236,11 +237,12 @@ export default function MatchPage() {
 
             {/* Category filter */}
             {allCategories.length > 0 && (
-              <div className="w-36">
+              <div className="w-28">
                 <Select
                   value={filterCategory}
                   onChange={(v) => { setFilterCategory(v); setResults([]); setSearched(false) }}
                   placeholder="全部类别"
+                  size="sm"
                   activeHighlight
                   options={[
                     { value: '', label: '全部类别' },
@@ -255,9 +257,9 @@ export default function MatchPage() {
               <button
                 type="button"
                 onClick={() => { setFilterCategory(''); setFilterAccount(''); setResults([]); setSearched(false) }}
-                className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
+                className="h-8 px-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-xs transition-all"
               >
-                清除筛选
+                清除
               </button>
             )}
           </div>

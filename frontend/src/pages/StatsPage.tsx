@@ -290,14 +290,14 @@ export default function StatsPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Source filter tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-          {([['all', '全部'], ['personal', '个人账户'], ['company', '公共账户']] as const).map(([key, label]) => (
+          {([['all', '全部'], ['personal', '个人'], ['company', '公共']] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => { setSourceFilter(key); setFilterAccount('') }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                 sourceFilter === key
                   ? 'bg-white text-violet-700 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
@@ -310,11 +310,12 @@ export default function StatsPage() {
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
-          <div className="w-36">
+          <div className="w-28">
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
               placeholder="全部账户"
+              size="sm"
               activeHighlight
               options={[
                 { value: '', label: '全部账户' },
@@ -326,11 +327,12 @@ export default function StatsPage() {
 
         {/* Category filter */}
         {allCategories.length > 0 && (
-          <div className="w-36">
+          <div className="w-28">
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
               placeholder="全部类别"
+              size="sm"
               activeHighlight
               options={[
                 { value: '', label: '全部类别' },
@@ -342,11 +344,12 @@ export default function StatsPage() {
 
         {/* Project filter */}
         {allProjects.length > 0 && (
-          <div className="w-36">
+          <div className="w-28">
             <Select
               value={filterProject}
               onChange={setFilterProject}
               placeholder="全部项目"
+              size="sm"
               activeHighlight
               options={[
                 { value: '', label: '全部项目' },
@@ -360,9 +363,9 @@ export default function StatsPage() {
         {(filterCategory || filterProject || filterAccount) && (
           <button
             onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterAccount('') }}
-            className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
+            className="h-8 px-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-xs transition-all"
           >
-            清除筛选
+            清除
           </button>
         )}
       </div>

@@ -217,29 +217,30 @@ export default function TransactionsPage() {
         </StaggerItem>
       </StaggerContainer>
 
-      {/* Tabs + error */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex rounded-xl bg-gray-100 p-1 gap-0.5">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setFilter(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                filter === t.key ? 'bg-white shadow text-violet-600' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t.label}
-              {t.count !== undefined && (
-                <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold tabular-nums ${
-                  filter === t.key ? 'bg-violet-100 text-violet-600' : 'bg-gray-200 text-gray-500'
-                }`}>{t.count}</span>
-              )}
-            </button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="flex rounded-xl bg-gray-100 p-1 gap-0.5 w-fit">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setFilter(t.key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              filter === t.key ? 'bg-white shadow text-violet-600' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {t.label}
+            {t.count !== undefined && (
+              <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold tabular-nums ${
+                filter === t.key ? 'bg-violet-100 text-violet-600' : 'bg-gray-200 text-gray-500'
+              }`}>{t.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
 
+      {/* Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Source filter (个人/公共) */}
-        <div className="w-28">
+        <div className="w-24">
           <Select
             value={filterSource}
             onChange={(v) => {
@@ -247,6 +248,7 @@ export default function TransactionsPage() {
               setFilterAccount('')
             }}
             placeholder="全部来源"
+            size="sm"
             activeHighlight
             options={[
               { value: '', label: '全部来源' },
@@ -258,11 +260,12 @@ export default function TransactionsPage() {
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
-          <div className="w-36">
+          <div className="w-28">
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
               placeholder="全部账户"
+              size="sm"
               activeHighlight
               options={[
                 { value: '', label: '全部账户' },
@@ -274,11 +277,12 @@ export default function TransactionsPage() {
 
         {/* Category filter */}
         {allCategories.length > 0 && (
-          <div className="w-36">
+          <div className="w-28">
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
               placeholder="全部类别"
+              size="sm"
               activeHighlight
               options={[
                 { value: '', label: '全部类别' },
@@ -290,11 +294,12 @@ export default function TransactionsPage() {
 
         {/* Project filter */}
         {allProjects.length > 0 && (
-          <div className="w-36">
+          <div className="w-28">
             <Select
               value={filterProject}
               onChange={setFilterProject}
               placeholder="全部项目"
+              size="sm"
               activeHighlight
               options={[
                 { value: '', label: '全部项目' },
@@ -308,9 +313,9 @@ export default function TransactionsPage() {
         {(filterCategory || filterProject || filterSource || filterAccount) && (
           <button
             onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterSource(''); setFilterAccount('') }}
-            className="h-9 px-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200 text-xs transition-all"
+            className="h-8 px-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 text-xs transition-all"
           >
-            清除筛选
+            清除
           </button>
         )}
       </div>
