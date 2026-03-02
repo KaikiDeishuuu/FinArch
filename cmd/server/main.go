@@ -81,7 +81,7 @@ func main() {
 	statsSvc := service.NewStatsService(database)
 	acctSvc := service.NewAccountService(acctRepo)
 
-	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc)
+	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 
 	// Background goroutine: purge unverified accounts older than 24 hours.
 	go func() {

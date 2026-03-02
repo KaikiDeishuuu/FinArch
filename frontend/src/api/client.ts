@@ -384,3 +384,33 @@ export async function restoreBackup(file: File): Promise<{ message: string; rest
   })
   return data.data
 }
+
+// ─── Disaster Recovery (public, no auth required) ────────────────────────────
+
+export interface RestoreRequestResponse {
+  restore_id: string
+  masked_email: string
+  expires_in: number
+}
+
+/** Step 1: Upload backup file → receive masked email + restore_id */
+export async function disasterRestoreRequest(file: File): Promise<RestoreRequestResponse> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await axios.post('/api/v1/backup/restore-request', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
+}
+
+/** Step 2: Submit verification code → restore completes */
+export async function disasterRestoreConfirm(
+  restoreId: string,
+  code: string,
+): Promise<{ message: string; restored_version: number; migrated_to: number }> {
+  const { data } = await axios.post('/api/v1/backup/restore-confirm', {
+    restore_id: restoreId,
+    code,
+  })
+  return data.data
+}

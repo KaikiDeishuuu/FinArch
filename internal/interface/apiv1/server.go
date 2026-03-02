@@ -2,14 +2,17 @@ package apiv1
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"finarch/internal/domain/model"
@@ -17,6 +20,7 @@ import (
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
 	findb "finarch/internal/infrastructure/db"
+	"finarch/internal/infrastructure/email"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -41,6 +45,18 @@ type Server struct {
 	captchaVerifier  *auth.TurnstileVerifier
 	turnstileSiteKey string
 	acctSvc          *service.AccountService
+	emailSvc         email.Sender
+	pendingRestores  sync.Map // restoreID → *pendingRestore
+}
+
+// pendingRestore holds temporary state for a disaster recovery restore session.
+type pendingRestore struct {
+	code      string    // 6-digit verification code
+	tmpPath   string    // path to the uploaded .db tmp file
+	expiresAt time.Time // when this session expires
+	email     string    // owner email extracted from backup
+	name      string    // owner name extracted from backup
+	attempts  int       // wrong code attempts
 }
 
 func NewServer(
@@ -59,6 +75,7 @@ func NewServer(
 	captchaVerifier *auth.TurnstileVerifier,
 	turnstileSiteKey string,
 	acctSvc *service.AccountService,
+	emailSvc email.Sender,
 ) *Server {
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -80,6 +97,7 @@ func NewServer(
 		captchaVerifier:  captchaVerifier,
 		turnstileSiteKey: turnstileSiteKey,
 		acctSvc:          acctSvc,
+		emailSvc:         emailSvc,
 	}
 	s.registerRoutes()
 	return s
@@ -106,6 +124,10 @@ func (s *Server) registerRoutes() {
 	pub.POST("/auth/confirm-delete-account", s.handleConfirmDeleteAccount)
 	pub.POST("/auth/confirm-email-change-old", s.handleConfirmOldEmailChange)
 	pub.POST("/auth/confirm-email-change", s.handleConfirmEmailChange)
+
+	// Disaster recovery (public — email-verified restore when JWT auth unavailable)
+	pub.POST("/backup/restore-request", s.authRateLimitMiddleware(), s.handleRestoreRequest)
+	pub.POST("/backup/restore-confirm", s.handleRestoreConfirm)
 
 	// Shortcut: /verify-email → same handler (for emails already sent with old link)
 	r.GET("/verify-email", s.handleVerifyEmail)
@@ -1283,6 +1305,335 @@ func (s *Server) handleRestore(c *gin.Context) {
 
 	ok(c, gin.H{
 		"message":          "数据恢复成功，数据库已更新",
+		"restored_version": uploadedVersion,
+		"migrated_to":      migratedTo,
+	})
+}
+
+// ─── Disaster Recovery (public, email-verified) ──────────────────────────────
+
+// generateCode produces a cryptographically random 6-digit code.
+func generateCode() string {
+	n, _ := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	return fmt.Sprintf("%06d", n.Int64())
+}
+
+// maskEmail masks the middle of an email address for privacy (e.g. u***r@example.com).
+func maskEmail(email string) string {
+	parts := strings.SplitN(email, "@", 2)
+	if len(parts) != 2 {
+		return "***"
+	}
+	local := parts[0]
+	if len(local) <= 2 {
+		return local[:1] + "***@" + parts[1]
+	}
+	return local[:1] + strings.Repeat("*", len(local)-2) + local[len(local)-1:] + "@" + parts[1]
+}
+
+// handleRestoreRequest accepts a backup .db file, extracts the owner email,
+// sends a 6-digit verification code, and returns a restore_id for step 2.
+func (s *Server) handleRestoreRequest(c *gin.Context) {
+	fh, err := c.FormFile("file")
+	if err != nil {
+		fail(c, 400, 40001, "请上传数据库文件（multipart field: file）")
+		return
+	}
+	if filepath.Ext(fh.Filename) != ".db" {
+		fail(c, 400, 40002, "仅接受 .db 文件")
+		return
+	}
+	if fh.Size > maxRestoreSize {
+		fail(c, 400, 40004, fmt.Sprintf("文件过大（%d MB），上限 100 MB", fh.Size>>20))
+		return
+	}
+
+	// Save upload to temp file
+	tmp, err := os.CreateTemp("", "finarch-dr-*.db")
+	if err != nil {
+		fail(c, 500, 50001, "无法创建临时文件")
+		return
+	}
+	tmpPath := tmp.Name()
+
+	src, err := fh.Open()
+	if err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		fail(c, 500, 50001, "无法读取上传文件")
+		return
+	}
+	if _, err := io.Copy(tmp, src); err != nil {
+		tmp.Close()
+		src.Close()
+		os.Remove(tmpPath)
+		fail(c, 500, 50001, "写入临时文件失败")
+		return
+	}
+	tmp.Close()
+	src.Close()
+
+	// Validate SQLite magic bytes
+	magic := make([]byte, 16)
+	f, err := os.Open(tmpPath)
+	if err != nil {
+		os.Remove(tmpPath)
+		fail(c, 500, 50001, "无法验证文件")
+		return
+	}
+	f.Read(magic)
+	f.Close()
+	if string(magic[:15]) != "SQLite format 3" {
+		os.Remove(tmpPath)
+		fail(c, 400, 40003, "文件不是有效的 SQLite 数据库")
+		return
+	}
+
+	// Open backup and extract owner email
+	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
+	if err != nil {
+		os.Remove(tmpPath)
+		fail(c, 500, 50002, "无法打开备份文件")
+		return
+	}
+
+	// Check schema_migrations exists
+	var schemaVer int
+	if err := srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer); err != nil {
+		srcDB.Close()
+		os.Remove(tmpPath)
+		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
+		return
+	}
+
+	// Extract owner: first admin user, or first verified user, or first user
+	var ownerEmail, ownerName string
+	row := srcDB.QueryRow(`SELECT email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+	if err := row.Scan(&ownerEmail, &ownerName); err != nil {
+		srcDB.Close()
+		os.Remove(tmpPath)
+		fail(c, 400, 40007, "备份文件中未找到用户数据")
+		return
+	}
+	srcDB.Close()
+
+	if ownerEmail == "" {
+		os.Remove(tmpPath)
+		fail(c, 400, 40007, "备份文件中的用户没有邮箱地址")
+		return
+	}
+
+	// Generate verification code and store pending restore
+	code := generateCode()
+	restoreID := uuid.NewString()
+
+	s.pendingRestores.Store(restoreID, &pendingRestore{
+		code:      code,
+		tmpPath:   tmpPath,
+		expiresAt: time.Now().Add(10 * time.Minute),
+		email:     ownerEmail,
+		name:      ownerName,
+	})
+
+	// Cleanup expired pending restores
+	s.pendingRestores.Range(func(key, value any) bool {
+		pr := value.(*pendingRestore)
+		if time.Now().After(pr.expiresAt) {
+			os.Remove(pr.tmpPath)
+			s.pendingRestores.Delete(key)
+		}
+		return true
+	})
+
+	// Send verification code via email
+	if err := s.emailSvc.SendRestoreCode(ownerEmail, ownerName, code); err != nil {
+		os.Remove(tmpPath)
+		s.pendingRestores.Delete(restoreID)
+		log.Printf("[ERROR] disaster-restore: send code to %s: %v", ownerEmail, err)
+		fail(c, 500, 50005, "验证码发送失败，请检查邮件服务配置")
+		return
+	}
+
+	log.Printf("[INFO] disaster-restore: code sent to %s (restore_id=%s)", maskEmail(ownerEmail), restoreID[:8])
+
+	ok(c, gin.H{
+		"restore_id":   restoreID,
+		"masked_email": maskEmail(ownerEmail),
+		"expires_in":   600,
+	})
+}
+
+// handleRestoreConfirm verifies the 6-digit code and performs the restore.
+func (s *Server) handleRestoreConfirm(c *gin.Context) {
+	var req struct {
+		RestoreID string `json:"restore_id" binding:"required"`
+		Code      string `json:"code"       binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, 40001, "请提供 restore_id 和验证码")
+		return
+	}
+
+	val, ok_ := s.pendingRestores.Load(req.RestoreID)
+	if !ok_ {
+		fail(c, 400, 40008, "恢复会话不存在或已过期，请重新上传备份文件")
+		return
+	}
+	pr := val.(*pendingRestore)
+
+	// Check expiry
+	if time.Now().After(pr.expiresAt) {
+		os.Remove(pr.tmpPath)
+		s.pendingRestores.Delete(req.RestoreID)
+		fail(c, 400, 40009, "验证码已过期，请重新上传备份文件")
+		return
+	}
+
+	// Check attempts (max 5)
+	if pr.attempts >= 5 {
+		os.Remove(pr.tmpPath)
+		s.pendingRestores.Delete(req.RestoreID)
+		fail(c, 400, 40010, "验证码错误次数过多，请重新上传备份文件")
+		return
+	}
+
+	// Verify code
+	if req.Code != pr.code {
+		pr.attempts++
+		fail(c, 400, 40011, fmt.Sprintf("验证码错误，剩余 %d 次尝试", 5-pr.attempts))
+		return
+	}
+
+	// Code verified — perform restore using same logic as handleRestore
+	tmpPath := pr.tmpPath
+	s.pendingRestores.Delete(req.RestoreID)
+
+	// Schema version compatibility check
+	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
+	if err != nil {
+		os.Remove(tmpPath)
+		fail(c, 500, 50002, "无法打开备份文件")
+		return
+	}
+	var uploadedVersion int
+	_ = srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&uploadedVersion)
+	srcDB.Close()
+
+	var currentVersion int
+	_ = s.db.QueryRowContext(c.Request.Context(),
+		`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&currentVersion)
+
+	if uploadedVersion > currentVersion {
+		os.Remove(tmpPath)
+		fail(c, 400, 40006, fmt.Sprintf(
+			"备份文件版本 (v%d) 高于当前系统版本 (v%d)，请先升级系统再恢复",
+			uploadedVersion, currentVersion,
+		))
+		return
+	}
+
+	// Auto safety backup
+	safetyDir := filepath.Join(filepath.Dir(s.dbPath), "safety_backups")
+	if err := os.MkdirAll(safetyDir, 0o755); err == nil {
+		safetyPath := filepath.Join(safetyDir, fmt.Sprintf(
+			"pre_drestore_%s.db", time.Now().Format("20060102_150405"),
+		))
+		_, _ = s.db.ExecContext(c.Request.Context(), fmt.Sprintf("VACUUM INTO '%s'", safetyPath))
+
+		entries, _ := os.ReadDir(safetyDir)
+		var safetyFiles []os.DirEntry
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasPrefix(e.Name(), "pre_") && strings.HasSuffix(e.Name(), ".db") {
+				safetyFiles = append(safetyFiles, e)
+			}
+		}
+		if len(safetyFiles) > 5 {
+			for i := 0; i < len(safetyFiles)-5; i++ {
+				_ = os.Remove(filepath.Join(safetyDir, safetyFiles[i].Name()))
+			}
+		}
+	}
+
+	// Perform restore via SQLite Backup API
+	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
+	if err != nil {
+		os.Remove(tmpPath)
+		fail(c, 500, 50002, "无法打开备份文件")
+		return
+	}
+	defer restoreSrcDB.Close()
+	defer os.Remove(tmpPath)
+
+	ctx := context.Background()
+
+	destConn, err := s.db.Conn(ctx)
+	if err != nil {
+		fail(c, 500, 50002, "获取数据库连接失败")
+		return
+	}
+	defer destConn.Close()
+
+	srcConn, err := restoreSrcDB.Conn(ctx)
+	if err != nil {
+		fail(c, 500, 50002, "获取备份连接失败")
+		return
+	}
+	defer srcConn.Close()
+
+	var restoreErr error
+	srcConn.Raw(func(srcRaw interface{}) error {
+		return destConn.Raw(func(destRaw interface{}) error {
+			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
+			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
+			if !ok1 || !ok2 {
+				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
+				return restoreErr
+			}
+			bk, err := destSQLite.Backup("main", srcSQLite, "main")
+			if err != nil {
+				restoreErr = err
+				return err
+			}
+			defer bk.Finish()
+			if _, err := bk.Step(-1); err != nil {
+				restoreErr = err
+				return err
+			}
+			return nil
+		})
+	})
+
+	if restoreErr != nil {
+		fail(c, 500, 50003, "恢复失败: "+restoreErr.Error())
+		return
+	}
+
+	// Post-restore: re-apply PRAGMAs
+	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
+		log.Printf("[WARN] disaster-restore: reapply pragmas: %v", err)
+	}
+
+	// Post-restore: auto-migrate
+	var migratedTo int
+	if uploadedVersion < currentVersion {
+		if err := findb.Migrate(ctx, s.db); err != nil {
+			log.Printf("[ERROR] disaster-restore: migration failed: %v", err)
+			fail(c, 500, 50004, fmt.Sprintf(
+				"数据已恢复但自动迁移失败 (v%d → v%d): %s。请重启服务。",
+				uploadedVersion, currentVersion, err.Error(),
+			))
+			return
+		}
+		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&migratedTo)
+		log.Printf("[INFO] disaster-restore: migrated from v%d to v%d", uploadedVersion, migratedTo)
+	} else {
+		migratedTo = uploadedVersion
+	}
+
+	log.Printf("[INFO] disaster-restore completed successfully (v%d) for %s", migratedTo, maskEmail(pr.email))
+
+	ok(c, gin.H{
+		"message":          "灾难恢复成功！数据库已恢复",
 		"restored_version": uploadedVersion,
 		"migrated_to":      migratedTo,
 	})

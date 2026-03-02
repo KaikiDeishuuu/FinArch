@@ -119,7 +119,7 @@ func main() {
 		emailSvc := email.NewResendSender(os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM_EMAIL"), appBaseURL)
 		authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 		statsSvc := service.NewStatsService(database)
-		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc)
+		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 		log.Printf("FinArch API v1: http://%s", addr)
 		log.Fatal(srv.Run())
 	default:

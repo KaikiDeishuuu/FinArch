@@ -19,6 +19,8 @@ type Sender interface {
 	SendEmailChangeOldVerify(toOldEmail, toUsername, newEmail, token string) error
 	// SendEmailChange sends a verification link to the NEW email address to complete the change.
 	SendEmailChange(toNewEmail, toUsername, token string) error
+	// SendRestoreCode sends a 6-digit verification code for disaster recovery restore.
+	SendRestoreCode(toEmail, toName, code string) error
 }
 
 // ResendSender sends emails via the Resend API.
@@ -276,6 +278,29 @@ func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) err
 	return s.send(toNewEmail, "FinArch 登录邮箱验证", html)
 }
 
+func (s *ResendSender) SendRestoreCode(toEmail, toName, code string) error {
+	body := fmt.Sprintf(`
+      <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">灾难恢复验证</h1>
+      <p style="margin:0 0 28px;color:#6b7280;font-size:14px">有人正在尝试恢复与您邮箱关联的 FinArch 数据</p>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
+      <p style="margin:0 0 28px;color:#374151;font-size:15px;line-height:1.7">
+        系统收到了一个数据恢复请求，请使用以下验证码完成身份验证。<br>
+        验证码有效期为 <strong>10 分钟</strong>。
+      </p>
+      <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
+        <tr>
+          <td style="border-radius:12px;background:#f3f4f6;padding:20px 40px;text-align:center">
+            <span style="font-size:36px;font-weight:800;color:#111827;letter-spacing:8px;font-family:monospace">%s</span>
+          </td>
+        </tr>
+      </table>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+      <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件。请勿将验证码分享给任何人。</p>`,
+		toName, code)
+	html := buildEmailHTML("", body)
+	return s.send(toEmail, "FinArch 灾难恢复验证码", html)
+}
+
 // NoopSender discards all emails (used when RESEND_API_KEY is not set).
 type NoopSender struct{}
 
@@ -284,6 +309,7 @@ func (n *NoopSender) SendPasswordReset(_, _, _ string) error           { return 
 func (n *NoopSender) SendAccountDeletion(_, _, _ string) error         { return nil }
 func (n *NoopSender) SendEmailChangeOldVerify(_, _, _, _ string) error { return nil }
 func (n *NoopSender) SendEmailChange(_, _, _ string) error             { return nil }
+func (n *NoopSender) SendRestoreCode(_, _, _ string) error             { return nil }
 
 // IsConfigured returns true if RESEND_API_KEY env var is set.
 func IsConfigured() bool { return os.Getenv("RESEND_API_KEY") != "" }

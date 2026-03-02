@@ -294,9 +294,12 @@ export default function LoginPage() {
         </form>
 
         {mode === 'login' && (
-          <div className="text-center mt-5">
-            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-violet-600 transition-colors font-medium">
+          <div className="text-center mt-5 space-y-2">
+            <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-violet-600 transition-colors font-medium block">
               忘记密码？
+            </Link>
+            <Link to="/disaster-restore" className="text-xs text-gray-400 hover:text-violet-600 transition-colors font-medium block">
+              灾难恢复
             </Link>
           </div>
         )}
