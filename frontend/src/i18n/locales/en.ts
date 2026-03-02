@@ -8,6 +8,7 @@ const en = {
       saving: 'Saving…',
       delete: 'Delete',
       edit: 'Edit',
+      add: 'Add',
       close: 'Close',
       loading: 'Loading…',
       noData: 'No data',

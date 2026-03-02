@@ -253,11 +253,13 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <CardSkeleton className="h-28" />
         <div className="grid grid-cols-2 gap-3">
           <CardSkeleton /><CardSkeleton /><CardSkeleton /><CardSkeleton />
         </div>
+        <CardSkeleton className="h-24" />
+        <CardSkeleton className="h-40" />
       </div>
     )
   }

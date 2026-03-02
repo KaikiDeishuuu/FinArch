@@ -49,6 +49,19 @@
           media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)" />
 
     <title>FinArch</title>
+    <!-- Detect language & theme before first paint -->
+    <script>
+      (function(){
+        var lang = localStorage.getItem('finarch-lang') || navigator.language || 'zh';
+        var isEn = lang.indexOf('en') === 0;
+        window.__splashTagline = isEn ? 'Accounting · Reimbursement · Analytics' : '记账 · 报销 · 统计';
+        // Dark-mode splash
+        var theme = localStorage.getItem('finarch-theme') || 'system';
+        var dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+        window.__splashDark = dark;
+      })();
+    </script>
   </head>
   <body>
     <!-- PWA splash screen: shown immediately, removed by React after mount -->
@@ -83,6 +96,7 @@
       display:flex;align-items:center;justify-content:center;
       background:#FAFAF9;
     ">
+      <script>if(window.__splashDark)document.getElementById('splash').style.background='#0d0b14';</script>
       <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
         <!-- Logo card: violet-indigo gradient with entrance + pulse animation -->
         <div style="
@@ -104,17 +118,19 @@
           </svg>
         </div>
         <!-- Brand name with fade-slide in -->
-        <span style="
+        <span id="splash-brand" style="
           color:#0d0b14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           font-size:22px;font-weight:700;letter-spacing:0.05em;
           animation:splash-text-in 0.5s ease-out 0.4s both;
         ">FinArch</span>
+        <script>if(window.__splashDark)document.getElementById('splash-brand').style.color='#e5e7eb';</script>
         <!-- Tagline with staggered entrance -->
-        <span style="
+        <span id="splash-tagline" style="
           color:#6b7280;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
           font-size:13px;
           animation:splash-text-in 0.5s ease-out 0.55s both;
-        ">记账 · 报销 · 统计</span>
+        "></span>
+        <script>document.getElementById('splash-tagline').textContent=window.__splashTagline||'记账 · 报销 · 统计';</script>
         <!-- Loading dots indicator -->
         <div style="display:flex;gap:6px;margin-top:4px">
           <div style="width:5px;height:5px;border-radius:50%;background:#a78bfa;animation:splash-dots 1.4s ease-in-out 0.7s infinite"></div>

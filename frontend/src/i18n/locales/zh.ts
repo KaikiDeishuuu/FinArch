@@ -8,6 +8,7 @@ const zh = {
       saving: '保存中…',
       delete: '删除',
       edit: '编辑',
+      add: '添加',
       close: '关闭',
       loading: '加载中…',
       noData: '暂无数据',

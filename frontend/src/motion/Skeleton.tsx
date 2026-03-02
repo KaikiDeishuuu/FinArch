@@ -39,7 +39,7 @@ export default function Skeleton({
 }: Props) {
   return (
     <motion.div
-      className={`bg-gray-200/60 ${rounded ? 'rounded-full' : 'rounded-lg'} ${width} ${height} ${className}`}
+      className={`bg-gray-200/60 dark:bg-gray-700/40 ${rounded ? 'rounded-full' : 'rounded-lg'} ${width} ${height} ${className}`}
       animate={{ opacity: [0.4, 1, 0.4] }}
       transition={{
         duration: 2,
@@ -54,7 +54,7 @@ export default function Skeleton({
 
 export function CardSkeleton({ className = '' }: { className?: string }) {
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100/80 p-5 space-y-3 ${className}`}>
+    <div className={`bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 space-y-3 ${className}`}>
       <div className="flex items-center gap-2">
         <Skeleton width="w-8" height="h-8" rounded />
         <Skeleton width="w-24" height="h-3" />
