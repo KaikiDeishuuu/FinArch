@@ -884,6 +884,7 @@ const zh = {
       thAmount: '金额',
       thUploaded: '上传状态',
       thReimbursed: '报销状态',
+      thWorkflow: '流程状态',
       uploadedYes: '✓ 已上传',
       uploadedNo: '✗ 未上传',
       reimbursedYes: '✓ 已报销',
@@ -891,6 +892,25 @@ const zh = {
       footer: '由 FinArch 自动生成',
       totalRecords: '共 {{count}} 条记录',
       unit: '笔',
+
+      workflowLegend: {
+        pending: '待处理：未上传凭证',
+        review: '处理中：已上传待整理/报销',
+        done: '已完成：整理/报销结束',
+      },
+      workflow: {
+        incomeNoFlow: '收入 · 无需处理',
+        company: {
+          pendingUpload: '待上传',
+          pendingReimburse: '待报销',
+          done: '已报销',
+        },
+        life: {
+          pendingUpload: '待上传凭证',
+          pendingProcess: '待整理',
+          done: '已整理',
+        },
+      },
       popupBlocked: '弹出窗口被拦截，请允许本站弹窗后重试',
     },
 

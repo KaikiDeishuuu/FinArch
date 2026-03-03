@@ -491,7 +491,7 @@ export default function StatsPage() {
             <div className="space-y-3 flex-1">
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium">
+                  <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium min-w-[5.25rem]">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
                   </span>
                   <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(totalIncome)}</span>
@@ -502,7 +502,7 @@ export default function StatsPage() {
               </div>
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium">
+                  <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium min-w-[5.25rem]">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
                   </span>
                   <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(totalExpense)}</span>

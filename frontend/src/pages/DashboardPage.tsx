@@ -52,6 +52,14 @@ const IconCheck = () => (
   </svg>
 )
 
+const IconSparkles = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+    <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" />
+    <path d="M5 16l.9 2.1L8 19l-2.1.9L5 22l-.9-2.1L2 19l2.1-.9L5 16z" />
+    <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" />
+  </svg>
+)
+
 const FEATURES = [
   {
     to: '/transactions',
@@ -275,6 +283,7 @@ export default function DashboardPage() {
   }
 
   const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
+  const featureCards = FEATURES.filter((f) => isWorkMode || f.to !== '/match')
 
   return (
     <div className="space-y-6">
@@ -317,7 +326,7 @@ export default function DashboardPage() {
       {isWorkMode ? (
         <StaggerContainer className="grid grid-cols-2 gap-2 sm:gap-3">
           <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
             <div className="flex items-center gap-2 mb-2 sm:mb-3">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
@@ -331,7 +340,7 @@ export default function DashboardPage() {
           </div>
           </StaggerItem>
           <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+          <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
             <div className="flex items-center gap-2 mb-2 sm:mb-3">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
@@ -348,21 +357,33 @@ export default function DashboardPage() {
       ) : (
         <StaggerContainer className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <StaggerItem>
-            <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.balance.personalAdvance')}</p>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">
-                <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
-              </p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="absolute -top-6 -right-6 w-20 h-20 bg-emerald-300/20 rounded-full blur-2xl" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 inline-flex items-center justify-center"><IconSparkles /></span>
+                  <p className="text-xs font-semibold text-emerald-700/80 dark:text-emerald-300/80 tracking-wide">{t('dashboard.balance.personalAdvance')}</p>
+                </div>
+                <p className="mt-1 text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-200 tabular-nums">
+                  <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
+                </p>
+                <p className="text-[11px] text-emerald-700/60 dark:text-emerald-300/70 mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
+              </div>
             </div>
           </StaggerItem>
           <StaggerItem>
-            <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('transactions.summary.expense')}</p>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-rose-500 tabular-nums">
-                <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
-              </p>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.advanceLabel')}</p>
+            <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="absolute -bottom-7 -left-6 w-24 h-24 bg-rose-300/20 rounded-full blur-2xl" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 inline-flex items-center justify-center"><IconChart /></span>
+                  <p className="text-xs font-semibold text-rose-700/80 dark:text-rose-300/80 tracking-wide">{t('transactions.summary.expense')}</p>
+                </div>
+                <p className="mt-1 text-xl md:text-2xl font-bold text-rose-600 dark:text-rose-300 tabular-nums">
+                  <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
+                </p>
+                <p className="text-[11px] text-rose-700/60 dark:text-rose-300/70 mt-1.5">{t('dashboard.balance.advanceLabel')}</p>
+              </div>
             </div>
           </StaggerItem>
         </StaggerContainer>
@@ -437,7 +458,7 @@ export default function DashboardPage() {
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
         <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4 tracking-wide">{t('dashboard.featureNavTitle')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {FEATURES.map((f) => (
+          {featureCards.map((f) => (
             <AnimatedCard
               key={f.to}
               className="rounded-2xl"
