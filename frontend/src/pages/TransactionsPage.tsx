@@ -65,6 +65,14 @@ export default function TransactionsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
+  const tabLabelAll = t('transactions.reimbursementTabs.all')
+  const tabLabelPending = isWorkMode ? t('transactions.reimbursementTabs.pending') : t('transactions.life.tabs.pending')
+  const tabLabelDone = isWorkMode ? t('transactions.reimbursementTabs.done') : t('transactions.life.tabs.done')
+  const processedLabel = isWorkMode ? t('transactions.badges.reimbursed') : t('transactions.life.badges.processed')
+  const processedHeader = isWorkMode ? t('transactions.table.reimbursed') : t('transactions.life.table.processed')
+  const lockTitle = isWorkMode ? t('transactions.lockTitle') : t('transactions.life.lockTitle')
+  const incomeHint = isWorkMode ? t('transactions.incomeNoReimburse') : t('transactions.life.incomeNoProcess')
+
   // Build account lookup for filter display
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
@@ -116,7 +124,7 @@ export default function TransactionsPage() {
   const fmt = (t: Transaction) => formatAmount(t.amount_yuan, t.currency)
 
   function exportPDF() {
-    const parts: string[] = [{ all: t('transactions.reimbursementTabs.all'), unreimbursed: t('transactions.reimbursementTabs.pending'), reimbursed: t('transactions.reimbursementTabs.done') }[filter]]
+    const parts: string[] = [{ all: tabLabelAll, unreimbursed: tabLabelPending, reimbursed: tabLabelDone }[filter]]
     if (filterCategory) parts.push(`${t('transactions.table.category')}: ${categoryLabel(filterCategory)}`)
     if (filterProject) parts.push(`${t('transactions.table.project')}: ${filterProject}`)
     exportTransactionsPDF(filtered, parts.join(' · '), user, rates)
@@ -128,7 +136,7 @@ export default function TransactionsPage() {
       await toggleReimbursed(id)
       invalidate()
     } catch {
-      toast.error(t('transactions.toast.reimbursedError'))
+      toast.error(isWorkMode ? t('transactions.toast.reimbursedError') : t('transactions.life.toast.processError'))
     } finally {
       setTogglingId(null)
     }
@@ -138,7 +146,7 @@ export default function TransactionsPage() {
     // Rollback protection: if uploaded AND reimbursed, must cancel reimburse first
     const tx = txs.find(t => t.id === id)
     if (tx && tx.uploaded && tx.reimbursed) {
-      toast.error(t('transactions.toast.cancelReimburseFirst'))
+      toast.error(isWorkMode ? t('transactions.toast.cancelReimburseFirst') : t('transactions.life.toast.cancelProcessFirst'))
       return
     }
     setTogglingId(id)
@@ -161,9 +169,9 @@ export default function TransactionsPage() {
   }
 
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
-    { key: 'all', label: t('transactions.reimbursementTabs.all'), count: txs.length },
-    { key: 'unreimbursed', label: t('transactions.reimbursementTabs.pending'), count: txs.filter(t => !t.reimbursed).length },
-    { key: 'reimbursed', label: t('transactions.reimbursementTabs.done'), count: txs.filter(t => t.reimbursed).length },
+    { key: 'all', label: tabLabelAll, count: txs.length },
+    { key: 'unreimbursed', label: tabLabelPending, count: txs.filter(t => !t.reimbursed).length },
+    { key: 'reimbursed', label: tabLabelDone, count: txs.filter(t => t.reimbursed).length },
   ]
 
   const incomeItems = filtered.filter(t => t.direction === 'income')
@@ -410,11 +418,11 @@ export default function TransactionsPage() {
                             disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
                             loading={togglingId === tx.id}
                             locked={tx.uploaded && tx.reimbursed}
-                            lockedTitle={t('transactions.lockTitle')}
+                            lockedTitle={lockTitle}
                           />
                           <StatusBadge
                             active={tx.reimbursed}
-                            activeLabel={t('transactions.badges.reimbursed')}
+                            activeLabel={processedLabel}
                             inactiveLabel={t('transactions.badges.pending')}
                             activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
@@ -424,7 +432,7 @@ export default function TransactionsPage() {
                           />
                         </>
                       ) : (
-                        <span className="text-xs text-gray-300 dark:text-gray-600 px-1">{t('transactions.incomeNoReimburse')}</span>
+                        <span className="text-xs text-gray-300 dark:text-gray-600 px-1">{incomeHint}</span>
                       )}
                       <button
                         onClick={() => copyId(tx.id)}
@@ -479,7 +487,7 @@ export default function TransactionsPage() {
                   <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.amount')}</th>
                   {isWorkMode && (<>
                   <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.uploaded')}</th>
-                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pr-4">{t('transactions.table.reimbursed')}</th>
+                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pr-4">{processedHeader}</th>
                   </>)}
                 </tr>
               </thead>
@@ -553,7 +561,7 @@ export default function TransactionsPage() {
                                 disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
                                 loading={togglingId === tx.id}
                                 locked={tx.uploaded && tx.reimbursed}
-                                lockedTitle={t('transactions.lockTitle')}
+                                lockedTitle={lockTitle}
                               />
                             ) : (
                               <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
@@ -563,7 +571,7 @@ export default function TransactionsPage() {
                             {tx.direction === 'expense' ? (
                               <StatusBadge
                                 active={tx.reimbursed}
-                                activeLabel={t('transactions.badges.reimbursed')}
+                                activeLabel={processedLabel}
                                 inactiveLabel={t('transactions.badges.pending')}
                                 activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30"
                                 inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"

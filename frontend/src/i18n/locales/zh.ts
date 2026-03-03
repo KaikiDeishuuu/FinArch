@@ -234,6 +234,10 @@ const zh = {
         personalDesc3: '上传发票或收据作为报销依据',
         personalStep4: '批量报销',
         personalDesc4: '使用匹配工具自动匹配并完成报销',
+        personalLifeStep3: '补充记录',
+        personalLifeDesc3: '可添加小票、照片或备注，方便后续整理',
+        personalLifeStep4: '完成整理',
+        personalLifeDesc4: '使用智能匹配快速归并记录并标记完成',
         companyTitle: '公共账户',
         companyStep1: '记录交易',
         companyDesc1: '使用公共资金后在系统中记录',
@@ -296,6 +300,25 @@ const zh = {
       incomeNoReimburse: '收入无需报销',
       copyIdTooltip: '点击复制完整 ID',
       lockTitle: '请先取消报销状态',
+
+      life: {
+        tabs: {
+          pending: '待整理',
+          done: '已整理',
+        },
+        table: {
+          processed: '已整理',
+        },
+        badges: {
+          processed: '已整理',
+        },
+        lockTitle: '请先取消整理状态',
+        incomeNoProcess: '收入 — 无需整理',
+        toast: {
+          processError: '整理状态切换失败',
+          cancelProcessFirst: '请先取消整理状态，再取消上传',
+        },
+      },
       toast: {
         deleted: '交易已删除',
         deleteError: '删除失败',
@@ -396,6 +419,25 @@ const zh = {
         confirmPrompt: '确认标记已报销？',
         reimbursed: '已报销',
         markShort: '标记报销',
+      },
+
+      exportLabel: '匹配结果 · {{source}}',
+      life: {
+        subtitle: '智能查找并组合个人消费记录',
+        exportPdf: '导出匹配 PDF',
+        exportLabel: '生活模式匹配 · {{source}}',
+        info: {
+          uploadedOnly: '在<strong>已上传、待处理</strong>的{{source}}支出中，查找与目标金额最接近的组合',
+        },
+        table: {
+          process: '处理状态',
+        },
+        process: {
+          markShort: '标记完成',
+          done: '已处理',
+          success: '已标记为完成',
+          confirmPrompt: '确认标记为已处理？',
+        },
       },
       info: {
         description: '选择一组组合后，可一次性标记为已报销',

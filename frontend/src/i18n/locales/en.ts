@@ -234,6 +234,10 @@ const en = {
         personalDesc3: 'Attach invoice or receipt as proof',
         personalStep4: 'Reimburse',
         personalDesc4: 'Use Match tool to auto-match & reimburse',
+        personalLifeStep3: 'Attach Notes',
+        personalLifeDesc3: 'Add receipts, photos, or notes for easier tracking',
+        personalLifeStep4: 'Review',
+        personalLifeDesc4: 'Use Smart Match to organize records and close items quickly',
         companyTitle: 'Public Account',
         companyStep1: 'Record',
         companyDesc1: 'Log the transaction after using public funds',
@@ -296,6 +300,25 @@ const en = {
       incomeNoReimburse: 'Income — no reimbursement',
       copyIdTooltip: 'Click to copy full ID',
       lockTitle: 'Cancel reimbursement first',
+
+      life: {
+        tabs: {
+          pending: 'To Review',
+          done: 'Reviewed',
+        },
+        table: {
+          processed: 'Reviewed',
+        },
+        badges: {
+          processed: 'Reviewed',
+        },
+        lockTitle: 'Clear review status first',
+        incomeNoProcess: 'Income — no review required',
+        toast: {
+          processError: 'Review status toggle failed',
+          cancelProcessFirst: 'Clear review status before canceling upload',
+        },
+      },
       toast: {
         deleted: 'Transaction deleted',
         deleteError: 'Delete failed',
@@ -396,6 +419,25 @@ const en = {
         confirmPrompt: 'Confirm mark as reimbursed?',
         reimbursed: 'Reimbursed',
         markShort: 'Mark reimburse',
+      },
+
+      exportLabel: 'Match Results · {{source}}',
+      life: {
+        subtitle: 'Smartly find and group your personal spending records',
+        exportPdf: 'Export Match PDF',
+        exportLabel: 'Life Match · {{source}}',
+        info: {
+          uploadedOnly: 'Search within <strong>uploaded, unprocessed</strong> {{source}} expenses and find combinations closest to your target',
+        },
+        table: {
+          process: 'Process',
+        },
+        process: {
+          markShort: 'Mark done',
+          done: 'Processed',
+          success: 'Marked as processed',
+          confirmPrompt: 'Confirm mark as processed?',
+        },
       },
       info: {
         description: 'Select a combination to batch-mark as reimbursed',
