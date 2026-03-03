@@ -19,8 +19,8 @@ const en = {
       success: 'Success',
       error: 'Error',
       all: 'All',
-      personal: 'Personal',
-      company: 'Public',
+      personal: 'Personal Account',
+      company: 'Public Account',
       income: 'Income',
       expense: 'Expense',
       net: 'Net',
@@ -169,7 +169,7 @@ const en = {
       },
       balance: {
         public: 'Public Account',
-        personalAdvance: 'Advances',
+        personalAdvance: 'Personal Account',
         personalPending: 'Outstanding',
         publicPending: 'Pub. Pending',
         balanceLabel: 'Balance',
@@ -178,7 +178,7 @@ const en = {
       },
       pending: {
         title: 'Pending Analysis',
-        personalTitle: 'Personal Advance Pending',
+        personalTitle: 'Personal Account Pending',
         publicTitle: 'Public Pending',
         totalAmount: '{{count}} txns, total',
         avgLabel: 'Avg',
@@ -225,16 +225,20 @@ const en = {
       featureNavTitle: 'Features',
       workflowTitle: 'Workflow',
       workflow: {
-        personalTitle: 'Personal',
+        personalTitle: 'Personal Account',
         personalStep1: 'Record',
         personalDesc1: 'Log the expense after paying out of pocket',
         personalStep2: 'Source',
-        personalDesc2: 'Set source to "Personal Advance" & link account',
+        personalDesc2: 'Set source to "Personal Account" & link account',
         personalStep3: 'Upload',
         personalDesc3: 'Attach invoice or receipt as proof',
         personalStep4: 'Reimburse',
         personalDesc4: 'Use Match tool to auto-match & reimburse',
-        companyTitle: 'Public',
+        personalLifeStep3: 'Attach Notes',
+        personalLifeDesc3: 'Add receipts, photos, or notes for easier tracking',
+        personalLifeStep4: 'Review',
+        personalLifeDesc4: 'Use Smart Match to organize records and close items quickly',
+        companyTitle: 'Public Account',
         companyStep1: 'Record',
         companyDesc1: 'Log the transaction after using public funds',
         companyStep2: 'Source',
@@ -249,8 +253,8 @@ const en = {
       title: 'Transactions',
       sourceTabs: {
         all: 'All',
-        personal: 'Personal',
-        company: 'Public',
+        personal: 'Personal Account',
+        company: 'Public Account',
       },
       filterPlaceholders: {
         source: 'Source',
@@ -296,6 +300,25 @@ const en = {
       incomeNoReimburse: 'Income — no reimbursement',
       copyIdTooltip: 'Click to copy full ID',
       lockTitle: 'Cancel reimbursement first',
+
+      life: {
+        tabs: {
+          pending: 'To Review',
+          done: 'Reviewed',
+        },
+        table: {
+          processed: 'Reviewed',
+        },
+        badges: {
+          processed: 'Reviewed',
+        },
+        lockTitle: 'Clear review status first',
+        incomeNoProcess: 'Income — no review required',
+        toast: {
+          processError: 'Review status toggle failed',
+          cancelProcessFirst: 'Clear review status before canceling upload',
+        },
+      },
       toast: {
         deleted: 'Transaction deleted',
         deleteError: 'Delete failed',
@@ -316,7 +339,7 @@ const en = {
         expense: 'Expense',
         income: 'Income',
         source: 'Source',
-        personalAdvance: 'Personal Advance',
+        personalAdvance: 'Personal Account',
         publicAccount: 'Public Account',
         account: 'Account',
         amount: 'Amount (¥)',
@@ -347,8 +370,8 @@ const en = {
       title: 'Smart Match',
       subtitle: 'Auto-find transaction combinations matching the reimbursement total',
       sourceTabs: {
-        personal: 'Personal',
-        company: 'Public',
+        personal: 'Personal Account',
+        company: 'Public Account',
       },
       filters: {
         account: 'Account',
@@ -397,6 +420,25 @@ const en = {
         reimbursed: 'Reimbursed',
         markShort: 'Mark reimburse',
       },
+
+      exportLabel: 'Match Results · {{source}}',
+      life: {
+        subtitle: 'Smartly find and group your personal spending records',
+        exportPdf: 'Export Match PDF',
+        exportLabel: 'Life Match · {{source}}',
+        info: {
+          uploadedOnly: 'Search within <strong>uploaded, unprocessed</strong> {{source}} expenses and find combinations closest to your target',
+        },
+        table: {
+          process: 'Process',
+        },
+        process: {
+          markShort: 'Mark done',
+          done: 'Processed',
+          success: 'Marked as processed',
+          confirmPrompt: 'Confirm mark as processed?',
+        },
+      },
       info: {
         description: 'Select a combination to batch-mark as reimbursed',
         uploadedOnly: 'Among <strong>uploaded, unreimbursed</strong> {{source}} records, find combinations whose sum best matches the target',
@@ -430,8 +472,8 @@ const en = {
       },
       sourceTabs: {
         all: 'All',
-        personal: 'Personal',
-        company: 'Public',
+        personal: 'Personal Account',
+        company: 'Public Account',
       },
       yearlyIncome: 'Income',
       yearlyExpense: 'Expense',
@@ -441,6 +483,7 @@ const en = {
         monthlySubtitle: 'Monthly income and expense breakdown',
         pieTitle: 'Income vs Expense',
         categoryTitle: 'Expense by Category',
+        incomeCategoryTitle: 'Income Category Distribution / 收入类别分布',
         projectTitle: 'Project Summary',
       },
       pie: {
@@ -478,7 +521,7 @@ const en = {
       },
       accounts: {
         publicLabel: 'Public',
-        personalLabel: 'Personal',
+        personalLabel: 'Personal Account',
         rename: 'Rename',
         delete: 'Delete',
         newPlaceholder: 'New account name…',
@@ -488,8 +531,8 @@ const en = {
         deleting: 'Deleting…',
         newTitle: 'New Account',
         namePlaceholder: 'Account name',
-        personalAccount: 'Personal',
-        publicAccount: 'Public',
+        personalAccount: 'Personal Account',
+        publicAccount: 'Public Account',
         creating: 'Creating…',
         nameRequired: 'Please enter an account name',
         toast: {
@@ -831,7 +874,7 @@ const en = {
       reimbursedTotal: 'Reimbursed',
       netTotal: 'Net Balance',
       allLabel: 'All',
-      personalLabel: 'Personal',
+      personalLabel: 'Personal Account',
       companyLabel: 'Public',
       thDate: 'Date',
       thCategory: 'Category',

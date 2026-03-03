@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
-import type { MatchResult, MatchResultItem, Account } from '../api/client'
+import type { MatchResult, MatchResultItem, Account, Transaction } from '../api/client'
 import { formatAmount, toCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
@@ -13,12 +13,17 @@ import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
 import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
 import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
+import { useAuth } from '../contexts/AuthContext'
+import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 
 export default function MatchPage() {
   const [target, setTarget] = useState('')
   const [tolerance, setTolerance] = useState('0.01')
   const [maxItems, setMaxItems] = useState('10')
-  const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>('personal')
+  const { mode } = useMode()
+  const isLifeMode = mode === 'life'
+  const enforcedSource: 'personal' | 'company' = mode === 'work' ? 'company' : 'personal'
+  const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>(enforcedSource)
   const [filterCategory, setFilterCategory] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
   const [results, setResults] = useState<MatchResult[]>([])
@@ -35,12 +40,15 @@ export default function MatchPage() {
   const { data: accounts = [] } = useAccounts()
   const invalidate = useInvalidateTransactions()
   const { t } = useTranslation()
+  const { user } = useAuth()
   const workerRef = useRef<Worker | null>(null)
-  const { isWorkMode } = useMode()
+  useEffect(() => {
+    setSourceFilter(enforcedSource)
+    setFilterAccount('')
+    setResults([])
+    setSearched(false)
+  }, [enforcedSource])
 
-  if (!isWorkMode) {
-    return <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-6 text-sm text-gray-500 dark:text-gray-400">Reimbursement matching is available in Work mode only.</div>
-  }
 
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
@@ -88,7 +96,7 @@ export default function MatchPage() {
         ...(alreadyUploaded ? [] : [toggleUploaded(id)]),
       ])
       setReimbursedIds(prev => new Set(prev).add(id))
-      toast.success(t('match.reimburse.success'))
+      toast.success(isLifeMode ? t('match.life.process.success') : t('match.reimburse.success'))
       invalidate()
     } finally {
       setLoadingId(null)
@@ -192,6 +200,40 @@ export default function MatchPage() {
     })
   }
 
+
+
+  const matchedTransactions = useMemo(() => {
+    const index = new Map<string, Transaction>()
+    for (const r of results) {
+      for (const item of r.items ?? []) {
+        index.set(item.id, {
+          id: item.id,
+          occurred_at: item.occurred_at,
+          direction: item.direction as Transaction['direction'],
+          source: item.source as Transaction['source'],
+          account_id: '',
+          category: item.category,
+          mode,
+          amount_yuan: item.amount_yuan,
+          currency: item.currency,
+          note: item.note,
+          project_id: item.project_id,
+          reimbursed: reimbursedIds.has(item.id),
+          uploaded: item.uploaded,
+        })
+      }
+    }
+    return Array.from(index.values())
+  }, [results, reimbursedIds])
+
+  function handleExportPDF() {
+    if (matchedTransactions.length === 0) return
+    const label = isLifeMode
+      ? t('match.life.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
+      : t('match.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
+    exportTransactionsPDF(matchedTransactions, label, user, rates)
+  }
+
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
   const inputClass = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 dark:bg-gray-800/50 dark:text-gray-200 transition-all hover:bg-white dark:hover:bg-[hsl(260,15%,11%)] tabular-nums'
   const labelClass = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider'
@@ -201,7 +243,7 @@ export default function MatchPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('match.title')}</h1>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('match.subtitle')}</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{isLifeMode ? t('match.life.subtitle') : t('match.subtitle')}</p>
       </div>
 
       {/* Form card — Premium */}
@@ -210,7 +252,7 @@ export default function MatchPage() {
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {/* Source filter tabs */}
             <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
-              {(['personal', 'company'] as const).map((key) => (
+              {([enforcedSource] as const).map((key) => (
                 <button
                   key={key}
                   type="button"
@@ -277,7 +319,7 @@ export default function MatchPage() {
         <div className="bg-violet-50 dark:bg-violet-500/10 border-b border-violet-100 dark:border-violet-800 px-5 py-3 flex items-start gap-2.5">
           <svg className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
           <div>
-            <p className="text-sm text-violet-700 dark:text-violet-300" dangerouslySetInnerHTML={{ __html: t('match.info.uploadedOnly', { source: t(`match.sourceTabs.${sourceFilter}`) }) }} />
+            <p className="text-sm text-violet-700 dark:text-violet-300" dangerouslySetInnerHTML={{ __html: isLifeMode ? t('match.life.info.uploadedOnly', { source: t(`match.sourceTabs.${sourceFilter}`) }) : t('match.info.uploadedOnly', { source: t(`match.sourceTabs.${sourceFilter}`) }) }} />
             <p className="text-xs text-violet-500/80 dark:text-violet-400/70 mt-1">{t('match.info.currencyNote')}</p>
           </div>
         </div>
@@ -344,6 +386,14 @@ export default function MatchPage() {
                 {t('match.form.searchButton')}
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            disabled={matchedTransactions.length === 0}
+            className="mt-2 w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 disabled:opacity-50 rounded-xl py-2.5 text-sm font-semibold transition-all"
+          >
+            {isLifeMode ? t('match.life.exportPdf') : t('transactions.exportPdf')}
           </button>
         </form>
       </div>
@@ -448,11 +498,11 @@ export default function MatchPage() {
                               {done ? (
                                 <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
                                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                  {t('match.reimburse.reimbursed')}
+                                  {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
                                 </span>
                               ) : confirming ? (
                                 <div className="flex items-center gap-2 pt-0.5">
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">{t('match.reimburse.confirmPrompt')}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{isLifeMode ? t('match.life.process.confirmPrompt') : t('match.reimburse.confirmPrompt')}</span>
                                   <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
                                     className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
                                     {busy ? '…' : t('common.confirm')}
@@ -465,7 +515,7 @@ export default function MatchPage() {
                               ) : (
                                 <button onClick={() => setConfirmId(item.id)}
                                   className="text-xs text-violet-500 hover:text-violet-700 font-medium">
-                                  {t('match.reimburse.markButton')}
+                                  {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markButton')}
                                 </button>
                               )}
                             </div>
@@ -486,7 +536,7 @@ export default function MatchPage() {
                             <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.project')}</th>
                             <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.note')}</th>
                             <th className="px-4 py-2.5 text-right font-semibold">{t('match.table.amount')}</th>
-                            <th className="px-4 py-2.5 text-center font-semibold">{t('match.table.reimburse')}</th>
+                            <th className="px-4 py-2.5 text-center font-semibold">{isLifeMode ? t('match.life.table.process') : t('match.table.reimburse')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -511,7 +561,7 @@ export default function MatchPage() {
                                   {done ? (
                                     <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium whitespace-nowrap">
                                       <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                      {t('match.reimburse.reimbursed')}
+                                      {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
                                     </span>
                                   ) : confirming ? (
                                     <div className="flex items-center justify-center gap-1.5">
@@ -527,7 +577,7 @@ export default function MatchPage() {
                                   ) : (
                                     <button onClick={() => setConfirmId(item.id)}
                                       className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
-                                      {t('match.reimburse.markShort')}
+                                      {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markShort')}
                                     </button>
                                   )}
                                 </td>

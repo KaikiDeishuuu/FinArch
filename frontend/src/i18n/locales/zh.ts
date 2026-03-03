@@ -169,7 +169,7 @@ const zh = {
       },
       balance: {
         public: '公共账户',
-        personalAdvance: '个人总垫付',
+        personalAdvance: '个人账户',
         personalPending: '个人待报销',
         publicPending: '公共待报销',
         balanceLabel: '结余',
@@ -178,7 +178,7 @@ const zh = {
       },
       pending: {
         title: '待报销分析',
-        personalTitle: '个人垫付待报销',
+        personalTitle: '个人账户待报销',
         publicTitle: '公共待报销',
         totalAmount: '共 {{count}} 笔，合计',
         avgLabel: '笔均',
@@ -225,15 +225,19 @@ const zh = {
       featureNavTitle: '功能导航',
       workflowTitle: '使用流程',
       workflow: {
-        personalTitle: '个人垫付',
+        personalTitle: '个人账户',
         personalStep1: '记录交易',
         personalDesc1: '垫付消费后在系统中记录这笔支出',
         personalStep2: '选择来源',
-        personalDesc2: '设置来源为「个人垫付」并关联账户',
+        personalDesc2: '设置来源为「个人账户」并关联账户',
         personalStep3: '上传凭证',
         personalDesc3: '上传发票或收据作为报销依据',
         personalStep4: '批量报销',
         personalDesc4: '使用匹配工具自动匹配并完成报销',
+        personalLifeStep3: '补充记录',
+        personalLifeDesc3: '可添加小票、照片或备注，方便后续整理',
+        personalLifeStep4: '完成整理',
+        personalLifeDesc4: '使用智能匹配快速归并记录并标记完成',
         companyTitle: '公共账户',
         companyStep1: '记录交易',
         companyDesc1: '使用公共资金后在系统中记录',
@@ -249,7 +253,7 @@ const zh = {
       title: '交易明细',
       sourceTabs: {
         all: '全部',
-        personal: '个人垫付',
+        personal: '个人账户',
         company: '公共账户',
       },
       filterPlaceholders: {
@@ -284,7 +288,7 @@ const zh = {
         notUploaded: '未上传',
         reimbursed: '已报销',
         pending: '待报销',
-        personalShort: '个人',
+        personalShort: '个人账户',
         companyShort: '公共',
       },
       noRecords: '暂无记录',
@@ -296,6 +300,25 @@ const zh = {
       incomeNoReimburse: '收入无需报销',
       copyIdTooltip: '点击复制完整 ID',
       lockTitle: '请先取消报销状态',
+
+      life: {
+        tabs: {
+          pending: '待整理',
+          done: '已整理',
+        },
+        table: {
+          processed: '已整理',
+        },
+        badges: {
+          processed: '已整理',
+        },
+        lockTitle: '请先取消整理状态',
+        incomeNoProcess: '收入 — 无需整理',
+        toast: {
+          processError: '整理状态切换失败',
+          cancelProcessFirst: '请先取消整理状态，再取消上传',
+        },
+      },
       toast: {
         deleted: '交易已删除',
         deleteError: '删除失败',
@@ -316,7 +339,7 @@ const zh = {
         expense: '支出',
         income: '收入',
         source: '资金来源',
-        personalAdvance: '个人垫付',
+        personalAdvance: '个人账户',
         publicAccount: '公共账户',
         account: '所属账户',
         amount: '金额（元）',
@@ -347,7 +370,7 @@ const zh = {
       title: '智能匹配',
       subtitle: '自动搜索与报销总额精确匹配的交易组合',
       sourceTabs: {
-        personal: '个人垫付',
+        personal: '个人账户',
         company: '公共账户',
       },
       filters: {
@@ -397,6 +420,25 @@ const zh = {
         reimbursed: '已报销',
         markShort: '标记报销',
       },
+
+      exportLabel: '匹配结果 · {{source}}',
+      life: {
+        subtitle: '智能查找并组合个人消费记录',
+        exportPdf: '导出匹配 PDF',
+        exportLabel: '生活模式匹配 · {{source}}',
+        info: {
+          uploadedOnly: '在<strong>已上传、待处理</strong>的{{source}}支出中，查找与目标金额最接近的组合',
+        },
+        table: {
+          process: '处理状态',
+        },
+        process: {
+          markShort: '标记完成',
+          done: '已处理',
+          success: '已标记为完成',
+          confirmPrompt: '确认标记为已处理？',
+        },
+      },
       info: {
         description: '选择一组组合后，可一次性标记为已报销',
         uploadedOnly: '在<strong>已上传、未报销</strong>的{{source}}记录中，找出金额之和与目标最接近的组合',
@@ -430,8 +472,8 @@ const zh = {
       },
       sourceTabs: {
         all: '全部',
-        personal: '个人',
-        company: '公共',
+        personal: '个人账户',
+        company: '公共账户',
       },
       yearlyIncome: '年度收入',
       yearlyExpense: '年度支出',
@@ -441,6 +483,7 @@ const zh = {
         monthlySubtitle: '按月统计收入与支出',
         pieTitle: '收支比例',
         categoryTitle: '分类支出',
+        incomeCategoryTitle: '收入类别分布',
         projectTitle: '项目汇总',
       },
       pie: {

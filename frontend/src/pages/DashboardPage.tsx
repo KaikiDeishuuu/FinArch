@@ -496,8 +496,8 @@ export default function DashboardPage() {
             {([
               { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.personalStep1', descKey: 'dashboard.workflow.personalDesc1', color: 'amber' },
               { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.personalStep2', descKey: 'dashboard.workflow.personalDesc2', color: 'amber' },
-              { step: '3', Icon: IconSearch, titleKey: 'dashboard.workflow.personalStep3', descKey: 'dashboard.workflow.personalDesc3', color: 'amber' },
-              { step: '4', Icon: IconCheck, titleKey: 'dashboard.workflow.personalStep4', descKey: 'dashboard.workflow.personalDesc4', color: 'amber' },
+              { step: '3', Icon: IconSearch, titleKey: isWorkMode ? 'dashboard.workflow.personalStep3' : 'dashboard.workflow.personalLifeStep3', descKey: isWorkMode ? 'dashboard.workflow.personalDesc3' : 'dashboard.workflow.personalLifeDesc3', color: 'amber' },
+              { step: '4', Icon: IconCheck, titleKey: isWorkMode ? 'dashboard.workflow.personalStep4' : 'dashboard.workflow.personalLifeStep4', descKey: isWorkMode ? 'dashboard.workflow.personalDesc4' : 'dashboard.workflow.personalLifeDesc4', color: 'amber' },
             ] as const).map((s, i, arr) => (
               <div key={s.step} className="flex gap-3">
                 {/* Timeline spine */}
