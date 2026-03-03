@@ -197,7 +197,12 @@ func (s *Server) registerRoutes() {
 	if staticDir == "" {
 		staticDir = "./frontend/dist"
 	}
-	r.Static("/assets", staticDir+"/assets")
+	absStaticDir, err := filepath.Abs(staticDir)
+	if err != nil {
+		log.Printf("failed to resolve static directory %q: %v", staticDir, err)
+		absStaticDir = staticDir
+	}
+	r.Static("/assets", filepath.Join(absStaticDir, "assets"))
 	// Serve any other static file that exists in dist root (favicon, etc.)
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
@@ -206,14 +211,28 @@ func (s *Server) registerRoutes() {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
-		// Try to serve the file directly first (e.g. /favicon.svg)
-		candidate := staticDir + path
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			c.File(candidate)
-			return
+		// Normalize the requested path and ensure it stays within absStaticDir.
+		cleanPath := filepath.Clean(path)
+		// Remove leading slash so Join treats it as relative.
+		if strings.HasPrefix(cleanPath, "/") || strings.HasPrefix(cleanPath, string(os.PathSeparator)) {
+			cleanPath = cleanPath[1:]
+		}
+		candidate := filepath.Join(absStaticDir, cleanPath)
+		absCandidate, err := filepath.Abs(candidate)
+		if err == nil {
+			prefix := absStaticDir
+			if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+				prefix += string(os.PathSeparator)
+			}
+			if absCandidate == absStaticDir || strings.HasPrefix(absCandidate, prefix) {
+				if info, statErr := os.Stat(absCandidate); statErr == nil && !info.IsDir() {
+					c.File(absCandidate)
+					return
+				}
+			}
 		}
 		// SPA fallback: let React Router handle the path
-		c.File(staticDir + "/index.html")
+		c.File(filepath.Join(absStaticDir, "index.html"))
 	})
 }
 
