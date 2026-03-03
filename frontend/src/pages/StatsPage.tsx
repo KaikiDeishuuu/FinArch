@@ -12,6 +12,7 @@ import Select from '../components/Select'
 import type { Account } from '../api/client'
 import { StaggerContainer, StaggerItem } from '../motion'
 import { categoryLabel } from '../utils/categoryLabel'
+import { useMode } from '../contexts/ModeContext'
 
 const PIE_COLORS = [
   '#8b5cf6','#f59e0b','#10b981','#ef4444','#06b6d4',
@@ -203,11 +204,12 @@ export default function StatsPage() {
   const { data: transactions = [], isLoading: loading } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { data: accounts = [] } = useAccounts()
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'personal' | 'company'>('all')
+  const { t } = useTranslation()
+  const { isWorkMode } = useMode()
+  const sourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
-  const { t } = useTranslation()
 
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
@@ -216,23 +218,22 @@ export default function StatsPage() {
 
   // Filter accounts by selected source tab
   const filteredAccounts = useMemo(() => {
-    if (sourceFilter === 'all') return activeAccounts
     const acctType = sourceFilter === 'company' ? 'public' : 'personal'
     return activeAccounts.filter((a: Account) => a.type === acctType)
   }, [activeAccounts, sourceFilter])
 
   const allCategories = useMemo(
-    () => Array.from(new Set(transactions.map(t => t.category).filter(Boolean))).sort() as string[],
-    [transactions]
+    () => Array.from(new Set(transactions.filter(t => t.source === sourceFilter).map(t => t.category).filter(Boolean))).sort() as string[],
+    [transactions, sourceFilter]
   )
 
   const allProjects = useMemo(
-    () => Array.from(new Set(transactions.map(t => t.project_id).filter(Boolean))).sort() as string[],
-    [transactions]
+    () => Array.from(new Set(transactions.filter(t => t.source === sourceFilter).map(t => t.project_id).filter(Boolean))).sort() as string[],
+    [transactions, sourceFilter]
   )
 
   const filteredBySource = useMemo(() =>
-    (sourceFilter === 'all' ? transactions : transactions.filter(t => t.source === sourceFilter))
+    transactions.filter(t => t.source === sourceFilter)
       .filter(t => !filterCategory || t.category === filterCategory)
       .filter(t => !filterProject || (t.project_id ?? '') === filterProject)
       .filter(t => !filterAccount || t.account_id === filterAccount),
@@ -338,21 +339,9 @@ export default function StatsPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Source filter tabs */}
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
-          {(['all', 'personal', 'company'] as const).map((key) => (
-            <button
-              key={key}
-              onClick={() => { setSourceFilter(key); setFilterAccount('') }}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                sourceFilter === key
-                  ? 'bg-white dark:bg-[hsl(260,15%,11%)] text-violet-700 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              {t(`stats.sourceTabs.${key}`)}
-            </button>
-          ))}
+        {/* Source filter */}
+        <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
+          {isWorkMode ? t('common.company') : t('common.personal')}
         </div>
 
         {/* Account filter */}

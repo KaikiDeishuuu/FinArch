@@ -104,11 +104,11 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { t, i18n } = useTranslation()
-  const [workflowTab, setWorkflowTab] = useState<'personal' | 'company'>('personal')
   const { isWorkMode } = useMode()
+  const [workflowTab, setWorkflowTab] = useState<'personal' | 'company'>(isWorkMode ? 'company' : 'personal')
 
   useEffect(() => {
-    if (!isWorkMode) setWorkflowTab('personal')
+    setWorkflowTab(isWorkMode ? 'company' : 'personal')
   }, [isWorkMode])
 
   // Device heartbeat — keeps this device marked as online
@@ -149,19 +149,6 @@ export default function DashboardPage() {
     [transactions, rates]
   )
 
-  const personalReimbursed = useMemo(() =>
-    transactions
-      .filter(t => t.source === 'personal' && t.direction === 'expense' && t.reimbursed)
-      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
-    [transactions, rates]
-  )
-
-  const personalOutstanding = useMemo(() =>
-    transactions
-      .filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
-      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
-    [transactions, rates]
-  )
 
   const companyOutstanding = useMemo(() =>
     transactions
@@ -173,14 +160,14 @@ export default function DashboardPage() {
   const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
   const fmtCompact = (n: number) => formatAmountCompact(n, 'CNY')
 
-  const pendingTxs = transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
+  const pendingTxs = isWorkMode ? [] : transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
   const notUploaded = pendingTxs.filter((t) => !t.uploaded)
   const uploadedNotReimbursed = pendingTxs.filter((t) => t.uploaded && !t.reimbursed)
   const companyNotUploaded = isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded) : []
   const companyUploadedNotReimbursed = isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed) : []
 
   // ─── Smart pending item analysis ───────────────────────────────────────────
-  const hasPending = isWorkMode && (notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0)
+  const hasPending = isWorkMode && (companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0)
   const allClear = !loading && !hasPending && transactions.length > 0
 
   const pendingAnalysis = useMemo(() => {
@@ -346,36 +333,6 @@ export default function DashboardPage() {
           <StaggerItem>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
             <div className="flex items-center gap-2 mb-2 sm:mb-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-violet-50 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalAdvance')}</p>
-            </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
-            </p>
-            <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5">
-              <span className="text-[10px] sm:text-[11px] text-emerald-500 dark:text-emerald-400 font-medium tabular-nums">{t('transactions.badges.reimbursed')} {fmtCompact(personalReimbursed)}</span>
-            </div>
-          </div>
-          </StaggerItem>
-          <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
-              </div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalPending')}</p>
-            </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
-            </p>
-            <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
-          </div>
-          </StaggerItem>
-          <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3">
               <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
               </div>
@@ -506,28 +463,17 @@ export default function DashboardPage() {
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
           <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.workflowTitle')}</h2>
-          <div className="flex bg-gray-100 dark:bg-gray-800/60 rounded-lg p-0.5">
-            <button
-              type="button"
-              onClick={() => setWorkflowTab('personal')}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${workflowTab === 'personal' ? 'bg-white dark:bg-gray-700 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
-            >
-              💳 {t('dashboard.workflow.personalTitle')}
-            </button>
-            {isWorkMode && (
-              <button
-                type="button"
-                onClick={() => setWorkflowTab('company')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${workflowTab === 'company' ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
-              >
+          {isWorkMode && (
+            <div className="inline-flex bg-gray-100 dark:bg-gray-800/60 rounded-lg p-0.5">
+              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm">
                 🏦 {t('dashboard.workflow.companyTitle')}
-              </button>
-            )}
-          </div>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Personal flow */}
-        {workflowTab === 'personal' && (
+        {workflowTab === 'personal' && !isWorkMode && (
           <div className="space-y-0">
             {([
               { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.personalStep1', descKey: 'dashboard.workflow.personalDesc1', color: 'amber' },
