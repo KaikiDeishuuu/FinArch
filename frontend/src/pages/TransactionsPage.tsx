@@ -61,10 +61,10 @@ export default function TransactionsPage() {
   const [filter, setFilter] = useState<FilterTab>('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
-  const [filterSource, setFilterSource] = useState<'' | 'personal' | 'company'>('')
   const [filterAccount, setFilterAccount] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const effectiveSourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
 
   const tabLabelAll = t('transactions.reimbursementTabs.all')
   const tabLabelPending = isWorkMode ? t('transactions.reimbursementTabs.pending') : t('transactions.life.tabs.pending')
@@ -82,10 +82,9 @@ export default function TransactionsPage() {
 
   // Filter accounts by selected source tab
   const filteredAccounts = useMemo(() => {
-    if (!filterSource) return activeAccounts
-    const acctType = filterSource === 'company' ? 'public' : 'personal'
+    const acctType = effectiveSourceFilter === 'company' ? 'public' : 'personal'
     return activeAccounts.filter((a: Account) => a.type === acctType)
-  }, [activeAccounts, filterSource])
+  }, [activeAccounts, effectiveSourceFilter])
 
   // Filtering (inline — no hooks; must be before useWindowVirtualizer)
   const baseFiltered = txs.filter((t) => {
@@ -94,18 +93,18 @@ export default function TransactionsPage() {
     return true
   })
   const filtered = baseFiltered
+    .filter((t) => t.source === effectiveSourceFilter)
     .filter((t) => !filterCategory || t.category === filterCategory)
     .filter((t) => !filterProject || (t.project_id ?? '') === filterProject)
-    .filter((t) => !filterSource || t.source === filterSource)
     .filter((t) => !filterAccount || t.account_id === filterAccount)
 
   const allCategories = useMemo(
-    () => Array.from(new Set(txs.map(t => t.category).filter(Boolean))).sort() as string[],
-    [txs]
+    () => Array.from(new Set(txs.filter(t => t.source === effectiveSourceFilter).map(t => t.category).filter(Boolean))).sort() as string[],
+    [txs, effectiveSourceFilter]
   )
   const allProjects = useMemo(
-    () => Array.from(new Set(txs.map(t => t.project_id).filter((p): p is string => !!p))).sort(),
-    [txs]
+    () => Array.from(new Set(txs.filter(t => t.source === effectiveSourceFilter).map(t => t.project_id).filter((p): p is string => !!p))).sort(),
+    [txs, effectiveSourceFilter]
   )
 
   // Mobile card list virtualizer — uses <main> as scroll container
@@ -254,22 +253,8 @@ export default function TransactionsPage() {
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Source filter */}
-        <div className="w-fit min-w-[5.5rem]">
-          <Select
-            value={filterSource}
-            onChange={(v) => {
-              setFilterSource(v as '' | 'personal' | 'company')
-              setFilterAccount('')
-            }}
-            placeholder={t('transactions.filterPlaceholders.source')}
-            size="sm"
-            activeHighlight
-            options={[
-              { value: '', label: t('transactions.filterPlaceholders.source') },
-              { value: 'personal', label: t('common.personal') },
-              { value: 'company', label: t('common.company') },
-            ]}
-          />
+        <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
+          {isWorkMode ? t('common.company') : t('common.personal')}
         </div>
 
         {/* Account filter */}
@@ -324,9 +309,9 @@ export default function TransactionsPage() {
         )}
 
         {/* Clear extra filters */}
-        {(filterCategory || filterProject || filterSource || filterAccount) && (
+        {(filterCategory || filterProject || filterAccount) && (
           <button
-            onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterSource(''); setFilterAccount('') }}
+            onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterAccount('') }}
             className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs transition-all"
           >
             {t('common.clear')}
