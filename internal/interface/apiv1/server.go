@@ -206,14 +206,28 @@ func (s *Server) registerRoutes() {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+		// Resolve and validate the requested path against the static directory
+		staticAbs, err := filepath.Abs(staticDir)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "static dir misconfigured"})
+			return
+		}
+		// Make the request path relative before joining, to avoid absolute path override
+		relPath := strings.TrimPrefix(path, "/")
+		candidate := filepath.Join(staticAbs, relPath)
+		// Ensure the candidate path is still within the static directory
+		if !strings.HasPrefix(candidate, staticAbs+string(os.PathSeparator)) && candidate != staticAbs {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
 		// Try to serve the file directly first (e.g. /favicon.svg)
-		candidate := staticDir + path
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
 			c.File(candidate)
 			return
 		}
 		// SPA fallback: let React Router handle the path
-		c.File(staticDir + "/index.html")
+		indexPath := filepath.Join(staticAbs, "index.html")
+		c.File(indexPath)
 	})
 }
 
