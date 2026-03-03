@@ -179,7 +179,6 @@ const en = {
       pending: {
         title: 'Pending Analysis',
         personalTitle: 'Personal Account Pending',
-        personalTitle: 'Personal Account Pending',
         publicTitle: 'Public Pending',
         totalAmount: '{{count}} txns, total',
         avgLabel: 'Avg',
