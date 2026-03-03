@@ -10,7 +10,7 @@ export function useAccounts() {
     queryKey: ['accounts', user?.id, mode],
     queryFn: () => listAccounts(mode),
     enabled: !!user,
-    staleTime: 60_000,
+    staleTime: 5_000,
   })
 }
 
