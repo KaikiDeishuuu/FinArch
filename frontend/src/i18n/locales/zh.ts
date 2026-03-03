@@ -169,7 +169,7 @@ const zh = {
       },
       balance: {
         public: '公共账户',
-        personalAdvance: '个人总垫付',
+        personalAdvance: '个人账户',
         personalPending: '个人待报销',
         publicPending: '公共待报销',
         balanceLabel: '结余',
@@ -178,7 +178,7 @@ const zh = {
       },
       pending: {
         title: '待报销分析',
-        personalTitle: '个人垫付待报销',
+        personalTitle: '个人账户待报销',
         publicTitle: '公共待报销',
         totalAmount: '共 {{count}} 笔，合计',
         avgLabel: '笔均',
@@ -225,11 +225,11 @@ const zh = {
       featureNavTitle: '功能导航',
       workflowTitle: '使用流程',
       workflow: {
-        personalTitle: '个人垫付',
+        personalTitle: '个人账户',
         personalStep1: '记录交易',
         personalDesc1: '垫付消费后在系统中记录这笔支出',
         personalStep2: '选择来源',
-        personalDesc2: '设置来源为「个人垫付」并关联账户',
+        personalDesc2: '设置来源为「个人账户」并关联账户',
         personalStep3: '上传凭证',
         personalDesc3: '上传发票或收据作为报销依据',
         personalStep4: '批量报销',
@@ -249,7 +249,7 @@ const zh = {
       title: '交易明细',
       sourceTabs: {
         all: '全部',
-        personal: '个人垫付',
+        personal: '个人账户',
         company: '公共账户',
       },
       filterPlaceholders: {
@@ -284,7 +284,7 @@ const zh = {
         notUploaded: '未上传',
         reimbursed: '已报销',
         pending: '待报销',
-        personalShort: '个人',
+        personalShort: '个人账户',
         companyShort: '公共',
       },
       noRecords: '暂无记录',
@@ -316,7 +316,7 @@ const zh = {
         expense: '支出',
         income: '收入',
         source: '资金来源',
-        personalAdvance: '个人垫付',
+        personalAdvance: '个人账户',
         publicAccount: '公共账户',
         account: '所属账户',
         amount: '金额（元）',
@@ -347,7 +347,7 @@ const zh = {
       title: '智能匹配',
       subtitle: '自动搜索与报销总额精确匹配的交易组合',
       sourceTabs: {
-        personal: '个人垫付',
+        personal: '个人账户',
         company: '公共账户',
       },
       filters: {
@@ -430,8 +430,8 @@ const zh = {
       },
       sourceTabs: {
         all: '全部',
-        personal: '个人',
-        company: '公共',
+        personal: '个人账户',
+        company: '公共账户',
       },
       yearlyIncome: '年度收入',
       yearlyExpense: '年度支出',
@@ -441,6 +441,7 @@ const zh = {
         monthlySubtitle: '按月统计收入与支出',
         pieTitle: '收支比例',
         categoryTitle: '分类支出',
+        incomeCategoryTitle: '收入类别分布',
         projectTitle: '项目汇总',
       },
       pie: {
