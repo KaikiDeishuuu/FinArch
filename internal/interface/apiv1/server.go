@@ -975,6 +975,8 @@ func (s *Server) handleMatch(c *gin.Context) {
 	maxDepth := req.MaxItems
 	if maxDepth <= 0 {
 		maxDepth = 10
+	} else if maxDepth > 50 {
+		maxDepth = 50
 	}
 	limit := 20
 	results, err := s.matchSvc.Match(

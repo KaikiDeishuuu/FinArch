@@ -15,6 +15,10 @@ dpThreshold = int64(1_000_000_000)
 
 // timePruneDays: fallback window when N×W exceeds threshold.
 timePruneDays = 90
+
+// maxMatchDepth is a hard upper bound on the number of items considered in a match.
+// It prevents excessive memory allocation from untrusted maxDepth values.
+maxMatchDepth = 50
 )
 
 // MatchResult represents one matching combination candidate.
@@ -50,6 +54,8 @@ limit int,
 ) ([]MatchResult, error) {
 if maxDepth <= 0 {
 maxDepth = 6
+} else if maxDepth > maxMatchDepth {
+maxDepth = maxMatchDepth
 }
 if limit <= 0 {
 limit = 20
