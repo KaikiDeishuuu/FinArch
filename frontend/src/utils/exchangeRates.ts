@@ -1,14 +1,15 @@
 /**
  * Exchange rate utilities.
- * Fetches live rates from frankfurter.app (ECB, free, no API key, CORS OK).
- * Results are cached in localStorage for 6 hours; falls back to hardcoded
- * approximate rates if the request fails or the app is offline.
+ * Fetches live rates from public APIs and caches locally for 6 hours.
+ * Falls back to hardcoded approximate rates when all providers fail.
  *
  * All rates are expressed as "1 foreign currency = N CNY".
  */
 
 const CACHE_KEY = 'finarch_exchange_rates_v1'
 const CACHE_TTL = 6 * 60 * 60 * 1000 // 6 hours
+const LIVE_SYMBOLS = ['USD', 'EUR', 'JPY', 'GBP'] as const
+const REQUEST_TIMEOUT_MS = 6000
 
 export interface RateCache {
   /** Map: currency code → CNY equivalent (1 unit = N CNY) */
@@ -33,44 +34,101 @@ function loadCache(): RateCache | null {
     if (!raw) return null
     const parsed: RateCache = JSON.parse(raw)
     if (Date.now() - parsed.fetchedAt < CACHE_TTL) return parsed
-  } catch { /* ignore */ }
+  } catch {
+    // ignore invalid cache data
+  }
   return null
 }
 
 function saveCache(cache: RateCache) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)) } catch { /* ignore */ }
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // ignore storage write errors
+  }
+}
+
+async function fetchJSON(url: string): Promise<unknown> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function buildRateCache(date: string, rates: Record<string, number>): RateCache | null {
+  const normalized: Record<string, number> = { CNY: 1 }
+  for (const symbol of LIVE_SYMBOLS) {
+    const value = rates[symbol]
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null
+    normalized[symbol] = value
+  }
+  return { rates: normalized, date, fetchedAt: Date.now() }
+}
+
+async function fetchFromFrankfurter(): Promise<RateCache | null> {
+  const raw = await fetchJSON('https://api.frankfurter.app/latest?from=CNY&to=USD,EUR,JPY,GBP') as {
+    date?: string
+    rates?: Record<string, number>
+  }
+  if (!raw?.rates || typeof raw.date !== 'string') return null
+
+  // API returns: 1 CNY = X foreign. Convert to: 1 foreign = Y CNY.
+  const converted: Record<string, number> = {}
+  for (const [cur, r] of Object.entries(raw.rates)) {
+    if (typeof r !== 'number' || !Number.isFinite(r) || r <= 0) return null
+    converted[cur.toUpperCase()] = 1 / r
+  }
+  return buildRateCache(raw.date, converted)
+}
+
+async function fetchFromOpenERAPI(): Promise<RateCache | null> {
+  const raw = await fetchJSON('https://open.er-api.com/v6/latest/CNY') as {
+    time_last_update_utc?: string
+    rates?: Record<string, number>
+  }
+  if (!raw?.rates) return null
+
+  const converted: Record<string, number> = {}
+  for (const symbol of LIVE_SYMBOLS) {
+    const v = raw.rates[symbol]
+    if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) return null
+    converted[symbol] = 1 / v
+  }
+
+  const date = typeof raw.time_last_update_utc === 'string'
+    ? new Date(raw.time_last_update_utc).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10)
+
+  return buildRateCache(date, converted)
 }
 
 /**
  * Returns exchange rates (foreign → CNY).
- * Tries localStorage cache first, then live API, then fallback.
+ * Tries localStorage cache first, then live APIs, then fallback.
  */
 export async function fetchRates(): Promise<RateCache> {
   const cached = loadCache()
   if (cached) return cached
 
-  try {
-    // base=CNY → response: { "rates": { "USD": 0.1377, "EUR": 0.1274, ... } }
-    // meaning 1 CNY = X foreign; invert to get 1 foreign = Y CNY
-    const res = await fetch(
-      'https://api.frankfurter.app/latest?base=CNY&symbols=USD,EUR,JPY,GBP',
-      { signal: AbortSignal.timeout(5000) },
-    )
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json() as { date: string; rates: Record<string, number> }
-
-    const rates: Record<string, number> = { CNY: 1 }
-    for (const [cur, r] of Object.entries(data.rates)) {
-      if (r > 0) rates[cur.toUpperCase()] = 1 / r
+  const providers = [fetchFromFrankfurter, fetchFromOpenERAPI]
+  for (const provider of providers) {
+    try {
+      const cache = await provider()
+      if (!cache) continue
+      saveCache(cache)
+      return cache
+    } catch {
+      // try the next provider
     }
-
-    const cache: RateCache = { rates, date: data.date, fetchedAt: Date.now() }
-    saveCache(cache)
-    return cache
-  } catch {
-    // Offline or API error — use fallback, but don't cache so next load retries
-    return { rates: FALLBACK_RATES, date: '', fetchedAt: 0 }
   }
+
+  // API unavailable — use fallback, but don't cache so next load retries.
+  return { rates: FALLBACK_RATES, date: '', fetchedAt: 0 }
 }
 
 /** Convert an amount in any currency to CNY using provided rates map. */
@@ -79,6 +137,7 @@ export function toCNYWithRates(
   currency: string,
   rates: Record<string, number>,
 ): number {
-  const rate = rates[(currency ?? 'CNY').toUpperCase()] ?? FALLBACK_RATES[(currency ?? 'CNY').toUpperCase()] ?? 1
+  const code = (currency ?? 'CNY').toUpperCase()
+  const rate = rates[code] ?? FALLBACK_RATES[code] ?? 1
   return amount * rate
 }

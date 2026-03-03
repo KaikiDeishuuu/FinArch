@@ -18,7 +18,9 @@ export default function MatchPage() {
   const [target, setTarget] = useState('')
   const [tolerance, setTolerance] = useState('0.01')
   const [maxItems, setMaxItems] = useState('10')
-  const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>('personal')
+  const { mode } = useMode()
+  const enforcedSource: 'personal' | 'company' = mode === 'work' ? 'company' : 'personal'
+  const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>(enforcedSource)
   const [filterCategory, setFilterCategory] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
   const [results, setResults] = useState<MatchResult[]>([])
@@ -36,11 +38,13 @@ export default function MatchPage() {
   const invalidate = useInvalidateTransactions()
   const { t } = useTranslation()
   const workerRef = useRef<Worker | null>(null)
-  const { isWorkMode } = useMode()
+  useEffect(() => {
+    setSourceFilter(enforcedSource)
+    setFilterAccount('')
+    setResults([])
+    setSearched(false)
+  }, [enforcedSource])
 
-  if (!isWorkMode) {
-    return <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-6 text-sm text-gray-500 dark:text-gray-400">Reimbursement matching is available in Work mode only.</div>
-  }
 
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
@@ -210,7 +214,7 @@ export default function MatchPage() {
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {/* Source filter tabs */}
             <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
-              {(['personal', 'company'] as const).map((key) => (
+              {([enforcedSource] as const).map((key) => (
                 <button
                   key={key}
                   type="button"
