@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /finarch-server ./cmd/server
 
 # ── Stage 3: Runtime image ────────────────────────────────────────────────────
-FROM alpine:3.19
+FROM alpine:3.23
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=go-builder /finarch-server /app/finarch-server
