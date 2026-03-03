@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -63,7 +63,8 @@ export default function TransactionsPage() {
   const [filterProject, setFilterProject] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [togglingAction, setTogglingAction] = useState<{ id: string; type: 'uploaded' | 'reimbursed' } | null>(null)
+  const [optimisticState, setOptimisticState] = useState<Record<string, { uploaded: boolean; reimbursed: boolean }>>({})
   const effectiveSourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
 
   const tabLabelAll = t('transactions.reimbursementTabs.all')
@@ -73,6 +74,31 @@ export default function TransactionsPage() {
   const processedHeader = isWorkMode ? t('transactions.table.reimbursed') : t('transactions.life.table.processed')
   const lockTitle = isWorkMode ? t('transactions.lockTitle') : t('transactions.life.lockTitle')
   const incomeHint = isWorkMode ? t('transactions.incomeNoReimburse') : t('transactions.life.incomeNoProcess')
+
+  const txsView = useMemo(() =>
+    txs.map((tx) => {
+      const override = optimisticState[tx.id]
+      return override
+        ? { ...tx, uploaded: override.uploaded, reimbursed: override.reimbursed }
+        : tx
+    }),
+    [txs, optimisticState]
+  )
+
+  useEffect(() => {
+    setOptimisticState((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const tx of txs) {
+        const state = next[tx.id]
+        if (state && state.uploaded === tx.uploaded && state.reimbursed === tx.reimbursed) {
+          delete next[tx.id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [txs])
 
   // Build account lookup for filter display
   const activeAccounts = useMemo(() =>
@@ -87,7 +113,7 @@ export default function TransactionsPage() {
   }, [activeAccounts, effectiveSourceFilter])
 
   // Filtering (inline — no hooks; must be before useWindowVirtualizer)
-  const baseFiltered = txs.filter((t) => {
+  const baseFiltered = txsView.filter((t) => {
     if (filter === 'unreimbursed') return !t.reimbursed
     if (filter === 'reimbursed') return t.reimbursed
     return true
@@ -99,12 +125,12 @@ export default function TransactionsPage() {
     .filter((t) => !filterAccount || t.account_id === filterAccount)
 
   const allCategories = useMemo(
-    () => Array.from(new Set(txs.filter(t => t.source === effectiveSourceFilter).map(t => t.category).filter(Boolean))).sort() as string[],
-    [txs, effectiveSourceFilter]
+    () => Array.from(new Set(txsView.filter(t => t.source === effectiveSourceFilter).map(t => t.category).filter(Boolean))).sort() as string[],
+    [txsView, effectiveSourceFilter]
   )
   const allProjects = useMemo(
-    () => Array.from(new Set(txs.filter(t => t.source === effectiveSourceFilter).map(t => t.project_id).filter((p): p is string => !!p))).sort(),
-    [txs, effectiveSourceFilter]
+    () => Array.from(new Set(txsView.filter(t => t.source === effectiveSourceFilter).map(t => t.project_id).filter((p): p is string => !!p))).sort(),
+    [txsView, effectiveSourceFilter]
   )
 
   // Mobile card list virtualizer — uses <main> as scroll container
@@ -131,33 +157,44 @@ export default function TransactionsPage() {
   }
 
   async function handleToggle(id: string) {
-    setTogglingId(id)
+    const tx = txsView.find((t) => t.id === id)
+    if (!tx) return
+    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed }
+    const next = { uploaded: tx.uploaded, reimbursed: !tx.reimbursed }
+    setOptimisticState((curr) => ({ ...curr, [id]: next }))
+    setTogglingAction({ id, type: 'reimbursed' })
     try {
       await toggleReimbursed(id)
       refreshFinanceData()
     } catch {
+      setOptimisticState((curr) => ({ ...curr, [id]: prev }))
       toast.error(isWorkMode ? t('transactions.toast.reimbursedError') : t('transactions.life.toast.processError'))
     } finally {
-      setTogglingId(null)
+      setTogglingAction(null)
     }
   }
 
   async function handleToggleUpload(id: string) {
     // Rollback protection: if uploaded AND reimbursed, must cancel reimburse first
-    const tx = txs.find(t => t.id === id)
-    if (tx && tx.uploaded && tx.reimbursed) {
+    const tx = txsView.find(t => t.id === id)
+    if (!tx) return
+    if (tx.uploaded && tx.reimbursed) {
       toast.error(isWorkMode ? t('transactions.toast.cancelReimburseFirst') : t('transactions.life.toast.cancelProcessFirst'))
       return
     }
-    setTogglingId(id)
+    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed }
+    const next = { uploaded: !tx.uploaded, reimbursed: tx.reimbursed }
+    setOptimisticState((curr) => ({ ...curr, [id]: next }))
+    setTogglingAction({ id, type: 'uploaded' })
     try {
       await toggleUploaded(id)
       refreshFinanceData()
     } catch (err: unknown) {
+      setOptimisticState((curr) => ({ ...curr, [id]: prev }))
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || t('transactions.toast.uploadError'))
     } finally {
-      setTogglingId(null)
+      setTogglingAction(null)
     }
   }
 
@@ -169,9 +206,9 @@ export default function TransactionsPage() {
   }
 
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
-    { key: 'all', label: tabLabelAll, count: txs.length },
-    { key: 'unreimbursed', label: tabLabelPending, count: txs.filter(t => !t.reimbursed).length },
-    { key: 'reimbursed', label: tabLabelDone, count: txs.filter(t => t.reimbursed).length },
+    { key: 'all', label: tabLabelAll, count: txsView.length },
+    { key: 'unreimbursed', label: tabLabelPending, count: txsView.filter(t => !t.reimbursed).length },
+    { key: 'reimbursed', label: tabLabelDone, count: txsView.filter(t => t.reimbursed).length },
   ]
 
   const incomeItems = filtered.filter(t => t.direction === 'income')
@@ -401,8 +438,8 @@ export default function TransactionsPage() {
                             activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggleUpload(tx.id)}
-                            disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
-                            loading={togglingId === tx.id}
+                            disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
+                            loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
                             locked={tx.uploaded && tx.reimbursed}
                             lockedTitle={lockTitle}
                           />
@@ -413,8 +450,8 @@ export default function TransactionsPage() {
                             activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggle(tx.id)}
-                            disabled={togglingId === tx.id || !tx.uploaded}
-                            loading={togglingId === tx.id}
+                            disabled={!!togglingAction || !tx.uploaded}
+                            loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
                           />
                         </>
                       ) : (
@@ -540,8 +577,8 @@ export default function TransactionsPage() {
                                 activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-500/30"
                                 inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
                                 onClick={() => handleToggleUpload(tx.id)}
-                                disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
-                                loading={togglingId === tx.id}
+                                disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
+                                loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
                                 locked={tx.uploaded && tx.reimbursed}
                                 lockedTitle={lockTitle}
                               />
@@ -558,8 +595,8 @@ export default function TransactionsPage() {
                                 activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30"
                                 inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
                                 onClick={() => handleToggle(tx.id)}
-                                disabled={togglingId === tx.id || !tx.uploaded}
-                                loading={togglingId === tx.id}
+                                disabled={!!togglingAction || !tx.uploaded}
+                                loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
                               />
                             ) : (
                               <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>

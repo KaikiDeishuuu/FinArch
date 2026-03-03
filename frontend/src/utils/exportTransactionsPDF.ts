@@ -37,6 +37,25 @@ export function exportTransactionsPDF(
   const pStats   = calcStats(personal)
   const cStats   = calcStats(company)
 
+  function workflowStatus(t: Transaction) {
+    if (t.direction === 'income') {
+      return {
+        text: i18n.t('exportPdf.workflow.incomeNoFlow'),
+        className: 'wf-income',
+      }
+    }
+
+    if (t.source === 'company') {
+      if (!t.uploaded) return { text: i18n.t('exportPdf.workflow.company.pendingUpload'), className: 'wf-pending' }
+      if (!t.reimbursed) return { text: i18n.t('exportPdf.workflow.company.pendingReimburse'), className: 'wf-review' }
+      return { text: i18n.t('exportPdf.workflow.company.done'), className: 'wf-done' }
+    }
+
+    if (!t.uploaded) return { text: i18n.t('exportPdf.workflow.life.pendingUpload'), className: 'wf-pending' }
+    if (!t.reimbursed) return { text: i18n.t('exportPdf.workflow.life.pendingProcess'), className: 'wf-review' }
+    return { text: i18n.t('exportPdf.workflow.life.done'), className: 'wf-done' }
+  }
+
   const rows = filtered.map(t => {
     const src = t.source === 'company' ? i18n.t('exportPdf.companyLabel') : i18n.t('exportPdf.personalLabel')
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
@@ -46,6 +65,7 @@ export function exportTransactionsPDF(
     const reimbursed = t.reimbursed ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.reimbursedNo')
     const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
+    const workflow = workflowStatus(t)
     return [
       '<tr>',
       `<td>${t.occurred_at}</td>`,
@@ -56,6 +76,7 @@ export function exportTransactionsPDF(
       `<td style="color:${amtColor};font-weight:700;text-align:right">${amount}</td>`,
       `<td style="color:${uploadedColor};text-align:center">${uploaded}</td>`,
       `<td style="color:${reimbursedColor};text-align:center">${reimbursed}</td>`,
+      `<td style="text-align:center"><span class="wf-chip ${workflow.className}">${workflow.text}</span></td>`,
       '</tr>',
     ].join('')
   }).join('')
@@ -76,8 +97,8 @@ export function exportTransactionsPDF(
     '.header-right { text-align: right; }',
     '.header-right .user-name { font-size: 14px; font-weight: 700; color: #1f2937; }',
     '.header-right .user-detail { font-size: 10px; color: #9ca3af; margin-top: 2px; }',
-    '.summary { margin-bottom: 16px; }',
-    '.summary-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }',
+    '.summary { margin-bottom: 16px; display: grid; gap: 10px; }',
+    '.summary-table { width: 100%; border-collapse: collapse; margin-bottom: 0; border: 1px solid #ede9fe; border-radius: 12px; overflow: hidden; }',
     '.summary-table th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; padding: 6px 10px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; }',
     '.summary-table th:first-child { text-align: left; }',
     '.summary-table td { padding: 8px 10px; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; border-bottom: 1px solid #f3f4f6; }',
@@ -90,7 +111,12 @@ export function exportTransactionsPDF(
     '.summary-table .expense { color: #ef4444; }',
     '.summary-table .reimb { color: #7c3aed; }',
     '.summary-table .count { color: #7c3aed; }',
-    'table { width: 100%; border-collapse: collapse; font-size: 10.5px; }',
+    '.status-note { display:flex; gap:8px; flex-wrap:wrap; }',
+    '.status-pill { font-size:10px; padding:4px 8px; border-radius:999px; font-weight:700; }',
+    '.status-pill.pending { color:#b45309; background:#fef3c7; }',
+    '.status-pill.review { color:#6d28d9; background:#ede9fe; }',
+    '.status-pill.done { color:#166534; background:#dcfce7; }',
+    'table { width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #ede9fe; border-radius: 12px; overflow: hidden; }',
     'thead tr { background: #5b21b6; color: #fff; }',
     'thead th { padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; }',
     'thead th:last-child, thead th:nth-child(6) { text-align: center; }',
@@ -99,6 +125,11 @@ export function exportTransactionsPDF(
     'tbody tr:nth-child(even) { background: #f9fafb; }',
     'tbody td { padding: 6px 10px; vertical-align: middle; }',
     'td.note { max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7280; }',
+    '.wf-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:3px 8px; font-size:9.5px; font-weight:700; white-space:nowrap; }',
+    '.wf-chip.wf-income { background:#e5e7eb; color:#4b5563; }',
+    '.wf-chip.wf-pending { background:#fef3c7; color:#92400e; }',
+    '.wf-chip.wf-review { background:#ede9fe; color:#6d28d9; }',
+    '.wf-chip.wf-done { background:#dcfce7; color:#166534; }',
     '.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }',
     '.dot.income { background: #22c55e; }',
     '.dot.expense { background: #ef4444; }',
@@ -161,11 +192,16 @@ export function exportTransactionsPDF(
     summaryRow(i18n.t('exportPdf.companyLabel'), 'row-company', cStats),
     '    </tbody>',
     '  </table>',
+    '  <div class="status-note">',
+    `    <span class="status-pill pending">${i18n.t('exportPdf.workflowLegend.pending')}</span>`,
+    `    <span class="status-pill review">${i18n.t('exportPdf.workflowLegend.review')}</span>`,
+    `    <span class="status-pill done">${i18n.t('exportPdf.workflowLegend.done')}</span>`,
+    '  </div>',
     '</div>',
     '<table>',
     '  <thead>',
     '    <tr>',
-    '      <th>' + i18n.t('exportPdf.thDate') + '</th><th>' + i18n.t('exportPdf.thCategory') + '</th><th>' + i18n.t('exportPdf.thSource') + '</th><th>' + i18n.t('exportPdf.thProject') + '</th><th>' + i18n.t('exportPdf.thNote') + '</th><th>' + i18n.t('exportPdf.thAmount') + '</th><th>' + i18n.t('exportPdf.thUploaded') + '</th><th>' + i18n.t('exportPdf.thReimbursed') + '</th>',
+    '      <th>' + i18n.t('exportPdf.thDate') + '</th><th>' + i18n.t('exportPdf.thCategory') + '</th><th>' + i18n.t('exportPdf.thSource') + '</th><th>' + i18n.t('exportPdf.thProject') + '</th><th>' + i18n.t('exportPdf.thNote') + '</th><th>' + i18n.t('exportPdf.thAmount') + '</th><th>' + i18n.t('exportPdf.thUploaded') + '</th><th>' + i18n.t('exportPdf.thReimbursed') + '</th><th>' + i18n.t('exportPdf.thWorkflow') + '</th>',
     '    </tr>',
     '  </thead>',
     `  <tbody>${rows}</tbody>`,
