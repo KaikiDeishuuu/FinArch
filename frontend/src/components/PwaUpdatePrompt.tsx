@@ -30,6 +30,13 @@ export default function PwaUpdatePrompt() {
     if (needRefresh) setShow(true)
   }, [needRefresh])
 
+  // Auto-update after 30 seconds if the user hasn't interacted
+  useEffect(() => {
+    if (!show) return
+    const timer = setTimeout(() => updateServiceWorker(true), 30_000)
+    return () => clearTimeout(timer)
+  }, [show, updateServiceWorker])
+
   return (
     <AnimatePresence>
       {show && (

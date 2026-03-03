@@ -67,7 +67,7 @@ export default function LoginPage() {
   const turnstileRef = useRef<TurnstileInstance>(null)
 
   // Match status-bar colour with purple login background
-  useThemeColor('#7c3aed')
+  useThemeColor('#7c3aed', '#1e1033')
 
   const justVerified = searchParams.get('verified') === '1'
   const tokenError = searchParams.get('error') === 'invalid_token'

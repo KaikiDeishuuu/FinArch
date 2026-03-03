@@ -7,7 +7,7 @@ import { useThemeColor } from '../hooks/useThemeColor'
 import { LogoMark } from '../components/Brand'
 
 export default function ResetPasswordPage() {
-  useThemeColor('#7c3aed')
+  useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''

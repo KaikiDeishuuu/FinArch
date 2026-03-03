@@ -6,7 +6,7 @@ import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
 
 export default function VerifyEmailPage() {
-  useThemeColor('#7c3aed')
+  useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''

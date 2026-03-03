@@ -7,7 +7,7 @@ import { useThemeColor } from '../hooks/useThemeColor'
 import { LogoMark } from '../components/Brand'
 
 export default function ForgotPasswordPage() {
-  useThemeColor('#7c3aed')
+  useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)

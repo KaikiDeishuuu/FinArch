@@ -116,7 +116,7 @@ func (s *Server) Run() error {
 
 func (s *Server) registerRoutes() {
 	r := s.engine
-	r.Use(gin.Recovery(), s.corsMiddleware())
+	r.Use(gin.Recovery(), s.securityHeaders(), s.corsMiddleware())
 
 	// ─── Public routes ───────────────────────────────────────────
 	pub := r.Group("/api/v1")
@@ -146,8 +146,8 @@ func (s *Server) registerRoutes() {
 	api.GET("/auth/me", s.handleGetMe)
 	api.POST("/auth/refresh", s.handleRefreshToken)
 	api.POST("/auth/change-password", s.handleChangePassword)
-	api.POST("/auth/request-delete-account", s.handleRequestDeleteAccount)
-	api.POST("/auth/request-email-change", s.handleRequestEmailChange)
+	api.POST("/auth/request-delete-account", s.authRateLimitMiddleware(), s.handleRequestDeleteAccount)
+	api.POST("/auth/request-email-change", s.authRateLimitMiddleware(), s.handleRequestEmailChange)
 	api.PATCH("/auth/nickname", s.handleUpdateNickname)
 	api.POST("/auth/heartbeat", s.handleHeartbeat)
 	api.GET("/auth/devices/online", s.handleOnlineDevices)
@@ -282,6 +282,16 @@ func realIP(c *gin.Context) string {
 		return strings.TrimSpace(xri)
 	}
 	return c.ClientIP()
+}
+
+// securityHeaders adds standard security headers to every response.
+func (s *Server) securityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Next()
+	}
 }
 
 // authRateLimitMiddleware restricts auth endpoints by IP to prevent brute-force
@@ -1166,7 +1176,7 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer)
 	ts := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("finarch_backup_v%d_%s.db", schemaVer, ts)
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, filename, filename))
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(tmpPath)
 }

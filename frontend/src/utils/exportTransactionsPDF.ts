@@ -38,8 +38,6 @@ export function exportTransactionsPDF(
   const cStats   = calcStats(company)
 
   const rows = filtered.map(t => {
-    const dir = t.direction === 'income' ? '收入' : '支出'
-    void dir
     const src = t.source === 'company' ? i18n.t('exportPdf.companyLabel') : i18n.t('exportPdf.personalLabel')
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'

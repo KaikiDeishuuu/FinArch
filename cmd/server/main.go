@@ -33,6 +33,9 @@ func main() {
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET env var is required in production")
 	}
+	if len(jwtSecret) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters for security")
+	}
 
 	database, err := db.OpenSQLite(ctx, dsn)
 	if err != nil {
