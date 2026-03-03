@@ -21,6 +21,16 @@ const (
 	maxMatchDepth = 50
 )
 
+func normalizeMatchDepth(maxDepth int) int {
+	if maxDepth <= 0 {
+		return 6
+	}
+	if maxDepth > maxMatchDepth {
+		return maxMatchDepth
+	}
+	return maxDepth
+}
+
 // MatchResult represents one matching combination candidate.
 type MatchResult struct {
 	TransactionIDs []string
@@ -52,11 +62,7 @@ func (s *MatchingService) Match(
 	projectID *string,
 	limit int,
 ) ([]MatchResult, error) {
-	if maxDepth <= 0 {
-		maxDepth = 6
-	} else if maxDepth > maxMatchDepth {
-		maxDepth = maxMatchDepth
-	}
+	maxDepth = normalizeMatchDepth(maxDepth)
 	if limit <= 0 {
 		limit = 20
 	}
@@ -178,6 +184,7 @@ func dfsCents(
 	toleranceCents int64,
 	maxDepth int,
 ) []MatchResult {
+	maxDepth = normalizeMatchDepth(maxDepth)
 	sorted := make([]model.Transaction, len(items))
 	copy(sorted, items)
 	sort.Slice(sorted, func(i, j int) bool {
