@@ -194,8 +194,7 @@ func (s *Server) handleMatch(w http.ResponseWriter, r *http.Request) {
 		Limit         int     `json:"limit"`
 		ProjectID     *string `json:"project_id"`
 	}
-	const maxMatchBodyBytes = 1 << 20 // 1 MiB
-	r.Body = http.MaxBytesReader(w, r.Body, maxMatchBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&req); err != nil {
@@ -204,6 +203,21 @@ func (s *Server) handleMatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		writeError(w, http.StatusBadRequest, "invalid json: trailing data")
+		return
+	}
+
+	if req.MaxDepth <= 0 {
+		req.MaxDepth = service.DefaultDepth
+	}
+	if req.MaxDepth > service.MaxAllowedDepth {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("max_depth must be <= %d", service.MaxAllowedDepth))
+		return
+	}
+	if req.Limit <= 0 {
+		req.Limit = service.DefaultLimit
+	}
+	if req.Limit > service.MaxAllowedLimit {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("limit must be <= %d", service.MaxAllowedLimit))
 		return
 	}
 	// Embedded server is single-user; use empty string as the user scope.

@@ -15,18 +15,14 @@ const (
 
 	// timePruneDays: fallback window when N×W exceeds threshold.
 	timePruneDays = 90
-
-	// maxMatchDepth is a hard upper bound on the number of items considered in a match.
-	// It prevents excessive memory allocation from untrusted maxDepth values.
-	maxMatchDepth = 50
 )
 
 func normalizeMatchDepth(maxDepth int) int {
 	if maxDepth <= 0 {
-		return 6
+		return DefaultDepth
 	}
-	if maxDepth > maxMatchDepth {
-		return maxMatchDepth
+	if maxDepth > MaxAllowedDepth {
+		return MaxAllowedDepth
 	}
 	return maxDepth
 }
@@ -64,7 +60,10 @@ func (s *MatchingService) Match(
 ) ([]MatchResult, error) {
 	maxDepth = normalizeMatchDepth(maxDepth)
 	if limit <= 0 {
-		limit = 20
+		limit = DefaultLimit
+	}
+	if limit > MaxAllowedLimit {
+		limit = MaxAllowedLimit
 	}
 	candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(ctx, userID, projectID, 2000, model.ModeWork)
 	if err != nil {
