@@ -197,7 +197,15 @@ func (s *Server) registerRoutes() {
 	if staticDir == "" {
 		staticDir = "./frontend/dist"
 	}
-	r.Static("/assets", staticDir+"/assets")
+	absStaticDir, err := filepath.Abs(staticDir)
+	if err != nil {
+		log.Fatalf("failed to resolve FINARCH_STATIC path %q: %v", staticDir, err)
+	}
+	absStaticDir, err = filepath.EvalSymlinks(absStaticDir)
+	if err != nil {
+		log.Fatalf("failed to resolve symlinks for FINARCH_STATIC path %q: %v", absStaticDir, err)
+	}
+	r.Static("/assets", filepath.Join(absStaticDir, "assets"))
 	// Serve any other static file that exists in dist root (favicon, etc.)
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
@@ -206,17 +214,9 @@ func (s *Server) registerRoutes() {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
-		// Resolve and validate the requested path against the static directory
-		staticAbs, err := filepath.Abs(staticDir)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "static dir misconfigured"})
-			return
-		}
-		// Make the request path relative before joining, to avoid absolute path override
-		relPath := strings.TrimPrefix(path, "/")
-		candidate := filepath.Join(staticAbs, relPath)
-		// Ensure the candidate path is still within the static directory
-		if !strings.HasPrefix(candidate, staticAbs+string(os.PathSeparator)) && candidate != staticAbs {
+
+		candidate, ok := safeStaticPath(absStaticDir, path)
+		if !ok {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
@@ -226,9 +226,54 @@ func (s *Server) registerRoutes() {
 			return
 		}
 		// SPA fallback: let React Router handle the path
-		indexPath := filepath.Join(staticAbs, "index.html")
+		indexPath, ok := safeStaticPath(absStaticDir, "/index.html")
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "static dir misconfigured"})
+			return
+		}
 		c.File(indexPath)
 	})
+}
+
+func safeStaticPath(baseDir, requestPath string) (string, bool) {
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", false
+	}
+	resolvedBaseDir, err := filepath.EvalSymlinks(absBaseDir)
+	if err != nil {
+		return "", false
+	}
+
+	cleanedPath := filepath.Clean(requestPath)
+	relRequestPath := strings.TrimPrefix(cleanedPath, "/")
+	joinedPath := filepath.Join(resolvedBaseDir, relRequestPath)
+	absTargetPath, err := filepath.Abs(joinedPath)
+	if err != nil {
+		return "", false
+	}
+
+	resolvedTargetPath, err := filepath.EvalSymlinks(absTargetPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return "", false
+		}
+		resolvedParent, parentErr := filepath.EvalSymlinks(filepath.Dir(absTargetPath))
+		if parentErr != nil {
+			return "", false
+		}
+		resolvedTargetPath = filepath.Join(resolvedParent, filepath.Base(absTargetPath))
+	}
+
+	relToBase, err := filepath.Rel(resolvedBaseDir, resolvedTargetPath)
+	if err != nil {
+		return "", false
+	}
+	if filepath.IsAbs(relToBase) || relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) {
+		return "", false
+	}
+
+	return resolvedTargetPath, true
 }
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
