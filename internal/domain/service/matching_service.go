@@ -89,6 +89,13 @@ if len(candidates) == 0 || maxDepth <= 0 || limit <= 0 || targetCents <= 0 {
 return nil
 }
 
+// Ensure maxDepth is within safe, bounded limits before any allocations.
+if maxDepth > maxMatchDepth {
+	maxDepth = maxMatchDepth
+} else if maxDepth < 1 {
+	maxDepth = 1
+}
+
 N := int64(len(candidates))
 workSet := candidates
 timePruned := false
