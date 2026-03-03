@@ -11,6 +11,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useHeartbeat } from '../hooks/useHeartbeat'
 import { useOnlineDevices } from '../hooks/useOnlineDevices'
 import { StaggerContainer, StaggerItem, AnimatedCard, CardSkeleton } from '../motion'
+import { useMode } from '../contexts/ModeContext'
 
 const IconList = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -104,6 +105,7 @@ export default function DashboardPage() {
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { t, i18n } = useTranslation()
   const [workflowTab, setWorkflowTab] = useState<'personal' | 'company'>('personal')
+  const { isWorkMode } = useMode()
 
   // Device heartbeat — keeps this device marked as online
   useHeartbeat()
@@ -160,14 +162,14 @@ export default function DashboardPage() {
   const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
   const fmtCompact = (n: number) => formatAmountCompact(n, 'CNY')
 
-  const pendingTxs = transactions.filter(t => t.source === 'personal' && !t.reimbursed)
+  const pendingTxs = transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
   const notUploaded = pendingTxs.filter((t) => !t.uploaded)
   const uploadedNotReimbursed = pendingTxs.filter((t) => t.uploaded && !t.reimbursed)
-  const companyNotUploaded = transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded)
-  const companyUploadedNotReimbursed = transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed)
+  const companyNotUploaded = isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded) : []
+  const companyUploadedNotReimbursed = isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed) : []
 
   // ─── Smart pending item analysis ───────────────────────────────────────────
-  const hasPending = notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0
+  const hasPending = isWorkMode && (notUploaded.length > 0 || uploadedNotReimbursed.length > 0 || companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0)
   const allClear = !loading && !hasPending && transactions.length > 0
 
   const pendingAnalysis = useMemo(() => {
@@ -519,7 +521,7 @@ export default function DashboardPage() {
         )}
 
         {/* Company flow */}
-        {workflowTab === 'company' && (
+        {isWorkMode && workflowTab === 'company' && (
           <div className="space-y-0">
             {([
               { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1', descKey: 'dashboard.workflow.companyDesc1', color: 'sky' },

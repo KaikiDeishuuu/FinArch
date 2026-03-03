@@ -33,6 +33,7 @@ type CreateTransactionRequest struct {
 	Direction model.Direction // 'income' | 'expense'
 	Source    model.Source    // 'company' | 'personal'
 	// Common
+	Mode         model.Mode
 	Category     string
 	AmountYuan   model.Money
 	AmountCents  int64 // if 0, derived from AmountYuan * 100
@@ -56,6 +57,12 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 	}
 	if req.Currency == "" {
 		req.Currency = "CNY"
+	}
+	if req.Mode == "" {
+		req.Mode = model.ModeWork
+	}
+	if req.Mode != model.ModeWork && req.Mode != model.ModeLife {
+		return model.Transaction{}, fmt.Errorf("无效的模式")
 	}
 	// ── Normalize type / direction ────────────────────────────────────────────
 	txType := req.TxType
@@ -96,7 +103,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 	}
 	// ── Derive reimbursement status ───────────────────────────────────────────
 	reimb := model.ReimbStatusNone
-	if txType == model.TxTypeExpense && accountType == model.AccountTypePersonal {
+	if req.Mode != model.ModeLife && txType == model.TxTypeExpense && accountType == model.AccountTypePersonal {
 		reimb = model.ReimbStatusPending
 	}
 	if req.Category == "" {
@@ -120,6 +127,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		Currency:        req.Currency,
 		Category:        req.Category,
 		ReimbStatus:     reimb,
+		Mode:            req.Mode,
 		Note:            req.Note,
 		ProjectID:       req.ProjectID,
 		Uploaded:        false,
@@ -140,7 +148,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 
 // GetBalances returns company balance and personal outstanding in yuan for a user.
 func (s *TransactionService) GetBalances(ctx context.Context, userID string) (model.Money, model.Money, error) {
-	return s.transactions.SumPoolBalance(ctx, userID)
+	return s.transactions.SumPoolBalance(ctx, userID, model.ModeWork)
 }
 
 func sourceFromAccountType(t model.AccountType) model.Source {

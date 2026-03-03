@@ -12,6 +12,7 @@ import Select from '../components/Select'
 import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
 import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
 import { categoryLabel } from '../utils/categoryLabel'
+import { useMode } from '../contexts/ModeContext'
 
 export default function MatchPage() {
   const [target, setTarget] = useState('')
@@ -35,6 +36,11 @@ export default function MatchPage() {
   const invalidate = useInvalidateTransactions()
   const { t } = useTranslation()
   const workerRef = useRef<Worker | null>(null)
+  const { isWorkMode } = useMode()
+
+  if (!isWorkMode) {
+    return <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-6 text-sm text-gray-500 dark:text-gray-400">Reimbursement matching is available in Work mode only.</div>
+  }
 
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),

@@ -169,7 +169,11 @@ export async function getAppConfig(): Promise<AppConfig> {
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
+export type AppMode = "work" | "life"
+
 export interface Transaction {
+  mode: AppMode
+
   id: string
   occurred_at: string
   direction: 'income' | 'expense'
@@ -196,12 +200,12 @@ export interface CreateTransactionRequest {
   project_id?: string
 }
 
-export async function listTransactions(): Promise<Transaction[]> {
-  const { data } = await client.get('/transactions')
+export async function listTransactions(mode: AppMode = "work"): Promise<Transaction[]> {
+  const { data } = await client.get('/transactions', { params: { mode } })
   return data.data
 }
 
-export async function createTransaction(req: CreateTransactionRequest): Promise<Transaction> {
+export async function createTransaction(req: CreateTransactionRequest & { mode?: AppMode }): Promise<Transaction> {
   const { data } = await client.post('/transactions', req)
   return data.data
 }
@@ -228,8 +232,8 @@ export interface Account {
   is_active: boolean
 }
 
-export async function listAccounts(): Promise<Account[]> {
-  const { data } = await client.get('/accounts')
+export async function listAccounts(mode: AppMode = "work"): Promise<Account[]> {
+  const { data } = await client.get('/accounts', { params: { mode } })
   return data.data
 }
 

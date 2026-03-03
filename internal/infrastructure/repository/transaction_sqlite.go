@@ -29,7 +29,7 @@ const txnSelectSQL = `
          t.type, t.category_id, t.category,
          t.reimb_status, t.reimb_to_account, t.reimbursement_id,
          t.project_id, t.project,
-         t.note, t.uploaded, t.txn_date,
+         t.mode, t.note, t.uploaded, t.txn_date,
          t.created_at, t.updated_at,
          COALESCE(a.type, 'personal') AS account_type
   FROM transactions t
@@ -69,6 +69,9 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 		baseAmountCents = int64(float64(amountCents) * exchangeRate)
 	}
 	reimb := t.ReimbStatus
+	if t.Mode == "" {
+		t.Mode = model.ModeWork
+	}
 	if reimb == "" {
 		if t.Reimbursed {
 			reimb = model.ReimbStatusReimbursed
@@ -84,21 +87,21 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 			type, category_id, category,
 			reimb_status, reimb_to_account, reimbursement_id,
 			project_id, project,
-			note, uploaded, idempotency_key, txn_date, created_at, updated_at
+			mode, note, uploaded, idempotency_key, txn_date, created_at, updated_at
 		) VALUES (
 			?,?,?,?,?,
 			?,?,?,?,
 			?,?,?,
 			?,?,?,
 			?,?,
-			?,?,?,?,?,?
+			?,?,?,?,?,?,?
 		)`,
 		t.ID, t.UserID, t.GroupID, string(ledgerDir), t.AccountID,
 		amountCents, t.Currency, exchangeRate, baseAmountCents,
 		string(txType), t.CategoryID, t.Category,
 		string(reimb), t.ReimbToAccount, t.ReimbursementID,
 		t.ProjectID, t.Project,
-		t.Note, boolToInt(t.Uploaded), t.IdempotencyKey, t.TxnDate, now, now,
+		string(t.Mode), t.Note, boolToInt(t.Uploaded), t.IdempotencyKey, t.TxnDate, now, now,
 	)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
@@ -107,10 +110,10 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 }
 
 // ListByUser returns all transactions for the given user ordered by txn_date desc.
-func (r *SQLiteTransactionRepository) ListByUser(ctx context.Context, userID string) ([]model.Transaction, error) {
+func (r *SQLiteTransactionRepository) ListByUser(ctx context.Context, userID string, mode model.Mode) ([]model.Transaction, error) {
 	exec := getExecutor(ctx, r.db)
 	rows, err := exec.QueryContext(ctx,
-		txnSelectSQL+` WHERE t.user_id = ? ORDER BY t.txn_date DESC, t.rowid DESC`, userID)
+		txnSelectSQL+` WHERE t.user_id = ? AND t.mode = ? ORDER BY t.txn_date DESC, t.rowid DESC`, userID, string(mode))
 	if err != nil {
 		return nil, fmt.Errorf("list transactions by user: %w", err)
 	}
@@ -140,11 +143,12 @@ func (r *SQLiteTransactionRepository) GetByIDs(ctx context.Context, ids []string
 
 // ListUnreimbursedPersonalExpenses lists personal expenses with reimb_status='pending'.
 // Hits the partial index idx_txn_pending_reimb.
-func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx context.Context, userID string, projectID *string, maxN int) ([]model.Transaction, error) {
+func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx context.Context, userID string, projectID *string, maxN int, mode model.Mode) ([]model.Transaction, error) {
 	exec := getExecutor(ctx, r.db)
-	args := []any{userID}
+	args := []any{userID, string(mode)}
 	q := txnSelectSQL + `
 		WHERE t.user_id = ?
+		  AND t.mode = ?
 		  AND t.reimb_status = 'pending'
 		  AND t.uploaded = 1
 		  AND t.type = 'expense'`
@@ -254,7 +258,7 @@ func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id str
 
 // SumPoolBalance returns public-account net balance and pending personal reimbursements.
 // Uses cached balance in accounts table (O(1) reads).
-func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID string) (model.Money, model.Money, error) {
+func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID string, mode model.Mode) (model.Money, model.Money, error) {
 	exec := getExecutor(ctx, r.db)
 
 	var publicCents int64
@@ -266,7 +270,7 @@ func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID
 
 	var pendingCents int64
 	if err := exec.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(base_amount_cents),0) FROM transactions WHERE user_id=? AND reimb_status='pending'`, userID,
+		`SELECT COALESCE(SUM(base_amount_cents),0) FROM transactions WHERE user_id=? AND mode=? AND reimb_status='pending'`, userID, string(mode),
 	).Scan(&pendingCents); err != nil {
 		return 0, 0, fmt.Errorf("sum pending reimb: %w", err)
 	}
@@ -297,7 +301,7 @@ func scanTransaction(scanner interface {
 	Scan(dest ...any) error
 }) (model.Transaction, error) {
 	var t model.Transaction
-	var ledgerDir, txType, reimbStatus, accountType string
+	var ledgerDir, txType, reimbStatus, accountType, mode string
 	var categoryID, reimbToAccount, reimbursementID sql.NullString
 	var projectID sql.NullString
 	var project sql.NullString
@@ -311,7 +315,7 @@ func scanTransaction(scanner interface {
 		&txType, &categoryID, &t.Category,
 		&reimbStatus, &reimbToAccount, &reimbursementID,
 		&projectID, &project,
-		&t.Note, &uploaded, &t.TxnDate,
+		&mode, &t.Note, &uploaded, &t.TxnDate,
 		&createdAt, &updatedAt,
 		&accountType,
 	); err != nil {
@@ -322,6 +326,7 @@ func scanTransaction(scanner interface {
 	t.TxType = model.TxType(txType)
 	t.ReimbStatus = model.ReimbStatus(reimbStatus)
 	t.AccountType = model.AccountType(accountType)
+	t.Mode = model.Mode(mode)
 	t.Uploaded = uploaded == 1
 	t.AmountYuan = model.Money(float64(t.AmountCents) / 100.0)
 	t.Reimbursed = t.ReimbStatus == model.ReimbStatusReimbursed

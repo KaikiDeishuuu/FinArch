@@ -760,10 +760,26 @@ func (s *Server) CleanupStaleDevices() {
 	})
 }
 
+func parseMode(raw string) (model.Mode, bool) {
+	if raw == "" {
+		return model.ModeWork, true
+	}
+	mode := model.Mode(strings.ToLower(raw))
+	if mode != model.ModeWork && mode != model.ModeLife {
+		return "", false
+	}
+	return mode, true
+}
+
 // ─── Transactions ────────────────────────────────────────────────────────────
 
 func (s *Server) handleListTransactions(c *gin.Context) {
-	txs, err := s.txRepo.ListByUser(c.Request.Context(), userID(c))
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	txs, err := s.txRepo.ListByUser(c.Request.Context(), userID(c), mode)
 	if err != nil {
 		failInternal(c, err)
 		return
@@ -793,6 +809,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		Project    *string  `json:"project"`
 		Reimbursed bool     `json:"reimbursed"`
 		Uploaded   bool     `json:"uploaded"`
+		Mode       string   `json:"mode"`
 		Tags       []string `json:"tags"`
 	}
 	dtos := make([]txDTO, 0, len(txs))
@@ -815,7 +832,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			Category: t.Category, AmountYuan: t.AmountYuan.Float64(),
 			Currency: t.Currency, Note: t.Note,
 			ProjectID: t.ProjectID, Project: t.Project,
-			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded, Tags: tagNames,
+			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded, Mode: string(t.Mode), Tags: tagNames,
 		})
 	}
 	ok(c, dtos)
@@ -834,6 +851,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		Source     string  `json:"source"`
 		AmountYuan float64 `json:"amount_yuan"`
 		// Common
+		Mode      string   `json:"mode"`
 		Category  string   `json:"category"  binding:"required"`
 		Currency  string   `json:"currency"`
 		Note      string   `json:"note"`
@@ -881,6 +899,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 
 	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
 		UserID:       userID(c),
+		Mode:         model.Mode(req.Mode),
 		OccurredAt:   txDate,
 		AccountID:    req.AccountID,
 		TxType:       txType,
@@ -910,6 +929,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		"amount_cents": created_.AmountCents,
 		"reimb_status": string(created_.ReimbStatus),
 		"account_id":   created_.AccountID,
+		"mode":         string(created_.Mode),
 	})
 }
 
@@ -1795,10 +1815,33 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 // ─── Account handlers ────────────────────────────────────────────────────────
 
 func (s *Server) handleListAccounts(c *gin.Context) {
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
 	accounts, err := s.acctSvc.ListAccounts(c.Request.Context(), userID(c))
 	if err != nil {
 		failInternal(c, err)
 		return
+	}
+
+	if mode == model.ModeWork {
+		filtered := make([]model.Account, 0, len(accounts))
+		for _, a := range accounts {
+			if a.Type == model.AccountTypePublic {
+				filtered = append(filtered, a)
+			}
+		}
+		accounts = filtered
+	} else {
+		filtered := make([]model.Account, 0, len(accounts))
+		for _, a := range accounts {
+			if a.Type == model.AccountTypePersonal {
+				filtered = append(filtered, a)
+			}
+		}
+		accounts = filtered
 	}
 	dtos := make([]gin.H, 0, len(accounts))
 	for _, a := range accounts {

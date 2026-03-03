@@ -23,6 +23,13 @@ const (
 
 // ── V9 types ──────────────────────────────────────────────────────────────────
 
+type Mode string
+
+const (
+	ModeWork Mode = "work"
+	ModeLife Mode = "life"
+)
+
 // LedgerDir is the double-entry direction from the account's perspective.
 type LedgerDir string
 
@@ -88,6 +95,7 @@ type Transaction struct {
 	Project   *string // denormalized project name
 
 	// ── Misc ──────────────────────────────────────────────────────────────────
+	Mode           Mode // 'work' | 'life'
 	Note           string
 	AttachmentKey  *string
 	Uploaded       bool

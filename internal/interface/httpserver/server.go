@@ -95,7 +95,7 @@ func (s *Server) handleTransactions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	switch r.Method {
 	case http.MethodGet:
-		txs, err := s.txRepo.ListByUser(ctx, "")
+		txs, err := s.txRepo.ListByUser(ctx, "", model.ModeWork)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
