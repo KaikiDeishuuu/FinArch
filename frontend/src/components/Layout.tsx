@@ -84,8 +84,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const displayName = user?.username || user?.email || '—'
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh')
   const isDark = resolved === 'dark'
-  const { mode, setMode, isWorkMode } = useMode()
-  const navItems = NAV_ITEMS.filter((item) => isWorkMode || item.to !== '/match')
+  const { mode, setMode } = useMode()
+  const navItems = NAV_ITEMS
 
   return (
     <div className="flex bg-slate-50 dark:bg-[hsl(260,20%,6%)] overflow-x-hidden" style={{ height: '100dvh' }}>

@@ -392,7 +392,7 @@ export default function TransactionsPage() {
                     )}
                     {/* Row 4: action badges + copy ID */}
                     <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                      {isWorkMode && tx.direction === 'expense' ? (
+                      {tx.direction === 'expense' ? (
                         <>
                           <StatusBadge
                             active={tx.uploaded}
@@ -452,7 +452,7 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto xl:overflow-visible">
-            <table className="w-full table-fixed" style={{ minWidth: isWorkMode ? '1120px' : '980px' }}>
+            <table className="w-full table-fixed" style={{ minWidth: '1120px' }}>
               <colgroup>
                 <col style={{ width: '124px' }} />
                 <col style={{ width: '170px' }} />
@@ -460,8 +460,8 @@ export default function TransactionsPage() {
                 <col />
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '140px' }} />
-                {isWorkMode && <col style={{ width: '120px' }} />}
-                {isWorkMode && <col style={{ width: '120px' }} />}
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '120px' }} />
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">
@@ -471,10 +471,8 @@ export default function TransactionsPage() {
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.note')}</th>
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.source')}</th>
                   <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.amount')}</th>
-                  {isWorkMode && (<>
                   <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.uploaded')}</th>
                   <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pr-4">{processedHeader}</th>
-                  </>)}
                 </tr>
               </thead>
               <tbody>
@@ -533,8 +531,6 @@ export default function TransactionsPage() {
                       <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
-                      {isWorkMode && (
-                        <>
                           <td className="px-3 py-3 text-center whitespace-nowrap">
                             {tx.direction === 'expense' ? (
                               <StatusBadge
@@ -569,8 +565,6 @@ export default function TransactionsPage() {
                               <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                             )}
                           </td>
-                        </>
-                      )}
                     </tr>
                   )
                 })}
@@ -582,4 +576,3 @@ export default function TransactionsPage() {
     </div>
   )
 }
-

@@ -483,7 +483,7 @@ const en = {
         monthlySubtitle: 'Monthly income and expense breakdown',
         pieTitle: 'Income vs Expense',
         categoryTitle: 'Expense by Category',
-        incomeCategoryTitle: 'Income Category Distribution / 收入类别分布',
+        incomeCategoryTitle: 'Income Category Distribution',
         projectTitle: 'Project Summary',
       },
       pie: {
