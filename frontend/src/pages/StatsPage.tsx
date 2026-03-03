@@ -171,6 +171,33 @@ function MonthlyBarChart({
   )
 }
 
+
+function CategoryPieCard({ title, rows, fmt }: { title: string; rows: Array<{ category: string; total: number; count: number }>; fmt: (n: number) => string }) {
+  const { t } = useTranslation()
+  return (
+    <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
+      <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{title}</h2>
+      {rows.length === 0 ? (
+        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
+      ) : (
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="w-full md:w-64 h-44 md:h-56 shrink-0">
+            <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="total" nameKey="category" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={2} strokeWidth={0}>{rows.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}</Pie><Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false} /></PieChart></ResponsiveContainer>
+          </div>
+          <div className="flex-1 w-full space-y-3 max-h-56 overflow-y-auto pr-1">
+            {rows.map((c, idx) => (
+              <div key={c.category} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} /><span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{categoryLabel(c.category)}</span></div>
+                <div className="text-right shrink-0"><span className="text-sm font-bold text-gray-800 dark:text-gray-200 tabular-nums">{fmt(c.total)}</span><span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{t('stats.transactionUnit', { count: c.count })}</span></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function StatsPage() {
   const year = new Date().getFullYear()
   const { data: transactions = [], isLoading: loading } = useTransactions()
@@ -250,6 +277,20 @@ export default function StatsPage() {
     return Array.from(map.entries())
       .map(([category, v]) => ({ category: categoryLabel(category), total: v.total, count: v.count }))
       .sort((a, b) => b.total - a.total)
+  }, [filteredBySource, rates, t])
+
+  const incomeCategories = useMemo(() => {
+    const otherLabel = t('stats.other')
+    const map = new Map<string, { total: number; count: number }>()
+    for (const t of filteredBySource) {
+      if (t.direction !== 'income') continue
+      const cat = t.category || otherLabel
+      if (!map.has(cat)) map.set(cat, { total: 0, count: 0 })
+      const entry = map.get(cat)!
+      entry.total += toCNY(t.amount_yuan, t.currency || 'CNY', rates)
+      entry.count++
+    }
+    return Array.from(map.entries()).map(([category, v]) => ({ category: categoryLabel(category), total: v.total, count: v.count })).sort((a, b) => b.total - a.total)
   }, [filteredBySource, rates, t])
 
   // Compute project stats (all-time)
@@ -494,61 +535,9 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* Category pie chart — Premium */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.categoryTitle')}</h2>
-        {categories.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
-        ) : (
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            <div className="w-full md:w-64 h-44 md:h-56 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categories}
-                    dataKey="total"
-                    nameKey="category"
-                    cx="50%" cy="50%"
-                    innerRadius={52}
-                    outerRadius={82}
-                    paddingAngle={2}
-                    strokeWidth={0}
-                  >
-                    {categories.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
-                    itemStyle={{ color: 'var(--tooltip-text, #374151)' }}
-                    labelStyle={{ color: 'var(--tooltip-text, #374151)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex-1 w-full">
-              <div className="relative">
-                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
-                  {categories.map((c, idx) => (
-                    <div key={c.category} className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{categoryLabel(c.category)}</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200 tabular-nums">{fmt(c.total)}</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{t('stats.transactionUnit', { count: c.count })}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {categories.length > 6 && (
-                  <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-[hsl(260,15%,11%)] to-transparent rounded-b" />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <CategoryPieCard title={t('stats.chart.categoryTitle')} rows={categories} fmt={fmt} />
+        <CategoryPieCard title={t('stats.chart.incomeCategoryTitle', 'Income Category Distribution')} rows={incomeCategories} fmt={fmt} />
       </div>
 
       {/* Project breakdown — Premium */}

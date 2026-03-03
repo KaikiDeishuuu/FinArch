@@ -10,6 +10,7 @@ import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
 import DatePicker from '../components/DatePicker'
 import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
+import { useMode } from '../contexts/ModeContext'
 
 
 export default function AddTransactionPage() {
@@ -24,10 +25,11 @@ export default function AddTransactionPage() {
 
   const [customCat, setCustomCat] = useState('')
 
+  const { mode, isWorkMode } = useMode()
   const [form, setForm] = useState({
     occurred_at: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
     direction: 'expense',
-    source: 'personal',
+    source: isWorkMode ? 'company' : 'personal',
     account_id: '',
     category: CATEGORY_KEYS[0],
     amount_yuan: '',
@@ -47,7 +49,11 @@ export default function AddTransactionPage() {
       setForm(prev => ({ ...prev, account_id: '' }))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.source, accounts])
+  }, [form.source, accounts, isWorkMode])
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, source: isWorkMode ? "company" : "personal" }))
+  }, [isWorkMode])
 
   function set(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -73,6 +79,7 @@ export default function AddTransactionPage() {
         account_id: form.account_id || undefined,
         project_id: form.project_id.trim() || undefined,
         amount_yuan: amount,
+        mode,
       })
       haptic.success()
       invalidate()
@@ -145,7 +152,7 @@ export default function AddTransactionPage() {
             <label className={labelClass}>{t('addTransaction.form.source')}</label>
             <div className="grid grid-cols-2 gap-2">
               <button type="button"
-                onClick={() => set('source', 'personal')}
+                onClick={() => isWorkMode ? null : set('source', 'personal')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isPersonal
                     ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400'
@@ -156,7 +163,7 @@ export default function AddTransactionPage() {
                 {t('addTransaction.form.personalAdvance')}
               </button>
               <button type="button"
-                onClick={() => set('source', 'company')}
+                onClick={() => isWorkMode && set('source', 'company')}
                 className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isPersonal
                     ? 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400'

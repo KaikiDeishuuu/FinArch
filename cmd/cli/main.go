@@ -250,7 +250,7 @@ func runBalance(ctx context.Context, database *sql.DB) error {
 // runList prints all transactions to stdout.
 func runList(ctx context.Context, database *sql.DB) error {
 	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
-	txs, err := txRepo.ListByUser(ctx, "")
+	txs, err := txRepo.ListByUser(ctx, "", model.ModeWork)
 	if err != nil {
 		return err
 	}

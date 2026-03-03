@@ -5,6 +5,7 @@ import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ConfigProvider } from './contexts/ConfigContext'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
+import { ModeProvider } from './contexts/ModeContext'
 import Layout from './components/Layout'
 import PwaUpdatePrompt from './components/PwaUpdatePrompt'
 import LoginPage from './pages/LoginPage'
@@ -77,6 +78,7 @@ function App() {
     <BrowserRouter>
       <ExchangeRateProvider>
       <ConfigProvider>
+        <ModeProvider>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginRouteWrapper />} />
@@ -90,6 +92,7 @@ function App() {
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </AuthProvider>
+        </ModeProvider>
       </ConfigProvider>
       </ExchangeRateProvider>
       <PwaUpdatePrompt />

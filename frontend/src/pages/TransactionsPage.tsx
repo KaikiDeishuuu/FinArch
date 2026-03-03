@@ -14,6 +14,7 @@ import { useTransactions, useInvalidateTransactions } from '../hooks/useTransact
 import { useAccounts } from '../hooks/useAccounts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { categoryLabel } from '../utils/categoryLabel'
+import { useMode } from '../contexts/ModeContext'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -50,6 +51,7 @@ function StatusBadge({
 
 export default function TransactionsPage() {
   const { t } = useTranslation()
+  const { isWorkMode } = useMode()
   const { user } = useAuth()
   const { rates } = useExchangeRates()
   const { data: txs = [], isLoading: loading } = useTransactions()
@@ -396,7 +398,7 @@ export default function TransactionsPage() {
                     )}
                     {/* Row 4: action badges + copy ID */}
                     <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                      {tx.direction === 'expense' ? (
+                      {isWorkMode && tx.direction === 'expense' ? (
                         <>
                           <StatusBadge
                             active={tx.uploaded}
@@ -455,17 +457,17 @@ export default function TransactionsPage() {
             <p className="text-sm text-gray-400 dark:text-gray-500">{t('transactions.noRecords')}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full" style={{ minWidth: '860px' }}>
+          <div className="overflow-x-auto xl:overflow-visible">
+            <table className="w-full table-fixed" style={{ minWidth: isWorkMode ? '1120px' : '980px' }}>
               <colgroup>
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '90px' }} />
+                <col style={{ width: '124px' }} />
+                <col style={{ width: '170px' }} />
+                <col style={{ width: '130px' }} />
                 <col />
-                <col style={{ width: '72px' }} />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '96px' }} />
-                <col style={{ width: '96px' }} />
+                <col style={{ width: '140px' }} />
+                {isWorkMode && <col style={{ width: '120px' }} />}
+                {isWorkMode && <col style={{ width: '120px' }} />}
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">
@@ -475,8 +477,10 @@ export default function TransactionsPage() {
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.note')}</th>
                   <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.source')}</th>
                   <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.amount')}</th>
+                  {isWorkMode && (<>
                   <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.uploaded')}</th>
                   <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pr-4">{t('transactions.table.reimbursed')}</th>
+                  </>)}
                 </tr>
               </thead>
               <tbody>
@@ -535,40 +539,44 @@ export default function TransactionsPage() {
                       <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        {tx.direction === 'expense' ? (
-                          <StatusBadge
-                            active={tx.uploaded}
-                            activeLabel={t('transactions.badges.uploaded')}
-                            inactiveLabel={t('transactions.badges.notUploaded')}
-                            activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-500/30"
-                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
-                            onClick={() => handleToggleUpload(tx.id)}
-                            disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
-                            loading={togglingId === tx.id}
-                            locked={tx.uploaded && tx.reimbursed}
-                            lockedTitle={t('transactions.lockTitle')}
-                          />
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap pr-4">
-                        {tx.direction === 'expense' ? (
-                          <StatusBadge
-                            active={tx.reimbursed}
-                            activeLabel={t('transactions.badges.reimbursed')}
-                            inactiveLabel={t('transactions.badges.pending')}
-                            activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30"
-                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
-                            onClick={() => handleToggle(tx.id)}
-                            disabled={togglingId === tx.id || !tx.uploaded}
-                            loading={togglingId === tx.id}
-                          />
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        )}
-                      </td>
+                      {isWorkMode && (
+                        <>
+                          <td className="px-3 py-3 text-center whitespace-nowrap">
+                            {tx.direction === 'expense' ? (
+                              <StatusBadge
+                                active={tx.uploaded}
+                                activeLabel={t('transactions.badges.uploaded')}
+                                inactiveLabel={t('transactions.badges.notUploaded')}
+                                activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-500/30"
+                                inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
+                                onClick={() => handleToggleUpload(tx.id)}
+                                disabled={togglingId === tx.id || (tx.uploaded && tx.reimbursed)}
+                                loading={togglingId === tx.id}
+                                locked={tx.uploaded && tx.reimbursed}
+                                lockedTitle={t('transactions.lockTitle')}
+                              />
+                            ) : (
+                              <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center whitespace-nowrap pr-4">
+                            {tx.direction === 'expense' ? (
+                              <StatusBadge
+                                active={tx.reimbursed}
+                                activeLabel={t('transactions.badges.reimbursed')}
+                                inactiveLabel={t('transactions.badges.pending')}
+                                activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30"
+                                inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
+                                onClick={() => handleToggle(tx.id)}
+                                disabled={togglingId === tx.id || !tx.uploaded}
+                                loading={togglingId === tx.id}
+                              />
+                            ) : (
+                              <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
+                            )}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   )
                 })}
