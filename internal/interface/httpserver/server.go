@@ -3,6 +3,7 @@ package httpserver
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -193,8 +194,16 @@ func (s *Server) handleMatch(w http.ResponseWriter, r *http.Request) {
 		Limit         int     `json:"limit"`
 		ProjectID     *string `json:"project_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	const maxMatchBodyBytes = 1 << 20 // 1 MiB
+	r.Body = http.MaxBytesReader(w, r.Body, maxMatchBodyBytes)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
+		return
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid json: trailing data")
 		return
 	}
 	// Embedded server is single-user; use empty string as the user scope.
