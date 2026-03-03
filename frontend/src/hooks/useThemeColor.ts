@@ -9,7 +9,7 @@ import { useTheme } from '../contexts/ThemeContext'
  * chosen automatically based on the resolved theme.
  */
 export function useThemeColor(lightColor: string, darkColor?: string) {
-  const { resolvedTheme } = useTheme()
+  const { resolved: resolvedTheme } = useTheme()
 
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]')
