@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
@@ -107,6 +107,10 @@ export default function DashboardPage() {
   const [workflowTab, setWorkflowTab] = useState<'personal' | 'company'>('personal')
   const { isWorkMode } = useMode()
 
+  useEffect(() => {
+    if (!isWorkMode) setWorkflowTab('personal')
+  }, [isWorkMode])
+
   // Device heartbeat — keeps this device marked as online
   useHeartbeat()
   const { data: onlineDeviceCount } = useOnlineDevices()
@@ -127,6 +131,13 @@ export default function DashboardPage() {
   const companyBalance = useMemo(() =>
     accounts
       .filter(a => a.type === 'public' && a.is_active)
+      .reduce((s, a) => s + a.balance_yuan, 0),
+    [accounts]
+  )
+
+  const personalBalance = useMemo(() =>
+    accounts
+      .filter(a => a.type === 'personal' && a.is_active)
       .reduce((s, a) => s + a.balance_yuan, 0),
     [accounts]
   )
@@ -315,67 +326,90 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Balance cards — 2×2 grid */}
-      <StaggerContainer className="grid grid-cols-2 gap-2 sm:gap-3">
-        <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+      {/* Balance cards */}
+      {isWorkMode ? (
+        <StaggerContainer className="grid grid-cols-2 gap-2 sm:gap-3">
+          <StaggerItem>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+              </div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.public')}</p>
             </div>
-            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.public')}</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
+              <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
+            </p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
           </div>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-            <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
-          </p>
-          <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
-        </div>
-        </StaggerItem>
-        <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-violet-50 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </StaggerItem>
+          <StaggerItem>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-violet-50 dark:bg-violet-500/15 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalAdvance')}</p>
             </div>
-            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalAdvance')}</p>
-          </div>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-            <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5">
-            <span className="text-[10px] sm:text-[11px] text-emerald-500 dark:text-emerald-400 font-medium tabular-nums">{t('transactions.badges.reimbursed')} {fmtCompact(personalReimbursed)}</span>
-          </div>
-        </div>
-        </StaggerItem>
-        <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
+              <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
+            </p>
+            <div className="flex items-center gap-1.5 mt-1 sm:mt-1.5">
+              <span className="text-[10px] sm:text-[11px] text-emerald-500 dark:text-emerald-400 font-medium tabular-nums">{t('transactions.badges.reimbursed')} {fmtCompact(personalReimbursed)}</span>
             </div>
-            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalPending')}</p>
           </div>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-            <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
-          </p>
-          <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
-        </div>
-        </StaggerItem>
-        <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+          </StaggerItem>
+          <StaggerItem>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+              </div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalPending')}</p>
             </div>
-            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.publicPending')}</p>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
+              <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
+            </p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
           </div>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-            <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
-          </p>
-          <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
-        </div>
-        </StaggerItem>
-      </StaggerContainer>
+          </StaggerItem>
+          <StaggerItem>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+              </div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.publicPending')}</p>
+            </div>
+            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
+              <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
+            </p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
+          </div>
+          </StaggerItem>
+        </StaggerContainer>
+      ) : (
+        <StaggerContainer className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StaggerItem>
+            <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.balance.personalAdvance')}</p>
+              <p className="mt-2 text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">
+                <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
+              </p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
+            </div>
+          </StaggerItem>
+          <StaggerItem>
+            <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('transactions.summary.expense')}</p>
+              <p className="mt-2 text-xl md:text-2xl font-bold text-rose-500 tabular-nums">
+                <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
+              </p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{t('dashboard.balance.advanceLabel')}</p>
+            </div>
+          </StaggerItem>
+        </StaggerContainer>
+      )}
 
       {/* Pending action hints */}
       {hasPending && (
@@ -480,13 +514,15 @@ export default function DashboardPage() {
             >
               💳 {t('dashboard.workflow.personalTitle')}
             </button>
-            <button
-              type="button"
-              onClick={() => setWorkflowTab('company')}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${workflowTab === 'company' ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
-            >
-              🏦 {t('dashboard.workflow.companyTitle')}
-            </button>
+            {isWorkMode && (
+              <button
+                type="button"
+                onClick={() => setWorkflowTab('company')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${workflowTab === 'company' ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
+              >
+                🏦 {t('dashboard.workflow.companyTitle')}
+              </button>
+            )}
           </div>
         </div>
 

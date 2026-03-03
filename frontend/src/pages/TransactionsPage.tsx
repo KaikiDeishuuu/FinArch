@@ -10,11 +10,12 @@ import { useAuth } from '../contexts/AuthContext'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
-import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
+import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
+import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
@@ -56,7 +57,7 @@ export default function TransactionsPage() {
   const { rates } = useExchangeRates()
   const { data: txs = [], isLoading: loading } = useTransactions()
   const { data: accounts = [] } = useAccounts()
-  const invalidate = useInvalidateTransactions()
+  const refreshFinanceData = useRefreshFinanceData()
   const [filter, setFilter] = useState<FilterTab>('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
@@ -134,7 +135,7 @@ export default function TransactionsPage() {
     setTogglingId(id)
     try {
       await toggleReimbursed(id)
-      invalidate()
+      refreshFinanceData()
     } catch {
       toast.error(isWorkMode ? t('transactions.toast.reimbursedError') : t('transactions.life.toast.processError'))
     } finally {
@@ -152,7 +153,7 @@ export default function TransactionsPage() {
     setTogglingId(id)
     try {
       await toggleUploaded(id)
-      invalidate()
+      refreshFinanceData()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || t('transactions.toast.uploadError'))

@@ -26,10 +26,26 @@ export default function PwaUpdatePrompt() {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
+    immediate: true,
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return
+      const checkForUpdates = () => registration.update()
+      // 注册后先主动检查一次，减少首轮更新提示延迟
+      checkForUpdates()
+      const timer = window.setInterval(checkForUpdates, 60 * 1000)
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') checkForUpdates()
+      }
+      window.addEventListener('visibilitychange', onVisible)
+      return () => {
+        window.clearInterval(timer)
+        window.removeEventListener('visibilitychange', onVisible)
+      }
+    },
     onRegistered(r) {
-      // 每 2 分钟检查一次更新（生产环境）
+      // 兼容旧版本 vite-plugin-pwa 的注册回调
       if (r) {
-        setInterval(() => r.update(), 2 * 60 * 1000)
+        r.update()
       }
     },
   })

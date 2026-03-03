@@ -4,19 +4,19 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { createTransaction } from '../api/client'
-import { useInvalidateTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
 import DatePicker from '../components/DatePicker'
 import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
+import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 
 
 export default function AddTransactionPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const invalidate = useInvalidateTransactions()
+  const refreshFinanceData = useRefreshFinanceData()
   const haptic = useHaptic()
   const { data: accounts = [] } = useAccounts()
   const [error, setError] = useState('')
@@ -82,7 +82,7 @@ export default function AddTransactionPage() {
         mode,
       })
       haptic.success()
-      invalidate()
+      refreshFinanceData()
       toast.success(t('addTransaction.toast.success'), { description: `${form.currency === 'USD' ? '$' : form.currency === 'EUR' ? '€' : '¥'}${amount.toFixed(2)}` })
       setSuccess(true)
       setTimeout(() => navigate('/transactions'), 1200)
