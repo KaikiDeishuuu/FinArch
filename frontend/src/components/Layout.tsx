@@ -169,29 +169,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Mobile Top Header ── */}
-      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-b border-gray-100/80 dark:border-gray-800/60 flex items-center justify-between px-4">
-        <div className="flex items-center gap-2.5">
-          <LogoMark size={28} className="rounded-lg" />
-          <span className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight">FinArch</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={toggleTheme} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-            {isDark ? <IconSun /> : <IconMoon />}
-          </button>
-          <button onClick={toggleLang} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-[11px] font-medium">
-            {i18n.language === 'zh' ? 'EN' : '中'}
-          </button>
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
-            {initial}
+      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 h-20 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-b border-gray-100/80 dark:border-gray-800/60 px-3 pt-2 pb-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <LogoMark size={28} className="rounded-lg" />
+            <span className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight">FinArch</span>
           </div>
-          <button
-            onClick={logout}
-            className="text-xs text-gray-400 dark:text-gray-500 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10"
-          >
-            {t('nav.logoutShort')}
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={toggleTheme} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+              {isDark ? <IconSun /> : <IconMoon />}
+            </button>
+            <button onClick={toggleLang} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-[11px] font-medium">
+              {i18n.language === 'zh' ? 'EN' : '中'}
+            </button>
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
+              {initial}
+            </div>
+            <button
+              onClick={logout}
+              className="text-xs text-gray-400 dark:text-gray-500 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10"
+            >
+              {t('nav.logoutShort')}
+            </button>
+          </div>
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-1">
+        <div className="flex justify-center mt-1">
           <div className="grid grid-cols-2 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5 w-28">
             <button onClick={() => setMode('work')} className={`text-[10px] py-1 rounded-md ${mode === 'work' ? 'bg-white dark:bg-gray-700 text-violet-600' : 'text-gray-500'}`}>Work</button>
             <button onClick={() => setMode('life')} className={`text-[10px] py-1 rounded-md ${mode === 'life' ? 'bg-white dark:bg-gray-700 text-violet-600' : 'text-gray-500'}`}>Life</button>
@@ -200,7 +202,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
+      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-20 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
           <PageTransition motionKey={location.pathname}>
             {children}
