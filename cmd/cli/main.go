@@ -102,7 +102,7 @@ func main() {
 			jwtSecret = "finarch-dev-secret-change-in-prod"
 		}
 		jwtSvc := auth.NewJWTService(jwtSecret)
-		deletionTokenSvc := auth.NewDeletionTokenService(jwtSecret, 30*time.Minute)
+		deletionTokenSvc := auth.NewActionTokenService(jwtSecret)
 		// Auth brute-force protection
 		authLimiter := auth.NewIPRateLimiter(10, 60*time.Second)
 		loginTracker := auth.NewLoginAttemptTracker(5, 15*time.Minute)

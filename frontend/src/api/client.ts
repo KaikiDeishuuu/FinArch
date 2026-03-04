@@ -127,8 +127,8 @@ export async function confirmDeleteAccount(token: string): Promise<void> {
   await client.post('/auth/confirm-delete-account', { token })
 }
 
-export async function requestEmailChange(newEmail: string): Promise<void> {
-  await client.post('/auth/request-email-change', { new_email: newEmail })
+export async function requestEmailChange(newEmail: string, currentPassword: string): Promise<void> {
+  await client.post('/auth/request-email-change', { new_email: newEmail, current_password: currentPassword })
 }
 
 export async function confirmEmailChange(token: string): Promise<void> {

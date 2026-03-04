@@ -25,15 +25,15 @@ func (c *captureSender) SendAccountDeletion(_, _, token string) error {
 	return nil
 }
 
-func newAuthSvc(t *testing.T, ttl time.Duration) (*service.AuthService, *sqliterepo.SQLiteUserRepository, *captureSender, *sql.DB) {
+func newAuthSvc(t *testing.T) (*service.AuthService, *sqliterepo.SQLiteUserRepository, *captureSender, *sql.DB) {
 	db := setupDB(t)
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqliterepo.NewSQLiteUserRepository(db)
 	sender := &captureSender{}
 	jwt := auth.NewJWTService("test-secret")
-	del := auth.NewDeletionTokenService("test-secret", ttl)
+	actions := auth.NewActionTokenService("test-secret")
 	tracker := auth.NewLoginAttemptTracker(5, time.Minute)
-	svc := service.NewAuthService(repo, jwt, del, tracker, sender, false, "http://localhost:5173")
+	svc := service.NewAuthService(repo, jwt, actions, tracker, sender, false, "http://localhost:5173")
 
 	u := model.User{
 		ID:            uuid.NewString(),
@@ -54,7 +54,7 @@ func newAuthSvc(t *testing.T, ttl time.Duration) (*service.AuthService, *sqliter
 }
 
 func TestAccountDeletion_FullFlowAndReplay(t *testing.T) {
-	svc, repo, sender, _ := newAuthSvc(t, 30*time.Minute)
+	svc, repo, sender, _ := newAuthSvc(t)
 	ctx := context.Background()
 	u, _ := repo.GetByEmail(ctx, "delete@test.com")
 
@@ -72,26 +72,29 @@ func TestAccountDeletion_FullFlowAndReplay(t *testing.T) {
 		t.Fatal("expected deleted user lookup to fail")
 	}
 
-	if err := svc.ConfirmAccountDeletion(ctx, sender.token); err != service.ErrDeletionAlreadyCompleted {
-		t.Fatalf("expected replay to be already completed, got %v", err)
+	if err := svc.ConfirmAccountDeletion(ctx, sender.token); err != service.ErrInvalidToken {
+		t.Fatalf("expected replay invalid token, got %v", err)
 	}
 }
 
 func TestAccountDeletion_ExpiredToken(t *testing.T) {
-	svc, repo, sender, _ := newAuthSvc(t, -time.Minute)
+	svc, repo, sender, db := newAuthSvc(t)
 	ctx := context.Background()
 	u, _ := repo.GetByEmail(ctx, "delete@test.com")
 
 	if err := svc.RequestAccountDeletion(ctx, u.ID); err != nil {
 		t.Fatalf("request deletion: %v", err)
 	}
-	if err := svc.ConfirmAccountDeletion(ctx, sender.token); err != service.ErrDeletionTokenExpired {
+	if _, err := db.ExecContext(ctx, `UPDATE action_requests SET expires_at = ? WHERE action = ?`, time.Now().Add(-time.Hour).Unix(), service.ActionAccountDelete); err != nil {
+		t.Fatalf("expire token row: %v", err)
+	}
+	if err := svc.ConfirmAccountDeletion(ctx, sender.token); err != service.ErrExpiredToken {
 		t.Fatalf("expected expired token error, got %v", err)
 	}
 }
 
 func TestAccountDeletion_DeleteFailureDoesNotDeleteUser(t *testing.T) {
-	svc, repo, sender, db := newAuthSvc(t, 30*time.Minute)
+	svc, repo, sender, db := newAuthSvc(t)
 	ctx := context.Background()
 	u, _ := repo.GetByEmail(ctx, "delete@test.com")
 

@@ -31,10 +31,14 @@ type UserRepository interface {
 	// DeleteUser permanently removes the user and all their data.
 	DeleteUser(ctx context.Context, id string) error
 
-	// Account deletion request management (one-time signed tokens).
-	CreateAccountDeletionRequest(ctx context.Context, req model.AccountDeletionRequest) error
-	GetAccountDeletionRequestByJTI(ctx context.Context, jti string) (model.AccountDeletionRequest, error)
-	ConsumeAccountDeletionRequest(ctx context.Context, jti string, consumedAt time.Time) (string, error)
+	// One-time action request management for signed token flows.
+	CreateActionRequest(ctx context.Context, req model.ActionRequest) error
+	GetActionRequestByJTI(ctx context.Context, jti string) (model.ActionRequest, error)
+	ConsumeActionRequest(ctx context.Context, jti string, consumedAt time.Time) (model.ActionRequest, error)
+	ExpireActionRequests(ctx context.Context, action string, now time.Time) error
+
+	// Security/audit trail.
+	CreateAuditEvent(ctx context.Context, userID, eventType, ipAddr, deviceMeta string) error
 
 	// DeleteExpiredUnverifiedUsers removes unverified users whose created_at < olderThan,
 	// along with their tokens. Returns the number of deleted users.

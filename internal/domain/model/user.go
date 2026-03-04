@@ -47,3 +47,15 @@ type Tag struct {
 	Color     string    `json:"color"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// ActionRequest tracks one-time, signed action-token consumption.
+type ActionRequest struct {
+	JTI       string
+	UserID    string
+	Action    string
+	Status    string
+	Meta      string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}

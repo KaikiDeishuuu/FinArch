@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -151,30 +152,30 @@ func (r *SQLiteUserRepository) DeleteEmailTokensByUser(ctx context.Context, user
 	return err
 }
 
-func (r *SQLiteUserRepository) CreateAccountDeletionRequest(ctx context.Context, req model.AccountDeletionRequest) error {
+func (r *SQLiteUserRepository) CreateActionRequest(ctx context.Context, req model.ActionRequest) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO account_deletion_requests (jti, user_id, status, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
-		req.JTI, req.UserID, req.Status, req.ExpiresAt.Unix(), req.CreatedAt.Unix(),
+		`INSERT INTO action_requests (jti, user_id, action, status, meta, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		req.JTI, req.UserID, req.Action, req.Status, req.Meta, req.ExpiresAt.Unix(), req.CreatedAt.Unix(),
 	)
 	if err != nil {
-		return fmt.Errorf("create account deletion request: %w", err)
+		return fmt.Errorf("create action request: %w", err)
 	}
 	return nil
 }
 
-func (r *SQLiteUserRepository) GetAccountDeletionRequestByJTI(ctx context.Context, jti string) (model.AccountDeletionRequest, error) {
-	var req model.AccountDeletionRequest
+func (r *SQLiteUserRepository) GetActionRequestByJTI(ctx context.Context, jti string) (model.ActionRequest, error) {
+	var req model.ActionRequest
 	var expiresAt, createdAt int64
 	var usedAt sql.NullInt64
 	err := r.db.QueryRowContext(ctx,
-		`SELECT jti, user_id, status, expires_at, used_at, created_at FROM account_deletion_requests WHERE jti = ?`,
+		`SELECT jti, user_id, action, status, meta, expires_at, used_at, created_at FROM action_requests WHERE jti = ?`,
 		jti,
-	).Scan(&req.JTI, &req.UserID, &req.Status, &expiresAt, &usedAt, &createdAt)
+	).Scan(&req.JTI, &req.UserID, &req.Action, &req.Status, &req.Meta, &expiresAt, &usedAt, &createdAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return model.AccountDeletionRequest{}, fmt.Errorf("token not found")
+			return model.ActionRequest{}, fmt.Errorf("token not found")
 		}
-		return model.AccountDeletionRequest{}, fmt.Errorf("get account deletion request: %w", err)
+		return model.ActionRequest{}, fmt.Errorf("get action request: %w", err)
 	}
 	req.ExpiresAt = time.Unix(expiresAt, 0)
 	req.CreatedAt = time.Unix(createdAt, 0)
@@ -185,25 +186,43 @@ func (r *SQLiteUserRepository) GetAccountDeletionRequestByJTI(ctx context.Contex
 	return req, nil
 }
 
-func (r *SQLiteUserRepository) ConsumeAccountDeletionRequest(ctx context.Context, jti string, consumedAt time.Time) (string, error) {
+func (r *SQLiteUserRepository) ConsumeActionRequest(ctx context.Context, jti string, consumedAt time.Time) (model.ActionRequest, error) {
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE account_deletion_requests
-		 SET status = 'completed', used_at = ?
-		 WHERE jti = ? AND status = 'pending'`,
+		`UPDATE action_requests SET status = 'completed', used_at = ? WHERE jti = ? AND status = 'pending'`,
 		consumedAt.Unix(), jti,
 	)
 	if err != nil {
-		return "", fmt.Errorf("consume account deletion request: %w", err)
+		return model.ActionRequest{}, fmt.Errorf("consume action request: %w", err)
 	}
 	affected, _ := res.RowsAffected()
 	if affected == 0 {
-		return "", auth.ErrTokenAlreadyUsed
+		return model.ActionRequest{}, auth.ErrTokenAlreadyUsed
 	}
-	var uid string
-	if err := r.db.QueryRowContext(ctx, `SELECT user_id FROM account_deletion_requests WHERE jti = ?`, jti).Scan(&uid); err != nil {
-		return "", fmt.Errorf("fetch account deletion user: %w", err)
+	return r.GetActionRequestByJTI(ctx, jti)
+}
+
+func (r *SQLiteUserRepository) ExpireActionRequests(ctx context.Context, action string, now time.Time) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE action_requests SET status = 'expired' WHERE action = ? AND status = 'pending' AND expires_at < ?`,
+		action, now.Unix(),
+	)
+	if err != nil {
+		return fmt.Errorf("expire action requests: %w", err)
 	}
-	return uid, nil
+	return nil
+}
+
+func (r *SQLiteUserRepository) CreateAuditEvent(ctx context.Context, userID, eventType, ipAddr, deviceMeta string) error {
+	payload, _ := json.Marshal(map[string]string{"event_type": eventType, "device": deviceMeta})
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO audit_log (user_id, table_name, row_id, action, old_data, new_data, ip_addr, created_at)
+		 VALUES (?, 'security_events', ?, 'INSERT', NULL, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
+		userID, userID, string(payload), ipAddr,
+	)
+	if err != nil {
+		return fmt.Errorf("create audit event: %w", err)
+	}
+	return nil
 }
 
 func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname string) error {
@@ -238,6 +257,7 @@ func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error 
 		`DELETE FROM monthly_summary_cache WHERE user_id = ?`,
 		`DELETE FROM audit_log WHERE user_id = ?`,
 		`DELETE FROM account_deletion_requests WHERE user_id = ?`,
+		`DELETE FROM action_requests WHERE user_id = ?`,
 		`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
 		`DELETE FROM tags WHERE owner_id = ?`,
 		`DELETE FROM fund_pools WHERE owner_id = ?`,

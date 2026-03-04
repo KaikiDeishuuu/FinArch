@@ -48,7 +48,7 @@ func main() {
 	}
 
 	jwtSvc := auth.NewJWTService(jwtSecret)
-	deletionTokenSvc := auth.NewDeletionTokenService(jwtSecret, 30*time.Minute)
+	deletionTokenSvc := auth.NewActionTokenService(jwtSecret)
 
 	// Auth brute-force protection:
 	// - IP rate limiter: max 10 login/register requests per IP per minute

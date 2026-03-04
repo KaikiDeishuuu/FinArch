@@ -188,6 +188,7 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/by-project", s.handleStatsByProject)
 
 	// Backup & Restore
+	api.POST("/backup/export-request", s.handleBackupExportRequest)
 	api.GET("/backup/download", s.handleBackupDownload)
 	api.GET("/backup/info", s.handleBackupInfo)
 	api.POST("/backup/restore", s.handleRestore)
@@ -392,6 +393,25 @@ func failInternal(c *gin.Context, err error) {
 	fail(c, 500, 50001, "服务器内部错误，请稍后重试")
 }
 
+func mapAuthError(c *gin.Context, err error, defaultCode int) {
+	switch err {
+	case service.ErrInvalidToken:
+		fail(c, 400, defaultCode, "invalid_token")
+	case service.ErrExpiredToken:
+		fail(c, 410, defaultCode+1, "expired_token")
+	case service.ErrAlreadyUsed:
+		fail(c, 409, defaultCode+2, "already_used")
+	case service.ErrNotAuthorized:
+		fail(c, 403, defaultCode+3, "not_authorized")
+	case service.ErrResourceConflict:
+		fail(c, 409, defaultCode+4, "resource_conflict")
+	case service.ErrUserNotFound:
+		fail(c, 404, defaultCode+5, "user_not_found")
+	default:
+		fail(c, 400, defaultCode, err.Error())
+	}
+}
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 // handleConfig returns public runtime configuration consumed by the frontend.
@@ -559,7 +579,7 @@ func (s *Server) handleResetPassword(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
-		fail(c, 400, 40002, err.Error())
+		mapAuthError(c, err, 40002)
 		return
 	}
 	ok(c, gin.H{"message": "密码重置成功，请使用新密码登录"})
@@ -599,18 +619,7 @@ func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmAccountDeletion(c.Request.Context(), req.Token); err != nil {
-		switch err {
-		case service.ErrDeletionTokenInvalid:
-			fail(c, 400, 40012, "Invalid token")
-		case service.ErrDeletionTokenExpired:
-			fail(c, 410, 40013, "Expired token")
-		case service.ErrDeletionUserNotFound:
-			fail(c, 404, 40014, "User not found")
-		case service.ErrDeletionAlreadyCompleted:
-			fail(c, 409, 40015, "Deletion already completed")
-		default:
-			fail(c, 500, 50012, "Internal server error")
-		}
+		mapAuthError(c, err, 40012)
 		return
 	}
 	ok(c, gin.H{"message": "账户已注销，感谢您使用 FinArch"})
@@ -661,14 +670,15 @@ func (s *Server) handleRefreshToken(c *gin.Context) {
 
 func (s *Server) handleRequestEmailChange(c *gin.Context) {
 	var req struct {
-		NewEmail string `json:"new_email" binding:"required,email"`
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewEmail        string `json:"new_email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		failBind(c, 40020)
 		return
 	}
-	if err := s.authSvc.RequestEmailChange(c.Request.Context(), userID(c), req.NewEmail); err != nil {
-		fail(c, 400, 40021, err.Error())
+	if err := s.authSvc.RequestEmailChange(c.Request.Context(), userID(c), req.CurrentPassword, req.NewEmail); err != nil {
+		mapAuthError(c, err, 40021)
 		return
 	}
 	ok(c, gin.H{"message": "验证邮件已发送至当前邮箱，请在 1 小时内点击授权链接"})
@@ -683,7 +693,7 @@ func (s *Server) handleConfirmOldEmailChange(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmOldEmailForChange(c.Request.Context(), req.Token); err != nil {
-		fail(c, 400, 40025, err.Error())
+		mapAuthError(c, err, 40025)
 		return
 	}
 	ok(c, gin.H{"message": "授权成功，验证邮件已发送至新邮箱"})
@@ -698,7 +708,7 @@ func (s *Server) handleConfirmEmailChange(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmEmailChange(c.Request.Context(), req.Token); err != nil {
-		fail(c, 400, 40023, err.Error())
+		mapAuthError(c, err, 40023)
 		return
 	}
 	ok(c, gin.H{"message": "邮箱已更新"})
@@ -1244,9 +1254,35 @@ func (s *Server) handleStatsByProject(c *gin.Context) {
 	ok(c, stats)
 }
 
+func (s *Server) handleBackupExportRequest(c *gin.Context) {
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c, 40050)
+		return
+	}
+	token, err := s.authSvc.RequestBackupExport(c.Request.Context(), userID(c), req.CurrentPassword)
+	if err != nil {
+		mapAuthError(c, err, 40051)
+		return
+	}
+	ok(c, gin.H{"token": token, "message": "backup export authorized"})
+}
+
 // handleBackupDownload creates a consistent snapshot of the database using
 // SQLite VACUUM INTO and streams it as a downloadable file.
 func (s *Server) handleBackupDownload(c *gin.Context) {
+	exportToken := c.Query("export_token")
+	if exportToken == "" {
+		fail(c, 403, 40052, "not_authorized")
+		return
+	}
+	if err := s.authSvc.ConsumeBackupExportToken(c.Request.Context(), userID(c), exportToken); err != nil {
+		mapAuthError(c, err, 40053)
+		return
+	}
+
 	// Create temp file for the snapshot
 	tmp, err := os.CreateTemp("", "finarch-backup-*.db")
 	if err != nil {
