@@ -60,6 +60,7 @@ export default function MobileModeMagneticFab() {
     }
 
     const isWork = mode === 'work'
+    const currentLabel = isWork ? t('mode.work') : t('mode.life')
     const nextLabel = isWork ? t('mode.life') : t('mode.work')
 
     return (
@@ -67,7 +68,7 @@ export default function MobileModeMagneticFab() {
             ref={fabRef}
             onClick={handleTap}
             aria-label={`Switch to ${nextLabel}`}
-            className="md:hidden fixed z-50 flex items-center gap-2 h-12 px-5 rounded-full backdrop-blur-md transition-all duration-150 select-none active:scale-95"
+            className="md:hidden fixed z-50 flex items-center gap-2 h-12 px-4 rounded-full backdrop-blur-md transition-all duration-150 select-none active:scale-95"
             style={{
                 right: 20,
                 bottom: 'calc(5rem + env(safe-area-inset-bottom))',
@@ -105,9 +106,10 @@ export default function MobileModeMagneticFab() {
                 )}
             </span>
 
-            {/* Label */}
-            <span className="relative z-10 text-white text-xs font-bold tracking-wide">
-                {nextLabel}
+            {/* Current mode label + next hint */}
+            <span className="relative z-10 flex items-center gap-1.5">
+                <span className="text-white text-xs font-bold tracking-wide">{currentLabel}</span>
+                <span className="text-white/60 text-[10px]">→ {nextLabel}</span>
             </span>
         </button>
     )

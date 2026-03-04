@@ -176,7 +176,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <LogoMark size={28} className="rounded-lg shrink-0" />
             <span className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight truncate">FinArch</span>
           </div>
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={toggleTheme} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
               {isDark ? <IconSun /> : <IconMoon />}
             </button>
