@@ -53,8 +53,8 @@ function LoginShell({ children }: { children: ReactNode }) {
         <div className="absolute top-1/3 -left-28 h-80 w-80 rounded-full bg-violet-300/25 blur-3xl" />
       </div>
 
-      <div className="relative z-10 min-h-dvh px-3 py-4 sm:px-6 sm:py-8 md:flex md:items-center md:justify-center">
-        <div className="mx-auto w-full max-w-md rounded-3xl border border-white/15 bg-white/92 p-4 shadow-2xl shadow-violet-900/30 backdrop-blur-xl dark:border-gray-700/70 dark:bg-gray-900/92 sm:p-6">
+      <div className="relative z-10 flex min-h-dvh items-start justify-center px-3 py-4 sm:px-6 sm:py-8 md:items-center">
+        <div className="mx-auto w-full max-w-md overflow-y-auto rounded-3xl border border-white/15 bg-white/92 p-4 shadow-2xl shadow-violet-900/30 backdrop-blur-xl max-h-[calc(100dvh-2rem)] dark:border-gray-700/70 dark:bg-gray-900/92 sm:max-h-[calc(100dvh-4rem)] sm:p-6 md:max-h-none md:overflow-visible">
           {children}
         </div>
       </div>
