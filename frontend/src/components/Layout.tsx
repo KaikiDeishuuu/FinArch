@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { PageTransition } from '../motion'
 import { useMode } from '../contexts/ModeContext'
 import { LogoMark, LogoBars, BrandDivider } from './Brand'
+import ModeSwitcher from './ModeSwitcher'
 
 // SVG icon components
 const IconHome = () => (
@@ -84,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const displayName = user?.username || user?.email || '—'
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh')
   const isDark = resolved === 'dark'
-  const { mode, setMode } = useMode()
+  const { isWorkMode } = useMode()
   const navItems = NAV_ITEMS
 
   return (
@@ -98,17 +99,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <LogoMark size={36} className="rounded-xl" />
             <div>
               <h1 className="font-extrabold text-gray-900 dark:text-gray-100 text-base leading-tight tracking-tight">FinArch</h1>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tracking-wide">{t('nav.subtitle')}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tracking-wide">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</p>
             </div>
           </div>
         </div>
 
 
         <div className="px-5 pb-2">
-          <div className="grid grid-cols-2 rounded-xl bg-gray-100 dark:bg-gray-800 p-1">
-            <button onClick={() => setMode('work')} className={`px-2 py-1.5 text-xs font-semibold rounded-lg transition ${mode === 'work' ? 'bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-300' : 'text-gray-500 dark:text-gray-400'}`}>Work</button>
-            <button onClick={() => setMode('life')} className={`px-2 py-1.5 text-xs font-semibold rounded-lg transition ${mode === 'life' ? 'bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-300' : 'text-gray-500 dark:text-gray-400'}`}>Life</button>
-          </div>
+          <ModeSwitcher variant="sidebar" />
         </div>
         {/* Nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5">
@@ -118,10 +116,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
-                  isActive
-                    ? 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 shadow-sm shadow-violet-100/50 dark:shadow-none'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-gray-200'
+                `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${isActive
+                  ? 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 shadow-sm shadow-violet-100/50 dark:shadow-none'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-gray-200'
                 }`
               }
             >
@@ -169,10 +166,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Mobile Top Header ── */}
-      <header className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-b border-gray-100/80 dark:border-gray-800/60 px-3 pt-2 pb-2">
-        <div className="flex items-center justify-between gap-2">
+      <header
+        className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2"
+        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+      >
+        <div className="flex items-center justify-between gap-2 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2.5 min-w-0">
-            <LogoMark size={28} className="rounded-lg" />
+            <LogoMark size={28} className="rounded-lg shrink-0" />
             <span className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight truncate">FinArch</span>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
@@ -195,10 +195,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="flex justify-center mt-2">
-          <div className="grid grid-cols-2 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5 w-full max-w-[9rem]">
-            <button onClick={() => setMode('work')} className={`text-[11px] py-1 rounded-md font-semibold ${mode === 'work' ? 'bg-white dark:bg-gray-700 text-violet-600' : 'text-gray-500'}`}>WORK</button>
-            <button onClick={() => setMode('life')} className={`text-[11px] py-1 rounded-md font-semibold ${mode === 'life' ? 'bg-white dark:bg-gray-700 text-violet-600' : 'text-gray-500'}`}>LIFE</button>
-          </div>
+          <ModeSwitcher variant="header" />
         </div>
       </header>
 
@@ -218,7 +215,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <LogoBars size={16} opacity={0.25} />
               <span className="text-[11px] font-semibold text-gray-300 dark:text-gray-600 tracking-wide">FinArch</span>
               <span className="text-[11px] text-gray-200 dark:text-gray-700">·</span>
-              <span className="text-[11px] text-gray-300 dark:text-gray-600">{t('nav.footer')}</span>
+              <span className="text-[11px] text-gray-300 dark:text-gray-600">{isWorkMode ? t('nav.footer') : t('nav.life.footer')}</span>
             </div>
             <span className="text-[10px] text-gray-300 dark:text-gray-600 font-mono">v2.3</span>
           </div>
@@ -248,8 +245,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
+                `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
                 }`
               }
             >
