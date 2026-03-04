@@ -55,8 +55,20 @@ var migrationV14SQL string
 //go:embed migration_v15.sql
 var migrationV15SQL string
 
+//go:embed migration_v16.sql
+var migrationV16SQL string
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
+	// Enforce BEGIN IMMEDIATE for all transactions to avoid SQLITE_BUSY deadlocks
+	if !strings.Contains(dsn, "_txlock=immediate") {
+		if strings.Contains(dsn, "?") {
+			dsn += "&_txlock=immediate"
+		} else {
+			dsn += "?_txlock=immediate"
+		}
+	}
+
 	database, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
@@ -100,7 +112,12 @@ func ReapplyPragmas(ctx context.Context, database *sql.DB) error {
 }
 
 // Migrate executes schema migrations in order, tracking applied versions.
+// It sets StatesMigration on the global ConcurrencyGuard for the duration,
+// preventing any concurrent writes during schema changes.
 func Migrate(ctx context.Context, database *sql.DB) error {
+	Global().SetState(StateMigration)
+	defer Global().SetState(StateNormal)
+
 	// Ensure migrations tracking table exists.
 	if _, err := database.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -129,6 +146,7 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		{13, migrationV13SQL},
 		{14, migrationV14SQL},
 		{15, migrationV15SQL},
+		{16, migrationV16SQL},
 	}
 
 	for _, m := range migrations {

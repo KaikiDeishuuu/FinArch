@@ -14,6 +14,7 @@ type User struct {
 	PwdVersion    int
 	Role          string // reserved; all users are equal
 	EmailVerified bool
+	Version       int
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

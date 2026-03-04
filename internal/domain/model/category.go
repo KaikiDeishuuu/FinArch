@@ -11,5 +11,6 @@ type Category struct {
 	ParentID  *string // optional second level
 	SortOrder int
 	IsActive  bool
+	Version   int
 	CreatedAt time.Time
 }

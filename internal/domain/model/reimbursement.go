@@ -10,6 +10,7 @@ type Reimbursement struct {
 	TotalYuan Money
 	Status    string
 	PaidAt    *time.Time
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

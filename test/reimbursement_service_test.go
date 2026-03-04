@@ -39,7 +39,8 @@ func setupDB(t *testing.T) *sql.DB {
 	}
 	// Create default accounts for the test user.
 	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
-	acctSvc := service.NewAccountService(acctRepo)
+	tm := sqliterepo.NewSQLiteTransactionManager(database)
+	acctSvc := service.NewAccountService(acctRepo, tm)
 	if err := acctSvc.EnsureDefaultAccounts(ctx, testUserID); err != nil {
 		t.Fatalf("ensure accounts: %v", err)
 	}

@@ -118,7 +118,7 @@ func (s *Server) Run() error {
 
 func (s *Server) registerRoutes() {
 	r := s.engine
-	r.Use(gin.Recovery(), s.securityHeaders(), s.corsMiddleware())
+	r.Use(gin.Recovery(), s.securityHeaders(), s.corsMiddleware(), s.writeGateMiddleware())
 
 	// ─── Public routes ───────────────────────────────────────────
 	pub := r.Group("/api/v1")
@@ -427,6 +427,12 @@ func mapDomainError(err error) (int, apiErrorPayload) {
 		return http.StatusConflict, apiErrorPayload{Code: "resource_conflict", Message: "The request conflicts with current data."}
 	case errors.Is(err, service.ErrEmailNotVerified):
 		return http.StatusForbidden, apiErrorPayload{Code: "email_not_verified", Message: "Please verify your email before logging in."}
+	case errors.Is(err, service.ErrConcurrentModification):
+		return http.StatusConflict, apiErrorPayload{Code: "concurrent_modification", Message: "The resource was modified by another request. Please refresh and try again."}
+	case errors.Is(err, service.ErrInvalidOrUsedToken):
+		return http.StatusBadRequest, apiErrorPayload{Code: "invalid_or_used_token", Message: "The refresh token is invalid, expired, or already consumed."}
+	case errors.Is(err, service.ErrSystemUnavailable):
+		return http.StatusServiceUnavailable, apiErrorPayload{Code: "system_unavailable", Message: "System temporarily unavailable due to maintenance."}
 	default:
 		return http.StatusInternalServerError, apiErrorPayload{Code: "internal_error", Message: "Something went wrong. Please try again."}
 	}
@@ -434,6 +440,26 @@ func mapDomainError(err error) (int, apiErrorPayload) {
 
 func mapAuthError(c *gin.Context, err error, _ int) {
 	failDomain(c, err)
+}
+
+// writeGateMiddleware rejects all mutating requests when the system is not in StateNormal.
+func (s *Server) writeGateMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !findb.Global().IsWritable() {
+			switch c.Request.Method {
+			case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+				c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+					"success": false,
+					"error": apiErrorPayload{
+						Code:    "system_unavailable",
+						Message: "System temporarily unavailable due to maintenance.",
+					},
+				})
+				return
+			}
+		}
+		c.Next()
+	}
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -1492,6 +1518,10 @@ func (s *Server) handleRestore(c *gin.Context) {
 	defer restoreSrcDB.Close()
 
 	ctx := context.Background()
+
+	// Freeze writes during restore to prevent partial snapshot corruption.
+	findb.Global().SetState(findb.StateRestore)
+	defer findb.Global().SetState(findb.StateNormal)
 
 	destConn, err := s.db.Conn(ctx)
 	if err != nil {

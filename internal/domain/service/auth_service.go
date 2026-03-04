@@ -23,6 +23,7 @@ type AuthService struct {
 	emailSvc     email.Sender
 	emailReq     bool   // whether email verification is required
 	appBaseURL   string // used to build verification links
+	txManager    repository.TransactionManager
 }
 
 func NewAuthService(
@@ -33,10 +34,12 @@ func NewAuthService(
 	emailSvc email.Sender,
 	emailRequired bool,
 	appBaseURL string,
+	txManager repository.TransactionManager,
 ) *AuthService {
 	return &AuthService{
 		users: users, jwt: jwt, actionTokens: actionTokens, tracker: tracker,
 		emailSvc: emailSvc, emailReq: emailRequired, appBaseURL: appBaseURL,
+		txManager: txManager,
 	}
 }
 
@@ -147,18 +150,20 @@ func (s *AuthService) ResendVerification(ctx context.Context, email string) erro
 
 // VerifyEmail marks the user's email as verified after checking the token.
 func (s *AuthService) VerifyEmail(ctx context.Context, token string) error {
-	req, err := s.verifyAndLoadAction(ctx, token, ActionRegisterVerify)
-	if err != nil {
-		return err
-	}
-	if err := s.users.SetEmailVerified(ctx, req.UserID); err != nil {
-		return fmt.Errorf("验证失败，请重试")
-	}
-	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
-		return fmt.Errorf("验证失败，请重试")
-	}
-	_ = s.users.CreateAuditEvent(ctx, req.UserID, "registration_verified", "", "")
-	return nil
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		req, err := s.verifyAndLoadAction(txCtx, token, ActionRegisterVerify)
+		if err != nil {
+			return err
+		}
+		if err := s.users.SetEmailVerified(txCtx, req.UserID); err != nil {
+			return fmt.Errorf("验证失败，请重试")
+		}
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+			return fmt.Errorf("验证失败，请重试")
+		}
+		_ = s.users.CreateAuditEvent(txCtx, req.UserID, "registration_verified", "", "")
+		return nil
+	})
 }
 
 // ForgotPassword sends a password reset email if the account exists and is verified.
@@ -210,29 +215,38 @@ func (s *AuthService) RequestEmailChange(ctx context.Context, userID, currentPas
 // ConfirmOldEmailForChange is called when the user clicks the authorization link
 // sent to their OLD email. It issues a verification link to the NEW email.
 func (s *AuthService) ConfirmOldEmailForChange(ctx context.Context, token string) error {
-	req, err := s.verifyAndLoadAction(ctx, token, ActionEmailChangeOld)
+	var newEmail string
+	var u model.User
+	var newToken string
+	err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		req, err := s.verifyAndLoadAction(txCtx, token, ActionEmailChangeOld)
+		if err != nil {
+			return err
+		}
+		newEmail = req.Meta
+		if newEmail == "" {
+			return ErrInvalidToken
+		}
+		u, err = s.users.GetByID(txCtx, req.UserID)
+		if err != nil {
+			return ErrUserNotFound
+		}
+		if _, err := s.users.GetByEmail(txCtx, newEmail); err == nil {
+			return ErrResourceConflict
+		}
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+			return err
+		}
+		newToken, _, err = s.createActionToken(txCtx, u.ID, ActionEmailChangeNew, newEmail, 30*time.Minute)
+		if err != nil {
+			return fmt.Errorf("操作失败，请稍后重试")
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	newEmail := req.Meta
-	if newEmail == "" {
-		return ErrInvalidToken
-	}
-	u, err := s.users.GetByID(ctx, req.UserID)
-	if err != nil {
-		return ErrUserNotFound
-	}
-	if _, err := s.users.GetByEmail(ctx, newEmail); err == nil {
-		return ErrResourceConflict
-	}
-	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
-		return err
-	}
-	newToken, _, err := s.createActionToken(ctx, u.ID, ActionEmailChangeNew, newEmail, 30*time.Minute)
-	if err != nil {
-		return fmt.Errorf("操作失败，请稍后重试")
-	}
-	if err := s.emailSvc.SendEmailChange(newEmail, u.Username, newToken); err != nil {
+	if err := s.emailSvc.SendEmailChange(newEmail, u.Username, newToken); err != nil {		
 		return fmt.Errorf("邮件发送失败，请稍后重试")
 	}
 	return nil
@@ -240,24 +254,26 @@ func (s *AuthService) ConfirmOldEmailForChange(ctx context.Context, token string
 
 // ConfirmEmailChange validates the token and applies the email change.
 func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) error {
-	req, err := s.verifyAndLoadAction(ctx, token, ActionEmailChangeNew)
-	if err != nil {
-		return err
-	}
-	if req.Meta == "" {
-		return ErrInvalidToken
-	}
-	if err := s.users.UpdateEmail(ctx, req.UserID, req.Meta); err != nil {
-		if err.Error() == "email_taken" {
-			return ErrEmailTaken
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		req, err := s.verifyAndLoadAction(txCtx, token, ActionEmailChangeNew)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("邮箱更新失败，请稍后重试")
-	}
-	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
-		return fmt.Errorf("邮箱更新失败，请稍后重试")
-	}
-	_ = s.users.CreateAuditEvent(ctx, req.UserID, "email_changed", "", "")
-	return nil
+		if req.Meta == "" {
+			return ErrInvalidToken
+		}
+		if err := s.users.UpdateEmail(txCtx, req.UserID, req.Meta); err != nil {
+			if err.Error() == "email_taken" {
+				return ErrEmailTaken
+			}
+			return fmt.Errorf("邮箱更新失败，请稍后重试")
+		}
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+			return fmt.Errorf("邮箱更新失败，请稍后重试")
+		}
+		_ = s.users.CreateAuditEvent(txCtx, req.UserID, "email_changed", "", "")
+		return nil
+	})
 }
 
 // ResetPassword resets the user's password using a valid reset token.
@@ -265,22 +281,24 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 	if len(newPassword) < 8 {
 		return fmt.Errorf("新密码至少需要 8 位")
 	}
-	req, err := s.verifyAndLoadAction(ctx, token, ActionPasswordReset)
-	if err != nil {
-		return err
-	}
-	hash, err := auth.HashPassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("密码设置失败，请稍后重试")
-	}
-	if err := s.users.UpdatePassword(ctx, req.UserID, hash); err != nil {
-		return fmt.Errorf("密码重置失败，请稍后重试")
-	}
-	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
-		return fmt.Errorf("密码重置失败，请稍后重试")
-	}
-	_ = s.users.CreateAuditEvent(ctx, req.UserID, "password_reset", "", "")
-	return nil
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		req, err := s.verifyAndLoadAction(txCtx, token, ActionPasswordReset)
+		if err != nil {
+			return err
+		}
+		hash, err := auth.HashPassword(newPassword)
+		if err != nil {
+			return fmt.Errorf("密码设置失败，请稍后重试")
+		}
+		if err := s.users.UpdatePassword(txCtx, req.UserID, hash); err != nil {
+			return fmt.Errorf("密码重置失败，请稍后重试")
+		}
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+			return fmt.Errorf("密码重置失败，请稍后重试")
+		}
+		_ = s.users.CreateAuditEvent(txCtx, req.UserID, "password_reset", "", "")
+		return nil
+	})
 }
 
 // ChangePassword verifies currentPassword then replaces it with newPassword.
@@ -325,18 +343,20 @@ func (s *AuthService) RequestBackupExport(ctx context.Context, userID, currentPa
 
 // ConsumeBackupExportToken validates + consumes backup export authorization.
 func (s *AuthService) ConsumeBackupExportToken(ctx context.Context, userID, token string) error {
-	req, err := s.verifyAndLoadAction(ctx, token, ActionBackupExport)
-	if err != nil {
-		return err
-	}
-	if req.UserID != userID {
-		return ErrNotAuthorized
-	}
-	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
-		return fmt.Errorf("操作失败，请稍后重试")
-	}
-	_ = s.users.CreateAuditEvent(ctx, userID, "backup_export_downloaded", "", "")
-	return nil
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		req, err := s.verifyAndLoadAction(txCtx, token, ActionBackupExport)
+		if err != nil {
+			return err
+		}
+		if req.UserID != userID {
+			return ErrNotAuthorized
+		}
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+			return fmt.Errorf("操作失败，请稍后重试")
+		}
+		_ = s.users.CreateAuditEvent(txCtx, userID, "backup_export_downloaded", "", "")
+		return nil
+	})
 }
 
 // RequestAccountDeletion sends an account-deletion confirmation email.
@@ -367,21 +387,23 @@ func (s *AuthService) RequestAccountDeletion(ctx context.Context, userID string)
 
 // ConfirmAccountDeletion validates one-time token and permanently deletes account data.
 func (s *AuthService) ConfirmAccountDeletion(ctx context.Context, token string) error {
-	req, err := s.verifyAndLoadAction(ctx, token, ActionAccountDelete)
-	if err != nil {
-		return err
-	}
-	if err := s.users.DeleteUser(ctx, req.UserID); err != nil {
-		if err.Error() == "user not found" {
-			return ErrUserNotFound
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		req, err := s.verifyAndLoadAction(txCtx, token, ActionAccountDelete)
+		if err != nil {
+			return err
 		}
-		return ErrInternal
-	}
-	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
-		return fmt.Errorf("确认失败，请稍后重试")
-	}
-	_ = s.users.CreateAuditEvent(ctx, req.UserID, "account_deleted", "", "")
-	return nil
+		if err := s.users.DeleteUser(txCtx, req.UserID); err != nil {
+			if err.Error() == "user not found" {
+				return ErrUserNotFound
+			}
+			return ErrInternal
+		}
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+			return fmt.Errorf("确认失败，请稍后重试")
+		}
+		_ = s.users.CreateAuditEvent(txCtx, req.UserID, "account_deleted", "", "")
+		return nil
+	})
 }
 
 func (s *AuthService) createActionToken(ctx context.Context, userID, action, meta string, ttl time.Duration) (string, string, error) {

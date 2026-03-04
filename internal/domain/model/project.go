@@ -7,5 +7,6 @@ type Project struct {
 	ID        string
 	Name      string
 	Code      string
+	Version   int
 	CreatedAt time.Time
 }

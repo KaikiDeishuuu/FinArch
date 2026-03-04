@@ -65,8 +65,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warning'; children: React.ReactNode }) {
   const cls = {
     success: 'bg-emerald-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
-    error:   'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400',
-    info:    'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400',
+    error: 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400',
+    info: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400',
     warning: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-400',
   }[type]
   return (
@@ -84,7 +84,7 @@ export default function SettingsPage() {
   // ── Profile data ──────────────────────────────────────────────────────────
   const [profile, setProfile] = useState<UserProfile | null>(null)
   useEffect(() => {
-    getMe().then(setProfile).catch(() => {/* ignore */})
+    getMe().then(setProfile).catch(() => {/* ignore */ })
   }, [])
 
   // ── Nickname ──────────────────────────────────────────────────────────────
@@ -160,13 +160,13 @@ export default function SettingsPage() {
     setEmailSent(false)
     setEmailLoading(true)
     try {
-      const currentPassword = window.prompt(t('settings.security.changePassword.current')) || ""
+      const currentPassword = window.prompt(t('settings.password.currentPlaceholder')) || ""
       if (!currentPassword) { throw new Error(t('common.cancel')) }
       await requestEmailChange(newEmail, currentPassword)
       setEmailSent(true)
       setNewEmail('')
       // Refresh profile to show pending_email
-      getMe().then(setProfile).catch(() => {/* ignore */})
+      getMe().then(setProfile).catch(() => {/* ignore */ })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setEmailError(msg || t('settings.changeEmail.toast.error'))
@@ -181,13 +181,13 @@ export default function SettingsPage() {
 
   // Load backup info on mount
   useEffect(() => {
-    getBackupInfo().then(setBackupInfo).catch(() => {/* ignore */})
+    getBackupInfo().then(setBackupInfo).catch(() => {/* ignore */ })
   }, [])
 
   async function handleDownloadBackup() {
     setBackupLoading(true)
     try {
-      const currentPassword = window.prompt(t('settings.security.changePassword.current')) || ""
+      const currentPassword = window.prompt(t('settings.password.currentPlaceholder')) || ""
       if (!currentPassword) { throw new Error(t('common.cancel')) }
       const exportToken = await requestBackupExportToken(currentPassword)
       await downloadBackup(exportToken)
@@ -226,7 +226,7 @@ export default function SettingsPage() {
       // Invalidate ALL queries so every page reflects the restored data
       queryClient.invalidateQueries()
       // Refresh backup info
-      getBackupInfo().then(setBackupInfo).catch(() => {})
+      getBackupInfo().then(setBackupInfo).catch(() => { })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || t('settings.restore.toast.error'))
@@ -496,7 +496,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{currentEmail}</p>
                 {pendingEmail && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
                     {t('settings.changeEmail.pendingTo')}{pendingEmail}
                   </p>
                 )}
@@ -604,7 +604,7 @@ export default function SettingsPage() {
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
               )}
               {backupLoading ? t('settings.backup.generating') : t('settings.backup.download')}
@@ -633,14 +633,14 @@ export default function SettingsPage() {
                   onClick={() => fileInputRef.current?.click()}
                   className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 text-sm font-medium text-gray-600 dark:text-gray-300 px-4 py-2.5 rounded-xl transition-colors"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                   {t('settings.restore.selectFile')}
                 </button>
               )}
               {restoreFile && !restoreConfirm && (
                 <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-sm text-amber-800 dark:text-amber-400">
                   <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     <p className="font-semibold">{restoreFile.name}</p>
                     <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums">({formatFileSize(restoreFile.size)})</span>
                   </div>
@@ -658,7 +658,7 @@ export default function SettingsPage() {
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+                      <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
                     </svg>
                   )}
                   {restoreLoading ? t('settings.restore.restoring') : t('settings.restore.restoreNow')}
@@ -703,8 +703,8 @@ export default function SettingsPage() {
                   <button type="button" onClick={() => setDeleteStep('confirm')}
                     className="inline-flex items-center gap-2 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                      <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                      <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
                     </svg>
                     {t('settings.danger.deleteButton')}
                   </button>
