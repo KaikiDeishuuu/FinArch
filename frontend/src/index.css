@@ -293,12 +293,12 @@ a,
     /* 固定 header：增加顶部安全区间距，使其不被状态栏遮挡 */
     header.gpu-layer {
       padding-top: env(safe-area-inset-top);
-      height: calc(3.5rem + env(safe-area-inset-top));
+      height: calc(5.25rem + env(safe-area-inset-top));
     }
 
-    /* 主内容区：留出 header 高度(3.5rem) + 安全区域 */
+    /* 主内容区：留出 header 高度(5.25rem) + 安全区域 */
     .scroll-main {
-      padding-top: calc(3.5rem + env(safe-area-inset-top));
+      padding-top: calc(5.25rem + env(safe-area-inset-top));
     }
   }
 
