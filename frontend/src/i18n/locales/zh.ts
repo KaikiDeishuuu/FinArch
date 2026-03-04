@@ -76,6 +76,10 @@ const zh = {
       logout: '退出登录',
       logoutShort: '退出',
       footer: '记账 · 报销 · 智能匹配',
+      life: {
+        subtitle: '收支 · 记录 · 统计',
+        footer: '记账 · 整理 · 智能匹配',
+      },
     },
 
     // ── Theme ──
@@ -91,6 +95,12 @@ const zh = {
       zh: '中文',
       en: 'English',
       toggle: '语言',
+    },
+
+    // ── Mode ──
+    mode: {
+      work: 'WORK',
+      life: 'LIFE',
     },
 
     // ── Dashboard ──
@@ -224,6 +234,12 @@ const zh = {
       addButton: '+ 添加',
       featureNavTitle: '功能导航',
       workflowTitle: '使用流程',
+      life: {
+        pendingOverview: '待处理事项',
+        noPending: '暂无待处理事项 🎉',
+        tip: '当前生活记录已整理完成',
+        allClear: '今天也保持良好的财务节奏',
+      },
       workflow: {
         personalTitle: '个人账户',
         personalStep1: '记录交易',
@@ -482,7 +498,7 @@ const zh = {
         monthlyTitle: '{{year}} 年月度收支',
         monthlySubtitle: '按月统计收入与支出',
         pieTitle: '收支比例',
-        categoryTitle: '分类支出',
+        categoryTitle: '支出类别分布',
         incomeCategoryTitle: '收入类别分布',
         projectTitle: '项目汇总',
       },

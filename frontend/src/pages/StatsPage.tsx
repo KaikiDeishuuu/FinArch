@@ -13,12 +13,9 @@ import type { Account } from '../api/client'
 import { StaggerContainer, StaggerItem } from '../motion'
 import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
+import ResponsivePieCard from '../components/ResponsivePieCard'
+import { calculateWorkModeAdjustments } from '../utils/workModeStats'
 
-const PIE_COLORS = [
-  '#8b5cf6','#f59e0b','#10b981','#ef4444','#06b6d4',
-  '#f97316','#84cc16','#ec4899','#22c55e','#14b8a6',
-  '#a855f7','#eab308','#0ea5e9',
-]
 
 // ─── Custom SVG bar chart (avoids recharts BarChart cursor/overflow bugs) ─────
 
@@ -173,31 +170,7 @@ function MonthlyBarChart({
 }
 
 
-function CategoryPieCard({ title, rows, fmt }: { title: string; rows: Array<{ category: string; total: number; count: number }>; fmt: (n: number) => string }) {
-  const { t } = useTranslation()
-  return (
-    <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-      <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{title}</h2>
-      {rows.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
-      ) : (
-        <div className="flex flex-col md:flex-row gap-6 items-start">
-          <div className="w-full md:w-64 h-44 md:h-56 shrink-0">
-            <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="total" nameKey="category" cx="50%" cy="50%" innerRadius={52} outerRadius={82} paddingAngle={2} strokeWidth={0}>{rows.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}</Pie><Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false} /></PieChart></ResponsiveContainer>
-          </div>
-          <div className="flex-1 w-full space-y-3 max-h-56 overflow-y-auto pr-1">
-            {rows.map((c, idx) => (
-              <div key={c.category} className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} /><span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{categoryLabel(c.category)}</span></div>
-                <div className="text-right shrink-0"><span className="text-sm font-bold text-gray-800 dark:text-gray-200 tabular-nums">{fmt(c.total)}</span><span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{t('stats.transactionUnit', { count: c.count })}</span></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+// CategoryPieCard replaced by ResponsivePieCard component
 
 export default function StatsPage() {
   const year = new Date().getFullYear()
@@ -312,8 +285,11 @@ export default function StatsPage() {
 
   const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
   const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
-  const totalReimbursed = monthly.reduce((s, m) => s + (m.reimbursed ?? 0), 0)
-  const totalNet = totalIncome - totalExpense + totalReimbursed
+
+  // Reimbursement adjustments — WORK mode only
+  const { totalReimbursed, adjustedNet: totalNet } = isWorkMode
+    ? calculateWorkModeAdjustments(monthly, totalIncome, totalExpense)
+    : { totalReimbursed: 0, adjustedNet: totalIncome - totalExpense }
 
   if (loading) {
     return (
@@ -409,28 +385,28 @@ export default function StatsPage() {
       {/* Summary cards — Premium: flat, clean */}
       <StaggerContainer className="grid grid-cols-3 gap-3">
         <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
-          <p className="text-base md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 truncate tabular-nums mt-1.5">
-            <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
-          </p>
-        </div>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
+            <p className="text-base md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 truncate tabular-nums mt-1.5">
+              <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
+            </p>
+          </div>
         </StaggerItem>
         <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyExpense')}</p>
-          <p className="text-base md:text-2xl font-bold text-rose-500 dark:text-rose-400 truncate tabular-nums mt-1.5">
-            <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
-          </p>
-        </div>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyExpense')}</p>
+            <p className="text-base md:text-2xl font-bold text-rose-500 dark:text-rose-400 truncate tabular-nums mt-1.5">
+              <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
+            </p>
+          </div>
         </StaggerItem>
         <StaggerItem>
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-          <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyNet')}</p>
-          <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-orange-500 dark:text-orange-400'}`}>
-            <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
-          </p>
-        </div>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyNet')}</p>
+            <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-orange-500 dark:text-orange-400'}`}>
+              <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
+            </p>
+          </div>
         </StaggerItem>
       </StaggerContainer>
 
@@ -511,7 +487,7 @@ export default function StatsPage() {
                   <div className="h-full rounded-full" style={{ background: '#f43f5e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
-              {totalReimbursed > 0 && (
+              {isWorkMode && totalReimbursed > 0 && (
                 <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
                   <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
                     <span>{t('stats.reimbursed')}</span>
@@ -525,8 +501,8 @@ export default function StatsPage() {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <CategoryPieCard title={t('stats.chart.categoryTitle')} rows={categories} fmt={fmt} />
-        <CategoryPieCard title={t('stats.chart.incomeCategoryTitle', 'Income Category Distribution')} rows={incomeCategories} fmt={fmt} />
+        <ResponsivePieCard title={t('stats.chart.categoryTitle')} rows={categories} formatFn={fmt} />
+        <ResponsivePieCard title={t('stats.chart.incomeCategoryTitle')} rows={incomeCategories} formatFn={fmt} />
       </div>
 
       {/* Project breakdown — Premium */}
@@ -539,43 +515,42 @@ export default function StatsPage() {
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[320px]">
-            <thead>
-              <tr className="bg-gray-50/80 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100 dark:border-gray-800/50">
-                <th className="px-5 py-3 text-left font-semibold">{t('stats.project.name')}</th>
-                <th className="px-5 py-3 text-right font-semibold">{t('stats.project.income')}</th>
-                <th className="px-5 py-3 text-right font-semibold">{t('stats.project.expense')}</th>
-                <th className="px-5 py-3 text-right font-semibold">{t('stats.project.net')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-              {projects.map((p) => (
-                <tr key={p.project_id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-gray-700 dark:text-gray-300">{p.project_id}</p>
-                    {p.project_name && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.project_name}</p>}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className="text-indigo-600 font-medium tabular-nums whitespace-nowrap">
-                      <CompactAmount compact={fmtShort(p.income)} exact={fmtExact(p.income)} />
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className="text-rose-500 font-medium tabular-nums whitespace-nowrap">
-                      <CompactAmount compact={fmtShort(p.expense)} exact={fmtExact(p.expense)} />
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <span className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs ${
-                      p.net >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
-                    }`}>
-                      <CompactAmount compact={fmtShort(p.net)} exact={fmtExact(p.net)} prefix={p.net >= 0 ? '+' : ''} />
-                    </span>
-                  </td>
+            <table className="w-full text-sm min-w-[320px]">
+              <thead>
+                <tr className="bg-gray-50/80 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100 dark:border-gray-800/50">
+                  <th className="px-5 py-3 text-left font-semibold">{t('stats.project.name')}</th>
+                  <th className="px-5 py-3 text-right font-semibold">{t('stats.project.income')}</th>
+                  <th className="px-5 py-3 text-right font-semibold">{t('stats.project.expense')}</th>
+                  <th className="px-5 py-3 text-right font-semibold">{t('stats.project.net')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                {projects.map((p) => (
+                  <tr key={p.project_id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <p className="font-medium text-gray-700 dark:text-gray-300">{p.project_id}</p>
+                      {p.project_name && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.project_name}</p>}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className="text-indigo-600 font-medium tabular-nums whitespace-nowrap">
+                        <CompactAmount compact={fmtShort(p.income)} exact={fmtExact(p.income)} />
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className="text-rose-500 font-medium tabular-nums whitespace-nowrap">
+                        <CompactAmount compact={fmtShort(p.expense)} exact={fmtExact(p.expense)} />
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs ${p.net >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
+                        }`}>
+                        <CompactAmount compact={fmtShort(p.net)} exact={fmtExact(p.net)} prefix={p.net >= 0 ? '+' : ''} />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

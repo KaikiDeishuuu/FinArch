@@ -98,9 +98,9 @@ const FEATURES = [
 // ─── Time-based greeting key selector ─────────────────────────────────────
 function getGreetingKey() {
   const hour = new Date().getHours()
-  if (hour >= 1 && hour < 5)   return 'dawn'
-  if (hour >= 5 && hour < 8)   return 'earlyMorning'
-  if (hour >= 8 && hour < 11)  return 'morning'
+  if (hour >= 1 && hour < 5) return 'dawn'
+  if (hour >= 5 && hour < 8) return 'earlyMorning'
+  if (hour >= 8 && hour < 11) return 'morning'
   if (hour >= 11 && hour < 12) return 'beforeNoon'
   if (hour >= 12 && hour < 14) return 'lunch'
   if (hour >= 14 && hour < 18) return 'afternoon'
@@ -287,7 +287,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-            {/* Hero Header */}
+      {/* Hero Header */}
       <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20 dark:shadow-violet-900/30">
         <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
         <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-fuchsia-400/20 rounded-full blur-2xl" />
@@ -326,32 +326,32 @@ export default function DashboardPage() {
       {isWorkMode ? (
         <StaggerContainer className="grid grid-cols-2 gap-2 sm:gap-3">
           <StaggerItem>
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-4 0v2" /><line x1="12" y1="12" x2="12" y2="16" /><line x1="10" y1="14" x2="14" y2="14" /></svg>
+                </div>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.public')}</p>
               </div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.public')}</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
+                <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
+              </p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
-            </p>
-            <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
-          </div>
           </StaggerItem>
           <StaggerItem>
-          <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+            <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" /></svg>
+                </div>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.publicPending')}</p>
               </div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.publicPending')}</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
+                <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
+              </p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
             </div>
-            <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-              <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
-            </p>
-            <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
-          </div>
           </StaggerItem>
         </StaggerContainer>
       ) : (
@@ -447,8 +447,17 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconCheck /></span>
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('dashboard.pending.noPending')}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('dashboard.pending.tip')}</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {isWorkMode ? t('dashboard.pending.noPending') : t('dashboard.life.noPending')}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {isWorkMode ? t('dashboard.pending.tip') : t('dashboard.life.tip')}
+              </p>
+              {!isWorkMode && (
+                <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1 font-medium">
+                  {t('dashboard.life.allClear')}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -463,18 +472,18 @@ export default function DashboardPage() {
               key={f.to}
               className="rounded-2xl"
             >
-            <Link
-              to={f.to}
-              className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 transition-all hover:border-violet-200 dark:hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-100/30 dark:hover:shadow-violet-900/20 group bg-white dark:bg-transparent"
-            >
-              <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
-                <f.Icon />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(f.titleKey)}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(f.descKey)}</p>
-              </div>
-            </Link>
+              <Link
+                to={f.to}
+                className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 transition-all hover:border-violet-200 dark:hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-100/30 dark:hover:shadow-violet-900/20 group bg-white dark:bg-transparent"
+              >
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
+                  <f.Icon />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(f.titleKey)}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(f.descKey)}</p>
+                </div>
+              </Link>
             </AnimatedCard>
           ))}
         </div>

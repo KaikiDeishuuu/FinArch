@@ -76,6 +76,10 @@ const en = {
       logout: 'Log out',
       logoutShort: 'Out',
       footer: 'Accounting · Reimburse · Smart Match',
+      life: {
+        subtitle: 'Finance · Track · Stats',
+        footer: 'Accounting · Organize · Smart Match',
+      },
     },
 
     // ── Theme ──
@@ -91,6 +95,12 @@ const en = {
       zh: '中文',
       en: 'English',
       toggle: 'Language',
+    },
+
+    // ── Mode ──
+    mode: {
+      work: 'WORK',
+      life: 'LIFE',
     },
 
     // ── Dashboard ──
@@ -224,6 +234,12 @@ const en = {
       addButton: '+ Add',
       featureNavTitle: 'Features',
       workflowTitle: 'Workflow',
+      life: {
+        pendingOverview: 'Items to Review',
+        noPending: 'All caught up 🎉',
+        tip: 'Your records are well organized',
+        allClear: 'Keeping a great financial rhythm today',
+      },
       workflow: {
         personalTitle: 'Personal Account',
         personalStep1: 'Record',
@@ -482,7 +498,7 @@ const en = {
         monthlyTitle: '{{year}} Monthly Trend',
         monthlySubtitle: 'Monthly income and expense breakdown',
         pieTitle: 'Income vs Expense',
-        categoryTitle: 'Expense by Category',
+        categoryTitle: 'Expense Category Distribution',
         incomeCategoryTitle: 'Income Category Distribution',
         projectTitle: 'Project Summary',
       },
