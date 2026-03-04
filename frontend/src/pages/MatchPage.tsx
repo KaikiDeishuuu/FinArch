@@ -155,22 +155,22 @@ export default function MatchPage() {
       // Map WorkerResult → MatchResult, enriching with cached tx data
       const mapped: MatchResult[] = workerResults.map(wr => {
         const items: MatchResultItem[] = wr.ids.flatMap(id => {
-            const tx = txMap.get(id)
-            if (!tx) return []
-            const item: MatchResultItem = {
-              id: tx.id,
-              occurred_at: tx.occurred_at,
-              direction: tx.direction,
-              source: tx.source,
-              category: tx.category,
-              amount_yuan: tx.amount_yuan,
-              currency: tx.currency,
-              note: tx.note ?? '',
-              project_id: tx.project_id ?? '',
-              uploaded: tx.uploaded,
-            }
-            return [item]
-          })
+          const tx = txMap.get(id)
+          if (!tx) return []
+          const item: MatchResultItem = {
+            id: tx.id,
+            occurred_at: tx.occurred_at,
+            direction: tx.direction,
+            source: tx.source,
+            category: tx.category,
+            amount_yuan: tx.amount_yuan,
+            currency: tx.currency,
+            note: tx.note ?? '',
+            project_id: tx.project_id ?? '',
+            uploaded: tx.uploaded,
+          }
+          return [item]
+        })
         return {
           ids: wr.ids,
           total: wr.totalCents / 100,
@@ -231,7 +231,7 @@ export default function MatchPage() {
     const label = isLifeMode
       ? t('match.life.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
       : t('match.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
-    exportTransactionsPDF(matchedTransactions, label, user, rates)
+    exportTransactionsPDF(matchedTransactions, label, user, rates, !isLifeMode, {})
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
@@ -257,11 +257,10 @@ export default function MatchPage() {
                   key={key}
                   type="button"
                   onClick={() => { setSourceFilter(key); setFilterAccount(''); setResults([]); setSearched(false) }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    sourceFilter === key
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${sourceFilter === key
                       ? 'bg-white dark:bg-[hsl(260,15%,11%)] text-violet-700 dark:text-violet-400 shadow-sm'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}
+                    }`}
                 >
                   {t(`match.sourceTabs.${key}`)}
                 </button>
@@ -413,12 +412,12 @@ export default function MatchPage() {
           <div className="flex items-center justify-between px-1">
             {results.length === 0 ? (
               <div className="flex items-center gap-2 text-gray-500">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
                 <span className="text-sm">{t('match.results.noResultsHint')}</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {t('match.results.foundBefore')}<span className="text-violet-600 dark:text-violet-400 font-bold text-base">{results.length}</span>{t('match.results.foundAfter')}
                 </span>
@@ -434,183 +433,183 @@ export default function MatchPage() {
             ]
             const rankBg = i < 3 ? rankColors[i] : 'bg-violet-600'
             return (
-            <div key={i} className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
-              {/* Card header (clickable) */}
-              <button
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
-                onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
-              >
-                <div className="flex items-center gap-4 text-left">
-                  <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0`}>
-                    {i + 1}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-bold text-gray-800 dark:text-gray-200 text-base">{fmt(cnyTotal(r), 'CNY')}</p>
-                      {r.error <= 0.01 && (
-                        <span className="text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.exactMatch')}</span>
-                      )}
-                      {r.score != null && (
-                        <span className="text-xs bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full font-medium tabular-nums">
-                          Score {r.score.toFixed(3)}
-                        </span>
-                      )}
-                      {hasMixedCurrency(r) && (
-                        <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.mixedCurrency')}</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2">
-                      <span>{t('match.results.count', { count: r.item_count })}</span>
-                      <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                      <span>{t('match.results.projects', { count: r.project_count })}</span>
-                    </p>
-                  </div>
-                </div>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 rotate-180' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                </div>
-              </button>
-
-              {/* Expanded detail */}
-              {expandedIdx === i && (
-                <div className="border-t border-gray-100 dark:border-gray-800">
-                  {r.items && r.items.length > 0 ? (
-                    <>
-                      {/* Mobile: card list */}
-                      <div className="md:hidden divide-y divide-gray-50 dark:divide-gray-800">
-                        {r.items.map((item) => {
-                          const done = reimbursedIds.has(item.id)
-                          const confirming = confirmId === item.id
-                          const busy = loadingId === item.id
-                          return (
-                            <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className={`font-semibold text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{categoryLabel(item.category)}</span>
-                                <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
-                                <span className="tabular-nums">{item.occurred_at}</span>
-                                {item.project_id && (
-                                  <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>
-                                )}
-                                {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
-                              </div>
-                              {done ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
-                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                  {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
-                                </span>
-                              ) : confirming ? (
-                                <div className="flex items-center gap-2 pt-0.5">
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">{isLifeMode ? t('match.life.process.confirmPrompt') : t('match.reimburse.confirmPrompt')}</span>
-                                  <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
-                                    className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
-                                    {busy ? '…' : t('common.confirm')}
-                                  </button>
-                                  <button onClick={() => setConfirmId(null)}
-                                    className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1">
-                                    {t('common.cancel')}
-                                  </button>
-                                </div>
-                              ) : (
-                                <button onClick={() => setConfirmId(item.id)}
-                                  className="text-xs text-violet-500 hover:text-violet-700 font-medium">
-                                  {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markButton')}
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })}
-                        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</span>
-                          <span className="font-bold text-rose-600 tabular-nums whitespace-nowrap text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
-                        </div>
+              <div key={i} className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
+                {/* Card header (clickable) */}
+                <button
+                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
+                  onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+                >
+                  <div className="flex items-center gap-4 text-left">
+                    <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0`}>
+                      {i + 1}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-gray-800 dark:text-gray-200 text-base">{fmt(cnyTotal(r), 'CNY')}</p>
+                        {r.error <= 0.01 && (
+                          <span className="text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.exactMatch')}</span>
+                        )}
+                        {r.score != null && (
+                          <span className="text-xs bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full font-medium tabular-nums">
+                            Score {r.score.toFixed(3)}
+                          </span>
+                        )}
+                        {hasMixedCurrency(r) && (
+                          <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.mixedCurrency')}</span>
+                        )}
                       </div>
-                      {/* Desktop: table */}
-                      <table className="hidden md:table w-full text-xs">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
-                            <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.id')}</th>
-                            <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.date')}</th>
-                            <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.category')}</th>
-                            <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.project')}</th>
-                            <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.note')}</th>
-                            <th className="px-4 py-2.5 text-right font-semibold">{t('match.table.amount')}</th>
-                            <th className="px-4 py-2.5 text-center font-semibold">{isLifeMode ? t('match.life.table.process') : t('match.table.reimburse')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {r.items.map((item, idx) => {
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2">
+                        <span>{t('match.results.count', { count: r.item_count })}</span>
+                        <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <span>{t('match.results.projects', { count: r.project_count })}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 rotate-180' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                </button>
+
+                {/* Expanded detail */}
+                {expandedIdx === i && (
+                  <div className="border-t border-gray-100 dark:border-gray-800">
+                    {r.items && r.items.length > 0 ? (
+                      <>
+                        {/* Mobile: card list */}
+                        <div className="md:hidden divide-y divide-gray-50 dark:divide-gray-800">
+                          {r.items.map((item) => {
                             const done = reimbursedIds.has(item.id)
                             const confirming = confirmId === item.id
                             const busy = loadingId === item.id
                             return (
-                              <tr key={item.id} className={`border-b border-gray-50 dark:border-gray-800 last:border-0 transition-colors ${done ? 'opacity-50 bg-emerald-50/30 dark:bg-emerald-500/5' : idx % 2 === 0 ? 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40' : 'bg-gray-50/30 dark:bg-gray-800/20 hover:bg-gray-50/60 dark:hover:bg-gray-800/40'}`}>
-                                <td className="px-4 py-2.5 font-mono text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-800/30">{item.id.slice(0, 8)}…</td>
-                                <td className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>{item.occurred_at}</td>
-                                <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{categoryLabel(item.category)}</td>
-                                <td className="px-4 py-2.5">
-                                  {item.project_id
-                                    ? <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>
-                                    : <span className="text-gray-300 dark:text-gray-600">—</span>
-                                  }
-                                </td>
-                                <td className="px-4 py-2.5 text-gray-400 dark:text-gray-500 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                                <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
-                                <td className="px-4 py-2.5 text-center">
-                                  {done ? (
-                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium whitespace-nowrap">
-                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                      {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
-                                    </span>
-                                  ) : confirming ? (
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
-                                        className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
-                                        {busy ? '…' : t('common.confirm')}
-                                      </button>
-                                      <button onClick={() => setConfirmId(null)}
-                                        className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1">
-                                        {t('common.cancel')}
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => setConfirmId(item.id)}
-                                      className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
-                                      {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markShort')}
-                                    </button>
+                              <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`font-semibold text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{categoryLabel(item.category)}</span>
+                                  <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                                  <span className="tabular-nums">{item.occurred_at}</span>
+                                  {item.project_id && (
+                                    <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>
                                   )}
-                                </td>
-                              </tr>
+                                  {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
+                                </div>
+                                {done ? (
+                                  <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
+                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                    {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
+                                  </span>
+                                ) : confirming ? (
+                                  <div className="flex items-center gap-2 pt-0.5">
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{isLifeMode ? t('match.life.process.confirmPrompt') : t('match.reimburse.confirmPrompt')}</span>
+                                    <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
+                                      className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
+                                      {busy ? '…' : t('common.confirm')}
+                                    </button>
+                                    <button onClick={() => setConfirmId(null)}
+                                      className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1">
+                                      {t('common.cancel')}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setConfirmId(item.id)}
+                                    className="text-xs text-violet-500 hover:text-violet-700 font-medium">
+                                    {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markButton')}
+                                  </button>
+                                )}
+                              </div>
                             )
                           })}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
-                            <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-rose-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
-                            <td />
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </>
-                  ) : (
-                    <div className="px-5 py-4">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-2 uppercase tracking-wider">{t('match.results.idListTitle')}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {r.ids.map((id) => (
-                          <span key={id} className="font-mono text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-lg">
-                            {id.slice(0, 8)}…
-                          </span>
-                        ))}
+                          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</span>
+                            <span className="font-bold text-rose-600 tabular-nums whitespace-nowrap text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
+                          </div>
+                        </div>
+                        {/* Desktop: table */}
+                        <table className="hidden md:table w-full text-xs">
+                          <thead>
+                            <tr className="bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
+                              <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.id')}</th>
+                              <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.date')}</th>
+                              <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.category')}</th>
+                              <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.project')}</th>
+                              <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.note')}</th>
+                              <th className="px-4 py-2.5 text-right font-semibold">{t('match.table.amount')}</th>
+                              <th className="px-4 py-2.5 text-center font-semibold">{isLifeMode ? t('match.life.table.process') : t('match.table.reimburse')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.items.map((item, idx) => {
+                              const done = reimbursedIds.has(item.id)
+                              const confirming = confirmId === item.id
+                              const busy = loadingId === item.id
+                              return (
+                                <tr key={item.id} className={`border-b border-gray-50 dark:border-gray-800 last:border-0 transition-colors ${done ? 'opacity-50 bg-emerald-50/30 dark:bg-emerald-500/5' : idx % 2 === 0 ? 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40' : 'bg-gray-50/30 dark:bg-gray-800/20 hover:bg-gray-50/60 dark:hover:bg-gray-800/40'}`}>
+                                  <td className="px-4 py-2.5 font-mono text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-800/30">{item.id.slice(0, 8)}…</td>
+                                  <td className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>{item.occurred_at}</td>
+                                  <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{categoryLabel(item.category)}</td>
+                                  <td className="px-4 py-2.5">
+                                    {item.project_id
+                                      ? <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                                      : <span className="text-gray-300 dark:text-gray-600">—</span>
+                                    }
+                                  </td>
+                                  <td className="px-4 py-2.5 text-gray-400 dark:text-gray-500 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
+                                  <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
+                                  <td className="px-4 py-2.5 text-center">
+                                    {done ? (
+                                      <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium whitespace-nowrap">
+                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                        {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
+                                      </span>
+                                    ) : confirming ? (
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
+                                          className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
+                                          {busy ? '…' : t('common.confirm')}
+                                        </button>
+                                        <button onClick={() => setConfirmId(null)}
+                                          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1">
+                                          {t('common.cancel')}
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setConfirmId(item.id)}
+                                        className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
+                                        {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markShort')}
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                              <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</td>
+                              <td className="px-4 py-2.5 text-right font-bold text-rose-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
+                              <td />
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </>
+                    ) : (
+                      <div className="px-5 py-4">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-2 uppercase tracking-wider">{t('match.results.idListTitle')}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {r.ids.map((id) => (
+                            <span key={id} className="font-mono text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-lg">
+                              {id.slice(0, 8)}…
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

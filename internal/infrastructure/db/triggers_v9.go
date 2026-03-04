@@ -111,11 +111,14 @@ BEGIN
 END`,
 
 	// Restore balance on specific sub-account when expense is marked reimbursed.
+	// CRITICAL: only fires for 'public' accounts (WORK mode). LIFE mode expense
+	// "clearing" is status-only — zero balance effect.
 	// Uses NEW.account_id — 1-to-1 traceability: only the originating sub-account is credited.
 	`CREATE TRIGGER IF NOT EXISTS trg_balance_reimburse
 AFTER UPDATE OF reimb_status ON transactions
 WHEN OLD.reimb_status != 'reimbursed' AND NEW.reimb_status = 'reimbursed'
   AND NEW.direction = 'debit'
+  AND EXISTS (SELECT 1 FROM accounts WHERE id = NEW.account_id AND type = 'public')
 BEGIN
   UPDATE accounts SET
     balance_cents = balance_cents + NEW.base_amount_cents,
@@ -125,11 +128,12 @@ BEGIN
 END`,
 
 	// Reverse the reimbursement refund when toggled back to pending.
-	// Mirrors the above: only the originating sub-account is debited.
+	// Same public-type guard as above — LIFE mode "unclearing" has no balance effect.
 	`CREATE TRIGGER IF NOT EXISTS trg_balance_unreimburse
 AFTER UPDATE OF reimb_status ON transactions
 WHEN OLD.reimb_status = 'reimbursed' AND NEW.reimb_status != 'reimbursed'
   AND NEW.direction = 'debit'
+  AND EXISTS (SELECT 1 FROM accounts WHERE id = NEW.account_id AND type = 'public')
 BEGIN
   UPDATE accounts SET
     balance_cents = balance_cents - NEW.base_amount_cents,
@@ -147,10 +151,25 @@ BEGIN
 END`,
 }
 
+// dropAndRecreate lists triggers that must be dropped before recreation so that
+// updated WHEN conditions take effect on existing databases (IF NOT EXISTS would
+// silently keep the stale version).
+var dropAndRecreate = []string{
+	"trg_balance_reimburse",
+	"trg_balance_unreimburse",
+}
+
 // ApplyTriggers (re-)creates all balance and audit triggers.
 // Called after each Migrate() run so triggers survive a fresh DB as well as upgrades.
-// Uses IF NOT EXISTS so it is idempotent.
+// Triggers in dropAndRecreate are explicitly dropped first so updated WHEN conditions
+// (e.g. the public-type guard added to the reimburse triggers) are guaranteed to apply
+// to existing databases and not just fresh ones.
 func ApplyTriggers(ctx context.Context, db *sql.DB) error {
+	for _, name := range dropAndRecreate {
+		if _, err := db.ExecContext(ctx, "DROP TRIGGER IF EXISTS "+name); err != nil {
+			return fmt.Errorf("drop trigger %s: %w", name, err)
+		}
+	}
 	for _, ddl := range balanceTriggers {
 		if _, err := db.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("apply trigger: %w", err)

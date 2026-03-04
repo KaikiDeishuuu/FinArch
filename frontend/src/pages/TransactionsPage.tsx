@@ -118,9 +118,10 @@ export default function TransactionsPage() {
   }, [activeAccounts, effectiveSourceFilter])
 
   // Filtering (inline — no hooks; must be before useWindowVirtualizer)
+  // Rule: income transactions are never "pending" — they count as inherently "done".
   const baseFiltered = txsView.filter((t) => {
-    if (filter === 'unreimbursed') return !t.reimbursed
-    if (filter === 'reimbursed') return t.reimbursed
+    if (filter === 'unreimbursed') return t.direction === 'expense' && !t.reimbursed
+    if (filter === 'reimbursed') return t.reimbursed || t.direction === 'income'
     return true
   })
   const filtered = baseFiltered
@@ -158,7 +159,7 @@ export default function TransactionsPage() {
     const parts: string[] = [{ all: tabLabelAll, unreimbursed: tabLabelPending, reimbursed: tabLabelDone }[filter]]
     if (filterCategory) parts.push(`${t('transactions.table.category')}: ${categoryLabel(filterCategory)}`)
     if (filterProject) parts.push(`${t('transactions.table.project')}: ${filterProject}`)
-    exportTransactionsPDF(filtered, parts.join(' · '), user, rates)
+    exportTransactionsPDF(filtered, parts.join(' · '), user, rates, isWorkMode, accountMap)
   }
 
   async function handleToggle(id: string) {
@@ -212,8 +213,8 @@ export default function TransactionsPage() {
 
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
     { key: 'all', label: tabLabelAll, count: txsView.length },
-    { key: 'unreimbursed', label: tabLabelPending, count: txsView.filter(t => !t.reimbursed).length },
-    { key: 'reimbursed', label: tabLabelDone, count: txsView.filter(t => t.reimbursed).length },
+    { key: 'unreimbursed', label: tabLabelPending, count: txsView.filter(t => t.direction === 'expense' && !t.reimbursed).length },
+    { key: 'reimbursed', label: tabLabelDone, count: txsView.filter(t => t.reimbursed || t.direction === 'income').length },
   ]
 
   const incomeItems = filtered.filter(t => t.direction === 'income')

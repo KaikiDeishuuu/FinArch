@@ -17,13 +17,15 @@ export function exportTransactionsPDF(
   filterLabel: string,
   user: { username: string; email: string; role: string } | null,
   rates: Record<string, number> = FALLBACK_RATES,
+  isWorkMode = true,
+  accountMap: Record<string, string> = {},
 ) {
   const now = new Date()
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   // ── 按来源分组统计 ──
   const personal = filtered.filter(t => t.source !== 'company')
-  const company  = filtered.filter(t => t.source === 'company')
+  const company = filtered.filter(t => t.source === 'company')
 
   function calcStats(txs: Transaction[]) {
     const inc = txs.filter(t => t.direction === 'income').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
@@ -34,8 +36,14 @@ export function exportTransactionsPDF(
   }
 
   const allStats = calcStats(filtered)
-  const pStats   = calcStats(personal)
-  const cStats   = calcStats(company)
+  const pStats = calcStats(personal)
+  const cStats = calcStats(company)
+
+  // Mode-dependent labels
+  const reimbColHeader = isWorkMode ? i18n.t('exportPdf.reimbursedTotal') : i18n.t('exportPdf.clearedTotal')
+  const reimbStatusYes = isWorkMode ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.clearedYes')
+  const reimbStatusNo = isWorkMode ? i18n.t('exportPdf.reimbursedNo') : i18n.t('exportPdf.clearedNo')
+  const thReimb = isWorkMode ? i18n.t('exportPdf.thReimbursed') : i18n.t('exportPdf.thCleared')
 
   function workflowStatus(t: Transaction) {
     if (t.direction === 'income') {
@@ -58,11 +66,12 @@ export function exportTransactionsPDF(
 
   const rows = filtered.map(t => {
     const src = t.source === 'company' ? i18n.t('exportPdf.companyLabel') : i18n.t('exportPdf.personalLabel')
+    const acctName = (t.account_id && accountMap[t.account_id]) ? accountMap[t.account_id] : '—'
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
     const uploaded = t.uploaded ? i18n.t('exportPdf.uploadedYes') : i18n.t('exportPdf.uploadedNo')
     const uploadedColor = t.uploaded ? '#7c3aed' : '#9ca3af'
-    const reimbursed = t.reimbursed ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.reimbursedNo')
+    const reimbursed = t.reimbursed ? reimbStatusYes : reimbStatusNo
     const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     const workflow = workflowStatus(t)
@@ -71,6 +80,7 @@ export function exportTransactionsPDF(
       `<td>${t.occurred_at}</td>`,
       `<td><span class="${dotClass}"></span>${categoryLabel(t.category)}</td>`,
       `<td>${src}</td>`,
+      `<td class="note">${acctName}</td>`,
       `<td>${t.project_id ?? '—'}</td>`,
       `<td class="note">${t.note || '—'}</td>`,
       `<td style="color:${amtColor};font-weight:700;text-align:right">${amount}</td>`,
@@ -119,12 +129,12 @@ export function exportTransactionsPDF(
     'table { width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #ede9fe; border-radius: 12px; overflow: hidden; }',
     'thead tr { background: #5b21b6; color: #fff; }',
     'thead th { padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; }',
-    'thead th:last-child, thead th:nth-child(6) { text-align: center; }',
-    'thead th:nth-child(6) { text-align: right; }',
+    'thead th:last-child, thead th:nth-child(7) { text-align: center; }',
+    'thead th:nth-child(7) { text-align: right; }',
     'tbody tr { border-bottom: 1px solid #f3f4f6; }',
     'tbody tr:nth-child(even) { background: #f9fafb; }',
     'tbody td { padding: 6px 10px; vertical-align: middle; }',
-    'td.note { max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7280; }',
+    'td.note { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7280; }',
     '.wf-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:3px 8px; font-size:9.5px; font-weight:700; white-space:nowrap; }',
     '.wf-chip.wf-income { background:#e5e7eb; color:#4b5563; }',
     '.wf-chip.wf-pending { background:#fef3c7; color:#92400e; }',
@@ -185,7 +195,7 @@ export function exportTransactionsPDF(
     '</div>',
     '<div class="summary">',
     '  <table class="summary-table">',
-    `    <thead><tr><th></th><th>${i18n.t('exportPdf.recordCount')}</th><th>${i18n.t('exportPdf.incomeTotal')}</th><th>${i18n.t('exportPdf.expenseTotal')}</th><th>${i18n.t('exportPdf.reimbursedTotal')}</th><th>${i18n.t('exportPdf.netTotal')}</th></tr></thead>`,
+    `    <thead><tr><th></th><th>${i18n.t('exportPdf.recordCount')}</th><th>${i18n.t('exportPdf.incomeTotal')}</th><th>${i18n.t('exportPdf.expenseTotal')}</th><th>${reimbColHeader}</th><th>${i18n.t('exportPdf.netTotal')}</th></tr></thead>`,
     '    <tbody>',
     summaryRow(i18n.t('exportPdf.allLabel'), 'row-all', allStats),
     summaryRow(i18n.t('exportPdf.personalLabel'), 'row-personal', pStats),
@@ -201,7 +211,7 @@ export function exportTransactionsPDF(
     '<table>',
     '  <thead>',
     '    <tr>',
-    '      <th>' + i18n.t('exportPdf.thDate') + '</th><th>' + i18n.t('exportPdf.thCategory') + '</th><th>' + i18n.t('exportPdf.thSource') + '</th><th>' + i18n.t('exportPdf.thProject') + '</th><th>' + i18n.t('exportPdf.thNote') + '</th><th>' + i18n.t('exportPdf.thAmount') + '</th><th>' + i18n.t('exportPdf.thUploaded') + '</th><th>' + i18n.t('exportPdf.thReimbursed') + '</th><th>' + i18n.t('exportPdf.thWorkflow') + '</th>',
+    '      <th>' + i18n.t('exportPdf.thDate') + '</th><th>' + i18n.t('exportPdf.thCategory') + '</th><th>' + i18n.t('exportPdf.thSource') + '</th><th>' + i18n.t('exportPdf.thAccount') + '</th><th>' + i18n.t('exportPdf.thProject') + '</th><th>' + i18n.t('exportPdf.thNote') + '</th><th>' + i18n.t('exportPdf.thAmount') + '</th><th>' + i18n.t('exportPdf.thUploaded') + '</th><th>' + thReimb + '</th><th>' + i18n.t('exportPdf.thWorkflow') + '</th>',
     '    </tr>',
     '  </thead>',
     `  <tbody>${rows}</tbody>`,
