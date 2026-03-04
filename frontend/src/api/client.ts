@@ -127,8 +127,8 @@ export async function confirmDeleteAccount(token: string): Promise<void> {
   await client.post('/auth/confirm-delete-account', { token })
 }
 
-export async function requestEmailChange(newEmail: string): Promise<void> {
-  await client.post('/auth/request-email-change', { new_email: newEmail })
+export async function requestEmailChange(newEmail: string, currentPassword: string): Promise<void> {
+  await client.post('/auth/request-email-change', { new_email: newEmail, current_password: currentPassword })
 }
 
 export async function confirmEmailChange(token: string): Promise<void> {
@@ -367,8 +367,14 @@ export async function getBackupInfo(): Promise<BackupInfo> {
   return data.data
 }
 
-export async function downloadBackup(): Promise<void> {
-  const resp = await client.get('/backup/download', { responseType: 'blob' })
+export async function requestBackupExportToken(currentPassword: string): Promise<string> {
+  const { data } = await client.post('/backup/export-request', { current_password: currentPassword })
+  const payload = data.data ?? data
+  return payload.token as string
+}
+
+export async function downloadBackup(exportToken: string): Promise<void> {
+  const resp = await client.get('/backup/download', { params: { export_token: exportToken }, responseType: 'blob' })
   const cd = resp.headers['content-disposition'] ?? ''
   const match = cd.match(/filename="([^"]+)"/)
   const filename = match ? match[1] : `finarch_backup_${new Date().toISOString().slice(0, 10)}.db`

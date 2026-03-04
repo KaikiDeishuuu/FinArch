@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
-  changePassword, downloadBackup, restoreBackup, getBackupInfo,
+  changePassword, downloadBackup, requestBackupExportToken, restoreBackup, getBackupInfo,
   requestDeleteAccount, requestEmailChange, getMe,
   createAccount, renameAccount, deleteAccount, updateNickname,
 } from '../api/client'
@@ -160,7 +160,9 @@ export default function SettingsPage() {
     setEmailSent(false)
     setEmailLoading(true)
     try {
-      await requestEmailChange(newEmail)
+      const currentPassword = window.prompt(t('settings.security.changePassword.current')) || ""
+      if (!currentPassword) { throw new Error(t('common.cancel')) }
+      await requestEmailChange(newEmail, currentPassword)
       setEmailSent(true)
       setNewEmail('')
       // Refresh profile to show pending_email
@@ -185,7 +187,10 @@ export default function SettingsPage() {
   async function handleDownloadBackup() {
     setBackupLoading(true)
     try {
-      await downloadBackup()
+      const currentPassword = window.prompt(t('settings.security.changePassword.current')) || ""
+      if (!currentPassword) { throw new Error(t('common.cancel')) }
+      const exportToken = await requestBackupExportToken(currentPassword)
+      await downloadBackup(exportToken)
       toast.success(t('settings.backup.toast.success'))
     } catch {
       toast.error(t('settings.backup.toast.error'))

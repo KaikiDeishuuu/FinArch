@@ -1,9 +1,9 @@
-# Litestream 实时备份配置
-# 使用前需在 .env 中设置以下环境变量：
-#   LITESTREAM_ACCESS_KEY_ID     Cloudflare R2 Access Key ID
-#   LITESTREAM_SECRET_ACCESS_KEY Cloudflare R2 Secret Access Key
-#   LITESTREAM_BUCKET            R2 存储桶名称
-#   LITESTREAM_ENDPOINT          R2 端点，格式：https://<account_id>.r2.cloudflarestorage.com
+# Litestream realtime backup configuration (Cloudflare R2)
+# Required env vars:
+#   LITESTREAM_ACCESS_KEY_ID
+#   LITESTREAM_SECRET_ACCESS_KEY
+#   LITESTREAM_BUCKET
+#   LITESTREAM_ENDPOINT  (https://<account_id>.r2.cloudflarestorage.com)
 
 dbs:
   - path: /data/finarch.db
@@ -11,11 +11,17 @@ dbs:
       - name: r2
         type: s3
         bucket: ${LITESTREAM_BUCKET}
-        path: finarch
+        path: finarch/prod
         access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
         secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
         endpoint: ${LITESTREAM_ENDPOINT}
         region: auto
-        # 每 60 秒生成一次 snapshot，保留 7 天内的快照
-        snapshot-interval: 1h
-        retention: 168h
+
+        # Reliability / safety
+        sync-interval: 1s
+        snapshot-interval: 30m
+        retention: 720h
+        retention-check-interval: 1h
+
+        # Validation & observability
+        validation-interval: 24h

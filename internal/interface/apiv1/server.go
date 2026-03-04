@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -188,8 +189,10 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/by-project", s.handleStatsByProject)
 
 	// Backup & Restore
+	api.POST("/backup/export-request", s.handleBackupExportRequest)
 	api.GET("/backup/download", s.handleBackupDownload)
 	api.GET("/backup/info", s.handleBackupInfo)
+	api.GET("/backup/litestream-health", s.handleLitestreamHealth)
 	api.POST("/backup/restore", s.handleRestore)
 
 	// ─── Frontend static files ────────────────────────────────────
@@ -392,6 +395,25 @@ func failInternal(c *gin.Context, err error) {
 	fail(c, 500, 50001, "服务器内部错误，请稍后重试")
 }
 
+func mapAuthError(c *gin.Context, err error, defaultCode int) {
+	switch err {
+	case service.ErrInvalidToken:
+		fail(c, 400, defaultCode, "invalid_token")
+	case service.ErrExpiredToken:
+		fail(c, 410, defaultCode+1, "expired_token")
+	case service.ErrAlreadyUsed:
+		fail(c, 409, defaultCode+2, "already_used")
+	case service.ErrNotAuthorized:
+		fail(c, 403, defaultCode+3, "not_authorized")
+	case service.ErrResourceConflict:
+		fail(c, 409, defaultCode+4, "resource_conflict")
+	case service.ErrUserNotFound:
+		fail(c, 404, defaultCode+5, "user_not_found")
+	default:
+		fail(c, 400, defaultCode, err.Error())
+	}
+}
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 // handleConfig returns public runtime configuration consumed by the frontend.
@@ -559,7 +581,7 @@ func (s *Server) handleResetPassword(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
-		fail(c, 400, 40002, err.Error())
+		mapAuthError(c, err, 40002)
 		return
 	}
 	ok(c, gin.H{"message": "密码重置成功，请使用新密码登录"})
@@ -587,7 +609,7 @@ func (s *Server) handleRequestDeleteAccount(c *gin.Context) {
 		fail(c, 400, 40010, err.Error())
 		return
 	}
-	ok(c, gin.H{"message": "注销确认邮件已发送，请在 1 小时内点击邮件中的链接完成操作"})
+	ok(c, gin.H{"message": "注销确认邮件已发送，请在 30 分钟内点击邮件中的链接完成操作"})
 }
 
 func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
@@ -599,7 +621,7 @@ func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmAccountDeletion(c.Request.Context(), req.Token); err != nil {
-		fail(c, 400, 40012, err.Error())
+		mapAuthError(c, err, 40012)
 		return
 	}
 	ok(c, gin.H{"message": "账户已注销，感谢您使用 FinArch"})
@@ -650,14 +672,15 @@ func (s *Server) handleRefreshToken(c *gin.Context) {
 
 func (s *Server) handleRequestEmailChange(c *gin.Context) {
 	var req struct {
-		NewEmail string `json:"new_email" binding:"required,email"`
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewEmail        string `json:"new_email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		failBind(c, 40020)
 		return
 	}
-	if err := s.authSvc.RequestEmailChange(c.Request.Context(), userID(c), req.NewEmail); err != nil {
-		fail(c, 400, 40021, err.Error())
+	if err := s.authSvc.RequestEmailChange(c.Request.Context(), userID(c), req.CurrentPassword, req.NewEmail); err != nil {
+		mapAuthError(c, err, 40021)
 		return
 	}
 	ok(c, gin.H{"message": "验证邮件已发送至当前邮箱，请在 1 小时内点击授权链接"})
@@ -672,7 +695,7 @@ func (s *Server) handleConfirmOldEmailChange(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmOldEmailForChange(c.Request.Context(), req.Token); err != nil {
-		fail(c, 400, 40025, err.Error())
+		mapAuthError(c, err, 40025)
 		return
 	}
 	ok(c, gin.H{"message": "授权成功，验证邮件已发送至新邮箱"})
@@ -687,7 +710,7 @@ func (s *Server) handleConfirmEmailChange(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmEmailChange(c.Request.Context(), req.Token); err != nil {
-		fail(c, 400, 40023, err.Error())
+		mapAuthError(c, err, 40023)
 		return
 	}
 	ok(c, gin.H{"message": "邮箱已更新"})
@@ -1233,9 +1256,58 @@ func (s *Server) handleStatsByProject(c *gin.Context) {
 	ok(c, stats)
 }
 
+func (s *Server) handleLitestreamHealth(c *gin.Context) {
+	statusPath := os.Getenv("LITESTREAM_STATUS_FILE")
+	if statusPath == "" {
+		statusPath = "/data/litestream_status.json"
+	}
+	type litestreamStatus struct {
+		Status                string `json:"status"`
+		CheckedAt             string `json:"checked_at"`
+		LastSnapshotAt        string `json:"last_snapshot_at"`
+		ReplicationLagSeconds int64  `json:"replication_lag_seconds"`
+		Error                 string `json:"error"`
+	}
+	st := litestreamStatus{Status: "unknown", ReplicationLagSeconds: -1}
+	if b, err := os.ReadFile(statusPath); err == nil {
+		_ = json.Unmarshal(b, &st)
+	} else {
+		st.Error = "status_file_unavailable"
+	}
+	var journalMode string
+	_ = s.db.QueryRowContext(c.Request.Context(), `PRAGMA journal_mode`).Scan(&journalMode)
+	ok(c, gin.H{"litestream": st, "journal_mode": strings.ToLower(journalMode), "status_file": statusPath})
+}
+
+func (s *Server) handleBackupExportRequest(c *gin.Context) {
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c, 40050)
+		return
+	}
+	token, err := s.authSvc.RequestBackupExport(c.Request.Context(), userID(c), req.CurrentPassword)
+	if err != nil {
+		mapAuthError(c, err, 40051)
+		return
+	}
+	ok(c, gin.H{"token": token, "message": "backup export authorized"})
+}
+
 // handleBackupDownload creates a consistent snapshot of the database using
 // SQLite VACUUM INTO and streams it as a downloadable file.
 func (s *Server) handleBackupDownload(c *gin.Context) {
+	exportToken := c.Query("export_token")
+	if exportToken == "" {
+		fail(c, 403, 40052, "not_authorized")
+		return
+	}
+	if err := s.authSvc.ConsumeBackupExportToken(c.Request.Context(), userID(c), exportToken); err != nil {
+		mapAuthError(c, err, 40053)
+		return
+	}
+
 	// Create temp file for the snapshot
 	tmp, err := os.CreateTemp("", "finarch-backup-*.db")
 	if err != nil {
@@ -1400,6 +1472,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 		}
 	}
 
+	log.Printf(`{"event":"restore_start","source":"ui","path":"%s"}`, tmpPath)
 	// ── Perform restore via SQLite Backup API ──
 	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
 	if err != nil {
@@ -1448,7 +1521,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 	})
 
 	if restoreErr != nil {
-		log.Printf("[ERROR] restore: %v", restoreErr)
+		log.Printf(`{"event":"restore_failed","source":"ui","error":%q}`, restoreErr.Error())
 		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
 		return
 	}
@@ -1726,6 +1799,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 		}
 	}
 
+	log.Printf(`{"event":"restore_start","source":"disaster","restore_id":"%s"}`, req.RestoreID)
 	// Perform restore via SQLite Backup API
 	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
 	if err != nil {
@@ -1776,7 +1850,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 	})
 
 	if restoreErr != nil {
-		log.Printf("[ERROR] restore: %v", restoreErr)
+		log.Printf(`{"event":"restore_failed","source":"disaster","error":%q}`, restoreErr.Error())
 		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
 		return
 	}
@@ -1803,7 +1877,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 		migratedTo = uploadedVersion
 	}
 
-	log.Printf("[INFO] disaster-restore completed successfully (v%d) for %s", migratedTo, maskEmail(pr.email))
+	log.Printf(`{"event":"restore_success","source":"disaster","version":%d,"email":"%s"}`, migratedTo, maskEmail(pr.email))
 
 	ok(c, gin.H{
 		"message":          "灾难恢复成功！数据库已恢复",

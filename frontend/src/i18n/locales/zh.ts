@@ -648,7 +648,7 @@ const zh = {
         deleteDesc: '将永久删除您的账户及所有数据（标签、资金池、交易记录），此操作不可撤销。',
         deleteButton: '申请注销账户',
         confirmMsg: '确认注销？输入邮箱以确认：',
-        emailSent: '✓ 验证邮件已发送至 <strong>{{email}}</strong>，请在 1 小时内点击链接以完成账户注销。',
+        emailSent: '✓ 验证邮件已发送至 <strong>{{email}}</strong>，请在 30 分钟内点击链接以完成账户注销。',
         confirmTitle: '确认注销账户？',
         confirmDesc: '我们将向 <strong>{{email}}</strong> 发送确认邮件，点击链接后账户将被<strong>永久删除</strong>。',
         sending: '发送中...',

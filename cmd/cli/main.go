@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -89,6 +90,10 @@ func main() {
 		if err := runList(ctx, database); err != nil {
 			log.Fatal(err)
 		}
+	case "restore":
+		if err := runRestoreFromR2(ctx, os.Args[2:]); err != nil {
+			log.Fatal(err)
+		}
 	case "serve":
 		if err := db.Migrate(ctx, database); err != nil {
 			log.Fatal(err)
@@ -102,6 +107,7 @@ func main() {
 			jwtSecret = "finarch-dev-secret-change-in-prod"
 		}
 		jwtSvc := auth.NewJWTService(jwtSecret)
+		deletionTokenSvc := auth.NewActionTokenService(jwtSecret)
 		// Auth brute-force protection
 		authLimiter := auth.NewIPRateLimiter(10, 60*time.Second)
 		loginTracker := auth.NewLoginAttemptTracker(5, 15*time.Minute)
@@ -117,7 +123,7 @@ func main() {
 			appBaseURL = "http://localhost:8080"
 		}
 		emailSvc := email.NewResendSender(os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM_EMAIL"), appBaseURL)
-		authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
+		authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 		statsSvc := service.NewStatsService(database)
 		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 		log.Printf("FinArch API v1: http://%s", addr)
@@ -128,6 +134,49 @@ func main() {
 }
 
 // runSeed inserts one project and demo transactions.
+
+func runRestoreFromR2(ctx context.Context, args []string) error {
+	fromR2 := false
+	target := os.Getenv("FINARCH_DB")
+	if target == "" {
+		target = "finarch.db"
+	}
+	for _, a := range args {
+		switch {
+		case a == "--from-r2":
+			fromR2 = true
+		case strings.HasPrefix(a, "--target="):
+			target = strings.TrimPrefix(a, "--target=")
+		}
+	}
+	if !fromR2 {
+		return fmt.Errorf("restore currently supports only --from-r2")
+	}
+	if os.Getenv("ALLOW_R2_RESTORE") != "true" {
+		return fmt.Errorf("restore blocked: set ALLOW_R2_RESTORE=true to confirm environment")
+	}
+	for _, k := range []string{"LITESTREAM_ACCESS_KEY_ID", "LITESTREAM_SECRET_ACCESS_KEY", "LITESTREAM_BUCKET", "LITESTREAM_ENDPOINT"} {
+		if os.Getenv(k) == "" {
+			return fmt.Errorf("missing required env %s", k)
+		}
+	}
+	safety := target + ".pre-restore." + time.Now().Format("20060102_150405")
+	if b, err := os.ReadFile(target); err == nil {
+		_ = os.WriteFile(safety, b, 0o600)
+		log.Printf(`{"event":"restore_safety_backup","path":"%s"}`, safety)
+	}
+	cmd := exec.CommandContext(ctx, "litestream", "restore", "-config", "/etc/litestream.yml", target)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	log.Printf(`{"event":"restore_start","source":"cli_r2","target":"%s"}`, target)
+	if err := cmd.Run(); err != nil {
+		log.Printf(`{"event":"restore_failed","source":"cli_r2","error":%q}`, err.Error())
+		return err
+	}
+	log.Printf(`{"event":"restore_success","source":"cli_r2","target":"%s"}`, target)
+	return nil
+}
+
 func runSeed(ctx context.Context, database *sql.DB) error {
 	txSvc, _, _, projectRepo := buildServices(database)
 	return seedData(ctx, projectRepo, txSvc)
@@ -295,6 +344,7 @@ func printUsage() {
 	fmt.Println("  cli match targetYuan toleranceYuan maxDepth limit [projectId]")
 	fmt.Println("  cli reimburse applicant transactionIdsCsv [requestNo]")
 	fmt.Println("  cli balance")
+	fmt.Println("  cli restore --from-r2 [--target=/data/finarch.db]")
 	fmt.Println("  cli serve [addr]   (默认 0.0.0.0:8080，启动 Web UI)")
 }
 
