@@ -6,6 +6,24 @@ import { useAuth } from '../contexts/AuthContext'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
 
+
+async function clearPWAState() {
+  try {
+    localStorage.clear()
+    sessionStorage.clear()
+    if ('caches' in window) {
+      const names = await caches.keys()
+      await Promise.all(names.map((n) => caches.delete(n)))
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map((r) => r.unregister()))
+    }
+  } catch {
+    // best effort cleanup
+  }
+}
+
 export default function ConfirmDeleteAccountPage() {
   useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
@@ -24,8 +42,9 @@ export default function ConfirmDeleteAccountPage() {
       return
     }
     confirmDeleteAccount(token)
-      .then(() => {
+      .then(async () => {
         setStatus('success')
+        await clearPWAState()
         logout()
         // Redirect to login after a short delay
         setTimeout(() => navigate('/login?deleted=1', { replace: true }), 3000)

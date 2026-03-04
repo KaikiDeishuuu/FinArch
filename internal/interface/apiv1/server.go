@@ -587,7 +587,7 @@ func (s *Server) handleRequestDeleteAccount(c *gin.Context) {
 		fail(c, 400, 40010, err.Error())
 		return
 	}
-	ok(c, gin.H{"message": "注销确认邮件已发送，请在 1 小时内点击邮件中的链接完成操作"})
+	ok(c, gin.H{"message": "注销确认邮件已发送，请在 30 分钟内点击邮件中的链接完成操作"})
 }
 
 func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
@@ -599,7 +599,18 @@ func (s *Server) handleConfirmDeleteAccount(c *gin.Context) {
 		return
 	}
 	if err := s.authSvc.ConfirmAccountDeletion(c.Request.Context(), req.Token); err != nil {
-		fail(c, 400, 40012, err.Error())
+		switch err {
+		case service.ErrDeletionTokenInvalid:
+			fail(c, 400, 40012, "Invalid token")
+		case service.ErrDeletionTokenExpired:
+			fail(c, 410, 40013, "Expired token")
+		case service.ErrDeletionUserNotFound:
+			fail(c, 404, 40014, "User not found")
+		case service.ErrDeletionAlreadyCompleted:
+			fail(c, 409, 40015, "Deletion already completed")
+		default:
+			fail(c, 500, 50012, "Internal server error")
+		}
 		return
 	}
 	ok(c, gin.H{"message": "账户已注销，感谢您使用 FinArch"})

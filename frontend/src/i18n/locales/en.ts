@@ -648,7 +648,7 @@ const en = {
         deleteDesc: 'Permanently delete your account and all data (tags, fund pools, transactions). This action is irreversible.',
         deleteButton: 'Delete Account',
         confirmMsg: 'Confirm deletion? Enter your email to proceed:',
-        emailSent: '✓ Verification email sent to <strong>{{email}}</strong>. Please click the link within 1 hour to complete account deletion.',
+        emailSent: '✓ Verification email sent to <strong>{{email}}</strong>. Please click the link within 30 minutes to complete account deletion.',
         confirmTitle: 'Confirm account deletion?',
         confirmDesc: 'We will send a confirmation email to <strong>{{email}}</strong>. Your account will be <strong>permanently deleted</strong> after clicking the link.',
         sending: 'Sending...',

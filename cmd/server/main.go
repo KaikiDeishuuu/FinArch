@@ -48,6 +48,7 @@ func main() {
 	}
 
 	jwtSvc := auth.NewJWTService(jwtSecret)
+	deletionTokenSvc := auth.NewDeletionTokenService(jwtSecret, 30*time.Minute)
 
 	// Auth brute-force protection:
 	// - IP rate limiter: max 10 login/register requests per IP per minute
@@ -80,7 +81,7 @@ func main() {
 	txSvc := service.NewTransactionService(txRepo, acctRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
-	authSvc := service.NewAuthService(userRepo, jwtSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
+	authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
 	statsSvc := service.NewStatsService(database)
 	acctSvc := service.NewAccountService(acctRepo)
 

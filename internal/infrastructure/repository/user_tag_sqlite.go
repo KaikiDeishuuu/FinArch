@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"finarch/internal/domain/model"
+	"finarch/internal/infrastructure/auth"
 
 	"github.com/google/uuid"
 )
@@ -150,6 +151,61 @@ func (r *SQLiteUserRepository) DeleteEmailTokensByUser(ctx context.Context, user
 	return err
 }
 
+func (r *SQLiteUserRepository) CreateAccountDeletionRequest(ctx context.Context, req model.AccountDeletionRequest) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO account_deletion_requests (jti, user_id, status, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`,
+		req.JTI, req.UserID, req.Status, req.ExpiresAt.Unix(), req.CreatedAt.Unix(),
+	)
+	if err != nil {
+		return fmt.Errorf("create account deletion request: %w", err)
+	}
+	return nil
+}
+
+func (r *SQLiteUserRepository) GetAccountDeletionRequestByJTI(ctx context.Context, jti string) (model.AccountDeletionRequest, error) {
+	var req model.AccountDeletionRequest
+	var expiresAt, createdAt int64
+	var usedAt sql.NullInt64
+	err := r.db.QueryRowContext(ctx,
+		`SELECT jti, user_id, status, expires_at, used_at, created_at FROM account_deletion_requests WHERE jti = ?`,
+		jti,
+	).Scan(&req.JTI, &req.UserID, &req.Status, &expiresAt, &usedAt, &createdAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return model.AccountDeletionRequest{}, fmt.Errorf("token not found")
+		}
+		return model.AccountDeletionRequest{}, fmt.Errorf("get account deletion request: %w", err)
+	}
+	req.ExpiresAt = time.Unix(expiresAt, 0)
+	req.CreatedAt = time.Unix(createdAt, 0)
+	if usedAt.Valid {
+		t := time.Unix(usedAt.Int64, 0)
+		req.UsedAt = &t
+	}
+	return req, nil
+}
+
+func (r *SQLiteUserRepository) ConsumeAccountDeletionRequest(ctx context.Context, jti string, consumedAt time.Time) (string, error) {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE account_deletion_requests
+		 SET status = 'completed', used_at = ?
+		 WHERE jti = ? AND status = 'pending'`,
+		consumedAt.Unix(), jti,
+	)
+	if err != nil {
+		return "", fmt.Errorf("consume account deletion request: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return "", auth.ErrTokenAlreadyUsed
+	}
+	var uid string
+	if err := r.db.QueryRowContext(ctx, `SELECT user_id FROM account_deletion_requests WHERE jti = ?`, jti).Scan(&uid); err != nil {
+		return "", fmt.Errorf("fetch account deletion user: %w", err)
+	}
+	return uid, nil
+}
+
 func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname string) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE users SET nickname = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
@@ -161,8 +217,7 @@ func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname 
 	return nil
 }
 
-// DeleteUser permanently deletes the user and (via CASCADE) all related tokens.
-// Transactions, tags, and fund_pools that reference the user are also cleaned up.
+// DeleteUser permanently deletes the user and all their data in one transaction.
 func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -170,14 +225,22 @@ func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error 
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Delete owned data first (no FK CASCADE on all tables)
+	res, err := tx.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete user data: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
 	for _, q := range []string{
-		`DELETE FROM email_tokens WHERE user_id = ?`,
-		`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE owner_id = ?)`,
-		`DELETE FROM transactions WHERE owner_id = ?`,
+		`DELETE FROM monthly_summary_cache WHERE user_id = ?`,
+		`DELETE FROM audit_log WHERE user_id = ?`,
+		`DELETE FROM account_deletion_requests WHERE user_id = ?`,
+		`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
 		`DELETE FROM tags WHERE owner_id = ?`,
 		`DELETE FROM fund_pools WHERE owner_id = ?`,
-		`DELETE FROM users WHERE id = ?`,
 	} {
 		if _, err := tx.ExecContext(ctx, q, id); err != nil {
 			return fmt.Errorf("delete user data: %w", err)
@@ -224,8 +287,8 @@ func (r *SQLiteUserRepository) DeleteExpiredUnverifiedUsers(ctx context.Context,
 	for _, uid := range ids {
 		for _, q := range []string{
 			`DELETE FROM email_tokens WHERE user_id = ?`,
-			`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE owner_id = ?)`,
-			`DELETE FROM transactions WHERE owner_id = ?`,
+			`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
+			`DELETE FROM transactions WHERE user_id = ?`,
 			`DELETE FROM tags WHERE owner_id = ?`,
 			`DELETE FROM fund_pools WHERE owner_id = ?`,
 			`DELETE FROM users WHERE id = ?`,

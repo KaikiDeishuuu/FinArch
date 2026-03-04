@@ -201,7 +201,7 @@ func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error 
       <p style="margin:0 0 12px;color:#374151;font-size:15px">您好，<strong>%s</strong>，</p>
       <p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.7">
         我们收到了您的账户注销申请。点击下方按钮将<strong>永久删除</strong>您的账户及所有数据（包括标签、资金池、交易记录），<strong>此操作不可撤销</strong>。<br>
-        链接有效期为 <strong>1 小时</strong>。
+        链接有效期为 <strong>30 分钟</strong>。
       </p>
       <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 0 32px">
         <tr>

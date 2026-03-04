@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -15,24 +16,26 @@ import (
 
 // AuthService handles user registration and login.
 type AuthService struct {
-	users      repository.UserRepository
-	jwt        *auth.JWTService
-	tracker    *auth.LoginAttemptTracker
-	emailSvc   email.Sender
-	emailReq   bool   // whether email verification is required
-	appBaseURL string // used to build verification links
+	users        repository.UserRepository
+	jwt          *auth.JWTService
+	deleteTokens *auth.DeletionTokenService
+	tracker      *auth.LoginAttemptTracker
+	emailSvc     email.Sender
+	emailReq     bool   // whether email verification is required
+	appBaseURL   string // used to build verification links
 }
 
 func NewAuthService(
 	users repository.UserRepository,
 	jwt *auth.JWTService,
+	deleteTokens *auth.DeletionTokenService,
 	tracker *auth.LoginAttemptTracker,
 	emailSvc email.Sender,
 	emailRequired bool,
 	appBaseURL string,
 ) *AuthService {
 	return &AuthService{
-		users: users, jwt: jwt, tracker: tracker,
+		users: users, jwt: jwt, deleteTokens: deleteTokens, tracker: tracker,
 		emailSvc: emailSvc, emailReq: emailRequired, appBaseURL: appBaseURL,
 	}
 }
@@ -61,6 +64,13 @@ type LoginResponse struct {
 	Nickname  string
 	Role      string
 }
+
+var (
+	ErrDeletionTokenInvalid     = errors.New("deletion_token_invalid")
+	ErrDeletionTokenExpired     = errors.New("deletion_token_expired")
+	ErrDeletionAlreadyCompleted = errors.New("deletion_already_completed")
+	ErrDeletionUserNotFound     = errors.New("deletion_user_not_found")
+)
 
 // Register creates a new user. If email verification is required, the user starts
 // as unverified and a verification email is sent. Returns the created user.
@@ -338,17 +348,17 @@ func (s *AuthService) RequestAccountDeletion(ctx context.Context, userID string)
 	if err != nil {
 		return fmt.Errorf("用户不存在")
 	}
-	// Invalidate any existing delete tokens for this user.
-	_ = s.users.DeleteEmailTokensByUser(ctx, u.ID, "delete")
-	token := uuid.NewString()
-	et := model.EmailToken{
-		Token:     token,
-		UserID:    u.ID,
-		Kind:      "delete",
-		ExpiresAt: time.Now().Add(1 * time.Hour),
-		CreatedAt: time.Now(),
+	token, jti, exp, err := s.deleteTokens.Issue(u.ID)
+	if err != nil {
+		return fmt.Errorf("操作失败，请稍后重试")
 	}
-	if err := s.users.CreateEmailToken(ctx, et); err != nil {
+	if err := s.users.CreateAccountDeletionRequest(ctx, model.AccountDeletionRequest{
+		JTI:       jti,
+		UserID:    u.ID,
+		Status:    "pending",
+		ExpiresAt: exp,
+		CreatedAt: time.Now(),
+	}); err != nil {
 		return fmt.Errorf("操作失败，请稍后重试")
 	}
 	if err := s.emailSvc.SendAccountDeletion(u.Email, u.Username, token); err != nil {
@@ -357,17 +367,39 @@ func (s *AuthService) RequestAccountDeletion(ctx context.Context, userID string)
 	return nil
 }
 
-// ConfirmAccountDeletion validates the token and permanently deletes the user and all their data.
+// ConfirmAccountDeletion validates one-time token and permanently deletes account data.
 func (s *AuthService) ConfirmAccountDeletion(ctx context.Context, token string) error {
-	et, err := s.users.GetEmailToken(ctx, token)
-	if err != nil || et.Kind != "delete" {
-		return fmt.Errorf("无效或已过期的注销链接")
+	claims, err := s.deleteTokens.Verify(token)
+	if err != nil {
+		if errors.Is(err, auth.ErrDeletionTokenExpired) {
+			return ErrDeletionTokenExpired
+		}
+		return ErrDeletionTokenInvalid
 	}
-	if time.Now().After(et.ExpiresAt) {
-		_ = s.users.DeleteEmailToken(ctx, token)
-		return fmt.Errorf("注销链接已过期，请重新申请")
+	req, err := s.users.GetAccountDeletionRequestByJTI(ctx, claims.ID)
+	if err != nil {
+		if _, uerr := s.users.GetByID(ctx, claims.UserID); uerr != nil {
+			return ErrDeletionAlreadyCompleted
+		}
+		return ErrDeletionTokenInvalid
 	}
-	return s.users.DeleteUser(ctx, et.UserID)
+	if req.Status == "completed" {
+		return ErrDeletionAlreadyCompleted
+	}
+	if time.Now().After(req.ExpiresAt) {
+		_, _ = s.users.ConsumeAccountDeletionRequest(ctx, claims.ID, time.Now())
+		return ErrDeletionTokenExpired
+	}
+	if err := s.users.DeleteUser(ctx, req.UserID); err != nil {
+		if err.Error() == "user not found" {
+			return ErrDeletionUserNotFound
+		}
+		return fmt.Errorf("删除失败，请稍后重试")
+	}
+	if _, err := s.users.ConsumeAccountDeletionRequest(ctx, claims.ID, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+		return fmt.Errorf("确认失败，请稍后重试")
+	}
+	return nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResponse, error) {

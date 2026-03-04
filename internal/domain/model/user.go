@@ -29,6 +29,16 @@ type EmailToken struct {
 	CreatedAt time.Time
 }
 
+// AccountDeletionRequest tracks one-time account deletion confirmations.
+type AccountDeletionRequest struct {
+	JTI       string
+	UserID    string
+	Status    string // pending | completed | expired
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
 // Tag is a user-defined label that can be attached to transactions.
 type Tag struct {
 	ID        string    `json:"id"`
