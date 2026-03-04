@@ -6,6 +6,7 @@ import { PageTransition } from '../motion'
 import { useMode } from '../contexts/ModeContext'
 import { LogoMark, LogoBars, BrandDivider } from './Brand'
 import ModeSwitcher from './ModeSwitcher'
+import MobileModeMagneticFab from './MobileModeMagneticFab'
 
 // SVG icon components
 const IconHome = () => (
@@ -89,7 +90,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = NAV_ITEMS
 
   return (
-    <div className="flex bg-slate-50 dark:bg-[hsl(260,20%,6%)] overflow-x-hidden" style={{ height: '100dvh' }}>
+    <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex w-[220px] bg-white dark:bg-[hsl(260,15%,11%)] border-r border-gray-100/80 dark:border-gray-800/60 flex-col shrink-0">
@@ -194,9 +195,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
-        <div className="flex justify-center mt-2">
-          <ModeSwitcher variant="header" />
-        </div>
       </header>
 
       {/* ── Main Content ── */}
@@ -221,6 +219,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </footer>
       </main>
+
+      {/* ── Floating Mode Switcher (mobile) ── */}
+      <MobileModeMagneticFab />
 
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-t border-gray-100/80 dark:border-gray-800/60 flex items-end">

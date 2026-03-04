@@ -19,6 +19,7 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, mode)
+    document.documentElement.setAttribute('data-mode', mode)
   }, [mode])
 
   const value = useMemo<ModeContextValue>(() => ({

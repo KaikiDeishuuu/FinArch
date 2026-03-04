@@ -20,10 +20,12 @@ interface ResponsivePieCardProps {
     title: string
     rows: PieRow[]
     formatFn: (n: number) => string
+    colors?: string[]
 }
 
-export default function ResponsivePieCard({ title, rows, formatFn }: ResponsivePieCardProps) {
+export default function ResponsivePieCard({ title, rows, formatFn, colors }: ResponsivePieCardProps) {
     const { t } = useTranslation()
+    const palette = colors ?? PIE_COLORS
 
     return (
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
@@ -48,7 +50,7 @@ export default function ResponsivePieCard({ title, rows, formatFn }: ResponsiveP
                                     strokeWidth={0}
                                 >
                                     {rows.map((_, i) => (
-                                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                        <Cell key={i} fill={palette[i % palette.length]} />
                                     ))}
                                 </Pie>
                                 <Tooltip
@@ -67,7 +69,7 @@ export default function ResponsivePieCard({ title, rows, formatFn }: ResponsiveP
                                 <div key={c.category} className="flex items-center gap-1.5 min-w-0">
                                     <span
                                         className="w-2.5 h-2.5 rounded-full shrink-0"
-                                        style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }}
+                                        style={{ background: palette[idx % palette.length] }}
                                     />
                                     <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[5rem]">
                                         {categoryLabel(c.category)}
@@ -86,7 +88,7 @@ export default function ResponsivePieCard({ title, rows, formatFn }: ResponsiveP
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span
                                             className="w-3 h-3 rounded-full shrink-0"
-                                            style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }}
+                                            style={{ background: palette[idx % palette.length] }}
                                         />
                                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                                             {categoryLabel(c.category)}
