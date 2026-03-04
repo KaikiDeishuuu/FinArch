@@ -77,6 +77,8 @@ const IconLang = () => (
   </svg>
 )
 
+const controlBtnClass = 'flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-white/[0.03] text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-300 hover:border-violet-200 dark:hover:border-violet-500/40 hover:bg-violet-50/80 dark:hover:bg-violet-500/10 transition-all'
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
   const { resolved, toggle: toggleTheme } = useTheme()
@@ -93,14 +95,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[220px] bg-white dark:bg-[hsl(260,15%,11%)] border-r border-gray-100/80 dark:border-gray-800/60 flex-col shrink-0">
+      <aside className="hidden md:flex w-[236px] bg-white dark:bg-[hsl(260,15%,11%)] border-r border-gray-100/80 dark:border-gray-800/60 flex-col shrink-0">
         {/* Brand */}
-        <div className="px-5 pt-6 pb-5">
-          <div className="flex items-center gap-3">
-            <LogoMark size={36} className="rounded-xl" />
-            <div>
+        <div className="px-4 pt-4 pb-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-violet-100/80 dark:border-violet-500/20 bg-gradient-to-br from-violet-50/80 to-white dark:from-violet-500/10 dark:to-white/[0.01] px-3.5 py-3">
+            <LogoMark size={38} className="rounded-xl shadow-sm shadow-violet-200/60 dark:shadow-violet-900/30" />
+            <div className="min-w-0">
               <h1 className="font-extrabold text-gray-900 dark:text-gray-100 text-base leading-tight tracking-tight">FinArch</h1>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tracking-wide">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</p>
+              <p className="text-[10px] text-violet-500/80 dark:text-violet-300/80 mt-1 tracking-wide truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -130,17 +132,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Theme + Language toggles */}
-        <div className="px-3 pb-2 flex gap-1.5">
+        <div className="px-3 pb-2 grid grid-cols-2 gap-2">
           <button
             onClick={toggleTheme}
-            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+            className={`${controlBtnClass} text-[11px] font-medium`}
             title={t('theme.toggle')}
           >
             {isDark ? <IconSun /> : <IconMoon />}
+            <span>{t('theme.toggle')}</span>
           </button>
           <button
             onClick={toggleLang}
-            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[11px] font-medium text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors"
+            className={`${controlBtnClass} text-[11px] font-semibold`}
             title={t('language.toggle')}
           >
             <IconLang />
@@ -149,56 +152,68 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* User section */}
-        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 dark:border-gray-800/60 mt-auto">
-          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
+        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 dark:border-gray-800/60 mt-auto space-y-2">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] transition-colors group">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
               {initial}
             </div>
             <p className="flex-1 text-[12px] text-gray-700 dark:text-gray-300 truncate font-medium">{displayName}</p>
-            <button
-              onClick={logout}
-              title={t('nav.logout')}
-              className="opacity-0 group-hover:opacity-100 text-gray-300 dark:text-gray-600 hover:text-rose-400 transition-all p-1"
-            >
-              <IconLogout />
-            </button>
           </div>
+          <button
+            onClick={logout}
+            title={t('nav.logout')}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-[12px] font-semibold"
+          >
+            <IconLogout />
+            <span>{t('nav.logout')}</span>
+          </button>
         </div>
       </aside>
 
       {/* ── Mobile Top Header ── */}
       <header
-        className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2"
-        style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+        className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2.5"
+        style={{ paddingTop: 'max(0.55rem, env(safe-area-inset-top))' }}
       >
-        <div className="flex items-center justify-between gap-2 min-w-0 overflow-hidden">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <LogoMark size={28} className="rounded-lg shrink-0" />
-            <span className="font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight truncate">FinArch</span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button onClick={toggleTheme} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-              {isDark ? <IconSun /> : <IconMoon />}
-            </button>
-            <button onClick={toggleLang} className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-[11px] font-medium">
-              {i18n.language === 'zh' ? 'EN' : '中'}
-            </button>
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
-              {initial}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <LogoMark size={30} className="rounded-lg shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30" />
+              <div className="min-w-0">
+                <span className="block font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight truncate">FinArch</span>
+                <span className="block text-[10px] text-violet-500/80 dark:text-violet-300/80 truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</span>
+              </div>
             </div>
-            <button
-              onClick={logout}
-              title={t('nav.logout')}
-              className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/10"
-            >
-              <IconLogout />
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
+                {initial}
+              </div>
+              <button
+                onClick={logout}
+                title={t('nav.logout')}
+                className="h-8 px-2.5 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 text-[11px] font-semibold"
+              >
+                <IconLogout />
+                <span>{t('nav.logoutShort')}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={toggleTheme} className={`${controlBtnClass} text-[11px] font-medium h-9`}>
+              {isDark ? <IconSun /> : <IconMoon />}
+              <span>{t('theme.toggle')}</span>
+            </button>
+            <button onClick={toggleLang} className={`${controlBtnClass} text-[11px] font-semibold h-9`}>
+              <IconLang />
+              {i18n.language === 'zh' ? 'EN' : '中'}
             </button>
           </div>
         </div>
       </header>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
+      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-[5.25rem] md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
           <PageTransition motionKey={location.pathname}>
             {children}
