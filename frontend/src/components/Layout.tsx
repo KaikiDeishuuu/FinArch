@@ -198,7 +198,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-24 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
+      <main className="scroll-main flex-1 overflow-y-scroll overflow-x-hidden pt-14 md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
           <PageTransition motionKey={location.pathname}>
             {children}

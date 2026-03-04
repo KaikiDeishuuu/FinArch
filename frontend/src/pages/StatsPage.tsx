@@ -443,8 +443,8 @@ export default function StatsPage() {
       {monthly.length > 0 && totalIncome + totalExpense > 0 && (
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
           <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.pieTitle')}</h2>
-          <div className="flex items-center gap-6">
-            <div className="w-32 h-32 shrink-0">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -454,8 +454,8 @@ export default function StatsPage() {
                     ]}
                     dataKey="value"
                     cx="50%" cy="50%"
-                    innerRadius={38}
-                    outerRadius={58}
+                    innerRadius={34}
+                    outerRadius={52}
                     paddingAngle={3}
                     strokeWidth={0}
                   >
@@ -470,24 +470,24 @@ export default function StatsPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="space-y-3 flex-1">
+            <div className="space-y-3 flex-1 w-full min-w-0">
               <div>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium min-w-[5.25rem]">
+                <div className="flex items-center justify-between text-sm mb-1 gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 font-medium min-w-0 shrink-0">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: palette.income }} />{t('stats.pie.incomeLabel')}
                   </span>
-                  <span className="font-bold tabular-nums" style={{ color: palette.income }}>{fmt(totalIncome)}</span>
+                  <span className="font-bold tabular-nums truncate text-right" style={{ color: palette.income }}>{fmt(totalIncome)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div className="h-full rounded-full" style={{ background: palette.income, width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               <div>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium min-w-[5.25rem]">
+                <div className="flex items-center justify-between text-sm mb-1 gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 font-medium min-w-0 shrink-0">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: palette.expense }} />{t('stats.pie.expenseLabel')}
                   </span>
-                  <span className="font-bold tabular-nums" style={{ color: palette.expense }}>{fmt(totalExpense)}</span>
+                  <span className="font-bold tabular-nums truncate text-right" style={{ color: palette.expense }}>{fmt(totalExpense)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div className="h-full rounded-full" style={{ background: palette.expense, width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
@@ -495,8 +495,8 @@ export default function StatsPage() {
               </div>
               {isWorkMode && totalReimbursed > 0 && (
                 <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
-                    <span>{t('stats.reimbursed')}</span>
+                  <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 gap-2">
+                    <span className="truncate">{t('stats.reimbursed')}</span>
                     <span className="font-semibold text-violet-500 tabular-nums whitespace-nowrap">+{fmt(totalReimbursed)}</span>
                   </div>
                 </div>
