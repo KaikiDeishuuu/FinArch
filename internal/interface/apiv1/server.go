@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -191,6 +192,7 @@ func (s *Server) registerRoutes() {
 	api.POST("/backup/export-request", s.handleBackupExportRequest)
 	api.GET("/backup/download", s.handleBackupDownload)
 	api.GET("/backup/info", s.handleBackupInfo)
+	api.GET("/backup/litestream-health", s.handleLitestreamHealth)
 	api.POST("/backup/restore", s.handleRestore)
 
 	// ─── Frontend static files ────────────────────────────────────
@@ -1254,6 +1256,29 @@ func (s *Server) handleStatsByProject(c *gin.Context) {
 	ok(c, stats)
 }
 
+func (s *Server) handleLitestreamHealth(c *gin.Context) {
+	statusPath := os.Getenv("LITESTREAM_STATUS_FILE")
+	if statusPath == "" {
+		statusPath = "/data/litestream_status.json"
+	}
+	type litestreamStatus struct {
+		Status                string `json:"status"`
+		CheckedAt             string `json:"checked_at"`
+		LastSnapshotAt        string `json:"last_snapshot_at"`
+		ReplicationLagSeconds int64  `json:"replication_lag_seconds"`
+		Error                 string `json:"error"`
+	}
+	st := litestreamStatus{Status: "unknown", ReplicationLagSeconds: -1}
+	if b, err := os.ReadFile(statusPath); err == nil {
+		_ = json.Unmarshal(b, &st)
+	} else {
+		st.Error = "status_file_unavailable"
+	}
+	var journalMode string
+	_ = s.db.QueryRowContext(c.Request.Context(), `PRAGMA journal_mode`).Scan(&journalMode)
+	ok(c, gin.H{"litestream": st, "journal_mode": strings.ToLower(journalMode), "status_file": statusPath})
+}
+
 func (s *Server) handleBackupExportRequest(c *gin.Context) {
 	var req struct {
 		CurrentPassword string `json:"current_password" binding:"required"`
@@ -1447,6 +1472,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 		}
 	}
 
+	log.Printf(`{"event":"restore_start","source":"ui","path":"%s"}`, tmpPath)
 	// ── Perform restore via SQLite Backup API ──
 	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
 	if err != nil {
@@ -1495,7 +1521,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 	})
 
 	if restoreErr != nil {
-		log.Printf("[ERROR] restore: %v", restoreErr)
+		log.Printf(`{"event":"restore_failed","source":"ui","error":%q}`, restoreErr.Error())
 		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
 		return
 	}
@@ -1773,6 +1799,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 		}
 	}
 
+	log.Printf(`{"event":"restore_start","source":"disaster","restore_id":"%s"}`, req.RestoreID)
 	// Perform restore via SQLite Backup API
 	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
 	if err != nil {
@@ -1823,7 +1850,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 	})
 
 	if restoreErr != nil {
-		log.Printf("[ERROR] restore: %v", restoreErr)
+		log.Printf(`{"event":"restore_failed","source":"disaster","error":%q}`, restoreErr.Error())
 		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
 		return
 	}
@@ -1850,7 +1877,7 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 		migratedTo = uploadedVersion
 	}
 
-	log.Printf("[INFO] disaster-restore completed successfully (v%d) for %s", migratedTo, maskEmail(pr.email))
+	log.Printf(`{"event":"restore_success","source":"disaster","version":%d,"email":"%s"}`, migratedTo, maskEmail(pr.email))
 
 	ok(c, gin.H{
 		"message":          "灾难恢复成功！数据库已恢复",

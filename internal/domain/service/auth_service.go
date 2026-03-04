@@ -91,28 +91,41 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
 	}
 	now := time.Now()
-	nickname := req.Nickname
-	if nickname == "" {
-		nickname = randomNickname()
+	baseNickname := req.Nickname
+	if baseNickname == "" {
+		baseNickname = generateProfessionalNickname(req.Email+":"+req.Username, 0)
 	}
-	u := model.User{
-		ID:            uuid.NewString(),
-		Email:         req.Email,
-		Username:      req.Username,
-		Nickname:      nickname,
-		Name:          req.Username,
-		PasswordHash:  hash,
-		Role:          "owner",
-		EmailVerified: !s.emailReq, // auto-verified when email is not required
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}
-	if err := s.users.Create(ctx, u); err != nil {
-		// pass through specific repo sentinel errors so the handler can
-		// return a precise 409 response
-		if err.Error() == "username_taken" || err.Error() == "email_taken" {
+	var u model.User
+	for attempt := 0; attempt < 6; attempt++ {
+		nickname := baseNickname
+		if req.Nickname == "" {
+			nickname = generateProfessionalNickname(req.Email+":"+req.Username, attempt)
+		}
+		u = model.User{
+			ID:            uuid.NewString(),
+			Email:         req.Email,
+			Username:      req.Username,
+			Nickname:      nickname,
+			Name:          req.Username,
+			PasswordHash:  hash,
+			Role:          "owner",
+			EmailVerified: !s.emailReq,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		err = s.users.Create(ctx, u)
+		if err == nil {
+			break
+		}
+		if err.Error() == "nickname_taken" && req.Nickname == "" {
+			continue
+		}
+		if err.Error() == "username_taken" || err.Error() == "email_taken" || err.Error() == "nickname_taken" {
 			return model.User{}, err
 		}
+		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
+	}
+	if err != nil {
 		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
 	}
 	if s.emailReq {
@@ -460,13 +473,6 @@ func (s *AuthService) UpdateNickname(ctx context.Context, userID, nickname strin
 		return fmt.Errorf("昵称更新失败，请稍后重试")
 	}
 	return nil
-}
-
-// randomNickname produces a fun random display name for users who don't set one.
-func randomNickname() string {
-	adj := []string{"快乐的", "努力的", "认真的", "聪明的", "活力的", "优秀的", "可爱的", "勤奋的", "机智的", "阳光的", "温暖的", "真诚的"}
-	noun := []string{"小猫", "小狗", "兔子", "松鼠", "企鹅", "海豚", "熊猫", "考拉", "柴犬", "仓鼠", "水獭", "树袋熊"}
-	return adj[time.Now().UnixNano()%int64(len(adj))] + noun[time.Now().UnixNano()/7%int64(len(noun))]
 }
 
 // CleanupExpiredUnverified removes all unverified users whose registration is

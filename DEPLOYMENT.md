@@ -162,7 +162,7 @@ docker compose --profile backup up -d
 docker logs finarch-litestream -f
 ```
 
-**同步频率：** WAL 写入后约 1 秒内上传，快照每 1 小时整合一次，保留最近 7 天数据。
+**同步频率：** WAL 写入后约 1 秒内上传，快照每 30 分钟整合一次，保留最近 30 天数据。
 
 **R2 存储桶结构：**
 ```
@@ -175,6 +175,16 @@ finarch-backup/
 ```
 
 ---
+
+### Litestream 健康检查接口
+
+需要登录后访问：
+
+```
+GET /api/v1/backup/litestream-health
+```
+
+返回最近快照时间、复制延迟秒数和当前 SQLite journal_mode。
 
 ### 方案二：应用内手动备份
 
@@ -217,6 +227,9 @@ docker run --rm \
   -e LITESTREAM_ENDPOINT=${LITESTREAM_ENDPOINT} \
   litestream/litestream:latest \
   restore -config /etc/litestream.yml /data/finarch.db
+
+# 可选：在应用容器内执行
+./app restore --from-r2 --target=/data/finarch.db
 
 # 恢复完成后启动服务
 docker compose --profile backup up -d

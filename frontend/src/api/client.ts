@@ -367,8 +367,14 @@ export async function getBackupInfo(): Promise<BackupInfo> {
   return data.data
 }
 
-export async function downloadBackup(): Promise<void> {
-  const resp = await client.get('/backup/download', { responseType: 'blob' })
+export async function requestBackupExportToken(currentPassword: string): Promise<string> {
+  const { data } = await client.post('/backup/export-request', { current_password: currentPassword })
+  const payload = data.data ?? data
+  return payload.token as string
+}
+
+export async function downloadBackup(exportToken: string): Promise<void> {
+  const resp = await client.get('/backup/download', { params: { export_token: exportToken }, responseType: 'blob' })
   const cd = resp.headers['content-disposition'] ?? ''
   const match = cd.match(/filename="([^"]+)"/)
   const filename = match ? match[1] : `finarch_backup_${new Date().toISOString().slice(0, 10)}.db`

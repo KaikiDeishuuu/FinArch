@@ -159,11 +159,14 @@ Database migration (v5) defaults `email_verified` to `1` — **existing users ar
 # Start (first time or after updates)
 docker compose --profile backup up -d
 
-# Verify sync status (look for "snapshot complete")
+# Verify sync status
 docker logs finarch-litestream -f
+
+# Healthcheck status file (shared with API)
+cat /var/lib/docker/volumes/finarch_finarch-data/_data/litestream_status.json
 ```
 
-**Sync frequency:** WAL uploaded within ~1 second of write; full snapshot consolidated every hour; 7-day retention.
+**Sync frequency:** WAL uploaded ~every second; snapshots every 30 minutes; 30-day retention.
 
 **R2 Bucket Structure:**
 ```
@@ -176,6 +179,16 @@ finarch-backup/
 ```
 
 ---
+
+### Litestream Health Endpoint
+
+Authenticated endpoint:
+
+```
+GET /api/v1/backup/litestream-health
+```
+
+Returns status file data (`last_snapshot_at`, `replication_lag_seconds`) plus current SQLite `journal_mode`.
 
 ### Option 2: In-App Manual Backup
 
@@ -218,6 +231,9 @@ docker run --rm \
   -e LITESTREAM_ENDPOINT=${LITESTREAM_ENDPOINT} \
   litestream/litestream:latest \
   restore -config /etc/litestream.yml /data/finarch.db
+
+# Alternative (inside app container)
+./app restore --from-r2 --target=/data/finarch.db
 
 # Start the service after restore
 docker compose --profile backup up -d
