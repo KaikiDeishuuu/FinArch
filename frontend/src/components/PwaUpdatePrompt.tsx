@@ -7,39 +7,76 @@
  *
  * 防刷新循环机制：
  * - 更新后用 sessionStorage 标记，页面重载后不再重复弹窗
- * - 用户点"稍后"后本次会话不再弹窗
- * - 更新检查间隔 10 分钟，避免频繁触发
+ * - 用户点"稍后"后进入 10 分钟冷却，之后可再次提醒
+ * - 更新检查间隔 1 分钟，并在回到前台/恢复联网时主动检查
  */
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 
 const SW_JUST_UPDATED_KEY = 'pwa-just-updated'
-const SW_DISMISSED_KEY   = 'pwa-dismissed'
+const SW_DISMISSED_KEY = 'pwa-dismissed-at'
+const DISMISS_SNOOZE_MS = 10 * 60 * 1000
+const UPDATE_CHECK_INTERVAL_MS = 60 * 1000
 
 export default function PwaUpdatePrompt() {
   const { t } = useTranslation()
   const [show, setShow] = useState(false)
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null)
+
+  const canShowPrompt = useCallback(() => {
+    const dismissedAt = Number(sessionStorage.getItem(SW_DISMISSED_KEY) ?? 0)
+    if (!dismissedAt) return true
+    if (Date.now() - dismissedAt > DISMISS_SNOOZE_MS) {
+      sessionStorage.removeItem(SW_DISMISSED_KEY)
+      return true
+    }
+    return false
+  }, [])
+
+  const maybeShowPrompt = useCallback(() => {
+    // 刚刚更新过 → 不再弹窗（防止刷新循环）
+    if (sessionStorage.getItem(SW_JUST_UPDATED_KEY)) {
+      sessionStorage.removeItem(SW_JUST_UPDATED_KEY)
+      return
+    }
+    // 用户已点过“稍后”且仍在冷却窗口内
+    if (!canShowPrompt()) return
+    setShow(true)
+  }, [canShowPrompt])
 
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     immediate: true,
+    onNeedRefresh() {
+      maybeShowPrompt()
+    },
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return
-      const checkForUpdates = () => registration.update()
+      registrationRef.current = registration
+      const checkForUpdates = () => {
+        registration.update()
+        if (registration.waiting) maybeShowPrompt()
+      }
       // 注册后先主动检查一次，减少首轮更新提示延迟
       checkForUpdates()
-      const timer = window.setInterval(checkForUpdates, 60 * 1000)
+      const timer = window.setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS)
       const onVisible = () => {
         if (document.visibilityState === 'visible') checkForUpdates()
       }
+      const onOnline = () => checkForUpdates()
+      const onFocus = () => checkForUpdates()
       window.addEventListener('visibilitychange', onVisible)
+      window.addEventListener('online', onOnline)
+      window.addEventListener('focus', onFocus)
       return () => {
         window.clearInterval(timer)
         window.removeEventListener('visibilitychange', onVisible)
+        window.removeEventListener('online', onOnline)
+        window.removeEventListener('focus', onFocus)
       }
     },
     onRegistered(r) {
@@ -52,15 +89,12 @@ export default function PwaUpdatePrompt() {
 
   useEffect(() => {
     if (!needRefresh) return
-    // 刚刚更新过 → 不再弹窗（防止刷新循环）
-    if (sessionStorage.getItem(SW_JUST_UPDATED_KEY)) {
-      sessionStorage.removeItem(SW_JUST_UPDATED_KEY)
-      return
-    }
-    // 用户已点过"稍后" → 本次会话不再弹窗
-    if (sessionStorage.getItem(SW_DISMISSED_KEY)) return
-    setShow(true)
-  }, [needRefresh])
+    maybeShowPrompt()
+  }, [needRefresh, maybeShowPrompt])
+
+  useEffect(() => {
+    if (registrationRef.current?.waiting) maybeShowPrompt()
+  }, [maybeShowPrompt])
 
   const doUpdate = useCallback(() => {
     // 标记"刚刚更新"，避免重载后再次弹窗形成循环
@@ -69,7 +103,7 @@ export default function PwaUpdatePrompt() {
   }, [updateServiceWorker])
 
   const dismiss = useCallback(() => {
-    sessionStorage.setItem(SW_DISMISSED_KEY, '1')
+    sessionStorage.setItem(SW_DISMISSED_KEY, Date.now().toString())
     setShow(false)
   }, [])
 
