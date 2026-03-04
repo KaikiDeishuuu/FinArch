@@ -290,10 +290,10 @@ a,
   /* 移动端 PWA：header 需要避开刘海/状态栏区域 */
   @media (max-width: 767px) {
 
-    /* 固定 header：增加顶部安全区间距，使其不被状态栏遮挡 */
+    /* 固定 header：使用最小高度而不是固定高度，避免内部控件在 PWA 模式下溢出 */
     header.gpu-layer {
-      padding-top: env(safe-area-inset-top);
-      height: calc(5.25rem + env(safe-area-inset-top));
+      padding-top: max(0.55rem, env(safe-area-inset-top));
+      min-height: calc(5.25rem + env(safe-area-inset-top));
     }
 
     /* 主内容区：留出 header 高度(5.25rem) + 安全区域 */
