@@ -110,6 +110,34 @@ BEGIN
   );
 END`,
 
+	// Restore balance on specific sub-account when expense is marked reimbursed.
+	// Uses NEW.account_id — 1-to-1 traceability: only the originating sub-account is credited.
+	`CREATE TRIGGER IF NOT EXISTS trg_balance_reimburse
+AFTER UPDATE OF reimb_status ON transactions
+WHEN OLD.reimb_status != 'reimbursed' AND NEW.reimb_status = 'reimbursed'
+  AND NEW.direction = 'debit'
+BEGIN
+  UPDATE accounts SET
+    balance_cents = balance_cents + NEW.base_amount_cents,
+    version       = version + 1,
+    updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+  WHERE id = NEW.account_id;
+END`,
+
+	// Reverse the reimbursement refund when toggled back to pending.
+	// Mirrors the above: only the originating sub-account is debited.
+	`CREATE TRIGGER IF NOT EXISTS trg_balance_unreimburse
+AFTER UPDATE OF reimb_status ON transactions
+WHEN OLD.reimb_status = 'reimbursed' AND NEW.reimb_status != 'reimbursed'
+  AND NEW.direction = 'debit'
+BEGIN
+  UPDATE accounts SET
+    balance_cents = balance_cents - NEW.base_amount_cents,
+    version       = version + 1,
+    updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+  WHERE id = NEW.account_id;
+END`,
+
 	// Prevent hard-delete of accounts that have transactions
 	`CREATE TRIGGER IF NOT EXISTS trg_prevent_account_delete
 BEFORE DELETE ON accounts

@@ -280,6 +280,24 @@ func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID
 		nil
 }
 
+// HasUnreimbursedByAccount returns true when the given account has at least one
+// expense transaction that has not yet been reimbursed (reimb_status='pending').
+// This is used to guard sub-account deletion so no pending expense is orphaned.
+func (r *SQLiteTransactionRepository) HasUnreimbursedByAccount(ctx context.Context, accountID, userID string) (bool, error) {
+	exec := getExecutor(ctx, r.db)
+	var count int
+	err := exec.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM transactions
+		 WHERE account_id = ? AND user_id = ?
+		   AND type = 'expense' AND reimb_status = 'pending'`,
+		accountID, userID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("check unreimbursed by account: %w", err)
+	}
+	return count > 0, nil
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func collectTransactions(rows *sql.Rows) ([]model.Transaction, error) {

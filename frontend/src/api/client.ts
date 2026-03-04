@@ -244,9 +244,10 @@ export async function listAccounts(mode: AppMode = "work"): Promise<Account[]> {
 export async function createAccount(
   name: string,
   type: 'personal' | 'public',
+  mode: AppMode,
   currency = 'CNY'
 ): Promise<Account> {
-  const { data } = await client.post('/accounts', { name, type, currency })
+  const { data } = await client.post('/accounts', { name, type, currency, mode })
   return data.data
 }
 

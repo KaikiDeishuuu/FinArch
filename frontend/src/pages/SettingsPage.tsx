@@ -11,6 +11,8 @@ import {
 import type { UserProfile, BackupInfo } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
+import { useTransactions } from '../hooks/useTransactions'
+import { useMode } from '../contexts/ModeContext'
 import Select from '../components/Select'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
@@ -78,9 +80,11 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
 export default function SettingsPage() {
   const { t } = useTranslation()
   const { user, updateUser } = useAuth()
+  const { isWorkMode, mode } = useMode()
   const queryClient = useQueryClient()
   const { data: accounts = [], isLoading: acctLoading } = useAccounts()
   const invalidateAccounts = useInvalidateAccounts()
+  const { data: transactions = [] } = useTransactions()
   // ── Profile data ──────────────────────────────────────────────────────────
   const [profile, setProfile] = useState<UserProfile | null>(null)
   useEffect(() => {
@@ -251,7 +255,9 @@ export default function SettingsPage() {
   }
   // ── Account management ─────────────────────────────────────────────────
   const [newAcctName, setNewAcctName] = useState('')
-  const [newAcctType, setNewAcctType] = useState<'personal' | 'public'>('personal')
+  // Mode-restricted: WORK=public only, LIFE=personal only
+  const [newAcctType, setNewAcctType] = useState<'personal' | 'public'>(isWorkMode ? 'public' : 'personal')
+  useEffect(() => { setNewAcctType(isWorkMode ? 'public' : 'personal') }, [isWorkMode])
   const [newAcctCurrency, setNewAcctCurrency] = useState('CNY')
   const [newAcctLoading, setNewAcctLoading] = useState(false)
   const [newAcctError, setNewAcctError] = useState('')
@@ -270,7 +276,7 @@ export default function SettingsPage() {
     if (!newAcctName.trim()) { setNewAcctError(t('settings.accounts.nameRequired')); return }
     setNewAcctLoading(true)
     try {
-      await createAccount(newAcctName.trim(), newAcctType, newAcctCurrency)
+      await createAccount(newAcctName.trim(), newAcctType, mode, newAcctCurrency)
       await invalidateAccounts()
       setNewAcctName('')
       setNewAcctSuccess(true)
@@ -292,6 +298,15 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteAccount(id: string) {
+    // UX fast-fail: block deletion if this account has unreimbursed expense transactions.
+    // The backend enforces this too, but checking here avoids the round-trip.
+    const hasUnreimbursed = transactions.some(
+      (tx) => tx.account_id === id && tx.direction === 'expense' && !tx.reimbursed
+    )
+    if (hasUnreimbursed) {
+      toast.error(t('settings.accounts.toast.hasUnreimbursed'))
+      return
+    }
     setDeleteAcctError('')
     setDeleteAcctLoading(true)
     try {
@@ -423,10 +438,10 @@ export default function SettingsPage() {
                     value={newAcctType}
                     onChange={(v) => setNewAcctType(v as 'personal' | 'public')}
                     size="sm"
-                    options={[
-                      { value: 'personal', label: t('settings.accounts.personalAccount') },
-                      { value: 'public', label: t('settings.accounts.publicAccount') },
-                    ]}
+                    options={isWorkMode
+                      ? [{ value: 'public', label: t('settings.accounts.publicAccount') }]
+                      : [{ value: 'personal', label: t('settings.accounts.personalAccount') }]
+                    }
                   />
                 </div>
                 <div className="w-20">

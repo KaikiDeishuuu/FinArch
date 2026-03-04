@@ -295,6 +295,7 @@ const zh = {
         project: '项目',
         note: '备注',
         source: '来源',
+        account: '账户',
         amount: '金额',
         uploaded: '上传',
         reimbursed: '报销',
@@ -558,6 +559,7 @@ const zh = {
           createError: '创建失败',
           renameError: '重命名失败',
           deleteError: '删除失败',
+          hasUnreimbursed: '该子账户存在未报销的交易，无法删除，请先完成报销后再操作。',
         },
       },
       profile: {

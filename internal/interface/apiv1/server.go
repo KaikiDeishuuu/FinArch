@@ -1977,16 +1977,22 @@ func (s *Server) handleCreateAccount(c *gin.Context) {
 		Name     string `json:"name"     binding:"required"`
 		Type     string `json:"type"     binding:"required"`
 		Currency string `json:"currency"`
+		Mode     string `json:"mode"     binding:"required"` // "work" | "life"
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		failBind(c)
+		return
+	}
+	mode, modeOK := parseMode(req.Mode)
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode: must be 'work' or 'life'")
 		return
 	}
 	cur := req.Currency
 	if cur == "" {
 		cur = "CNY"
 	}
-	acct, err := s.acctSvc.CreateAccount(c.Request.Context(), userID(c), req.Name, model.AccountType(req.Type), cur)
+	acct, err := s.acctSvc.CreateAccount(c.Request.Context(), userID(c), req.Name, model.AccountType(req.Type), cur, mode)
 	if err != nil {
 		fail(c, 422, 40001, err.Error())
 		return
@@ -1997,6 +2003,7 @@ func (s *Server) handleCreateAccount(c *gin.Context) {
 		"type":          string(acct.Type),
 		"currency":      acct.Currency,
 		"balance_cents": acct.BalanceCents,
+		"balance_yuan":  acct.BalanceYuan().Float64(),
 		"is_active":     acct.IsActive,
 	})
 }

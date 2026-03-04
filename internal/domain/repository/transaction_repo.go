@@ -24,4 +24,7 @@ type TransactionRepository interface {
 	ToggleUploaded(ctx context.Context, id string, userID string) (bool, error)
 	// SumPoolBalance returns company balance and personal outstanding in yuan for a user.
 	SumPoolBalance(ctx context.Context, userID string, mode model.Mode) (model.Money, model.Money, error)
+	// HasUnreimbursedByAccount returns true when the account has expense transactions
+	// with reimb_status='pending'. Used to guard sub-account deletion.
+	HasUnreimbursedByAccount(ctx context.Context, accountID, userID string) (bool, error)
 }

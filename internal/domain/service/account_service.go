@@ -13,13 +13,22 @@ import (
 
 // AccountService manages account creation and queries.
 type AccountService struct {
-	accounts repository.AccountRepository
-	txManager repository.TransactionManager
+	accounts     repository.AccountRepository
+	transactions repository.TransactionRepository // needed for deletion guard
+	txManager    repository.TransactionManager
 }
 
 // NewAccountService creates an AccountService.
-func NewAccountService(accounts repository.AccountRepository, txManager repository.TransactionManager) *AccountService {
-	return &AccountService{accounts: accounts, txManager: txManager}
+func NewAccountService(
+	accounts repository.AccountRepository,
+	transactions repository.TransactionRepository,
+	txManager repository.TransactionManager,
+) *AccountService {
+	return &AccountService{
+		accounts:     accounts,
+		transactions: transactions,
+		txManager:    txManager,
+	}
 }
 
 // EnsureDefaultAccounts idempotently creates the two default accounts for a user.
@@ -56,13 +65,38 @@ func (s *AccountService) ListAccounts(ctx context.Context, userID string) ([]mod
 }
 
 // CreateAccount creates a new named account for a user.
-func (s *AccountService) CreateAccount(ctx context.Context, userID, name string, t model.AccountType, currency string) (model.Account, error) {
+//
+// Backend enforcement: WORK mode only allows public accounts; LIFE mode only
+// allows personal accounts. These rules mirror the frontend UI restrictions but
+// are enforced here so no API client can bypass them.
+func (s *AccountService) CreateAccount(
+	ctx context.Context,
+	userID, name string,
+	t model.AccountType,
+	currency string,
+	mode model.Mode,
+) (model.Account, error) {
 	if name == "" {
 		return model.Account{}, fmt.Errorf("账户名称不能为空")
 	}
 	if currency == "" {
 		currency = "CNY"
 	}
+
+	// ── Mode-based type restriction ───────────────────────────────────────────
+	switch mode {
+	case model.ModeWork:
+		if t != model.AccountTypePublic {
+			return model.Account{}, fmt.Errorf("工作模式下只能创建公共账户（public），不允许创建个人账户")
+		}
+	case model.ModeLife:
+		if t != model.AccountTypePersonal {
+			return model.Account{}, fmt.Errorf("生活模式下只能创建个人账户（personal），不允许创建公共账户")
+		}
+	default:
+		return model.Account{}, fmt.Errorf("无效的模式：%s", mode)
+	}
+
 	now := time.Now()
 	a := model.Account{
 		ID:        uuid.NewString(),
@@ -80,8 +114,9 @@ func (s *AccountService) CreateAccount(ctx context.Context, userID, name string,
 	return a, nil
 }
 
-// DeleteAccount soft-deletes an account. The last account of each type
-// (personal / public) cannot be deleted — those are the system defaults.
+// DeleteAccount soft-deletes an account. Enforces two backend-side guards:
+//  1. The last account of each type (personal / public) cannot be deleted.
+//  2. Accounts with unreimbursed expense transactions cannot be deleted.
 func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID string) error {
 	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
 		a, err := s.accounts.GetByID(txCtx, accountID)
@@ -91,6 +126,8 @@ func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID st
 		if a.UserID != userID {
 			return fmt.Errorf("无权操作该账户")
 		}
+
+		// Guard 1: must keep at least one account of each type.
 		count, err := s.accounts.CountByUserAndType(txCtx, userID, a.Type)
 		if err != nil {
 			return fmt.Errorf("删除失败，请稍后重试")
@@ -102,6 +139,16 @@ func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID st
 			}
 			return fmt.Errorf("至少需要保留一个%s账户，无法删除", typeLabel)
 		}
+
+		// Guard 2: disallow deletion while unreimbursed expenses are bound to this account.
+		hasUnreimbursed, err := s.transactions.HasUnreimbursedByAccount(txCtx, accountID, userID)
+		if err != nil {
+			return fmt.Errorf("删除失败，请稍后重试")
+		}
+		if hasUnreimbursed {
+			return fmt.Errorf("该子账户存在未报销的交易，无法删除，请先完成报销后再操作")
+		}
+
 		return s.accounts.Delete(txCtx, accountID, userID)
 	})
 }

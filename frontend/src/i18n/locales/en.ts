@@ -295,6 +295,7 @@ const en = {
         project: 'Project',
         note: 'Note',
         source: 'Source',
+        account: 'Account',
         amount: 'Amount',
         uploaded: 'Upload',
         reimbursed: 'Reimburse',
@@ -558,6 +559,7 @@ const en = {
           createError: 'Create failed',
           renameError: 'Rename failed',
           deleteError: 'Delete failed',
+          hasUnreimbursed: 'This account has unreimbursed transactions and cannot be deleted.',
         },
       },
       profile: {

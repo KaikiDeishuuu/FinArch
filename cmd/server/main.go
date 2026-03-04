@@ -83,7 +83,7 @@ func main() {
 	matchSvc := service.NewMatchingService(txRepo)
 	authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL, tm)
 	statsSvc := service.NewStatsService(database)
-	acctSvc := service.NewAccountService(acctRepo, tm)
+	acctSvc := service.NewAccountService(acctRepo, txRepo, tm)
 
 	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 

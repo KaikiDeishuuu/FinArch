@@ -332,7 +332,7 @@ func buildServicesWithRepo(database *sql.DB) (*service.TransactionService, *serv
 	txSvc := service.NewTransactionService(txRepo, acctRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
-	acctSvc := service.NewAccountService(acctRepo, tm)
+	acctSvc := service.NewAccountService(acctRepo, txRepo, tm)
 	return txSvc, reimSvc, matchSvc, txRepo, acctSvc
 }
 
