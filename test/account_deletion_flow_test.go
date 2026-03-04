@@ -33,7 +33,7 @@ func newAuthSvc(t *testing.T) (*service.AuthService, *sqliterepo.SQLiteUserRepos
 	jwt := auth.NewJWTService("test-secret")
 	actions := auth.NewActionTokenService("test-secret")
 	tracker := auth.NewLoginAttemptTracker(5, time.Minute)
-	svc := service.NewAuthService(repo, jwt, actions, tracker, sender, false, "http://localhost:5173")
+	svc := service.NewAuthService(repo, jwt, actions, tracker, sender, false, "http://localhost:5173", sqliterepo.NewSQLiteTransactionManager(db))
 
 	u := model.User{
 		ID:            uuid.NewString(),

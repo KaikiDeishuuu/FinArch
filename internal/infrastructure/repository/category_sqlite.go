@@ -21,9 +21,9 @@ func NewSQLiteCategoryRepository(db *sql.DB) *SQLiteCategoryRepository {
 
 // Create inserts one category.
 func (r *SQLiteCategoryRepository) Create(ctx context.Context, c model.Category) error {
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO categories (id, user_id, name, type, parent_id, sort_order, is_active)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
+		`INSERT INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, version)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
 		c.ID, c.UserID, c.Name, c.Type, c.ParentID, c.SortOrder, boolToInt(c.IsActive),
 	)
 	if err != nil {
@@ -34,8 +34,8 @@ func (r *SQLiteCategoryRepository) Create(ctx context.Context, c model.Category)
 
 // ListByUser returns all active categories for a user.
 func (r *SQLiteCategoryRepository) ListByUser(ctx context.Context, userID string) ([]model.Category, error) {
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, user_id, name, type, parent_id, sort_order, is_active
+	rows, err := getExecutor(ctx, r.db).QueryContext(ctx,
+		`SELECT id, user_id, name, type, parent_id, sort_order, is_active, version
 		 FROM categories WHERE user_id = ? AND is_active = 1
 		 ORDER BY type, sort_order, name`, userID)
 	if err != nil {
@@ -55,23 +55,31 @@ func (r *SQLiteCategoryRepository) ListByUser(ctx context.Context, userID string
 
 // GetByID loads one category.
 func (r *SQLiteCategoryRepository) GetByID(ctx context.Context, id string) (model.Category, error) {
-	row := r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, name, type, parent_id, sort_order, is_active FROM categories WHERE id = ?`, id)
+	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
+		`SELECT id, user_id, name, type, parent_id, sort_order, is_active, version FROM categories WHERE id = ?`, id)
 	return scanCategory(row)
 }
 
-// Update saves mutable fields.
+// Update saves mutable fields with optimistic locking.
 func (r *SQLiteCategoryRepository) Update(ctx context.Context, c model.Category) error {
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE categories SET name = ?, sort_order = ?, is_active = ? WHERE id = ? AND user_id = ?`,
-		c.Name, c.SortOrder, boolToInt(c.IsActive), c.ID, c.UserID,
+	res, err := getExecutor(ctx, r.db).ExecContext(ctx,
+		`UPDATE categories SET name = ?, sort_order = ?, is_active = ?, version = version + 1
+		 WHERE id = ? AND user_id = ? AND version = ?`,
+		c.Name, c.SortOrder, boolToInt(c.IsActive), c.ID, c.UserID, c.Version,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("update category: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return fmt.Errorf("concurrent_modification")
+	}
+	return nil
 }
 
 // Delete removes a category.
 func (r *SQLiteCategoryRepository) Delete(ctx context.Context, id string, userID string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`DELETE FROM categories WHERE id = ? AND user_id = ?`, id, userID)
 	return err
 }
@@ -85,7 +93,7 @@ func scanCategory(s catScanner) (model.Category, error) {
 	var parentID sql.NullString
 	var isActive int
 	if err := s.Scan(
-		&c.ID, &c.UserID, &c.Name, &c.Type, &parentID, &c.SortOrder, &isActive,
+		&c.ID, &c.UserID, &c.Name, &c.Type, &parentID, &c.SortOrder, &isActive, &c.Version,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return model.Category{}, fmt.Errorf("category not found")

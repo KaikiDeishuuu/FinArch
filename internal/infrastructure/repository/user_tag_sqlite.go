@@ -33,7 +33,7 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 	if u.Nickname == "" {
 		u.Nickname = u.Username
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx, `
 			INSERT INTO users (id, email, name, username, nickname, password_hash, role, email_verified, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		u.ID, u.Email, u.Name, u.Username, u.Nickname, u.PasswordHash, u.Role, verified,
@@ -52,21 +52,21 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 }
 
 func (r *SQLiteUserRepository) GetByEmail(ctx context.Context, email string) (model.User, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
 		`SELECT id, email, name, COALESCE(username,name), COALESCE(nickname,''), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
 			 FROM users WHERE email = ? AND deleted_at IS NULL`, email)
 	return scanUser(row)
 }
 
 func (r *SQLiteUserRepository) GetByID(ctx context.Context, id string) (model.User, error) {
-	row := r.db.QueryRowContext(ctx,
+	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
 		`SELECT id, email, name, COALESCE(username,name), COALESCE(nickname,''), password_hash, role, email_verified, created_at, updated_at, COALESCE(pending_email,''), COALESCE(pwd_version,0)
 			 FROM users WHERE id = ? AND deleted_at IS NULL`, id)
 	return scanUser(row)
 }
 
 func (r *SQLiteUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE users SET password_hash = ?, pwd_version = pwd_version + 1, updated_at = ? WHERE id = ?`,
 		passwordHash, time.Now().Unix(), id,
 	)
@@ -77,7 +77,7 @@ func (r *SQLiteUserRepository) UpdatePassword(ctx context.Context, id, passwordH
 }
 
 func (r *SQLiteUserRepository) SetEmailVerified(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE users SET email_verified = 1, updated_at = ? WHERE id = ?`,
 		time.Now().Unix(), id,
 	)
@@ -88,7 +88,7 @@ func (r *SQLiteUserRepository) CreateEmailToken(ctx context.Context, t model.Ema
 	if t.Token == "" {
 		t.Token = uuid.NewString()
 	}
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`INSERT INTO email_tokens (token, user_id, kind, expires_at, created_at, meta) VALUES (?, ?, ?, ?, ?, ?)`,
 		t.Token, t.UserID, t.Kind, t.ExpiresAt.Unix(), t.CreatedAt.Unix(), t.Meta,
 	)
@@ -101,7 +101,7 @@ func (r *SQLiteUserRepository) CreateEmailToken(ctx context.Context, t model.Ema
 func (r *SQLiteUserRepository) GetEmailToken(ctx context.Context, token string) (model.EmailToken, error) {
 	var t model.EmailToken
 	var expiresAt, createdAt int64
-	err := r.db.QueryRowContext(ctx,
+	err := getExecutor(ctx, r.db).QueryRowContext(ctx,
 		`SELECT token, user_id, kind, expires_at, created_at, meta FROM email_tokens WHERE token = ?`, token,
 	).Scan(&t.Token, &t.UserID, &t.Kind, &expiresAt, &createdAt, &t.Meta)
 	if err != nil {
@@ -116,7 +116,7 @@ func (r *SQLiteUserRepository) GetEmailToken(ctx context.Context, token string) 
 }
 
 func (r *SQLiteUserRepository) SetPendingEmail(ctx context.Context, id, pendingEmail string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE users SET pending_email = ?, updated_at = ? WHERE id = ?`,
 		pendingEmail, time.Now().Unix(), id,
 	)
@@ -127,7 +127,7 @@ func (r *SQLiteUserRepository) SetPendingEmail(ctx context.Context, id, pendingE
 }
 
 func (r *SQLiteUserRepository) UpdateEmail(ctx context.Context, id, newEmail string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE users SET email = ?, pending_email = NULL, updated_at = ? WHERE id = ?`,
 		newEmail, time.Now().Unix(), id,
 	)
@@ -141,19 +141,19 @@ func (r *SQLiteUserRepository) UpdateEmail(ctx context.Context, id, newEmail str
 }
 
 func (r *SQLiteUserRepository) DeleteEmailToken(ctx context.Context, token string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM email_tokens WHERE token = ?`, token)
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx, `DELETE FROM email_tokens WHERE token = ?`, token)
 	return err
 }
 
 func (r *SQLiteUserRepository) DeleteEmailTokensByUser(ctx context.Context, userID, kind string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`DELETE FROM email_tokens WHERE user_id = ? AND kind = ?`, userID, kind,
 	)
 	return err
 }
 
 func (r *SQLiteUserRepository) CreateActionRequest(ctx context.Context, req model.ActionRequest) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`INSERT INTO action_requests (jti, user_id, action, status, meta, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		req.JTI, req.UserID, req.Action, req.Status, req.Meta, req.ExpiresAt.Unix(), req.CreatedAt.Unix(),
 	)
@@ -167,7 +167,7 @@ func (r *SQLiteUserRepository) GetActionRequestByJTI(ctx context.Context, jti st
 	var req model.ActionRequest
 	var expiresAt, createdAt int64
 	var usedAt sql.NullInt64
-	err := r.db.QueryRowContext(ctx,
+	err := getExecutor(ctx, r.db).QueryRowContext(ctx,
 		`SELECT jti, user_id, action, status, meta, expires_at, used_at, created_at FROM action_requests WHERE jti = ?`,
 		jti,
 	).Scan(&req.JTI, &req.UserID, &req.Action, &req.Status, &req.Meta, &expiresAt, &usedAt, &createdAt)
@@ -187,7 +187,7 @@ func (r *SQLiteUserRepository) GetActionRequestByJTI(ctx context.Context, jti st
 }
 
 func (r *SQLiteUserRepository) ConsumeActionRequest(ctx context.Context, jti string, consumedAt time.Time) (model.ActionRequest, error) {
-	res, err := r.db.ExecContext(ctx,
+	res, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE action_requests SET status = 'completed', used_at = ? WHERE jti = ? AND status = 'pending'`,
 		consumedAt.Unix(), jti,
 	)
@@ -202,7 +202,7 @@ func (r *SQLiteUserRepository) ConsumeActionRequest(ctx context.Context, jti str
 }
 
 func (r *SQLiteUserRepository) ExpireActionRequests(ctx context.Context, action string, now time.Time) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE action_requests SET status = 'expired' WHERE action = ? AND status = 'pending' AND expires_at < ?`,
 		action, now.Unix(),
 	)
@@ -214,7 +214,7 @@ func (r *SQLiteUserRepository) ExpireActionRequests(ctx context.Context, action 
 
 func (r *SQLiteUserRepository) CreateAuditEvent(ctx context.Context, userID, eventType, ipAddr, deviceMeta string) error {
 	payload, _ := json.Marshal(map[string]string{"event_type": eventType, "device": deviceMeta})
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`INSERT INTO audit_log (user_id, table_name, row_id, action, old_data, new_data, ip_addr, created_at)
 		 VALUES (?, 'security_events', ?, 'INSERT', NULL, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`,
 		userID, userID, string(payload), ipAddr,
@@ -226,7 +226,7 @@ func (r *SQLiteUserRepository) CreateAuditEvent(ctx context.Context, userID, eve
 }
 
 func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE users SET nickname = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
 		nickname, time.Now().Unix(), id,
 	)
@@ -238,13 +238,8 @@ func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname 
 
 // DeleteUser permanently deletes the user and all their data in one transaction.
 func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	res, err := tx.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	executor := getExecutor(ctx, r.db)
+	res, err := executor.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete user data: %w", err)
 	}
@@ -262,18 +257,18 @@ func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error 
 		`DELETE FROM tags WHERE owner_id = ?`,
 		`DELETE FROM fund_pools WHERE owner_id = ?`,
 	} {
-		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+		if _, err := executor.ExecContext(ctx, q, id); err != nil {
 			return fmt.Errorf("delete user data: %w", err)
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // DeleteExpiredUnverifiedUsers removes unverified users whose created_at is before olderThan,
 // along with all their owned data and tokens. Returns the count of deleted users.
 func (r *SQLiteUserRepository) DeleteExpiredUnverifiedUsers(ctx context.Context, olderThan time.Time) (int64, error) {
 	// Collect IDs of expired unverified users first.
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := getExecutor(ctx, r.db).QueryContext(ctx,
 		`SELECT id FROM users WHERE email_verified = 0 AND created_at < ? AND deleted_at IS NULL`,
 		olderThan.Unix(),
 	)
@@ -350,7 +345,7 @@ func NewSQLiteTagRepository(db *sql.DB) *SQLiteTagRepository {
 }
 
 func (r *SQLiteTagRepository) Create(ctx context.Context, t model.Tag) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`INSERT INTO tags (id, owner_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)`,
 		t.ID, t.OwnerID, t.Name, t.Color, t.CreatedAt.Unix(),
 	)
@@ -361,7 +356,7 @@ func (r *SQLiteTagRepository) Create(ctx context.Context, t model.Tag) error {
 }
 
 func (r *SQLiteTagRepository) ListByOwner(ctx context.Context, ownerID string) ([]model.Tag, error) {
-	rows, err := r.db.QueryContext(ctx,
+	rows, err := getExecutor(ctx, r.db).QueryContext(ctx,
 		`SELECT id, owner_id, name, color, created_at FROM tags WHERE owner_id = ? ORDER BY name`, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
@@ -381,12 +376,12 @@ func (r *SQLiteTagRepository) ListByOwner(ctx context.Context, ownerID string) (
 }
 
 func (r *SQLiteTagRepository) Delete(ctx context.Context, id, ownerID string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM tags WHERE id = ? AND owner_id = ?`, id, ownerID)
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx, `DELETE FROM tags WHERE id = ? AND owner_id = ?`, id, ownerID)
 	return err
 }
 
 func (r *SQLiteTagRepository) AddToTransaction(ctx context.Context, transactionID, tagID string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`INSERT OR IGNORE INTO transaction_tags(transaction_id, tag_id) VALUES(?, ?)`,
 		transactionID, tagID,
 	)
@@ -394,7 +389,7 @@ func (r *SQLiteTagRepository) AddToTransaction(ctx context.Context, transactionI
 }
 
 func (r *SQLiteTagRepository) RemoveFromTransaction(ctx context.Context, transactionID, tagID string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?`,
 		transactionID, tagID,
 	)
@@ -402,7 +397,7 @@ func (r *SQLiteTagRepository) RemoveFromTransaction(ctx context.Context, transac
 }
 
 func (r *SQLiteTagRepository) ListByTransaction(ctx context.Context, transactionID string) ([]model.Tag, error) {
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := getExecutor(ctx, r.db).QueryContext(ctx, `
 		SELECT t.id, t.owner_id, t.name, t.color, t.created_at
 		FROM tags t
 		JOIN transaction_tags tt ON tt.tag_id = t.id

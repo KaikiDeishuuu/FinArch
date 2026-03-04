@@ -109,6 +109,7 @@ type Transaction struct {
 	OccurredAt time.Time // parsed from TxnDate (midnight UTC)
 	Reimbursed bool      // = ReimbStatus == ReimbStatusReimbursed
 
+	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

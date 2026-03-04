@@ -39,7 +39,7 @@ func setupFlowAuth(t *testing.T) (*service.AuthService, *sqliterepo.SQLiteUserRe
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqliterepo.NewSQLiteUserRepository(db)
 	sender := &flowSender{}
-	svc := service.NewAuthService(repo, auth.NewJWTService("test-secret"), auth.NewActionTokenService("test-secret"), auth.NewLoginAttemptTracker(5, time.Minute), sender, true, "http://localhost")
+	svc := service.NewAuthService(repo, auth.NewJWTService("test-secret"), auth.NewActionTokenService("test-secret"), auth.NewLoginAttemptTracker(5, time.Minute), sender, true, "http://localhost", sqliterepo.NewSQLiteTransactionManager(db))
 	pwd, _ := auth.HashPassword("Password123")
 	u := model.User{ID: uuid.NewString(), Email: "flow@test.com", Username: "flow", Name: "flow", Nickname: "flow", PasswordHash: pwd, Role: "owner", EmailVerified: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	if err := repo.Create(context.Background(), u); err != nil {
@@ -123,5 +123,43 @@ func TestEmailChangeRequiresReauthAndConcurrentConsume(t *testing.T) {
 	}
 	if u2.Email != "new@test.com" {
 		t.Fatalf("email not updated: %s", u2.Email)
+	}
+}
+
+func TestConcurrentTokenConsumption(t *testing.T) {
+	svc, _, sender, db, u := setupFlowAuth(t)
+	ctx := context.Background()
+
+	if _, err := db.ExecContext(ctx, `UPDATE users SET email_verified = 1 WHERE id = ?`, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.ForgotPassword(ctx, u.Email); err != nil {
+		t.Fatal(err)
+	}
+
+	const numGoroutines = 15
+	errCh := make(chan error, numGoroutines)
+	var wg sync.WaitGroup
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errCh <- svc.ResetPassword(ctx, sender.resetToken, "NewSecurePassword123")
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	successCount := 0
+	for err := range errCh {
+		if err == nil {
+			successCount++
+		}
+	}
+
+	if successCount != 1 {
+		t.Fatalf("expected exactly 1 successful token consumption, got %d", successCount)
 	}
 }

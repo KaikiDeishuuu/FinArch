@@ -123,7 +123,8 @@ func main() {
 			appBaseURL = "http://localhost:8080"
 		}
 		emailSvc := email.NewResendSender(os.Getenv("RESEND_API_KEY"), os.Getenv("RESEND_FROM_EMAIL"), appBaseURL)
-		authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL)
+		tm := sqliterepo.NewSQLiteTransactionManager(database)
+		authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL, tm)
 		statsSvc := service.NewStatsService(database)
 		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 		log.Printf("FinArch API v1: http://%s", addr)
@@ -331,7 +332,7 @@ func buildServicesWithRepo(database *sql.DB) (*service.TransactionService, *serv
 	txSvc := service.NewTransactionService(txRepo, acctRepo)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
-	acctSvc := service.NewAccountService(acctRepo)
+	acctSvc := service.NewAccountService(acctRepo, tm)
 	return txSvc, reimSvc, matchSvc, txRepo, acctSvc
 }
 

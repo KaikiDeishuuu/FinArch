@@ -14,11 +14,12 @@ import (
 // AccountService manages account creation and queries.
 type AccountService struct {
 	accounts repository.AccountRepository
+	txManager repository.TransactionManager
 }
 
 // NewAccountService creates an AccountService.
-func NewAccountService(accounts repository.AccountRepository) *AccountService {
-	return &AccountService{accounts: accounts}
+func NewAccountService(accounts repository.AccountRepository, txManager repository.TransactionManager) *AccountService {
+	return &AccountService{accounts: accounts, txManager: txManager}
 }
 
 // EnsureDefaultAccounts idempotently creates the two default accounts for a user.
@@ -82,36 +83,30 @@ func (s *AccountService) CreateAccount(ctx context.Context, userID, name string,
 // DeleteAccount soft-deletes an account. The last account of each type
 // (personal / public) cannot be deleted — those are the system defaults.
 func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID string) error {
-	a, err := s.accounts.GetByID(ctx, accountID)
-	if err != nil {
-		return fmt.Errorf("账户不存在")
-	}
-	if a.UserID != userID {
-		return fmt.Errorf("无权操作该账户")
-	}
-	count, err := s.accounts.CountByUserAndType(ctx, userID, a.Type)
-	if err != nil {
-		return fmt.Errorf("删除失败，请稍后重试")
-	}
-	if count <= 1 {
-		typeLabel := "个人"
-		if a.Type == model.AccountTypePublic {
-			typeLabel = "公共"
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		a, err := s.accounts.GetByID(txCtx, accountID)
+		if err != nil {
+			return fmt.Errorf("账户不存在")
 		}
-		return fmt.Errorf("至少需要保留一个%s账户，无法删除", typeLabel)
-	}
-	return s.accounts.Delete(ctx, accountID, userID)
+		if a.UserID != userID {
+			return fmt.Errorf("无权操作该账户")
+		}
+		count, err := s.accounts.CountByUserAndType(txCtx, userID, a.Type)
+		if err != nil {
+			return fmt.Errorf("删除失败，请稍后重试")
+		}
+		if count <= 1 {
+			typeLabel := "个人"
+			if a.Type == model.AccountTypePublic {
+				typeLabel = "公共"
+			}
+			return fmt.Errorf("至少需要保留一个%s账户，无法删除", typeLabel)
+		}
+		return s.accounts.Delete(txCtx, accountID, userID)
+	})
 }
 
 // RenameAccount renames an account.
 func (s *AccountService) RenameAccount(ctx context.Context, accountID, userID, newName string) error {
-	a, err := s.accounts.GetByID(ctx, accountID)
-	if err != nil {
-		return fmt.Errorf("账户不存在")
-	}
-	if a.UserID != userID {
-		return fmt.Errorf("无权操作该账户")
-	}
-	a.Name = newName
-	return s.accounts.Update(ctx, a)
+	return s.accounts.UpdateName(ctx, accountID, userID, newName)
 }
