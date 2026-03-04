@@ -13,35 +13,48 @@
 ───────────────────────────────────────────────────────────────────────────── */
 :root {
   /* Background / Surface */
-  --background: 60 9% 98%;             /* stone-50  #FAFAF9 */
-  --foreground: 222 47% 11%;           /* slate-900 #0F172A */
-  --card: 0 0% 100%;                   /* white */
+  --background: 60 9% 98%;
+  /* stone-50  #FAFAF9 */
+  --foreground: 222 47% 11%;
+  /* slate-900 #0F172A */
+  --card: 0 0% 100%;
+  /* white */
   --card-foreground: 222 47% 11%;
 
   /* Primary — Violet (Premium fintech) */
-  --primary: 263 70% 58%;              /* violet-600 #7C3AED */
+  --primary: 263 70% 58%;
+  /* violet-600 #7C3AED */
   --primary-foreground: 0 0% 100%;
 
   /* Ring / focus */
-  --ring: 258 90% 66%;                 /* violet-500 #8B5CF6 */
+  --ring: 258 90% 66%;
+  /* violet-500 #8B5CF6 */
 
   /* Muted */
-  --muted: 60 5% 96%;                  /* stone-100 */
-  --muted-foreground: 25 5% 45%;       /* stone-500 */
+  --muted: 60 5% 96%;
+  /* stone-100 */
+  --muted-foreground: 25 5% 45%;
+  /* stone-500 */
 
   /* Semantic */
-  --income: 160 64% 43%;              /* emerald-500 */
-  --expense: 345 83% 60%;             /* rose-500 */
-  --pending: 38 92% 50%;              /* amber-500 */
+  --income: 160 64% 43%;
+  /* emerald-500 */
+  --expense: 345 83% 60%;
+  /* rose-500 */
+  --pending: 38 92% 50%;
+  /* amber-500 */
 
   /* Border */
-  --border: 20 6% 90%;                /* stone-200 */
+  --border: 20 6% 90%;
+  /* stone-200 */
 
   /* Premium: generous radii, refined shadows */
-  --radius-card: 1rem;                 /* 16px */
-  --radius-btn: 0.75rem;              /* 12px */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.02);
-  --shadow-hover: 0 8px 24px rgba(124,58,237,0.08);
+  --radius-card: 1rem;
+  /* 16px */
+  --radius-btn: 0.75rem;
+  /* 12px */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-hover: 0 8px 24px rgba(124, 58, 237, 0.08);
 
   /* Recharts tooltip */
   --tooltip-bg: #fff;
@@ -51,12 +64,16 @@
 
 /* ── Dark theme overrides ── */
 .dark {
-  --background: 260 20% 6%;            /* #0f0d18 deep violet-black */
-  --foreground: 220 13% 91%;           /* #e2e5ea */
-  --card: 260 15% 11%;                 /* #1a1626 */
+  --background: 260 20% 6%;
+  /* #0f0d18 deep violet-black */
+  --foreground: 220 13% 91%;
+  /* #e2e5ea */
+  --card: 260 15% 11%;
+  /* #1a1626 */
   --card-foreground: 220 13% 91%;
 
-  --primary: 263 70% 65%;              /* lighter violet for dark bg */
+  --primary: 263 70% 65%;
+  /* lighter violet for dark bg */
   --primary-foreground: 0 0% 100%;
 
   --ring: 258 80% 72%;
@@ -70,8 +87,8 @@
 
   --border: 260 10% 20%;
 
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-  --shadow-hover: 0 8px 24px rgba(124,58,237,0.2);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-hover: 0 8px 24px rgba(124, 58, 237, 0.2);
 
   /* Recharts tooltip */
   --tooltip-bg: hsl(260, 15%, 11%);
@@ -79,6 +96,35 @@
   --tooltip-border: hsl(260, 10%, 20%);
 
   color-scheme: dark;
+}
+
+/* ── Mode Atmosphere ── */
+[data-mode="work"] {
+  --mode-bg: 214 20% 98%;
+  --mode-bg-secondary: 214 20% 96%;
+  --mode-accent: 217 91% 60%;
+  --mode-accent-soft: 239 84% 67%;
+}
+
+[data-mode="life"] {
+  --mode-bg: 30 20% 98%;
+  --mode-bg-secondary: 35 18% 96%;
+  --mode-accent: 160 84% 39%;
+  --mode-accent-soft: 175 77% 46%;
+}
+
+.dark[data-mode="work"] {
+  --mode-bg: 220 20% 7%;
+  --mode-bg-secondary: 220 18% 10%;
+  --mode-accent: 217 91% 65%;
+  --mode-accent-soft: 239 84% 72%;
+}
+
+.dark[data-mode="life"] {
+  --mode-bg: 30 15% 7%;
+  --mode-bg-secondary: 30 12% 10%;
+  --mode-accent: 160 84% 45%;
+  --mode-accent-soft: 175 77% 50%;
 }
 
 /* ── 视口基础：防止 html/body 双重滚动 ── */
@@ -102,11 +148,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: hsl(var(--foreground));
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* 允许输入框/文本区域选中文字 */
-input, textarea, [contenteditable] {
+input,
+textarea,
+[contenteditable] {
   -webkit-user-select: text;
   user-select: text;
 }
@@ -143,7 +191,9 @@ input, textarea, [contenteditable] {
 }
 
 /* ── 全局交互优化 ── */
-button, a, [role="button"] {
+button,
+a,
+[role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -165,19 +215,24 @@ button, a, [role="button"] {
 .scroll-main::-webkit-scrollbar {
   width: 5px;
 }
+
 .scroll-main::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .scroll-main::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 99px;
 }
+
 .scroll-main::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
 .dark .scroll-main::-webkit-scrollbar-thumb {
   background: #374151;
 }
+
 .dark .scroll-main::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
@@ -187,24 +242,41 @@ button, a, [role="button"] {
   background-color: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(2px);
 }
+
 .dark [data-vaul-overlay] {
   background-color: rgba(0, 0, 0, 0.6);
 }
 
 /* ── Page enter animation ── */
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
 .page-enter {
   animation: page-in 0.18s ease-out both;
 }
 
 /* ── Fade-in animation ── */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
 .animate-fade-in {
   animation: fade-in 0.4s ease-out both;
 }
@@ -217,11 +289,13 @@ button, a, [role="button"] {
 
   /* 移动端 PWA：header 需要避开刘海/状态栏区域 */
   @media (max-width: 767px) {
+
     /* 固定 header：增加顶部安全区间距，使其不被状态栏遮挡 */
     header.gpu-layer {
       padding-top: env(safe-area-inset-top);
       height: calc(3.5rem + env(safe-area-inset-top));
     }
+
     /* 主内容区：留出 header 高度(3.5rem) + 安全区域 */
     .scroll-main {
       padding-top: calc(3.5rem + env(safe-area-inset-top));
@@ -256,21 +330,35 @@ button, a, [role="button"] {
 
 /* ── PWA install/update 相关过渡 ── */
 @keyframes pwa-slide-up {
-  from { opacity: 0; transform: translateY(100%) translateX(-50%); }
-  to   { opacity: 1; transform: translateY(0) translateX(-50%); }
+  from {
+    opacity: 0;
+    transform: translateY(100%) translateX(-50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(-50%);
+  }
 }
 
 /* ── Skeleton shimmer ── */
 @keyframes shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
 }
+
 .skeleton {
   background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
   background-size: 800px 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 8px;
 }
+
 .dark .skeleton {
   background: linear-gradient(90deg, hsl(260 12% 16%) 25%, hsl(260 10% 22%) 50%, hsl(260 12% 16%) 75%);
   background-size: 800px 100%;

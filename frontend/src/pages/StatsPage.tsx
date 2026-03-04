@@ -15,6 +15,7 @@ import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
 import ResponsivePieCard from '../components/ResponsivePieCard'
 import { calculateWorkModeAdjustments } from '../utils/workModeStats'
+import { getModeChartPalette } from '../utils/chartPalette'
 
 
 // ─── Custom SVG bar chart (avoids recharts BarChart cursor/overflow bugs) ─────
@@ -25,10 +26,14 @@ function MonthlyBarChart({
   data,
   fmt,
   fmtShort,
+  incomeColor,
+  expenseColor,
 }: {
   data: MonthData[]
   fmt: (n: number) => string
   fmtShort: (n: number) => string
+  incomeColor: string
+  expenseColor: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [svgWidth, setSvgWidth] = useState(560)
@@ -119,14 +124,14 @@ function MonthlyBarChart({
               {d.income > 0 && (
                 <path
                   d={`M${incX + CORNER},${incY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${incH - CORNER} h${-barW} v${-(incH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
-                  fill="#22c55e"
+                  fill={incomeColor}
                 />
               )}
               {/* Expense bar */}
               {d.expense > 0 && (
                 <path
                   d={`M${expX + CORNER},${expY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${expH - CORNER} h${-barW} v${-(expH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
-                  fill="#f43f5e"
+                  fill={expenseColor}
                 />
               )}
               {/* X label */}
@@ -153,15 +158,15 @@ function MonthlyBarChart({
           <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1.5 border-b border-gray-50 dark:border-gray-800 pb-1">{tooltip.label}</p>
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: incomeColor }} />{t('stats.pie.incomeLabel')}
             </span>
-            <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(tooltip.income)}</span>
+            <span className="font-bold tabular-nums" style={{ color: incomeColor }}>{fmt(tooltip.income)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 mt-1">
             <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
+              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: expenseColor }} />{t('stats.pie.expenseLabel')}
             </span>
-            <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(tooltip.expense)}</span>
+            <span className="font-bold tabular-nums" style={{ color: expenseColor }}>{fmt(tooltip.expense)}</span>
           </div>
         </div>
       )}
@@ -178,7 +183,8 @@ export default function StatsPage() {
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { data: accounts = [] } = useAccounts()
   const { t } = useTranslation()
-  const { isWorkMode } = useMode()
+  const { isWorkMode, mode } = useMode()
+  const palette = getModeChartPalette(mode)
   const sourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
@@ -419,17 +425,17 @@ export default function StatsPage() {
           </div>
           <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: palette.income }} />{t('stats.pie.incomeLabel')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
+              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: palette.expense }} />{t('stats.pie.expenseLabel')}
             </span>
           </div>
         </div>
         {monthly.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-10">{t('stats.noData')}</p>
         ) : (
-          <MonthlyBarChart data={monthly} fmt={fmt} fmtShort={fmtShort} />
+          <MonthlyBarChart data={monthly} fmt={fmt} fmtShort={fmtShort} incomeColor={palette.income} expenseColor={palette.expense} />
         )}
       </div>
 
@@ -453,8 +459,8 @@ export default function StatsPage() {
                     paddingAngle={3}
                     strokeWidth={0}
                   >
-                    <Cell fill="#22c55e" />
-                    <Cell fill="#f43f5e" />
+                    <Cell fill={palette.income} />
+                    <Cell fill={palette.expense} />
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
@@ -468,23 +474,23 @@ export default function StatsPage() {
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium min-w-[5.25rem]">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#22c55e' }} />{t('stats.pie.incomeLabel')}
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: palette.income }} />{t('stats.pie.incomeLabel')}
                   </span>
-                  <span className="font-bold tabular-nums" style={{ color: '#22c55e' }}>{fmt(totalIncome)}</span>
+                  <span className="font-bold tabular-nums" style={{ color: palette.income }}>{fmt(totalIncome)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ background: '#22c55e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                  <div className="h-full rounded-full" style={{ background: palette.income, width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               <div>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400 font-medium min-w-[5.25rem]">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: '#f43f5e' }} />{t('stats.pie.expenseLabel')}
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: palette.expense }} />{t('stats.pie.expenseLabel')}
                   </span>
-                  <span className="font-bold tabular-nums" style={{ color: '#f43f5e' }}>{fmt(totalExpense)}</span>
+                  <span className="font-bold tabular-nums" style={{ color: palette.expense }}>{fmt(totalExpense)}</span>
                 </div>
                 <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ background: '#f43f5e', width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
+                  <div className="h-full rounded-full" style={{ background: palette.expense, width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
               {isWorkMode && totalReimbursed > 0 && (
