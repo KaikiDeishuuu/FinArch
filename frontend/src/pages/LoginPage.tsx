@@ -9,6 +9,7 @@ import { useConfig } from '../contexts/ConfigContext'
 import { resendVerification } from '../api/client'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
+import { getApiError } from '../lib/errors'
 
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
 
@@ -134,11 +135,11 @@ export default function LoginPage() {
         }
       }
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? ''
-      if (msg.includes('邮箱尚未验证') || msg.includes('email_not_verified')) {
+      const apiError = getApiError(err)
+      if (apiError.code === 'email_not_verified') {
         setUnverifiedEmail(email)
       } else {
-        setError(msg || t('login.operationFailed'))
+        setError(apiError.message || t('login.operationFailed'))
       }
       setCaptchaToken('')
       turnstileRef.current?.reset()

@@ -2,13 +2,24 @@ package service
 
 import "errors"
 
+type DomainError struct {
+	Code string
+}
+
+func (e *DomainError) Error() string { return e.Code }
+
 var (
-	ErrInvalidToken     = errors.New("invalid_token")
-	ErrExpiredToken     = errors.New("expired_token")
-	ErrAlreadyUsed      = errors.New("already_used")
-	ErrNotAuthorized    = errors.New("not_authorized")
-	ErrResourceConflict = errors.New("resource_conflict")
-	ErrUserNotFound     = errors.New("user_not_found")
+	ErrUsernameTaken    = &DomainError{Code: "username_taken"}
+	ErrEmailTaken       = &DomainError{Code: "email_taken"}
+	ErrInvalidToken     = &DomainError{Code: "invalid_token"}
+	ErrExpiredToken     = &DomainError{Code: "expired_token"}
+	ErrAlreadyUsed      = &DomainError{Code: "already_used"}
+	ErrNotAuthorized    = &DomainError{Code: "not_authorized"}
+	ErrResourceConflict = &DomainError{Code: "resource_conflict"}
+	ErrUserNotFound     = &DomainError{Code: "user_not_found"}
+	ErrInternal         = &DomainError{Code: "internal_error"}
+
+	ErrEmailNotVerified = errors.New("email_not_verified")
 )
 
 const (

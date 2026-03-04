@@ -28,6 +28,10 @@ let _redirectingToLogin = false
 client.interceptors.response.use(
   (response) => response,
   (error) => {
+    const envelopeMessage = error.response?.data?.error?.message
+    if (envelopeMessage && error.response?.data && !error.response.data.message) {
+      error.response.data.message = envelopeMessage
+    }
     // Only redirect to login when we had an active token (i.e. session expired).
     // If _token is null the 401 came from an unauthenticated request (e.g. wrong
     // password during login) — let the caller handle the error normally.

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -214,13 +215,13 @@ func (s *Server) registerRoutes() {
 		path := c.Request.URL.Path
 		// API routes that truly don't exist → 404 JSON
 		if strings.HasPrefix(path, "/api/") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			fail(c, http.StatusNotFound, "not_found", "The requested resource was not found.")
 			return
 		}
 
 		candidate, ok := safeStaticPath(absStaticDir, path)
 		if !ok {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			fail(c, http.StatusNotFound, "not_found", "The requested resource was not found.")
 			return
 		}
 		// Try to serve the file directly first (e.g. /favicon.svg)
@@ -231,7 +232,7 @@ func (s *Server) registerRoutes() {
 		// SPA fallback: let React Router handle the path
 		indexPath, ok := safeStaticPath(absStaticDir, "/index.html")
 		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "static dir misconfigured"})
+			fail(c, http.StatusInternalServerError, "internal_error", "Something went wrong. Please try again.")
 			return
 		}
 		c.File(indexPath)
@@ -372,46 +373,67 @@ func (s *Server) authRateLimitMiddleware() gin.HandlerFunc {
 	}
 }
 
+type apiErrorPayload struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 func ok(c *gin.Context, data any) {
-	c.JSON(http.StatusOK, gin.H{"code": 0, "message": "ok", "data": data})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
 }
 
 func created(c *gin.Context, data any) {
-	c.JSON(http.StatusCreated, gin.H{"code": 0, "message": "created", "data": data})
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": data})
 }
 
-func fail(c *gin.Context, status, code int, msg string) {
-	c.AbortWithStatusJSON(status, gin.H{"code": code, "message": msg})
+func fail(c *gin.Context, status int, code any, msg string) {
+	c.AbortWithStatusJSON(status, gin.H{"success": false, "error": apiErrorPayload{Code: fmt.Sprint(code), Message: msg}})
 }
 
-// failBind returns a user-friendly validation error instead of raw Gin binding errors.
-func failBind(c *gin.Context, code int) {
-	fail(c, 422, code, "请求参数不正确，请检查输入")
+func failBind(c *gin.Context, _ ...int) {
+	fail(c, http.StatusUnprocessableEntity, "invalid_request", "Please check your input and try again.")
 }
 
-// failInternal logs the real error and returns a generic message to the user.
 func failInternal(c *gin.Context, err error) {
 	log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
-	fail(c, 500, 50001, "服务器内部错误，请稍后重试")
+	fail(c, http.StatusInternalServerError, "internal_error", "Something went wrong. Please try again.")
 }
 
-func mapAuthError(c *gin.Context, err error, defaultCode int) {
-	switch err {
-	case service.ErrInvalidToken:
-		fail(c, 400, defaultCode, "invalid_token")
-	case service.ErrExpiredToken:
-		fail(c, 410, defaultCode+1, "expired_token")
-	case service.ErrAlreadyUsed:
-		fail(c, 409, defaultCode+2, "already_used")
-	case service.ErrNotAuthorized:
-		fail(c, 403, defaultCode+3, "not_authorized")
-	case service.ErrResourceConflict:
-		fail(c, 409, defaultCode+4, "resource_conflict")
-	case service.ErrUserNotFound:
-		fail(c, 404, defaultCode+5, "user_not_found")
-	default:
-		fail(c, 400, defaultCode, err.Error())
+func failDomain(c *gin.Context, err error) {
+	status, payload := mapDomainError(err)
+	if status == http.StatusInternalServerError {
+		log.Printf("[ERROR] %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
 	}
+	fail(c, status, payload.Code, payload.Message)
+}
+
+func mapDomainError(err error) (int, apiErrorPayload) {
+	switch {
+	case errors.Is(err, service.ErrUsernameTaken):
+		return http.StatusConflict, apiErrorPayload{Code: "username_taken", Message: "This username is already in use."}
+	case errors.Is(err, service.ErrEmailTaken):
+		return http.StatusConflict, apiErrorPayload{Code: "email_taken", Message: "This email is already in use."}
+	case errors.Is(err, service.ErrInvalidToken):
+		return http.StatusBadRequest, apiErrorPayload{Code: "invalid_token", Message: "The token is invalid."}
+	case errors.Is(err, service.ErrExpiredToken):
+		return http.StatusBadRequest, apiErrorPayload{Code: "expired_token", Message: "The token has expired."}
+	case errors.Is(err, service.ErrAlreadyUsed):
+		return http.StatusConflict, apiErrorPayload{Code: "already_used", Message: "This action was already completed."}
+	case errors.Is(err, service.ErrNotAuthorized):
+		return http.StatusUnauthorized, apiErrorPayload{Code: "not_authorized", Message: "You are not authorized to perform this action."}
+	case errors.Is(err, service.ErrUserNotFound):
+		return http.StatusNotFound, apiErrorPayload{Code: "user_not_found", Message: "User not found."}
+	case errors.Is(err, service.ErrResourceConflict):
+		return http.StatusConflict, apiErrorPayload{Code: "resource_conflict", Message: "The request conflicts with current data."}
+	case errors.Is(err, service.ErrEmailNotVerified):
+		return http.StatusForbidden, apiErrorPayload{Code: "email_not_verified", Message: "Please verify your email before logging in."}
+	default:
+		return http.StatusInternalServerError, apiErrorPayload{Code: "internal_error", Message: "Something went wrong. Please try again."}
+	}
+}
+
+func mapAuthError(c *gin.Context, err error, _ int) {
+	failDomain(c, err)
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -435,26 +457,18 @@ func (s *Server) handleRegister(c *gin.Context) {
 		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if err := s.captchaVerifier.Verify(req.CaptchaToken, realIP(c)); err != nil {
-		fail(c, 400, 40003, err.Error())
+		fail(c, http.StatusBadRequest, "invalid_captcha", "Captcha verification failed.")
 		return
 	}
 	newUser, err := s.authSvc.Register(c.Request.Context(), service.RegisterRequest{
 		Email: req.Email, Username: req.Username, Password: req.Password, Nickname: req.Nickname,
 	})
 	if err != nil {
-		if err.Error() == "username_taken" {
-			fail(c, 409, 40902, "该用户名已被使用")
-			return
-		}
-		if err.Error() == "email_taken" {
-			fail(c, 409, 40901, "该邮箱已被注册")
-			return
-		}
-		fail(c, 409, 40901, err.Error())
+		failDomain(c, err)
 		return
 	}
 	// Create default personal & public accounts for the new user.
@@ -463,7 +477,7 @@ func (s *Server) handleRegister(c *gin.Context) {
 	}
 	// If email verification is required, don't auto-login.
 	if s.authSvc.EmailVerificationRequired() {
-		c.JSON(http.StatusAccepted, gin.H{"message": "注册成功，验证邮件已发送，请检查邮箱后登录"})
+		c.JSON(http.StatusAccepted, gin.H{"success": true, "data": gin.H{"message": "Registration successful. Verification email sent."}})
 		return
 	}
 	// Auto-login after registration (email not required)
@@ -490,20 +504,16 @@ func (s *Server) handleLogin(c *gin.Context) {
 		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if err := s.captchaVerifier.Verify(req.CaptchaToken, realIP(c)); err != nil {
-		fail(c, 400, 40003, err.Error())
+		fail(c, http.StatusBadRequest, "invalid_captcha", "Captcha verification failed.")
 		return
 	}
 	resp, err := s.authSvc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		if err.Error() == "email_not_verified" {
-			fail(c, 403, 40301, "邮箱尚未验证，请检查您的邮箱并点击验证链接")
-			return
-		}
-		fail(c, 401, 40101, err.Error())
+		failDomain(c, err)
 		return
 	}
 	ok(c, gin.H{
@@ -552,7 +562,7 @@ func (s *Server) handleResendVerification(c *gin.Context) {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	_ = s.authSvc.ResendVerification(c.Request.Context(), req.Email)
@@ -564,7 +574,7 @@ func (s *Server) handleForgotPassword(c *gin.Context) {
 		Email string `json:"email" binding:"required,email"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	_ = s.authSvc.ForgotPassword(c.Request.Context(), req.Email)
@@ -577,7 +587,7 @@ func (s *Server) handleResetPassword(c *gin.Context) {
 		NewPassword string `json:"new_password" binding:"required,min=8"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if err := s.authSvc.ResetPassword(c.Request.Context(), req.Token, req.NewPassword); err != nil {
@@ -594,7 +604,7 @@ func (s *Server) handleChangePassword(c *gin.Context) {
 		NewPassword     string `json:"new_password"     binding:"required,min=8"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if err := s.authSvc.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
@@ -882,7 +892,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		TagIDs    []string `json:"tag_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if req.AmountYuan <= 0 && req.AmountCents <= 0 {
@@ -982,7 +992,7 @@ func (s *Server) handleAddTag(c *gin.Context) {
 		TagID string `json:"tag_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if err := s.tagRepo.AddToTransaction(c.Request.Context(), txID, req.TagID); err != nil {
@@ -1020,7 +1030,7 @@ func (s *Server) handleCreateTag(c *gin.Context) {
 		Color string `json:"color"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if req.Color == "" {
@@ -1059,7 +1069,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 		ProjectID     *string `json:"project_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	// Resolve target: cents takes priority over yuan.
@@ -1187,7 +1197,7 @@ func (s *Server) handleCreateReimbursement(c *gin.Context) {
 		RequestNo      string   `json:"request_no"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	reim, err := s.reimSvc.CreateReimbursement(c.Request.Context(), service.CreateReimbursementRequest{
@@ -1939,7 +1949,7 @@ func (s *Server) handleCreateAccount(c *gin.Context) {
 		Currency string `json:"currency"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	cur := req.Currency
@@ -1967,7 +1977,7 @@ func (s *Server) handleUpdateAccount(c *gin.Context) {
 		Name string `json:"name" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	if err := s.acctSvc.RenameAccount(c.Request.Context(), id, userID(c), req.Name); err != nil {
@@ -2031,7 +2041,7 @@ func (s *Server) handleCreateCategory(c *gin.Context) {
 		SortOrder int     `json:"sort_order"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		failBind(c, 40001)
+		failBind(c)
 		return
 	}
 	id := uuid.NewString()

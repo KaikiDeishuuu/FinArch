@@ -91,42 +91,30 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (model.
 		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
 	}
 	now := time.Now()
-	baseNickname := req.Nickname
-	if baseNickname == "" {
-		baseNickname = generateProfessionalNickname(req.Email+":"+req.Username, 0)
+	nickname := req.Nickname
+	if nickname == "" {
+		nickname = generateProfessionalNickname(req.Email+":"+req.Username, 0)
 	}
-	var u model.User
-	for attempt := 0; attempt < 6; attempt++ {
-		nickname := baseNickname
-		if req.Nickname == "" {
-			nickname = generateProfessionalNickname(req.Email+":"+req.Username, attempt)
-		}
-		u = model.User{
-			ID:            uuid.NewString(),
-			Email:         req.Email,
-			Username:      req.Username,
-			Nickname:      nickname,
-			Name:          req.Username,
-			PasswordHash:  hash,
-			Role:          "owner",
-			EmailVerified: !s.emailReq,
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		}
-		err = s.users.Create(ctx, u)
-		if err == nil {
-			break
-		}
-		if err.Error() == "nickname_taken" && req.Nickname == "" {
-			continue
-		}
-		if err.Error() == "username_taken" || err.Error() == "email_taken" || err.Error() == "nickname_taken" {
-			return model.User{}, err
-		}
-		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
+	u := model.User{
+		ID:            uuid.NewString(),
+		Email:         req.Email,
+		Username:      req.Username,
+		Nickname:      nickname,
+		Name:          req.Username,
+		PasswordHash:  hash,
+		Role:          "owner",
+		EmailVerified: !s.emailReq,
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
-	if err != nil {
-		return model.User{}, fmt.Errorf("注册失败，请稍后重试")
+	if err := s.users.Create(ctx, u); err != nil {
+		if err.Error() == "username_taken" {
+			return model.User{}, ErrUsernameTaken
+		}
+		if err.Error() == "email_taken" {
+			return model.User{}, ErrEmailTaken
+		}
+		return model.User{}, ErrInternal
 	}
 	if s.emailReq {
 		if err := s.sendVerificationEmail(ctx, u); err != nil {
@@ -192,7 +180,7 @@ func (s *AuthService) ForgotPassword(ctx context.Context, emailAddr string) erro
 func (s *AuthService) RequestEmailChange(ctx context.Context, userID, currentPassword, newEmail string) error {
 	// New email must not already be in use.
 	if _, err := s.users.GetByEmail(ctx, newEmail); err == nil {
-		return fmt.Errorf("该邮箱已被其他账户使用")
+		return ErrEmailTaken
 	}
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
@@ -261,7 +249,7 @@ func (s *AuthService) ConfirmEmailChange(ctx context.Context, token string) erro
 	}
 	if err := s.users.UpdateEmail(ctx, req.UserID, req.Meta); err != nil {
 		if err.Error() == "email_taken" {
-			return ErrResourceConflict
+			return ErrEmailTaken
 		}
 		return fmt.Errorf("邮箱更新失败，请稍后重试")
 	}
@@ -387,7 +375,7 @@ func (s *AuthService) ConfirmAccountDeletion(ctx context.Context, token string) 
 		if err.Error() == "user not found" {
 			return ErrUserNotFound
 		}
-		return fmt.Errorf("删除失败，请稍后重试")
+		return ErrInternal
 	}
 	if _, err := s.users.ConsumeActionRequest(ctx, req.JTI, time.Now()); err != nil && !errors.Is(err, auth.ErrTokenAlreadyUsed) {
 		return fmt.Errorf("确认失败，请稍后重试")
@@ -447,7 +435,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 		return LoginResponse{}, fmt.Errorf("邮箱或密码错误")
 	}
 	if !u.EmailVerified {
-		return LoginResponse{}, fmt.Errorf("email_not_verified")
+		return LoginResponse{}, ErrEmailNotVerified
 	}
 	// Successful login — clear failure counter.
 	s.tracker.RecordSuccess(email)
