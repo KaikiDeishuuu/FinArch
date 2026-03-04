@@ -46,9 +46,6 @@ func (r *SQLiteUserRepository) Create(ctx context.Context, u model.User) error {
 		if strings.Contains(err.Error(), "users.email") {
 			return fmt.Errorf("email_taken")
 		}
-		if strings.Contains(strings.ToLower(err.Error()), "nickname") {
-			return fmt.Errorf("nickname_taken")
-		}
 		return fmt.Errorf("insert user: %w", err)
 	}
 	return nil
