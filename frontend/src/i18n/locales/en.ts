@@ -626,6 +626,7 @@ const en = {
         transactions: 'transactions',
         accounts: 'accounts',
         generating: 'Generating...',
+        passwordPrompt: 'Enter Backup Password',
         toast: {
           success: 'Backup download started',
           error: 'Backup download failed. Please retry.',

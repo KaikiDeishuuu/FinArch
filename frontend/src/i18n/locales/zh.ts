@@ -626,6 +626,7 @@ const zh = {
         transactions: '笔交易',
         accounts: '个账户',
         generating: '生成中...',
+        passwordPrompt: '验证密码以备份',
         toast: {
           success: '备份下载已开始',
           error: '备份下载失败，请重试',

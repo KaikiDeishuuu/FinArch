@@ -14,6 +14,7 @@ import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
 import { useTransactions } from '../hooks/useTransactions'
 import { useMode } from '../contexts/ModeContext'
 import Select from '../components/Select'
+import BackupPasswordModal from '../components/BackupPasswordModal'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -182,20 +183,21 @@ export default function SettingsPage() {
   // ── Backup ────────────────────────────────────────────────────────────────
   const [backupLoading, setBackupLoading] = useState(false)
   const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null)
+  const [backupModalOpen, setBackupModalOpen] = useState(false)
 
   // Load backup info on mount
   useEffect(() => {
     getBackupInfo().then(setBackupInfo).catch(() => {/* ignore */ })
   }, [])
 
-  async function handleDownloadBackup() {
+  async function handleDownloadBackup(password: string) {
     setBackupLoading(true)
     try {
-      const currentPassword = window.prompt(t('settings.password.currentPlaceholder')) || ""
-      if (!currentPassword) { throw new Error(t('common.cancel')) }
-      const exportToken = await requestBackupExportToken(currentPassword)
+      if (!password) { throw new Error(t('common.cancel')) }
+      const exportToken = await requestBackupExportToken(password)
       await downloadBackup(exportToken)
       toast.success(t('settings.backup.toast.success'))
+      setBackupModalOpen(false) // Close modal on success
     } catch {
       toast.error(t('settings.backup.toast.error'))
     } finally {
@@ -613,17 +615,20 @@ export default function SettingsPage() {
                 </span>
               </div>
             )}
-            <button type="button" onClick={handleDownloadBackup} disabled={backupLoading}
+            <button type="button" onClick={() => setBackupModalOpen(true)} disabled={backupLoading}
               className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-              {backupLoading ? (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              )}
-              {backupLoading ? t('settings.backup.generating') : t('settings.backup.download')}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              {t('settings.backup.download')}
             </button>
+            <BackupPasswordModal
+              isOpen={backupModalOpen}
+              onClose={() => setBackupModalOpen(false)}
+              onSubmit={handleDownloadBackup}
+              isLoading={backupLoading}
+              t={t}
+            />
           </div>
         </div>
 

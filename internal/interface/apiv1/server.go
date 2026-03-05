@@ -42,6 +42,7 @@ type Server struct {
 	statsSvc         *service.StatsService
 	txRepo           repository.TransactionRepository
 	tagRepo          repository.TagRepository
+	txManager        repository.TransactionManager
 	jwtSvc           *auth.JWTService
 	authLimiter      *auth.IPRateLimiter
 	captchaVerifier  *auth.TurnstileVerifier
@@ -74,6 +75,7 @@ func NewServer(
 	dbPath string,
 	txRepo repository.TransactionRepository,
 	tagRepo repository.TagRepository,
+	txManager repository.TransactionManager,
 	txSvc *service.TransactionService,
 	reimSvc *service.ReimbursementService,
 	matchSvc *service.MatchingService,
@@ -101,6 +103,7 @@ func NewServer(
 		statsSvc:         statsSvc,
 		txRepo:           txRepo,
 		tagRepo:          tagRepo,
+		txManager:        txManager,
 		jwtSvc:           jwtSvc,
 		authLimiter:      authLimiter,
 		captchaVerifier:  captchaVerifier,
@@ -956,39 +959,54 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	// Ensure default accounts exist (idempotent; covers legacy users without accounts).
 	_ = s.acctSvc.EnsureDefaultAccounts(c.Request.Context(), userID(c))
 
-	created_, err := s.txSvc.CreateTransaction(c.Request.Context(), service.CreateTransactionRequest{
-		UserID:       userID(c),
-		Mode:         model.Mode(req.Mode),
-		OccurredAt:   txDate,
-		AccountID:    req.AccountID,
-		TxType:       txType,
-		Direction:    model.Direction(req.Direction),
-		Source:       model.Source(req.Source),
-		Category:     req.Category,
-		AmountYuan:   model.Money(req.AmountYuan),
-		AmountCents:  req.AmountCents,
-		ExchangeRate: req.ExchangeRate,
-		Currency:     req.Currency,
-		Note:         req.Note,
-		ProjectID:    projID,
+	var createdTx model.Transaction
+	var tagFoundErr = errors.New("标签不存在")
+
+	err := s.txManager.WithinTransaction(c.Request.Context(), func(ctx context.Context) error {
+		var inErr error
+		createdTx, inErr = s.txSvc.CreateTransaction(ctx, service.CreateTransactionRequest{
+			UserID:       userID(c),
+			Mode:         model.Mode(req.Mode),
+			OccurredAt:   txDate,
+			AccountID:    req.AccountID,
+			TxType:       txType,
+			Direction:    model.Direction(req.Direction),
+			Source:       model.Source(req.Source),
+			Category:     req.Category,
+			AmountYuan:   model.Money(req.AmountYuan),
+			AmountCents:  req.AmountCents,
+			ExchangeRate: req.ExchangeRate,
+			Currency:     req.Currency,
+			Note:         req.Note,
+			ProjectID:    projID,
+		})
+		if inErr != nil {
+			return inErr
+		}
+		for _, tagID := range req.TagIDs {
+			if inErr := s.tagRepo.AddToTransaction(ctx, createdTx.ID, tagID); inErr != nil {
+				return tagFoundErr
+			}
+		}
+		return nil
 	})
+
 	if err != nil {
-		fail(c, 422, 40001, err.Error())
+		if errors.Is(err, tagFoundErr) {
+			fail(c, 422, 40002, "标签不存在")
+		} else {
+			fail(c, 422, 40001, err.Error())
+		}
 		return
 	}
-	for _, tagID := range req.TagIDs {
-		if err := s.tagRepo.AddToTransaction(c.Request.Context(), created_.ID, tagID); err != nil {
-			fail(c, 422, 40002, "标签不存在")
-			return
-		}
-	}
+
 	created(c, gin.H{
-		"id":           created_.ID,
-		"amount_yuan":  created_.AmountYuan.Float64(),
-		"amount_cents": created_.AmountCents,
-		"reimb_status": string(created_.ReimbStatus),
-		"account_id":   created_.AccountID,
-		"mode":         string(created_.Mode),
+		"id":           createdTx.ID,
+		"amount_yuan":  createdTx.AmountYuan.Float64(),
+		"amount_cents": createdTx.AmountCents,
+		"reimb_status": string(createdTx.ReimbStatus),
+		"account_id":   createdTx.AccountID,
+		"mode":         string(createdTx.Mode),
 	})
 }
 
@@ -1355,16 +1373,25 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 	defer os.Remove(tmpPath)
 
 	// Use VACUUM INTO to produce a defragmented, consistent snapshot
-	if _, err := s.db.ExecContext(c.Request.Context(), fmt.Sprintf("VACUUM INTO '%s'", tmpPath)); err != nil {
-		fail(c, 500, 50001, "备份失败，请稍后重试")
+	// Add a timeout to prevent the connection from hanging indefinitely
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	if _, err := s.db.ExecContext(ctx, fmt.Sprintf("VACUUM INTO '%s'", tmpPath)); err != nil {
+		log.Printf("[ERROR] handleBackupDownload: VACUUM INTO failed: %v", err)
+		fail(c, 500, 50001, "备份生成失败，请稍后重试")
 		return
 	}
 
 	// Embed schema version in filename for traceability
 	var schemaVer int
-	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer)
+	_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer)
 	ts := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("finarch_backup_v%d_%s.db", schemaVer, ts)
+	// Add proper cache-control headers to prevent the browser from caching the backup download
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, filename, filename))
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(tmpPath)
