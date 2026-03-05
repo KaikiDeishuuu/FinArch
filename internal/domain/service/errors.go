@@ -21,6 +21,7 @@ var (
 	ErrConcurrentModification = &DomainError{Code: "concurrent_modification"}
 	ErrInvalidOrUsedToken     = &DomainError{Code: "invalid_or_used_token"}
 	ErrSystemUnavailable      = &DomainError{Code: "system_unavailable"}
+	ErrInvalidPassword        = &DomainError{Code: "invalid_password"}
 
 	ErrEmailNotVerified = errors.New("email_not_verified")
 )

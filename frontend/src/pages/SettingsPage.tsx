@@ -198,7 +198,10 @@ export default function SettingsPage() {
       await downloadBackup(exportToken)
       toast.success(t('settings.backup.toast.success'))
       setBackupModalOpen(false) // Close modal on success
-    } catch {
+    } catch (err: any) {
+      if (err?.response?.data?.message) {
+        throw err
+      }
       toast.error(t('settings.backup.toast.error'))
     } finally {
       setBackupLoading(false)

@@ -195,7 +195,7 @@ func (s *AuthService) RequestEmailChange(ctx context.Context, userID, currentPas
 		return fmt.Errorf("新邮箱与当前邮箱相同")
 	}
 	if err := auth.CheckPassword(u.PasswordHash, currentPassword); err != nil {
-		return ErrNotAuthorized
+		return ErrInvalidPassword
 	}
 	if err := s.users.SetPendingEmail(ctx, u.ID, newEmail); err != nil {
 		return fmt.Errorf("操作失败，请稍后重试")
@@ -311,7 +311,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID, currentPasswor
 		return fmt.Errorf("用户不存在")
 	}
 	if err := auth.CheckPassword(u.PasswordHash, currentPassword); err != nil {
-		return fmt.Errorf("当前密码不正确")
+		return ErrInvalidPassword
 	}
 	hash, err := auth.HashPassword(newPassword)
 	if err != nil {
@@ -331,7 +331,7 @@ func (s *AuthService) RequestBackupExport(ctx context.Context, userID, currentPa
 		return "", ErrUserNotFound
 	}
 	if err := auth.CheckPassword(u.PasswordHash, currentPassword); err != nil {
-		return "", ErrNotAuthorized
+		return "", ErrInvalidPassword
 	}
 	token, _, err := s.createActionToken(ctx, u.ID, ActionBackupExport, "", 10*time.Minute)
 	if err != nil {

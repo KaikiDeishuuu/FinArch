@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 interface BackupPasswordModalProps {
     isOpen: boolean
     onClose: () => void
-    onSubmit: (password: string) => void
+    onSubmit: (password: string) => Promise<void>
     isLoading: boolean
     t: (key: string) => string
 }
@@ -36,14 +36,19 @@ export default function BackupPasswordModal({ isOpen, onClose, onSubmit, isLoadi
 
     if (!isOpen) return null
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         if (!password) {
             setError(t('settings.password.currentPlaceholder'))
             return
         }
         setError('')
-        onSubmit(password)
+        try {
+            await onSubmit(password)
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || err.message || t('settings.backup.toast.error')
+            setError(msg)
+        }
     }
 
     return (
@@ -67,7 +72,7 @@ export default function BackupPasswordModal({ isOpen, onClose, onSubmit, isLoadi
                                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                                 disabled={isLoading}
                                 placeholder={t('settings.password.currentPlaceholder')}
-                                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition bg-gray-50 dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder-gray-500 pr-10"
+                                className={`w-full border ${error ? 'border-rose-500' : 'border-gray-200 dark:border-gray-700'} rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition bg-gray-50 dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder-gray-500 pr-10`}
                             />
                             <button
                                 type="button"

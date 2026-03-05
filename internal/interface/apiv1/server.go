@@ -422,6 +422,8 @@ func mapDomainError(err error) (int, apiErrorPayload) {
 		return http.StatusBadRequest, apiErrorPayload{Code: "expired_token", Message: "The token has expired."}
 	case errors.Is(err, service.ErrAlreadyUsed):
 		return http.StatusConflict, apiErrorPayload{Code: "already_used", Message: "This action was already completed."}
+	case errors.Is(err, service.ErrInvalidPassword):
+		return http.StatusForbidden, apiErrorPayload{Code: "invalid_password", Message: "Incorrect password. Please try again."}
 	case errors.Is(err, service.ErrNotAuthorized):
 		return http.StatusUnauthorized, apiErrorPayload{Code: "not_authorized", Message: "You are not authorized to perform this action."}
 	case errors.Is(err, service.ErrUserNotFound):
