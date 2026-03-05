@@ -45,6 +45,7 @@ const zh = {
       device: '设备',
       devices: '{{count}} 台设备在线',
       balance: '余额',
+      copied: '复制成功',
     },
 
     // ── Categories ──

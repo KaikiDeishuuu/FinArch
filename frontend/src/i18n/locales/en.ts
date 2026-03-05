@@ -45,6 +45,7 @@ const en = {
       device: 'device',
       devices: '{{count}} devices online',
       balance: 'Balance',
+      copied: 'Copied!',
     },
 
     // ── Categories ──
