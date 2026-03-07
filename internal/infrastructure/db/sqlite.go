@@ -58,6 +58,9 @@ var migrationV15SQL string
 //go:embed migration_v16.sql
 var migrationV16SQL string
 
+//go:embed migration_v17.sql
+var migrationV17SQL string
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	// Enforce BEGIN IMMEDIATE for all transactions to avoid SQLITE_BUSY deadlocks
@@ -147,6 +150,7 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		{14, migrationV14SQL},
 		{15, migrationV15SQL},
 		{16, migrationV16SQL},
+		{17, migrationV17SQL},
 	}
 
 	for _, m := range migrations {

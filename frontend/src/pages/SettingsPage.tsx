@@ -15,6 +15,7 @@ import { useTransactions } from '../hooks/useTransactions'
 import { useMode } from '../contexts/ModeContext'
 import Select from '../components/Select'
 import BackupPasswordModal from '../components/BackupPasswordModal'
+import CrossAccountRestoreModal from '../components/CrossAccountRestoreModal'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -213,6 +214,7 @@ export default function SettingsPage() {
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [restoreLoading, setRestoreLoading] = useState(false)
   const [restoreConfirm, setRestoreConfirm] = useState(false)
+  const [crossRestoreOpen, setCrossRestoreOpen] = useState(false)
 
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + ' B'
@@ -237,9 +239,43 @@ export default function SettingsPage() {
       // Refresh backup info
       getBackupInfo().then(setBackupInfo).catch(() => { })
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      const anyErr = err as { response?: { status?: number; data?: { message?: string } } }
+      const status = anyErr.response?.status
+      if (status === 401) {
+        // Cross-account restore: require original account verification
+        setCrossRestoreOpen(true)
+        toast.error(t('settings.restore.crossAccount.prompt'))
+        return
+      }
+      if (status === 403) {
+        toast.error(t('settings.restore.crossAccount.failed'))
+        return
+      }
+      const msg = anyErr.response?.data?.message
       toast.error(msg || t('settings.restore.toast.error'))
     } finally { setRestoreLoading(false) }
+  }
+
+  async function handleCrossAccountRestore(email: string, password: string) {
+    if (!restoreFile) return
+    setRestoreLoading(true)
+    try {
+      const result = await restoreBackup(restoreFile, {
+        originalEmail: email,
+        originalPassword: password,
+      })
+      toast.success(
+        result.migrated_to > result.restored_version
+          ? t('settings.restore.toast.successMigrated', { from: result.restored_version, to: result.migrated_to })
+          : t('settings.restore.toast.success')
+      )
+      setRestoreFile(null); setRestoreConfirm(false); setCrossRestoreOpen(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      queryClient.invalidateQueries()
+      getBackupInfo().then(setBackupInfo).catch(() => { })
+    } finally {
+      setRestoreLoading(false)
+    }
   }
 
   // ── Delete account ────────────────────────────────────────────────────────
@@ -690,6 +726,14 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        <CrossAccountRestoreModal
+          isOpen={crossRestoreOpen}
+          onClose={() => setCrossRestoreOpen(false)}
+          onSubmit={handleCrossAccountRestore}
+          isLoading={restoreLoading}
+          t={t}
+        />
 
         {/* ── Danger zone ─────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">

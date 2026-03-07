@@ -391,9 +391,18 @@ export async function downloadBackup(exportToken: string): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
-export async function restoreBackup(file: File): Promise<{ message: string; restored_version: number; migrated_to: number }> {
+export async function restoreBackup(
+  file: File,
+  opts?: { originalEmail?: string; originalPassword?: string },
+): Promise<{ message: string; restored_version: number; migrated_to: number }> {
   const form = new FormData()
   form.append('file', file)
+  if (opts?.originalEmail) {
+    form.append('original_email', opts.originalEmail)
+  }
+  if (opts?.originalPassword) {
+    form.append('original_password', opts.originalPassword)
+  }
   const { data } = await client.post('/backup/restore', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })

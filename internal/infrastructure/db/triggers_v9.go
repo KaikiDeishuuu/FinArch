@@ -175,5 +175,9 @@ func ApplyTriggers(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("apply trigger: %w", err)
 		}
 	}
+	// Ledger immutability triggers (idempotent)
+	if err := applyLedgerTriggers(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }

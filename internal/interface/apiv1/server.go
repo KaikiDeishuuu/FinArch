@@ -1485,7 +1485,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	// ── Schema version compatibility check ──
+	// ── Schema + owner inspection for cross-account restore ──
 	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
 		fail(c, 500, 50002, "无法打开备份文件")
@@ -1498,6 +1498,51 @@ func (s *Server) handleRestore(c *gin.Context) {
 		srcDB.Close()
 		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
 		return
+	}
+
+	// Extract backup owner (same heuristic as disaster-recovery flow)
+	var backupOwnerEmail, backupOwnerName, backupOwnerID string
+	ownerRow := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+	switch err := ownerRow.Scan(&backupOwnerID, &backupOwnerEmail, &backupOwnerName); err {
+	case nil:
+		// ok
+	case sql.ErrNoRows:
+		srcDB.Close()
+		fail(c, 400, 40007, "备份文件中未找到用户数据")
+		return
+	default:
+		srcDB.Close()
+		fail(c, 400, 40007, "读取备份所有者信息失败")
+		return
+	}
+
+	currentUserID := userID(c)
+	currentUserEmail := c.GetString("userEmail")
+	crossAccount := backupOwnerID != "" && currentUserID != "" && backupOwnerID != currentUserID
+
+	log.Printf("[RESTORE] backup_owner=%s current_user=%s cross_account=%t", backupOwnerEmail, currentUserEmail, crossAccount)
+
+	// Cross-account restore: require original account credentials for safety
+	if crossAccount {
+		origEmail := c.PostForm("original_email")
+		origPassword := c.PostForm("original_password")
+		if origEmail == "" || origPassword == "" {
+			srcDB.Close()
+			fail(c, http.StatusUnauthorized, 40060, "跨账号恢复需要验证原账号邮箱和密码")
+			return
+		}
+		var storedHash string
+		if err := srcDB.QueryRow(`SELECT password_hash FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1`, origEmail).Scan(&storedHash); err != nil {
+			// Do not leak which part失败.
+			srcDB.Close()
+			fail(c, http.StatusForbidden, 40061, "原账号验证失败，请确认邮箱和密码")
+			return
+		}
+		if err := auth.CheckPassword(storedHash, origPassword); err != nil {
+			srcDB.Close()
+			fail(c, http.StatusForbidden, 40061, "原账号验证失败，请确认邮箱和密码")
+			return
+		}
 	}
 	srcDB.Close()
 
