@@ -81,10 +81,39 @@ type restoreContext struct {
 	RequesterUserID string
 	BackupUserID    string
 	RestoreMode     string
+	DataScope       string
 }
 
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func normalizeRestoreScope(scope string) string {
+	switch strings.ToLower(strings.TrimSpace(scope)) {
+	case "work":
+		return string(model.ModeWork)
+	case "life":
+		return string(model.ModeLife)
+	default:
+		return "both"
+	}
+}
+
+func scopeAllowsMode(scope, mode string) bool {
+	normalizedScope := normalizeRestoreScope(scope)
+	if normalizedScope == "both" {
+		return true
+	}
+	return normalizedScope == strings.ToLower(strings.TrimSpace(mode))
+}
+
+func primaryUserID(ctx context.Context, db *sql.DB) (string, error) {
+	var uid string
+	err := db.QueryRowContext(ctx, `SELECT id FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`).Scan(&uid)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(uid), nil
 }
 
 type backupIdentity struct {
@@ -1511,6 +1540,8 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		SnapshotID           string `json:"snapshot_id" binding:"required"`
 		Confirm              bool   `json:"confirm"`
 		AllowMissingMetadata bool   `json:"allow_missing_metadata"`
+		ApplyMode            string `json:"apply_mode"`    // replace | merge
+		RestoreScope         string `json:"restore_scope"` // both | work | life
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, "INVALID_INPUT", "请提供 snapshot_id")
@@ -1520,6 +1551,15 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		fail(c, 400, "CONFIRM_REQUIRED", "请确认后再执行灾难恢复")
 		return
 	}
+	applyMode := strings.ToLower(strings.TrimSpace(req.ApplyMode))
+	if applyMode == "" {
+		applyMode = "replace"
+	}
+	if applyMode != "replace" && applyMode != "merge" {
+		fail(c, 422, "INVALID_INPUT", "apply_mode must be replace or merge")
+		return
+	}
+	restoreScope := normalizeRestoreScope(req.RestoreScope)
 	snapshots, err := s.loadDisasterSnapshots()
 	if err != nil {
 		fail(c, 500, "SNAPSHOT_LIST_FAILED", "无法读取灾备快照列表")
@@ -1555,7 +1595,7 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		return
 	}
 
-	result := s.executeDisasterRecovery(c.Request.Context(), selected.SnapshotID, schemaBefore)
+	result := s.executeDisasterRecovery(c.Request.Context(), selected.SnapshotID, schemaBefore, applyMode, restoreScope)
 	if !result.Success {
 		fail(c, 500, "DISASTER_RECOVERY_FAILED", result.Error)
 		return
@@ -1568,19 +1608,21 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		"schema_after":      result.SchemaAfter,
 		"migration_applied": result.MigrationApplied,
 		"duration_ms":       result.Duration.Milliseconds(),
+		"apply_mode":        applyMode,
+		"restore_scope":     restoreScope,
 	})
 }
 
-func (s *Server) executeDisasterRecovery(ctx context.Context, snapshotID string, schemaBefore int) disasterRecoveryResult {
+func (s *Server) executeDisasterRecovery(ctx context.Context, snapshotID string, schemaBefore int, applyMode string, restoreScope string) disasterRecoveryResult {
 	start := time.Now()
 	recoveryID := uuid.NewString()
 	result := disasterRecoveryResult{RecoveryID: recoveryID, SnapshotID: snapshotID, SchemaBefore: schemaBefore}
 	defer func() {
 		result.Duration = time.Since(start)
 		if result.Success {
-			log.Printf("DISASTER_RECOVERY_COMPLETE recovery_id=%s snapshot=%s schema_before=%d schema_after=%d migration=%t duration=%s", result.RecoveryID, result.SnapshotID, result.SchemaBefore, result.SchemaAfter, result.MigrationApplied, result.Duration)
+			log.Printf("DISASTER_RECOVERY_COMPLETE recovery_id=%s snapshot=%s schema_before=%d schema_after=%d migration=%t mode=%s scope=%s duration=%s", result.RecoveryID, result.SnapshotID, result.SchemaBefore, result.SchemaAfter, result.MigrationApplied, applyMode, restoreScope, result.Duration)
 		} else {
-			log.Printf("DISASTER_RECOVERY_FAILED recovery_id=%s snapshot=%s schema_before=%d error=%q duration=%s", result.RecoveryID, result.SnapshotID, result.SchemaBefore, result.Error, result.Duration)
+			log.Printf("DISASTER_RECOVERY_FAILED recovery_id=%s snapshot=%s schema_before=%d mode=%s scope=%s error=%q duration=%s", result.RecoveryID, result.SnapshotID, result.SchemaBefore, applyMode, restoreScope, result.Error, result.Duration)
 		}
 	}()
 
@@ -1601,6 +1643,51 @@ func (s *Server) executeDisasterRecovery(ctx context.Context, snapshotID string,
 	cmd := exec.CommandContext(ctx, "litestream", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		result.Error = fmt.Sprintf("拉取快照失败: %v (%s)", err, strings.TrimSpace(string(out)))
+		return result
+	}
+
+	srcDB, err := sql.Open("sqlite3", tmpRestorePath+"?mode=ro")
+	if err != nil {
+		result.Error = "无法打开灾备快照"
+		return result
+	}
+	if err := ensureSQLiteIntegrity(ctx, srcDB); err != nil {
+		srcDB.Close()
+		result.Error = fmt.Sprintf("灾备快照完整性校验失败: %s", err.Error())
+		return result
+	}
+	var uploadedVersion int
+	_ = srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&uploadedVersion)
+	identity, err := readBackupIdentity(srcDB)
+	srcDB.Close()
+	if err != nil {
+		result.Error = "无法识别灾备快照所有者"
+		return result
+	}
+	backupUserID := strings.TrimSpace(identity.MetadataUserID)
+	if backupUserID == "" {
+		backupUserID = strings.TrimSpace(identity.FallbackOwnerID)
+	}
+
+	if applyMode == "merge" {
+		targetUserID, err := primaryUserID(ctx, s.db)
+		if err != nil || targetUserID == "" {
+			result.Error = "无法识别当前数据库用户，无法执行合并恢复"
+			return result
+		}
+		migratedTo, err := s.performRestoreWithMerge(ctx, tmpRestorePath, uploadedVersion, schemaBefore, restoreContext{
+			RequesterUserID: targetUserID,
+			BackupUserID:    backupUserID,
+			RestoreMode:     "CROSS_ACCOUNT",
+			DataScope:       restoreScope,
+		})
+		if err != nil {
+			result.Error = err.Error()
+			return result
+		}
+		result.SchemaAfter = migratedTo
+		result.MigrationApplied = migratedTo > schemaBefore
+		result.Success = true
 		return result
 	}
 
@@ -1667,6 +1754,9 @@ func (s *Server) executeRestoreEngine(ctx context.Context, req restoreEngineRequ
 		return result, fmt.Errorf("无法打开备份文件")
 	}
 	defer restoreSrcDB.Close()
+	if err := ensureSQLiteIntegrity(ctx, restoreSrcDB); err != nil {
+		return result, fmt.Errorf("备份完整性校验失败: %s", err.Error())
+	}
 
 	s.prepareSafetyBackup(ctx, "pre_restore")
 	findb.Global().SetState(findb.StateRestore)
@@ -1919,6 +2009,11 @@ func (s *Server) handleRestore(c *gin.Context) {
 		fail(c, 500, 50002, "无法打开备份文件")
 		return
 	}
+	if err := ensureSQLiteIntegrity(c.Request.Context(), srcDB); err != nil {
+		srcDB.Close()
+		fail(c, 400, 40003, "备份文件完整性校验失败")
+		return
+	}
 
 	var uploadedVersion int
 	row := srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`)
@@ -1969,6 +2064,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 		RequesterUserID: currentUserID,
 		BackupUserID:    backupUserID,
 		RestoreMode:     restoreMode,
+		DataScope:       "both",
 	}
 	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, ctxRestore)
 	if err != nil {
@@ -2188,6 +2284,7 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		RequesterUserID: requestUserID,
 		BackupUserID:    strings.TrimSpace(pr.ownerID),
 		RestoreMode:     "CROSS_ACCOUNT",
+		DataScope:       "both",
 	}
 	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, ctxRestore)
 	if err != nil {
@@ -2231,11 +2328,54 @@ func deterministicRestoreID(entity, sourceUserID, targetUserID, oldID string) st
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed)).String()
 }
 
+func modeFromAccountType(accountType string) string {
+	switch strings.ToLower(strings.TrimSpace(accountType)) {
+	case string(model.AccountTypePersonal):
+		return string(model.ModeLife)
+	case string(model.AccountTypePublic):
+		return string(model.ModeWork)
+	default:
+		return string(model.ModeWork)
+	}
+}
+
+func ensureSQLiteIntegrity(ctx context.Context, db *sql.DB) error {
+	var integrityResult string
+	if err := db.QueryRowContext(ctx, `PRAGMA integrity_check`).Scan(&integrityResult); err != nil {
+		return err
+	}
+	if strings.ToLower(strings.TrimSpace(integrityResult)) != "ok" {
+		return fmt.Errorf("integrity_check=%s", integrityResult)
+	}
+	return nil
+}
+
+func resolveRecoveredAccountName(existingNames map[string]struct{}, baseName string) string {
+	trimmed := strings.TrimSpace(baseName)
+	if trimmed == "" {
+		trimmed = "Recovered"
+	}
+	candidate := fmt.Sprintf("%s (Recovered)", trimmed)
+	if _, exists := existingNames[strings.ToLower(candidate)]; !exists {
+		existingNames[strings.ToLower(candidate)] = struct{}{}
+		return candidate
+	}
+	for i := 2; ; i++ {
+		candidate = fmt.Sprintf("%s (Recovered %d)", trimmed, i)
+		if _, exists := existingNames[strings.ToLower(candidate)]; !exists {
+			existingNames[strings.ToLower(candidate)] = struct{}{}
+			return candidate
+		}
+	}
+}
+
 func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, restoreCtx restoreContext) (int, error) {
 	targetUserID := strings.TrimSpace(restoreCtx.RequesterUserID)
 	if targetUserID == "" {
 		return 0, fmt.Errorf("跨账号恢复失败：无法识别目标账号")
 	}
+
+	restoreScope := normalizeRestoreScope(restoreCtx.DataScope)
 
 	if uploadedVersion < currentVersion {
 		backupDB, err := sql.Open("sqlite3", tmpPath)
@@ -2286,16 +2426,6 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		sum := sha256.Sum256([]byte(payload))
 		return hex.EncodeToString(sum[:])
 	}
-	modeFromAccountType := func(accountType string) string {
-		switch strings.ToLower(strings.TrimSpace(accountType)) {
-		case "personal":
-			return string(model.ModeLife)
-		case "public":
-			return string(model.ModeWork)
-		default:
-			return string(model.ModeWork)
-		}
-	}
 	accountMap := map[string]string{}
 	categoryMap := map[string]string{}
 	projectMap := map[string]string{}
@@ -2311,15 +2441,20 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	var insertedProjects int64
 	var insertedTransactions int64
 	var skippedDuplicateTransactions int64
+	var renamedAccounts int64
 	insertedAccountsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
 	insertedTransactionsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
 
-	// accounts: map by (type,name,currency), else deterministic remap id
+	// accounts: deterministic insert + conflict-safe rename in same mode
 	rows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type, currency FROM accounts WHERE user_id=?`, targetUserID)
 	if err != nil {
 		return 0, fmt.Errorf("跨账号恢复失败：读取目标账户失败")
 	}
 	existingAccounts := map[string]string{}
+	existingNamesByMode := map[string]map[string]struct{}{
+		string(model.ModeWork): {},
+		string(model.ModeLife): {},
+	}
 	for rows.Next() {
 		var id, lname, typ, currency string
 		if err := rows.Scan(&id, &lname, &typ, &currency); err != nil {
@@ -2328,6 +2463,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		}
 		mode := modeFromAccountType(typ)
 		existingAccounts[mode+"|"+lname+"|"+currency] = id
+		existingNamesByMode[mode][lname] = struct{}{}
 	}
 	rows.Close()
 
@@ -2343,17 +2479,21 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			return 0, fmt.Errorf("跨账号恢复失败：读取备份账户失败")
 		}
 		mode := modeFromAccountType(typ)
-		key := mode + "|" + strings.ToLower(name) + "|" + currency
-		if existingID, ok := existingAccounts[key]; ok {
-			log.Printf("RESTORE_ACCOUNT name=%q mode=%s action=reuse existing_id=%s request_user_id=%s backup_user_id=%s", name, strings.ToUpper(mode), existingID, targetUserID, sourceUserID)
-			accountMap[oldID] = existingID
+		if !scopeAllowsMode(restoreScope, mode) {
 			continue
+		}
+		key := mode + "|" + strings.ToLower(name) + "|" + currency
+		targetName := name
+		if _, ok := existingAccounts[key]; ok {
+			targetName = resolveRecoveredAccountName(existingNamesByMode[mode], name)
+			renamedAccounts++
+			log.Printf("RESTORE_ACCOUNT name=%q renamed_to=%q mode=%s action=rename_conflict request_user_id=%s backup_user_id=%s", name, targetName, strings.ToUpper(mode), targetUserID, sourceUserID)
 		}
 		newID := deterministicRestoreID("account", sourceUserID, targetUserID, oldID)
 		res, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO accounts (id, user_id, name, type, currency, balance_cents, version, is_active, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?, ?)
-		`, newID, targetUserID, name, typ, currency, active, now, now)
+		`, newID, targetUserID, targetName, typ, currency, active, now, now)
 		if err != nil {
 			accRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：写入账户失败")
@@ -2362,14 +2502,16 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			insertedAccounts += affected
 			insertedAccountsByMode[mode] += affected
 		}
-		log.Printf("RESTORE_ACCOUNT name=%q mode=%s action=insert new_id=%s request_user_id=%s backup_user_id=%s", name, strings.ToUpper(mode), newID, targetUserID, sourceUserID)
+		log.Printf("RESTORE_ACCOUNT name=%q target_name=%q mode=%s action=insert new_id=%s request_user_id=%s backup_user_id=%s", name, targetName, strings.ToUpper(mode), newID, targetUserID, sourceUserID)
 		accountMap[oldID] = newID
-		existingAccounts[key] = newID
+		existingAccounts[mode+"|"+strings.ToLower(targetName)+"|"+currency] = newID
+		existingNamesByMode[mode][strings.ToLower(targetName)] = struct{}{}
 	}
 	accRows.Close()
 	logTableRows("accounts", insertedAccounts)
 	logTableRowsByMode("accounts", string(model.ModeWork), insertedAccountsByMode[string(model.ModeWork)])
 	logTableRowsByMode("accounts", string(model.ModeLife), insertedAccountsByMode[string(model.ModeLife)])
+	log.Printf("RESTORE_TABLE table=accounts renamed_conflicts=%d request_user_id=%s backup_user_id=%s restore_mode=%s", renamedAccounts, targetUserID, sourceUserID, restoreCtx.RestoreMode)
 
 	// categories: deterministic dedup by (name,type)
 	catRows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type FROM categories WHERE user_id=?`, targetUserID)
@@ -2544,6 +2686,9 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		if txnMode != string(model.ModeWork) && txnMode != string(model.ModeLife) {
 			txnMode = string(model.ModeWork)
 		}
+		if !scopeAllowsMode(restoreScope, txnMode) {
+			continue
+		}
 		mappedAccountID := accountMap[oldAccountID]
 		if mappedAccountID == "" {
 			continue
@@ -2641,6 +2786,8 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	logTableRowsByMode("transactions", string(model.ModeWork), insertedTransactionsByMode[string(model.ModeWork)])
 	logTableRowsByMode("transactions", string(model.ModeLife), insertedTransactionsByMode[string(model.ModeLife)])
 	log.Printf("RESTORE_TABLE table=transactions skipped_duplicates=%d request_user_id=%s backup_user_id=%s restore_mode=%s", skippedDuplicateTransactions, targetUserID, sourceUserID, restoreCtx.RestoreMode)
+	log.Printf("RESTORE_SUMMARY recovered_work_accounts=%d recovered_life_accounts=%d imported_transactions=%d skipped_duplicates=%d renamed_accounts=%d request_user_id=%s backup_user_id=%s restore_mode=%s scope=%s",
+		insertedAccountsByMode[string(model.ModeWork)], insertedAccountsByMode[string(model.ModeLife)], insertedTransactions, skippedDuplicateTransactions, renamedAccounts, targetUserID, sourceUserID, restoreCtx.RestoreMode, restoreScope)
 
 	// recalculate balances idempotently
 	if _, err := tx.ExecContext(ctx, `
@@ -2816,6 +2963,13 @@ func (s *Server) handleRestoreRequest(c *gin.Context) {
 	if err != nil {
 		os.Remove(tmpPath)
 		fail(c, 500, 50002, "无法打开备份文件")
+		return
+	}
+
+	if err := ensureSQLiteIntegrity(c.Request.Context(), srcDB); err != nil {
+		srcDB.Close()
+		os.Remove(tmpPath)
+		fail(c, 400, 40003, "备份文件完整性校验失败")
 		return
 	}
 
