@@ -32,17 +32,18 @@ client.interceptors.response.use(
     if (envelopeMessage && error.response?.data && !error.response.data.message) {
       error.response.data.message = envelopeMessage
     }
-    // Only redirect to login when we had an active token (i.e. session expired).
-    // If _token is null the 401 came from an unauthenticated request (e.g. wrong
-    // password during login) — let the caller handle the error normally.
-    const isRestoreRequest = error.config?.url?.includes('/backup/restore')
-    if (error.response?.status === 401 && _token && !_redirectingToLogin && !isRestoreRequest) {
+
+    const errCode = error.response?.data?.error?.code ?? error.response?.data?.code
+    const isAuthFailure = errCode === 'AUTH_SESSION_EXPIRED' || errCode === 'AUTH_INVALID_TOKEN' ||
+      (error.response?.status === 401 && _token)
+
+    if (isAuthFailure && !_redirectingToLogin) {
       _redirectingToLogin = true
       _token = null
-      // Clear persisted session so expired token is not reloaded on next page render
       localStorage.removeItem('finarch_session')
       window.location.href = '/login'
     }
+
     return Promise.reject(error)
   }
 )
@@ -394,18 +395,43 @@ export async function downloadBackup(exportToken: string): Promise<void> {
 
 export async function restoreBackup(
   file: File,
-  opts?: { originalEmail?: string; originalPassword?: string },
-): Promise<{ message: string; restored_version: number; migrated_to: number }> {
+): Promise<{ code?: string; message: string; restored_version: number; migrated_to: number }> {
   const form = new FormData()
   form.append('file', file)
-  if (opts?.originalEmail) {
-    form.append('original_email', opts.originalEmail)
-  }
-  if (opts?.originalPassword) {
-    form.append('original_password', opts.originalPassword)
-  }
   const { data } = await client.post('/backup/restore', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
+}
+
+export interface RestoreVerificationResponse {
+  restore_id: string
+  masked_email: string
+  expires_in: number
+  message: string
+}
+
+export async function sendRestoreVerification(file: File, originalEmail: string): Promise<RestoreVerificationResponse> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('original_email', originalEmail)
+  const { data } = await client.post('/backup/restore/send-verification', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
+}
+
+export async function verifyRestoreCode(restoreId: string, code: string): Promise<{ restore_token: string; message: string }> {
+  const { data } = await client.post('/backup/restore/verify', {
+    restore_id: restoreId,
+    code,
+  })
+  return data.data
+}
+
+export async function executeRestore(restoreToken: string): Promise<{ code?: string; message: string; restored_version: number; migrated_to: number }> {
+  const { data } = await client.post('/backup/restore/execute', {
+    restore_token: restoreToken,
   })
   return data.data
 }
