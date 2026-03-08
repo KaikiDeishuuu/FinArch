@@ -89,25 +89,6 @@ type backupIdentity struct {
 	FallbackOwnerName  string
 }
 
-func backupHasUser(srcDB *sql.DB, uid, email string) (bool, bool, error) {
-	var sameID, sameEmail bool
-	if strings.TrimSpace(uid) != "" {
-		var cnt int
-		if err := srcDB.QueryRow(`SELECT COUNT(1) FROM users WHERE deleted_at IS NULL AND id = ?`, uid).Scan(&cnt); err != nil {
-			return false, false, err
-		}
-		sameID = cnt > 0
-	}
-	if normalizeEmail(email) != "" {
-		var cnt int
-		if err := srcDB.QueryRow(`SELECT COUNT(1) FROM users WHERE deleted_at IS NULL AND lower(trim(email)) = ?`, normalizeEmail(email)).Scan(&cnt); err != nil {
-			return false, false, err
-		}
-		sameEmail = cnt > 0
-	}
-	return sameID, sameEmail, nil
-}
-
 func readBackupIdentity(srcDB *sql.DB) (backupIdentity, error) {
 	identity := backupIdentity{}
 
@@ -143,6 +124,27 @@ func readBackupIdentity(srcDB *sql.DB) (backupIdentity, error) {
 	}
 
 	return identity, nil
+}
+
+func detectRestoreMode(identity backupIdentity, requestUserID, requestUserEmail string) (restoreMode, backupUserID, backupUserEmail string, sameID, sameEmail bool) {
+	backupUserID = strings.TrimSpace(identity.MetadataUserID)
+	backupUserEmail = strings.TrimSpace(identity.MetadataUserEmail)
+	if backupUserID == "" {
+		backupUserID = strings.TrimSpace(identity.FallbackOwnerID)
+	}
+	if backupUserEmail == "" {
+		backupUserEmail = strings.TrimSpace(identity.FallbackOwnerEmail)
+	}
+
+	sameID = strings.TrimSpace(requestUserID) != "" && backupUserID != "" && strings.TrimSpace(requestUserID) == backupUserID
+	sameEmail = normalizeEmail(requestUserEmail) != "" && normalizeEmail(backupUserEmail) != "" && normalizeEmail(requestUserEmail) == normalizeEmail(backupUserEmail)
+
+	restoreMode = "CROSS_ACCOUNT"
+	if sameID || sameEmail {
+		restoreMode = "SAME_ACCOUNT"
+	}
+
+	return restoreMode, backupUserID, backupUserEmail, sameID, sameEmail
 }
 
 func NewServer(
@@ -1626,44 +1628,19 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	backupUserID := identity.MetadataUserID
-	backupUserEmail := identity.MetadataUserEmail
-	if backupUserID == "" {
-		backupUserID = identity.FallbackOwnerID
-	}
-	if backupUserEmail == "" {
-		backupUserEmail = identity.FallbackOwnerEmail
-	}
-
 	currentUserID := userID(c)
 	currentUserEmail := c.GetString("userEmail")
-	log.Printf("[RESTORE] request_user_context user_id=%s user_email=%s", currentUserID, currentUserEmail)
-	log.Printf("[RESTORE] backup_metadata backup_user_id=%s backup_user_email=%s schema_version=%d metadata_present=%t metadata_schema_version=%d", identity.MetadataUserID, identity.MetadataUserEmail, uploadedVersion, identity.MetadataPresent, identity.MetadataSchema)
+	restoreMode, backupUserID, backupUserEmail, sameID, sameEmail := detectRestoreMode(identity, currentUserID, currentUserEmail)
 
-	sameIDByMetadata := identity.MetadataUserID != "" && currentUserID != "" && identity.MetadataUserID == currentUserID
-	sameEmailByMetadata := normalizeEmail(identity.MetadataUserEmail) != "" && normalizeEmail(currentUserEmail) != "" && normalizeEmail(identity.MetadataUserEmail) == normalizeEmail(currentUserEmail)
-	sameIDInBackup, sameEmailInBackup, err := backupHasUser(srcDB, currentUserID, currentUserEmail)
-	if err != nil {
+	log.Printf("[RESTORE] detection_result restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s", restoreMode, sameID, sameEmail, identity.MetadataPresent, currentUserID, backupUserID)
+
+	if restoreMode == "CROSS_ACCOUNT" {
+		log.Printf("[RESTORE] cross-account restore detected, verification required restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s", restoreMode, sameID, sameEmail, identity.MetadataPresent, currentUserID, backupUserID)
 		srcDB.Close()
-		fail(c, 500, 50002, "读取备份用户信息失败")
+		fail(c, http.StatusConflict, "RESTORE_VERIFICATION_REQUIRED", "Cross-account restore requires email verification")
 		return
 	}
-	sameID := sameIDByMetadata || sameIDInBackup
-	sameEmail := sameEmailByMetadata || sameEmailInBackup
-	crossAccount := !(sameID || sameEmail)
-	restoreMode := "CROSS_ACCOUNT"
-	if !crossAccount {
-		restoreMode = "SAME_ACCOUNT"
-	}
-
-	log.Printf("[RESTORE] detection_result authenticated_user_id=%s authenticated_user_email=%s backup_user_id=%s backup_user_email=%s same_id=%t same_email=%t restore_mode=%s", currentUserID, currentUserEmail, backupUserID, backupUserEmail, sameID, sameEmail, restoreMode)
-
-	// Cross-account restore now requires out-of-band email verification.
-	if crossAccount {
-		srcDB.Close()
-		fail(c, http.StatusConflict, "RESTORE_VERIFICATION_REQUIRED", "跨账号恢复需要邮箱验证码")
-		return
-	}
+	log.Printf("[RESTORE] executing restore immediately restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s backup_user_email=%s", restoreMode, sameID, sameEmail, identity.MetadataPresent, currentUserID, backupUserID, backupUserEmail)
 	srcDB.Close()
 
 	var currentVersion int
@@ -1759,35 +1736,17 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 		return
 	}
 
-	backupUserID := identity.MetadataUserID
-	backupEmail := identity.MetadataUserEmail
+	currentUserID := userID(c)
+	restoreMode, backupUserID, backupEmail, sameID, sameEmail := detectRestoreMode(identity, currentUserID, c.GetString("userEmail"))
 	backupName := identity.FallbackOwnerName
-	if backupUserID == "" {
-		backupUserID = identity.FallbackOwnerID
-	}
-	if backupEmail == "" {
-		backupEmail = identity.FallbackOwnerEmail
-	}
 	if normalizeEmail(backupEmail) != normalizeEmail(originalEmail) {
 		os.Remove(tmpPath)
 		fail(c, http.StatusForbidden, "RESTORE_EMAIL_MISMATCH", "原账号邮箱与备份不匹配")
 		return
 	}
 
-	currentUserID := userID(c)
-	currentUserEmail := c.GetString("userEmail")
-	sameIDByMetadata := identity.MetadataUserID != "" && currentUserID != "" && identity.MetadataUserID == currentUserID
-	sameEmailByMetadata := normalizeEmail(identity.MetadataUserEmail) != "" && normalizeEmail(currentUserEmail) != "" && normalizeEmail(identity.MetadataUserEmail) == normalizeEmail(currentUserEmail)
-	sameIDInBackup, sameEmailInBackup, err := backupHasUser(srcDB, currentUserID, currentUserEmail)
-	if err != nil {
-		os.Remove(tmpPath)
-		fail(c, 500, 50002, "读取备份用户信息失败")
-		return
-	}
-	sameID := sameIDByMetadata || sameIDInBackup
-	sameEmail := sameEmailByMetadata || sameEmailInBackup
-	log.Printf("[RESTORE] verification_request requester_user_id=%s requester_email=%s pending_backup_user_id=%s pending_backup_email=%s same_id=%t same_email=%t", currentUserID, currentUserEmail, backupUserID, backupEmail, sameID, sameEmail)
-	if sameID || sameEmail {
+	log.Printf("[RESTORE] verification_request restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s", restoreMode, sameID, sameEmail, identity.MetadataPresent, currentUserID, backupUserID)
+	if restoreMode == "SAME_ACCOUNT" {
 		os.Remove(tmpPath)
 		fail(c, http.StatusBadRequest, "RESTORE_VERIFICATION_NOT_REQUIRED", "当前备份属于本账号，无需邮箱验证")
 		return
@@ -1881,10 +1840,13 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		return
 	}
 
-	if pr.requester != "" && pr.requester != userID(c) {
+	requestUserID := userID(c)
+	if pr.requester != "" && pr.requester != requestUserID {
 		fail(c, http.StatusForbidden, "RESTORE_TOKEN_INVALID", "恢复授权与当前登录账号不匹配")
 		return
 	}
+
+	log.Printf("[RESTORE] execute_after_verification restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s", "CROSS_ACCOUNT", false, false, true, requestUserID, pr.ownerID)
 
 	tmpPath := pr.tmpPath
 	s.pendingRestores.Delete(restoreID)
@@ -1906,7 +1868,7 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		return
 	}
 
-	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "verified", userID(c))
+	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "verified", requestUserID)
 	if err != nil {
 		fail(c, 500, "RESTORE_EXECUTE_FAILED", err.Error())
 		return
