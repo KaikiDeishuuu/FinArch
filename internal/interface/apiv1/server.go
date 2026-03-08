@@ -2272,6 +2272,16 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	defer tx.Rollback()
 
 	now := time.Now().UTC().Format(time.RFC3339)
+	modeFromAccountType := func(accountType string) string {
+		switch strings.ToLower(strings.TrimSpace(accountType)) {
+		case "personal":
+			return string(model.ModeLife)
+		case "public":
+			return string(model.ModeWork)
+		default:
+			return string(model.ModeWork)
+		}
+	}
 	accountMap := map[string]string{}
 	categoryMap := map[string]string{}
 	projectMap := map[string]string{}
@@ -2279,10 +2289,15 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	logTableRows := func(table string, rowsInserted int64) {
 		log.Printf("[RESTORE_EXECUTE] table=%s rows_inserted=%d request_user_id=%s backup_user_id=%s restore_mode=%s", table, rowsInserted, targetUserID, sourceUserID, restoreCtx.RestoreMode)
 	}
+	logTableRowsByMode := func(table, mode string, rowsInserted int64) {
+		log.Printf("RESTORE_TABLE table=%s mode=%s rows_inserted=%d request_user_id=%s backup_user_id=%s restore_mode=%s", table, strings.ToUpper(mode), rowsInserted, targetUserID, sourceUserID, restoreCtx.RestoreMode)
+	}
 	var insertedAccounts int64
 	var insertedCategories int64
 	var insertedProjects int64
 	var insertedTransactions int64
+	insertedAccountsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
+	insertedTransactionsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
 
 	// accounts: map by (type,name,currency), else deterministic remap id
 	rows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type, currency FROM accounts WHERE user_id=?`, targetUserID)
@@ -2296,7 +2311,8 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			rows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：读取目标账户失败")
 		}
-		existingAccounts[typ+"|"+lname+"|"+currency] = id
+		mode := modeFromAccountType(typ)
+		existingAccounts[mode+"|"+lname+"|"+currency] = id
 	}
 	rows.Close()
 
@@ -2311,8 +2327,10 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			accRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：读取备份账户失败")
 		}
-		key := typ + "|" + strings.ToLower(name) + "|" + currency
+		mode := modeFromAccountType(typ)
+		key := mode + "|" + strings.ToLower(name) + "|" + currency
 		if existingID, ok := existingAccounts[key]; ok {
+			log.Printf("RESTORE_ACCOUNT name=%q mode=%s action=reuse existing_id=%s request_user_id=%s backup_user_id=%s", name, strings.ToUpper(mode), existingID, targetUserID, sourceUserID)
 			accountMap[oldID] = existingID
 			continue
 		}
@@ -2327,12 +2345,16 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		}
 		if affected, err := res.RowsAffected(); err == nil {
 			insertedAccounts += affected
+			insertedAccountsByMode[mode] += affected
 		}
+		log.Printf("RESTORE_ACCOUNT name=%q mode=%s action=insert new_id=%s request_user_id=%s backup_user_id=%s", name, strings.ToUpper(mode), newID, targetUserID, sourceUserID)
 		accountMap[oldID] = newID
 		existingAccounts[key] = newID
 	}
 	accRows.Close()
 	logTableRows("accounts", insertedAccounts)
+	logTableRowsByMode("accounts", string(model.ModeWork), insertedAccountsByMode[string(model.ModeWork)])
+	logTableRowsByMode("accounts", string(model.ModeLife), insertedAccountsByMode[string(model.ModeLife)])
 
 	// categories: deterministic dedup by (name,type)
 	catRows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type FROM categories WHERE user_id=?`, targetUserID)
@@ -2460,20 +2482,20 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	// pre-load transaction fingerprints for deterministic dedup
 	fingerprintSet := map[string]struct{}{}
 	existingTxRows, err := tx.QueryContext(ctx, `
-		SELECT account_id, COALESCE(category_id,''), COALESCE(project_id,''), direction, type, amount_cents, currency, txn_date, COALESCE(note,'')
+		SELECT account_id, COALESCE(category_id,''), COALESCE(project_id,''), direction, type, amount_cents, currency, txn_date, COALESCE(note,''), mode
 		FROM transactions WHERE user_id = ?
 	`, targetUserID)
 	if err != nil {
 		return 0, fmt.Errorf("跨账号恢复失败：读取现有交易失败")
 	}
 	for existingTxRows.Next() {
-		var acc, cat, proj, dir, typ, currency, txnDate, note string
+		var acc, cat, proj, dir, typ, currency, txnDate, note, mode string
 		var amount int64
-		if err := existingTxRows.Scan(&acc, &cat, &proj, &dir, &typ, &amount, &currency, &txnDate, &note); err != nil {
+		if err := existingTxRows.Scan(&acc, &cat, &proj, &dir, &typ, &amount, &currency, &txnDate, &note, &mode); err != nil {
 			existingTxRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：读取现有交易失败")
 		}
-		fp := strings.Join([]string{acc, cat, proj, dir, typ, fmt.Sprint(amount), currency, txnDate, note}, "|")
+		fp := strings.Join([]string{acc, cat, proj, dir, typ, fmt.Sprint(amount), currency, txnDate, note, mode}, "|")
 		fingerprintSet[fp] = struct{}{}
 	}
 	existingTxRows.Close()
@@ -2481,7 +2503,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	srcTxRows, err := srcDB.QueryContext(ctx, `
 		SELECT id, group_id, direction, account_id, amount_cents, currency, exchange_rate, base_amount_cents,
 		       type, category_id, category, reimb_status, reimb_to_account, project_id, project,
-		       note, uploaded, txn_date, created_at, updated_at
+		       note, uploaded, txn_date, created_at, updated_at, mode
 		FROM transactions
 		WHERE user_id = ?
 		ORDER BY created_at ASC, id ASC
@@ -2490,7 +2512,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		return 0, fmt.Errorf("跨账号恢复失败：读取备份交易失败")
 	}
 	for srcTxRows.Next() {
-		var oldID, oldGroupID, dir, oldAccountID, currency, typ string
+		var oldID, oldGroupID, dir, oldAccountID, currency, typ, txnMode string
 		var amount, baseAmount int64
 		var exchangeRate float64
 		var oldCategoryID, category, reimbStatus sql.NullString
@@ -2499,9 +2521,13 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		var txnDate, createdAt, updatedAt string
 		if err := srcTxRows.Scan(&oldID, &oldGroupID, &dir, &oldAccountID, &amount, &currency, &exchangeRate, &baseAmount,
 			&typ, &oldCategoryID, &category, &reimbStatus, &oldReimbToAccount, &oldProjectID, &project,
-			&note, &uploaded, &txnDate, &createdAt, &updatedAt); err != nil {
+			&note, &uploaded, &txnDate, &createdAt, &updatedAt, &txnMode); err != nil {
 			srcTxRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：读取备份交易失败")
+		}
+		txnMode = strings.ToLower(strings.TrimSpace(txnMode))
+		if txnMode != string(model.ModeWork) && txnMode != string(model.ModeLife) {
+			txnMode = string(model.ModeWork)
 		}
 		mappedAccountID := accountMap[oldAccountID]
 		if mappedAccountID == "" {
@@ -2541,7 +2567,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		if note.Valid {
 			noteText = note.String
 		}
-		fp := strings.Join([]string{mappedAccountID, mappedCategoryID.String, mappedProjectID.String, dir, typ, fmt.Sprint(amount), currency, txnDate, noteText}, "|")
+		fp := strings.Join([]string{mappedAccountID, mappedCategoryID.String, mappedProjectID.String, dir, typ, fmt.Sprint(amount), currency, txnDate, noteText, txnMode}, "|")
 		if _, exists := fingerprintSet[fp]; exists {
 			continue
 		}
@@ -2565,14 +2591,14 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 				?, ?, ?, ?,
 				?, ?, ?,
 				?, ?, NULL,
-				?, ?, 'work',
+				?, ?, ?,
 				?, ?, NULL, ?, ?, ?, 1
 			)
 		`, newID, targetUserID, mappedGroupID, dir, mappedAccountID,
 			amount, currency, exchangeRate, baseAmount,
 			typ, mappedCategoryID, categoryText,
 			reimbText, mappedReimbTo,
-			mappedProjectID, projectText,
+			mappedProjectID, projectText, txnMode,
 			noteText, uploaded, txnDate, createdAt, updatedAt)
 		if err != nil {
 			srcTxRows.Close()
@@ -2580,11 +2606,14 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		}
 		if affected, err := res.RowsAffected(); err == nil {
 			insertedTransactions += affected
+			insertedTransactionsByMode[txnMode] += affected
 		}
 		fingerprintSet[fp] = struct{}{}
 	}
 	srcTxRows.Close()
 	logTableRows("transactions", insertedTransactions)
+	logTableRowsByMode("transactions", string(model.ModeWork), insertedTransactionsByMode[string(model.ModeWork)])
+	logTableRowsByMode("transactions", string(model.ModeLife), insertedTransactionsByMode[string(model.ModeLife)])
 
 	// recalculate balances idempotently
 	if _, err := tx.ExecContext(ctx, `
