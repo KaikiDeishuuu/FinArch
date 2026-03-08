@@ -35,11 +35,12 @@ client.interceptors.response.use(
     // Only redirect to login when we had an active token (i.e. session expired).
     // If _token is null the 401 came from an unauthenticated request (e.g. wrong
     // password during login) — let the caller handle the error normally.
-    if (error.response?.status === 401 && _token && !_redirectingToLogin) {
+    const isRestoreRequest = error.config?.url?.includes('/backup/restore')
+    if (error.response?.status === 401 && _token && !_redirectingToLogin && !isRestoreRequest) {
       _redirectingToLogin = true
       _token = null
       // Clear persisted session so expired token is not reloaded on next page render
-      sessionStorage.removeItem('finarch_session')
+      localStorage.removeItem('finarch_session')
       window.location.href = '/login'
     }
     return Promise.reject(error)
