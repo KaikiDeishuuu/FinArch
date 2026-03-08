@@ -12,7 +12,9 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -224,6 +226,8 @@ func (s *Server) registerRoutes() {
 	// Disaster recovery (public — email-verified restore when JWT auth unavailable)
 	pub.POST("/backup/restore-request", s.authRateLimitMiddleware(), s.handleRestoreRequest)
 	pub.POST("/backup/restore-confirm", s.handleRestoreConfirm)
+	pub.GET("/disaster-recovery/snapshots", s.handleDisasterRecoverySnapshots)
+	pub.POST("/disaster-recovery/restore", s.handleDisasterRecoveryExecute)
 
 	// Shortcut: /verify-email → same handler (for emails already sent with old link)
 	r.GET("/verify-email", s.handleVerifyEmail)
@@ -1422,6 +1426,255 @@ func (s *Server) handleLitestreamHealth(c *gin.Context) {
 	ok(c, gin.H{"litestream": st, "journal_mode": strings.ToLower(journalMode), "status_file": statusPath})
 }
 
+type disasterSnapshotMetadata struct {
+	SnapshotID    string `json:"snapshot_id"`
+	CreatedAt     string `json:"created_at"`
+	SchemaVersion int    `json:"schema_version"`
+	AppVersion    string `json:"app_version"`
+	Environment   string `json:"environment"`
+	DBSize        int64  `json:"db_size"`
+	HasMetadata   bool   `json:"has_metadata"`
+}
+
+type disasterRecoveryResult struct {
+	RecoveryID       string
+	SnapshotID       string
+	SchemaBefore     int
+	SchemaAfter      int
+	MigrationApplied bool
+	Duration         time.Duration
+	Success          bool
+	Error            string
+}
+
+func snapshotMetadataPath() string {
+	if p := strings.TrimSpace(os.Getenv("DISASTER_SNAPSHOT_METADATA_PATH")); p != "" {
+		return p
+	}
+	return "/data/litestream_snapshots.json"
+}
+
+func (s *Server) loadDisasterSnapshots() ([]disasterSnapshotMetadata, error) {
+	b, err := os.ReadFile(snapshotMetadataPath())
+	if err != nil {
+		return nil, err
+	}
+	var snapshots []disasterSnapshotMetadata
+	if err := json.Unmarshal(b, &snapshots); err != nil {
+		return nil, err
+	}
+	for i := range snapshots {
+		snapshots[i].HasMetadata = snapshots[i].SnapshotID != "" && snapshots[i].CreatedAt != "" && snapshots[i].SchemaVersion > 0
+	}
+	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].CreatedAt > snapshots[j].CreatedAt })
+	return snapshots, nil
+}
+
+func (s *Server) handleDisasterRecoverySnapshots(c *gin.Context) {
+	snapshots, err := s.loadDisasterSnapshots()
+	if err != nil {
+		fail(c, 500, "SNAPSHOT_LIST_FAILED", "无法读取灾备快照列表")
+		return
+	}
+	ok(c, snapshots)
+}
+
+func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
+	var req struct {
+		SnapshotID           string `json:"snapshot_id" binding:"required"`
+		Confirm              bool   `json:"confirm"`
+		AllowMissingMetadata bool   `json:"allow_missing_metadata"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fail(c, 422, "INVALID_INPUT", "请提供 snapshot_id")
+		return
+	}
+	if !req.Confirm {
+		fail(c, 400, "CONFIRM_REQUIRED", "请确认后再执行灾难恢复")
+		return
+	}
+	snapshots, err := s.loadDisasterSnapshots()
+	if err != nil {
+		fail(c, 500, "SNAPSHOT_LIST_FAILED", "无法读取灾备快照列表")
+		return
+	}
+	var selected *disasterSnapshotMetadata
+	for i := range snapshots {
+		if snapshots[i].SnapshotID == req.SnapshotID {
+			selected = &snapshots[i]
+			break
+		}
+	}
+	if selected == nil {
+		fail(c, 404, "SNAPSHOT_NOT_FOUND", "未找到指定快照")
+		return
+	}
+	if !selected.HasMetadata && !req.AllowMissingMetadata {
+		fail(c, 409, "SNAPSHOT_METADATA_MISSING", "快照缺少元数据，请确认风险后重试")
+		return
+	}
+	appEnv := strings.TrimSpace(os.Getenv("APP_ENV"))
+	if appEnv == "" {
+		appEnv = "production"
+	}
+	if selected.Environment != "" && selected.Environment != appEnv {
+		fail(c, 409, "SNAPSHOT_ENV_MISMATCH", fmt.Sprintf("快照环境(%s)与当前环境(%s)不一致", selected.Environment, appEnv))
+		return
+	}
+	var schemaBefore int
+	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaBefore)
+	if selected.SchemaVersion > schemaBefore {
+		fail(c, 409, "SNAPSHOT_SCHEMA_TOO_NEW", fmt.Sprintf("快照版本(v%d)高于当前系统(v%d)", selected.SchemaVersion, schemaBefore))
+		return
+	}
+
+	result := s.executeDisasterRecovery(c.Request.Context(), selected.SnapshotID, schemaBefore)
+	if !result.Success {
+		fail(c, 500, "DISASTER_RECOVERY_FAILED", result.Error)
+		return
+	}
+	ok(c, gin.H{
+		"message":           "灾难恢复成功",
+		"recovery_id":       result.RecoveryID,
+		"snapshot_id":       result.SnapshotID,
+		"schema_before":     result.SchemaBefore,
+		"schema_after":      result.SchemaAfter,
+		"migration_applied": result.MigrationApplied,
+		"duration_ms":       result.Duration.Milliseconds(),
+	})
+}
+
+func (s *Server) executeDisasterRecovery(ctx context.Context, snapshotID string, schemaBefore int) disasterRecoveryResult {
+	start := time.Now()
+	recoveryID := uuid.NewString()
+	result := disasterRecoveryResult{RecoveryID: recoveryID, SnapshotID: snapshotID, SchemaBefore: schemaBefore}
+	defer func() {
+		result.Duration = time.Since(start)
+		if result.Success {
+			log.Printf("DISASTER_RECOVERY_COMPLETE recovery_id=%s snapshot=%s schema_before=%d schema_after=%d migration=%t duration=%s", result.RecoveryID, result.SnapshotID, result.SchemaBefore, result.SchemaAfter, result.MigrationApplied, result.Duration)
+		} else {
+			log.Printf("DISASTER_RECOVERY_FAILED recovery_id=%s snapshot=%s schema_before=%d error=%q duration=%s", result.RecoveryID, result.SnapshotID, result.SchemaBefore, result.Error, result.Duration)
+		}
+	}()
+
+	tmpRestore, err := os.CreateTemp("", "finarch-r2-restore-*.db")
+	if err != nil {
+		result.Error = "无法创建临时恢复文件"
+		return result
+	}
+	tmpRestorePath := tmpRestore.Name()
+	tmpRestore.Close()
+	defer os.Remove(tmpRestorePath)
+
+	findb.Global().SetState(findb.StateRestore)
+	defer findb.Global().SetState(findb.StateNormal)
+
+	args := []string{"restore", "-config", "/etc/litestream.yml"}
+	if strings.TrimSpace(snapshotID) != "" {
+		args = append(args, "-timestamp", snapshotID)
+	}
+	args = append(args, tmpRestorePath)
+	cmd := exec.CommandContext(ctx, "litestream", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		result.Error = fmt.Sprintf("拉取快照失败: %v (%s)", err, strings.TrimSpace(string(out)))
+		return result
+	}
+
+	restoreSrcDB, err := sql.Open("sqlite3", tmpRestorePath)
+	if err != nil {
+		result.Error = "无法打开恢复快照"
+		return result
+	}
+	defer restoreSrcDB.Close()
+
+	destConn, err := s.db.Conn(ctx)
+	if err != nil {
+		result.Error = "获取数据库连接失败"
+		return result
+	}
+	defer destConn.Close()
+
+	srcConn, err := restoreSrcDB.Conn(ctx)
+	if err != nil {
+		result.Error = "获取快照连接失败"
+		return result
+	}
+	defer srcConn.Close()
+
+	var restoreErr error
+	srcConn.Raw(func(srcRaw interface{}) error {
+		return destConn.Raw(func(destRaw interface{}) error {
+			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
+			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
+			if !ok1 || !ok2 {
+				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
+				return restoreErr
+			}
+			bk, err := destSQLite.Backup("main", srcSQLite, "main")
+			if err != nil {
+				restoreErr = err
+				return err
+			}
+			defer bk.Finish()
+			if _, err := bk.Step(-1); err != nil {
+				restoreErr = err
+				return err
+			}
+			return nil
+		})
+	})
+	if restoreErr != nil {
+		result.Error = fmt.Sprintf("替换数据库失败: %v", restoreErr)
+		return result
+	}
+
+	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
+		log.Printf("[WARN] disaster-recovery reapply pragmas: %v", err)
+	}
+	if err := findb.Migrate(ctx, s.db); err != nil {
+		result.Error = fmt.Sprintf("迁移失败: %v", err)
+		return result
+	}
+
+	var schemaAfter int
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaAfter); err != nil {
+		result.Error = "读取恢复后版本失败"
+		return result
+	}
+	result.SchemaAfter = schemaAfter
+	result.MigrationApplied = schemaAfter > schemaBefore
+
+	if err := s.validatePostRecovery(ctx); err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	result.Success = true
+	return result
+}
+
+func (s *Server) validatePostRecovery(ctx context.Context) error {
+	required := []string{"users", "transactions", "accounts", "categories", "schema_migrations", "backup_metadata"}
+	for _, t := range required {
+		var c int
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name=?`, t).Scan(&c); err != nil {
+			return fmt.Errorf("恢复后校验失败：无法读取表 %s", t)
+		}
+		if c == 0 {
+			return fmt.Errorf("恢复后校验失败：缺少表 %s", t)
+		}
+	}
+	var users int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM users`).Scan(&users); err != nil {
+		return fmt.Errorf("恢复后校验失败：无法访问 users 表")
+	}
+	if users == 0 {
+		return fmt.Errorf("恢复后校验失败：无用户数据")
+	}
+	if err := s.db.PingContext(ctx); err != nil {
+		return fmt.Errorf("恢复后健康检查失败")
+	}
+	return nil
+}
 func (s *Server) handleBackupExportRequest(c *gin.Context) {
 	var req struct {
 		CurrentPassword string `json:"current_password" binding:"required"`
