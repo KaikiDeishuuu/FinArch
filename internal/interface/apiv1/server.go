@@ -73,14 +73,76 @@ type pendingRestore struct {
 	token     string
 }
 
-func isCrossAccountRestore(backupOwnerID, backupOwnerEmail, currentUserID, currentUserEmail string) bool {
-	if backupOwnerID != "" && currentUserID != "" && backupOwnerID == currentUserID {
-		return false
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+type backupIdentity struct {
+	MetadataUserID     string
+	MetadataUserEmail  string
+	MetadataSchema     int
+	MetadataCreatedAt  string
+	MetadataAppVersion string
+	MetadataPresent    bool
+	FallbackOwnerID    string
+	FallbackOwnerEmail string
+	FallbackOwnerName  string
+}
+
+func backupHasUser(srcDB *sql.DB, uid, email string) (bool, bool, error) {
+	var sameID, sameEmail bool
+	if strings.TrimSpace(uid) != "" {
+		var cnt int
+		if err := srcDB.QueryRow(`SELECT COUNT(1) FROM users WHERE deleted_at IS NULL AND id = ?`, uid).Scan(&cnt); err != nil {
+			return false, false, err
+		}
+		sameID = cnt > 0
 	}
-	if backupOwnerEmail != "" && currentUserEmail != "" && strings.EqualFold(strings.TrimSpace(backupOwnerEmail), strings.TrimSpace(currentUserEmail)) {
-		return false
+	if normalizeEmail(email) != "" {
+		var cnt int
+		if err := srcDB.QueryRow(`SELECT COUNT(1) FROM users WHERE deleted_at IS NULL AND lower(trim(email)) = ?`, normalizeEmail(email)).Scan(&cnt); err != nil {
+			return false, false, err
+		}
+		sameEmail = cnt > 0
 	}
-	return backupOwnerID != "" && currentUserID != ""
+	return sameID, sameEmail, nil
+}
+
+func readBackupIdentity(srcDB *sql.DB) (backupIdentity, error) {
+	identity := backupIdentity{}
+
+	var tableCount int
+	if err := srcDB.QueryRow(`SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name='backup_metadata'`).Scan(&tableCount); err != nil {
+		return identity, err
+	}
+	if tableCount > 0 {
+		row := srcDB.QueryRow(`SELECT user_id, user_email, COALESCE(schema_version, 0), COALESCE(created_at, ''), COALESCE(app_version, '') FROM backup_metadata ORDER BY created_at DESC LIMIT 1`)
+		var uid, email, createdAt, appVersion string
+		var schemaVersion int
+		if err := row.Scan(&uid, &email, &schemaVersion, &createdAt, &appVersion); err == nil {
+			identity.MetadataPresent = true
+			identity.MetadataUserID = strings.TrimSpace(uid)
+			identity.MetadataUserEmail = strings.TrimSpace(email)
+			identity.MetadataSchema = schemaVersion
+			identity.MetadataCreatedAt = createdAt
+			identity.MetadataAppVersion = appVersion
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return identity, err
+		}
+	}
+
+	row := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+	switch err := row.Scan(&identity.FallbackOwnerID, &identity.FallbackOwnerEmail, &identity.FallbackOwnerName); err {
+	case nil:
+		identity.FallbackOwnerID = strings.TrimSpace(identity.FallbackOwnerID)
+		identity.FallbackOwnerEmail = strings.TrimSpace(identity.FallbackOwnerEmail)
+	case sql.ErrNoRows:
+		return identity, fmt.Errorf("备份文件中未找到用户数据")
+	default:
+		return identity, err
+	}
+
+	return identity, nil
 }
 
 func NewServer(
@@ -1405,6 +1467,42 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 	// Embed schema version in filename for traceability
 	var schemaVer int
 	_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer)
+
+	backupDB, err := sql.Open("sqlite3", tmpPath)
+	if err != nil {
+		fail(c, 500, 50001, "备份元数据写入失败")
+		return
+	}
+	defer backupDB.Close()
+	if _, err := backupDB.Exec(`
+		CREATE TABLE IF NOT EXISTS backup_metadata (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			user_id TEXT NOT NULL,
+			user_email TEXT NOT NULL,
+			schema_version INTEGER NOT NULL,
+			created_at TEXT NOT NULL,
+			app_version TEXT NOT NULL
+		)
+	`); err != nil {
+		fail(c, 500, 50001, "备份元数据写入失败")
+		return
+	}
+	if _, err := backupDB.Exec(`DELETE FROM backup_metadata WHERE id = 1`); err != nil {
+		fail(c, 500, 50001, "备份元数据写入失败")
+		return
+	}
+	appVersion := strings.TrimSpace(os.Getenv("APP_VERSION"))
+	if appVersion == "" {
+		appVersion = "unknown"
+	}
+	if _, err := backupDB.Exec(
+		`INSERT INTO backup_metadata (id, user_id, user_email, schema_version, created_at, app_version) VALUES (1, ?, ?, ?, ?, ?)`,
+		userID(c), c.GetString("userEmail"), schemaVer, time.Now().UTC().Format(time.RFC3339), appVersion,
+	); err != nil {
+		fail(c, 500, 50001, "备份元数据写入失败")
+		return
+	}
+
 	ts := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("finarch_backup_v%d_%s.db", schemaVer, ts)
 	// Add proper cache-control headers to prevent the browser from caching the backup download
@@ -1517,27 +1615,48 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	// Extract backup owner (same heuristic as disaster-recovery flow)
-	var backupOwnerEmail, backupOwnerName, backupOwnerID string
-	ownerRow := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
-	switch err := ownerRow.Scan(&backupOwnerID, &backupOwnerEmail, &backupOwnerName); err {
-	case nil:
-		// ok
-	case sql.ErrNoRows:
+	identity, err := readBackupIdentity(srcDB)
+	if err != nil {
 		srcDB.Close()
-		fail(c, 400, 40007, "备份文件中未找到用户数据")
-		return
-	default:
-		srcDB.Close()
+		if strings.Contains(err.Error(), "备份文件中未找到用户数据") {
+			fail(c, 400, 40007, "备份文件中未找到用户数据")
+			return
+		}
 		fail(c, 400, 40007, "读取备份所有者信息失败")
 		return
 	}
 
+	backupUserID := identity.MetadataUserID
+	backupUserEmail := identity.MetadataUserEmail
+	if backupUserID == "" {
+		backupUserID = identity.FallbackOwnerID
+	}
+	if backupUserEmail == "" {
+		backupUserEmail = identity.FallbackOwnerEmail
+	}
+
 	currentUserID := userID(c)
 	currentUserEmail := c.GetString("userEmail")
-	crossAccount := isCrossAccountRestore(backupOwnerID, backupOwnerEmail, currentUserID, currentUserEmail)
+	log.Printf("[RESTORE] request_user_context user_id=%s user_email=%s", currentUserID, currentUserEmail)
+	log.Printf("[RESTORE] backup_metadata backup_user_id=%s backup_user_email=%s schema_version=%d metadata_present=%t metadata_schema_version=%d", identity.MetadataUserID, identity.MetadataUserEmail, uploadedVersion, identity.MetadataPresent, identity.MetadataSchema)
 
-	log.Printf("[RESTORE] backup_owner=%s current_user=%s cross_account=%t", backupOwnerEmail, currentUserEmail, crossAccount)
+	sameIDByMetadata := identity.MetadataUserID != "" && currentUserID != "" && identity.MetadataUserID == currentUserID
+	sameEmailByMetadata := normalizeEmail(identity.MetadataUserEmail) != "" && normalizeEmail(currentUserEmail) != "" && normalizeEmail(identity.MetadataUserEmail) == normalizeEmail(currentUserEmail)
+	sameIDInBackup, sameEmailInBackup, err := backupHasUser(srcDB, currentUserID, currentUserEmail)
+	if err != nil {
+		srcDB.Close()
+		fail(c, 500, 50002, "读取备份用户信息失败")
+		return
+	}
+	sameID := sameIDByMetadata || sameIDInBackup
+	sameEmail := sameEmailByMetadata || sameEmailInBackup
+	crossAccount := !(sameID || sameEmail)
+	restoreMode := "CROSS_ACCOUNT"
+	if !crossAccount {
+		restoreMode = "SAME_ACCOUNT"
+	}
+
+	log.Printf("[RESTORE] detection_result authenticated_user_id=%s authenticated_user_email=%s backup_user_id=%s backup_user_email=%s same_id=%t same_email=%t restore_mode=%s", currentUserID, currentUserEmail, backupUserID, backupUserEmail, sameID, sameEmail, restoreMode)
 
 	// Cross-account restore now requires out-of-band email verification.
 	if crossAccount {
@@ -1629,14 +1748,27 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
 		return
 	}
-	var ownerID, ownerEmail, ownerName string
-	row := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
-	if err := row.Scan(&ownerID, &ownerEmail, &ownerName); err != nil {
+	identity, err := readBackupIdentity(srcDB)
+	if err != nil {
 		os.Remove(tmpPath)
-		fail(c, 400, 40007, "备份文件中未找到用户数据")
+		if strings.Contains(err.Error(), "备份文件中未找到用户数据") {
+			fail(c, 400, 40007, "备份文件中未找到用户数据")
+			return
+		}
+		fail(c, 400, 40007, "读取备份所有者信息失败")
 		return
 	}
-	if !strings.EqualFold(ownerEmail, originalEmail) {
+
+	backupUserID := identity.MetadataUserID
+	backupEmail := identity.MetadataUserEmail
+	backupName := identity.FallbackOwnerName
+	if backupUserID == "" {
+		backupUserID = identity.FallbackOwnerID
+	}
+	if backupEmail == "" {
+		backupEmail = identity.FallbackOwnerEmail
+	}
+	if normalizeEmail(backupEmail) != normalizeEmail(originalEmail) {
 		os.Remove(tmpPath)
 		fail(c, http.StatusForbidden, "RESTORE_EMAIL_MISMATCH", "原账号邮箱与备份不匹配")
 		return
@@ -1644,7 +1776,18 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 
 	currentUserID := userID(c)
 	currentUserEmail := c.GetString("userEmail")
-	if !isCrossAccountRestore(ownerID, ownerEmail, currentUserID, currentUserEmail) {
+	sameIDByMetadata := identity.MetadataUserID != "" && currentUserID != "" && identity.MetadataUserID == currentUserID
+	sameEmailByMetadata := normalizeEmail(identity.MetadataUserEmail) != "" && normalizeEmail(currentUserEmail) != "" && normalizeEmail(identity.MetadataUserEmail) == normalizeEmail(currentUserEmail)
+	sameIDInBackup, sameEmailInBackup, err := backupHasUser(srcDB, currentUserID, currentUserEmail)
+	if err != nil {
+		os.Remove(tmpPath)
+		fail(c, 500, 50002, "读取备份用户信息失败")
+		return
+	}
+	sameID := sameIDByMetadata || sameIDInBackup
+	sameEmail := sameEmailByMetadata || sameEmailInBackup
+	log.Printf("[RESTORE] verification_request requester_user_id=%s requester_email=%s pending_backup_user_id=%s pending_backup_email=%s same_id=%t same_email=%t", currentUserID, currentUserEmail, backupUserID, backupEmail, sameID, sameEmail)
+	if sameID || sameEmail {
 		os.Remove(tmpPath)
 		fail(c, http.StatusBadRequest, "RESTORE_VERIFICATION_NOT_REQUIRED", "当前备份属于本账号，无需邮箱验证")
 		return
@@ -1660,15 +1803,15 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 
 	code := generateCode()
 	restoreID := uuid.NewString()
-	s.pendingRestores.Store(restoreID, &pendingRestore{code: code, tmpPath: tmpPath, expiresAt: time.Now().Add(10 * time.Minute), email: ownerEmail, name: ownerName, ownerID: ownerID, requester: currentUserID})
-	if err := s.emailSvc.SendRestoreCode(ownerEmail, ownerName, code); err != nil {
+	s.pendingRestores.Store(restoreID, &pendingRestore{code: code, tmpPath: tmpPath, expiresAt: time.Now().Add(10 * time.Minute), email: backupEmail, name: backupName, ownerID: backupUserID, requester: currentUserID})
+	if err := s.emailSvc.SendRestoreCode(backupEmail, backupName, code); err != nil {
 		os.Remove(tmpPath)
 		s.pendingRestores.Delete(restoreID)
 		fail(c, 500, 50005, "验证码发送失败，请检查邮件服务配置")
 		return
 	}
 
-	ok(c, gin.H{"restore_id": restoreID, "masked_email": maskEmail(ownerEmail), "expires_in": 600, "message": "验证码已发送"})
+	ok(c, gin.H{"restore_id": restoreID, "masked_email": maskEmail(backupEmail), "expires_in": 600, "message": "验证码已发送"})
 }
 
 func (s *Server) handleRestoreVerify(c *gin.Context) {

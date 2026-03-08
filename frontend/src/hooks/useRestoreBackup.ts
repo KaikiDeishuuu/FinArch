@@ -33,6 +33,7 @@ export function useRestoreBackup(
     setLoading(true);
     try {
       const result = await restoreBackup(file);
+      console.log("Restore response", result);
       await onRestoreSuccess(result);
       return { status: "restored" as const, result };
     } catch (err: any) {
