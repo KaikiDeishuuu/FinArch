@@ -1778,6 +1778,14 @@ func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, up
 		_, _ = s.db.ExecContext(ctx, fmt.Sprintf("VACUUM INTO '%s'", safetyPath))
 	}
 
+	if source == "verified" && strings.TrimSpace(targetUserID) != "" {
+		return s.performCrossAccountMergeRestore(ctx, tmpPath, uploadedVersion, currentVersion, targetUserID)
+	}
+
+	return s.performReplaceRestore(ctx, tmpPath, uploadedVersion, currentVersion, source)
+}
+
+func (s *Server) performReplaceRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source string) (int, error) {
 	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
 	if err != nil {
 		return 0, fmt.Errorf("无法打开备份文件")
@@ -1836,12 +1844,6 @@ func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, up
 		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&migratedTo)
 	}
 
-	if source == "verified" && strings.TrimSpace(targetUserID) != "" {
-		if err := s.mergeCrossAccountRestore(ctx, targetUserID); err != nil {
-			return 0, err
-		}
-	}
-
 	var users int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM users WHERE deleted_at IS NULL`).Scan(&users); err != nil || users == 0 {
 		return 0, fmt.Errorf("恢复校验失败：用户数据不存在")
@@ -1849,103 +1851,408 @@ func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, up
 	return migratedTo, nil
 }
 
-func (s *Server) mergeCrossAccountRestore(ctx context.Context, targetUserID string) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := s.db.ExecContext(ctx, `
-		UPDATE accounts
-		SET user_id = ?, updated_at = ?, version = version + 1
-		WHERE user_id <> ?
-	`, targetUserID, now, targetUserID); err != nil {
-		return fmt.Errorf("跨账号恢复失败：账户归属迁移失败")
-	}
-	if _, err := s.db.ExecContext(ctx, `
-		UPDATE transactions
-		SET user_id = ?, updated_at = ?, version = version + 1
-		WHERE user_id <> ?
-	`, targetUserID, now, targetUserID); err != nil {
-		return fmt.Errorf("跨账号恢复失败：交易归属迁移失败")
-	}
-	if _, err := s.db.ExecContext(ctx, `
-		UPDATE categories
-		SET user_id = ?, version = version + 1
-		WHERE user_id <> ?
-	`, targetUserID, targetUserID); err != nil {
-		return fmt.Errorf("跨账号恢复失败：分类归属迁移失败")
-	}
-
-	if _, err := s.db.ExecContext(ctx, `
-		INSERT INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, created_at, version)
-		SELECT
-			lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' ||
-			substr(lower(hex(randomblob(2))),2) || '-' ||
-			substr('89ab', abs(random()) % 4 + 1, 1) ||
-			substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))),
-			?, c.name, c.type, NULL, c.sort_order, c.is_active, ?, 1
-		FROM categories c
-		WHERE c.user_id = ?
-		AND EXISTS (
-			SELECT 1 FROM categories dup
-			WHERE dup.user_id = c.user_id AND lower(dup.name) = lower(c.name) AND dup.type = c.type AND dup.id <> c.id
-		)
-		AND c.id IN (
-			SELECT MIN(id) FROM categories grp
-			WHERE grp.user_id = c.user_id
-			GROUP BY lower(grp.name), grp.type
-		)
-	`, targetUserID, now, targetUserID); err != nil {
-		return fmt.Errorf("跨账号恢复失败：分类去重失败")
-	}
-
-	if _, err := s.db.ExecContext(ctx, `
-		DELETE FROM categories
-		WHERE user_id = ?
-		AND id NOT IN (
-			SELECT MIN(id) FROM categories WHERE user_id = ? GROUP BY lower(name), type
-		)
-	`, targetUserID, targetUserID); err != nil {
-		return fmt.Errorf("跨账号恢复失败：分类清理失败")
-	}
-
-	if _, err := s.db.ExecContext(ctx, `
-		DELETE FROM transactions
-		WHERE id IN (
-			SELECT t1.id
-			FROM transactions t1
-			JOIN transactions t2
-			  ON t1.user_id = t2.user_id
-			 AND t1.id = t2.id
-			 AND t1.rowid > t2.rowid
-			WHERE t1.user_id = ?
-		)
-	`, targetUserID); err != nil {
-		return fmt.Errorf("跨账号恢复失败：交易去重失败")
-	}
-
-	if err := s.validateRestoreIntegrity(ctx, targetUserID); err != nil {
-		return err
-	}
-	return nil
+func deterministicRestoreID(entity, sourceUserID, targetUserID, oldID string) string {
+	seed := strings.Join([]string{"finarch-restore", entity, sourceUserID, targetUserID, oldID}, ":")
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed)).String()
 }
 
-func (s *Server) validateRestoreIntegrity(ctx context.Context, targetUserID string) error {
-	var missingAccountOwnership int
-	if err := s.db.QueryRowContext(ctx, `
+func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, targetUserID string) (int, error) {
+	if uploadedVersion < currentVersion {
+		backupDB, err := sql.Open("sqlite3", tmpPath)
+		if err != nil {
+			return 0, fmt.Errorf("无法打开备份文件")
+		}
+		if err := findb.Migrate(ctx, backupDB); err != nil {
+			backupDB.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：备份数据迁移失败: %s", err.Error())
+		}
+		backupDB.Close()
+	}
+
+	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
+	if err != nil {
+		return 0, fmt.Errorf("无法打开备份文件")
+	}
+	defer srcDB.Close()
+
+	var sourceUserID string
+	ownerRow := srcDB.QueryRow(`SELECT id FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+	if err := ownerRow.Scan(&sourceUserID); err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：无法识别备份所有者")
+	}
+
+	findb.Global().SetState(findb.StateRestore)
+	defer findb.Global().SetState(findb.StateNormal)
+
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：无法开启事务")
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	accountMap := map[string]string{}
+	categoryMap := map[string]string{}
+	projectMap := map[string]string{}
+	groupMap := map[string]string{}
+
+	// accounts: map by (type,name,currency), else deterministic remap id
+	rows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type, currency FROM accounts WHERE user_id=?`, targetUserID)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取目标账户失败")
+	}
+	existingAccounts := map[string]string{}
+	for rows.Next() {
+		var id, lname, typ, currency string
+		if err := rows.Scan(&id, &lname, &typ, &currency); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取目标账户失败")
+		}
+		existingAccounts[typ+"|"+lname+"|"+currency] = id
+	}
+	rows.Close()
+
+	accRows, err := srcDB.QueryContext(ctx, `SELECT id, name, type, currency, is_active FROM accounts WHERE user_id = ?`, sourceUserID)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取备份账户失败")
+	}
+	for accRows.Next() {
+		var oldID, name, typ, currency string
+		var active int
+		if err := accRows.Scan(&oldID, &name, &typ, &currency, &active); err != nil {
+			accRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取备份账户失败")
+		}
+		key := typ + "|" + strings.ToLower(name) + "|" + currency
+		if existingID, ok := existingAccounts[key]; ok {
+			accountMap[oldID] = existingID
+			continue
+		}
+		newID := deterministicRestoreID("account", sourceUserID, targetUserID, oldID)
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR IGNORE INTO accounts (id, user_id, name, type, currency, balance_cents, version, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?, ?)
+		`, newID, targetUserID, name, typ, currency, active, now, now); err != nil {
+			accRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：写入账户失败")
+		}
+		accountMap[oldID] = newID
+		existingAccounts[key] = newID
+	}
+	accRows.Close()
+
+	// categories: deterministic dedup by (name,type)
+	catRows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type FROM categories WHERE user_id=?`, targetUserID)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取目标分类失败")
+	}
+	existingCategories := map[string]string{}
+	for catRows.Next() {
+		var id, lname, typ string
+		if err := catRows.Scan(&id, &lname, &typ); err != nil {
+			catRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取目标分类失败")
+		}
+		existingCategories[typ+"|"+lname] = id
+	}
+	catRows.Close()
+
+	type pendingParent struct{ child, parent string }
+	var parentFixes []pendingParent
+	srcCatRows, err := srcDB.QueryContext(ctx, `SELECT id, name, type, parent_id, sort_order, is_active FROM categories WHERE user_id=?`, sourceUserID)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取备份分类失败")
+	}
+	for srcCatRows.Next() {
+		var oldID, name, typ string
+		var parent sql.NullString
+		var sort int
+		var active int
+		if err := srcCatRows.Scan(&oldID, &name, &typ, &parent, &sort, &active); err != nil {
+			srcCatRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取备份分类失败")
+		}
+		key := typ + "|" + strings.ToLower(name)
+		if existingID, ok := existingCategories[key]; ok {
+			categoryMap[oldID] = existingID
+		} else {
+			newID := deterministicRestoreID("category", sourceUserID, targetUserID, oldID)
+			if _, err := tx.ExecContext(ctx, `
+				INSERT OR IGNORE INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, created_at, version)
+				VALUES (?, ?, ?, ?, NULL, ?, ?, ?, 1)
+			`, newID, targetUserID, name, typ, sort, active, now); err != nil {
+				srcCatRows.Close()
+				return 0, fmt.Errorf("跨账号恢复失败：写入分类失败")
+			}
+			categoryMap[oldID] = newID
+			existingCategories[key] = newID
+		}
+		if parent.Valid {
+			parentFixes = append(parentFixes, pendingParent{child: oldID, parent: parent.String})
+		}
+	}
+	srcCatRows.Close()
+	for _, pf := range parentFixes {
+		childID, okChild := categoryMap[pf.child]
+		parentID, okParent := categoryMap[pf.parent]
+		if !okChild || !okParent || childID == parentID {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE categories SET parent_id=? WHERE id=? AND user_id=?`, parentID, childID, targetUserID); err != nil {
+			return 0, fmt.Errorf("跨账号恢复失败：更新分类层级失败")
+		}
+	}
+
+	// projects: no user_id, dedup by code then name
+	projRows, err := tx.QueryContext(ctx, `SELECT id, code, lower(name) FROM projects`)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取目标项目失败")
+	}
+	projectByCode := map[string]string{}
+	projectByName := map[string]string{}
+	for projRows.Next() {
+		var id, code, lname string
+		if err := projRows.Scan(&id, &code, &lname); err != nil {
+			projRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取目标项目失败")
+		}
+		projectByCode[code] = id
+		projectByName[lname] = id
+	}
+	projRows.Close()
+
+	srcProjRows, err := srcDB.QueryContext(ctx, `SELECT id, name, code, created_at FROM projects`)
+	if err == nil {
+		for srcProjRows.Next() {
+			var oldID, name, code string
+			var createdAt any
+			if err := srcProjRows.Scan(&oldID, &name, &code, &createdAt); err != nil {
+				srcProjRows.Close()
+				return 0, fmt.Errorf("跨账号恢复失败：读取备份项目失败")
+			}
+			if id, ok := projectByCode[code]; ok {
+				projectMap[oldID] = id
+				continue
+			}
+			if id, ok := projectByName[strings.ToLower(name)]; ok {
+				projectMap[oldID] = id
+				continue
+			}
+			newID := deterministicRestoreID("project", sourceUserID, targetUserID, oldID)
+			newCode := code
+			if _, exists := projectByCode[newCode]; exists {
+				newCode = fmt.Sprintf("%s-%s", code, newID[:6])
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO projects (id, name, code, created_at, version) VALUES (?, ?, ?, ?, 1)`, newID, name, newCode, now); err != nil {
+				srcProjRows.Close()
+				return 0, fmt.Errorf("跨账号恢复失败：写入项目失败")
+			}
+			projectMap[oldID] = newID
+			projectByCode[newCode] = newID
+			projectByName[strings.ToLower(name)] = newID
+		}
+		srcProjRows.Close()
+	}
+
+	// pre-load transaction fingerprints for deterministic dedup
+	fingerprintSet := map[string]struct{}{}
+	existingTxRows, err := tx.QueryContext(ctx, `
+		SELECT account_id, COALESCE(category_id,''), COALESCE(project_id,''), direction, type, amount_cents, currency, txn_date, COALESCE(note,'')
+		FROM transactions WHERE user_id = ?
+	`, targetUserID)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取现有交易失败")
+	}
+	for existingTxRows.Next() {
+		var acc, cat, proj, dir, typ, currency, txnDate, note string
+		var amount int64
+		if err := existingTxRows.Scan(&acc, &cat, &proj, &dir, &typ, &amount, &currency, &txnDate, &note); err != nil {
+			existingTxRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取现有交易失败")
+		}
+		fp := strings.Join([]string{acc, cat, proj, dir, typ, fmt.Sprint(amount), currency, txnDate, note}, "|")
+		fingerprintSet[fp] = struct{}{}
+	}
+	existingTxRows.Close()
+
+	srcTxRows, err := srcDB.QueryContext(ctx, `
+		SELECT id, group_id, direction, account_id, amount_cents, currency, exchange_rate, base_amount_cents,
+		       type, category_id, category, reimb_status, reimb_to_account, project_id, project,
+		       note, uploaded, txn_date, created_at, updated_at
+		FROM transactions
+		WHERE user_id = ?
+		ORDER BY created_at ASC, id ASC
+	`, sourceUserID)
+	if err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：读取备份交易失败")
+	}
+	for srcTxRows.Next() {
+		var oldID, oldGroupID, dir, oldAccountID, currency, typ string
+		var amount, baseAmount int64
+		var exchangeRate float64
+		var oldCategoryID, category, reimbStatus sql.NullString
+		var oldReimbToAccount, oldProjectID, project, note sql.NullString
+		var uploaded int
+		var txnDate, createdAt, updatedAt string
+		if err := srcTxRows.Scan(&oldID, &oldGroupID, &dir, &oldAccountID, &amount, &currency, &exchangeRate, &baseAmount,
+			&typ, &oldCategoryID, &category, &reimbStatus, &oldReimbToAccount, &oldProjectID, &project,
+			&note, &uploaded, &txnDate, &createdAt, &updatedAt); err != nil {
+			srcTxRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取备份交易失败")
+		}
+		mappedAccountID := accountMap[oldAccountID]
+		if mappedAccountID == "" {
+			continue
+		}
+		var mappedCategoryID sql.NullString
+		if oldCategoryID.Valid {
+			if v := categoryMap[oldCategoryID.String]; v != "" {
+				mappedCategoryID = sql.NullString{String: v, Valid: true}
+			}
+		}
+		var mappedProjectID sql.NullString
+		if oldProjectID.Valid {
+			if v := projectMap[oldProjectID.String]; v != "" {
+				mappedProjectID = sql.NullString{String: v, Valid: true}
+			}
+		}
+		var mappedReimbTo sql.NullString
+		if oldReimbToAccount.Valid {
+			if v := accountMap[oldReimbToAccount.String]; v != "" {
+				mappedReimbTo = sql.NullString{String: v, Valid: true}
+			}
+		}
+		categoryText := ""
+		if category.Valid {
+			categoryText = category.String
+		}
+		reimbText := "none"
+		if reimbStatus.Valid && strings.TrimSpace(reimbStatus.String) != "" {
+			reimbText = reimbStatus.String
+		}
+		projectText := ""
+		if project.Valid {
+			projectText = project.String
+		}
+		noteText := ""
+		if note.Valid {
+			noteText = note.String
+		}
+		fp := strings.Join([]string{mappedAccountID, mappedCategoryID.String, mappedProjectID.String, dir, typ, fmt.Sprint(amount), currency, txnDate, noteText}, "|")
+		if _, exists := fingerprintSet[fp]; exists {
+			continue
+		}
+
+		newID := deterministicRestoreID("transaction", sourceUserID, targetUserID, oldID)
+		mappedGroupID, ok := groupMap[oldGroupID]
+		if !ok {
+			mappedGroupID = deterministicRestoreID("group", sourceUserID, targetUserID, oldGroupID)
+			groupMap[oldGroupID] = mappedGroupID
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR IGNORE INTO transactions (
+				id, user_id, group_id, direction, account_id,
+				amount_cents, currency, exchange_rate, base_amount_cents,
+				type, category_id, category,
+				reimb_status, reimb_to_account, reimbursement_id,
+				project_id, project, mode,
+				note, uploaded, idempotency_key, txn_date, created_at, updated_at, version
+			) VALUES (
+				?, ?, ?, ?, ?,
+				?, ?, ?, ?,
+				?, ?, ?,
+				?, ?, NULL,
+				?, ?, 'work',
+				?, ?, NULL, ?, ?, ?, 1
+			)
+		`, newID, targetUserID, mappedGroupID, dir, mappedAccountID,
+			amount, currency, exchangeRate, baseAmount,
+			typ, mappedCategoryID, categoryText,
+			reimbText, mappedReimbTo,
+			mappedProjectID, projectText,
+			noteText, uploaded, txnDate, createdAt, updatedAt); err != nil {
+			srcTxRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：写入交易失败")
+		}
+		fingerprintSet[fp] = struct{}{}
+	}
+	srcTxRows.Close()
+
+	// recalculate balances idempotently
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE accounts
+		SET balance_cents = (
+			SELECT COALESCE(SUM(CASE t.direction WHEN 'credit' THEN t.base_amount_cents ELSE -t.base_amount_cents END), 0)
+			FROM transactions t WHERE t.account_id = accounts.id
+		),
+		updated_at = ?,
+		version = version + 1
+		WHERE user_id = ?
+	`, now, targetUserID); err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：更新账户余额失败")
+	}
+
+	if err := s.validateRestoreIntegrity(ctx, tx, targetUserID); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("跨账号恢复失败：提交失败")
+	}
+
+	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
+		log.Printf("[WARN] cross-restore: reapply pragmas: %v", err)
+	}
+	if err := s.acctSvc.EnsureDefaultAccounts(ctx, targetUserID); err != nil {
+		log.Printf("[WARN] cross-restore: ensure default accounts failed: %v", err)
+	}
+	return currentVersion, nil
+}
+
+func (s *Server) validateRestoreIntegrity(ctx context.Context, tx *sql.Tx, targetUserID string) error {
+	var wrongAccountOwnership int
+	if err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(1)
 		FROM transactions t
 		JOIN accounts a ON a.id = t.account_id
 		WHERE t.user_id = ? AND a.user_id <> ?
-	`, targetUserID, targetUserID).Scan(&missingAccountOwnership); err != nil {
+	`, targetUserID, targetUserID).Scan(&wrongAccountOwnership); err != nil {
 		return fmt.Errorf("恢复校验失败：无法校验账户归属")
 	}
-	if missingAccountOwnership > 0 {
-		return fmt.Errorf("恢复校验失败：存在交易引用了其他账号的账户")
+	if wrongAccountOwnership > 0 {
+		return fmt.Errorf("恢复校验失败：存在交易引用其他用户账户")
+	}
+
+	var missingCategoryFK int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(1)
+		FROM transactions t
+		LEFT JOIN categories c ON c.id = t.category_id
+		WHERE t.user_id = ? AND t.category_id IS NOT NULL AND c.id IS NULL
+	`, targetUserID).Scan(&missingCategoryFK); err != nil {
+		return fmt.Errorf("恢复校验失败：无法校验分类外键")
+	}
+	if missingCategoryFK > 0 {
+		return fmt.Errorf("恢复校验失败：存在交易引用不存在的分类")
+	}
+
+	var missingProjectFK int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(1)
+		FROM transactions t
+		LEFT JOIN projects p ON p.id = t.project_id
+		WHERE t.user_id = ? AND t.project_id IS NOT NULL AND p.id IS NULL
+	`, targetUserID).Scan(&missingProjectFK); err != nil {
+		return fmt.Errorf("恢复校验失败：无法校验项目外键")
+	}
+	if missingProjectFK > 0 {
+		return fmt.Errorf("恢复校验失败：存在交易引用不存在的项目")
 	}
 
 	var duplicateCategories int
-	if err := s.db.QueryRowContext(ctx, `
+	if err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(1)
 		FROM (
-			SELECT lower(name), type, COUNT(1) cnt
+			SELECT lower(name), type, COUNT(1)
 			FROM categories
 			WHERE user_id = ?
 			GROUP BY lower(name), type
@@ -1956,23 +2263,6 @@ func (s *Server) validateRestoreIntegrity(ctx context.Context, targetUserID stri
 	}
 	if duplicateCategories > 0 {
 		return fmt.Errorf("恢复校验失败：分类存在重复")
-	}
-
-	var duplicateTxnIDs int
-	if err := s.db.QueryRowContext(ctx, `
-		SELECT COUNT(1)
-		FROM (
-			SELECT id, COUNT(1) cnt
-			FROM transactions
-			WHERE user_id = ?
-			GROUP BY id
-			HAVING COUNT(1) > 1
-		)
-	`, targetUserID).Scan(&duplicateTxnIDs); err != nil {
-		return fmt.Errorf("恢复校验失败：无法校验交易重复")
-	}
-	if duplicateTxnIDs > 0 {
-		return fmt.Errorf("恢复校验失败：交易主键重复")
 	}
 
 	return nil
