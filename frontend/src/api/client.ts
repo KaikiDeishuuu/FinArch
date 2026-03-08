@@ -466,6 +466,38 @@ export async function disasterRestoreConfirm(
   return data.data
 }
 
+export interface DisasterSnapshot {
+  snapshot_id: string
+  created_at: string
+  schema_version: number
+  app_version: string
+  environment: string
+  db_size: number
+  has_metadata: boolean
+}
+
+export async function listDisasterSnapshots(): Promise<DisasterSnapshot[]> {
+  const { data } = await axios.get('/api/v1/disaster-recovery/snapshots')
+  return data.data
+}
+
+export async function executeDisasterRecovery(snapshotId: string, allowMissingMetadata = false): Promise<{
+  message: string
+  recovery_id: string
+  snapshot_id: string
+  schema_before: number
+  schema_after: number
+  migration_applied: boolean
+  duration_ms: number
+}> {
+  const { data } = await axios.post('/api/v1/disaster-recovery/restore', {
+    snapshot_id: snapshotId,
+    confirm: true,
+    allow_missing_metadata: allowMissingMetadata,
+  })
+  return data.data
+}
+
 // ─── Device Heartbeat & Online Count ──────────────────────────────────────────
 
 /** Send device heartbeat to keep this device marked as online */
