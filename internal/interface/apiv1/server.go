@@ -3,7 +3,9 @@ package apiv1
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2272,6 +2274,18 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	defer tx.Rollback()
 
 	now := time.Now().UTC().Format(time.RFC3339)
+	importBatchID := uuid.NewString()
+	recoveryTimestamp := now
+	sourceBackupID := strings.TrimSpace(sourceUserID)
+	_ = srcDB.QueryRowContext(ctx, `SELECT COALESCE(user_id,'') || '@' || COALESCE(created_at,'') FROM backup_metadata ORDER BY created_at DESC LIMIT 1`).Scan(&sourceBackupID)
+	if strings.TrimSpace(sourceBackupID) == "" {
+		sourceBackupID = strings.TrimSpace(sourceUserID)
+	}
+	buildRestoreTxnHash := func(accountID string, amount int64, txnDate, txnType, note, mode string) string {
+		payload := strings.Join([]string{accountID, fmt.Sprint(amount), txnDate, txnType, note, mode}, "|")
+		sum := sha256.Sum256([]byte(payload))
+		return hex.EncodeToString(sum[:])
+	}
 	modeFromAccountType := func(accountType string) string {
 		switch strings.ToLower(strings.TrimSpace(accountType)) {
 		case "personal":
@@ -2296,6 +2310,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	var insertedCategories int64
 	var insertedProjects int64
 	var insertedTransactions int64
+	var skippedDuplicateTransactions int64
 	insertedAccountsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
 	insertedTransactionsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
 
@@ -2567,8 +2582,11 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		if note.Valid {
 			noteText = note.String
 		}
+		restoreTxnHash := buildRestoreTxnHash(mappedAccountID, amount, txnDate, typ, noteText, txnMode)
 		fp := strings.Join([]string{mappedAccountID, mappedCategoryID.String, mappedProjectID.String, dir, typ, fmt.Sprint(amount), currency, txnDate, noteText, txnMode}, "|")
 		if _, exists := fingerprintSet[fp]; exists {
+			skippedDuplicateTransactions++
+			log.Printf("RESTORE_DUPLICATE table=transactions action=skip reason=fingerprint old_txn_id=%s mode=%s request_user_id=%s backup_user_id=%s", oldID, strings.ToUpper(txnMode), targetUserID, sourceUserID)
 			continue
 		}
 
@@ -2585,26 +2603,34 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 				type, category_id, category,
 				reimb_status, reimb_to_account, reimbursement_id,
 				project_id, project, mode,
-				note, uploaded, idempotency_key, txn_date, created_at, updated_at, version
+				note, uploaded, idempotency_key, txn_date, created_at, updated_at, version,
+				restore_source_backup_id, restore_import_batch_id, restore_recovered_at, restore_txn_hash
 			) VALUES (
 				?, ?, ?, ?, ?,
 				?, ?, ?, ?,
 				?, ?, ?,
 				?, ?, NULL,
 				?, ?, ?,
-				?, ?, NULL, ?, ?, ?, 1
+				?, ?, NULL, ?, ?, ?, 1,
+				?, ?, ?, ?
 			)
 		`, newID, targetUserID, mappedGroupID, dir, mappedAccountID,
 			amount, currency, exchangeRate, baseAmount,
 			typ, mappedCategoryID, categoryText,
 			reimbText, mappedReimbTo,
 			mappedProjectID, projectText, txnMode,
-			noteText, uploaded, txnDate, createdAt, updatedAt)
+			noteText, uploaded, txnDate, createdAt, updatedAt,
+			sourceBackupID, importBatchID, recoveryTimestamp, restoreTxnHash)
 		if err != nil {
 			srcTxRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：写入交易失败")
 		}
 		if affected, err := res.RowsAffected(); err == nil {
+			if affected == 0 {
+				skippedDuplicateTransactions++
+				log.Printf("RESTORE_DUPLICATE table=transactions action=skip reason=db_conflict old_txn_id=%s mode=%s request_user_id=%s backup_user_id=%s", oldID, strings.ToUpper(txnMode), targetUserID, sourceUserID)
+				continue
+			}
 			insertedTransactions += affected
 			insertedTransactionsByMode[txnMode] += affected
 		}
@@ -2614,6 +2640,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	logTableRows("transactions", insertedTransactions)
 	logTableRowsByMode("transactions", string(model.ModeWork), insertedTransactionsByMode[string(model.ModeWork)])
 	logTableRowsByMode("transactions", string(model.ModeLife), insertedTransactionsByMode[string(model.ModeLife)])
+	log.Printf("RESTORE_TABLE table=transactions skipped_duplicates=%d request_user_id=%s backup_user_id=%s restore_mode=%s", skippedDuplicateTransactions, targetUserID, sourceUserID, restoreCtx.RestoreMode)
 
 	// recalculate balances idempotently
 	if _, err := tx.ExecContext(ctx, `
