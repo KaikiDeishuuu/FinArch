@@ -73,14 +73,37 @@ type pendingRestore struct {
 	token     string
 }
 
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
 func isCrossAccountRestore(backupOwnerID, backupOwnerEmail, currentUserID, currentUserEmail string) bool {
 	if backupOwnerID != "" && currentUserID != "" && backupOwnerID == currentUserID {
 		return false
 	}
-	if backupOwnerEmail != "" && currentUserEmail != "" && strings.EqualFold(strings.TrimSpace(backupOwnerEmail), strings.TrimSpace(currentUserEmail)) {
+	if backupOwnerEmail != "" && currentUserEmail != "" && normalizeEmail(backupOwnerEmail) == normalizeEmail(currentUserEmail) {
 		return false
 	}
 	return backupOwnerID != "" && currentUserID != ""
+}
+
+func backupHasUser(srcDB *sql.DB, uid, email string) (bool, bool, error) {
+	var sameID, sameEmail bool
+	if strings.TrimSpace(uid) != "" {
+		var cnt int
+		if err := srcDB.QueryRow(`SELECT COUNT(1) FROM users WHERE deleted_at IS NULL AND id = ?`, uid).Scan(&cnt); err != nil {
+			return false, false, err
+		}
+		sameID = cnt > 0
+	}
+	if normalizeEmail(email) != "" {
+		var cnt int
+		if err := srcDB.QueryRow(`SELECT COUNT(1) FROM users WHERE deleted_at IS NULL AND lower(trim(email)) = ?`, normalizeEmail(email)).Scan(&cnt); err != nil {
+			return false, false, err
+		}
+		sameEmail = cnt > 0
+	}
+	return sameID, sameEmail, nil
 }
 
 func NewServer(
@@ -1535,9 +1558,26 @@ func (s *Server) handleRestore(c *gin.Context) {
 
 	currentUserID := userID(c)
 	currentUserEmail := c.GetString("userEmail")
-	crossAccount := isCrossAccountRestore(backupOwnerID, backupOwnerEmail, currentUserID, currentUserEmail)
+	log.Printf("[RESTORE] request_user_context user_id=%s user_email=%s", currentUserID, currentUserEmail)
+	log.Printf("[RESTORE] backup_metadata backup_user_id=%s backup_user_email=%s schema_version=%d", backupOwnerID, backupOwnerEmail, uploadedVersion)
 
-	log.Printf("[RESTORE] backup_owner=%s current_user=%s cross_account=%t", backupOwnerEmail, currentUserEmail, crossAccount)
+	sameIDCandidate := strings.TrimSpace(backupOwnerID) != "" && strings.TrimSpace(currentUserID) != "" && backupOwnerID == currentUserID
+	sameEmailCandidate := normalizeEmail(backupOwnerEmail) != "" && normalizeEmail(currentUserEmail) != "" && normalizeEmail(backupOwnerEmail) == normalizeEmail(currentUserEmail)
+	sameIDInBackup, sameEmailInBackup, err := backupHasUser(srcDB, currentUserID, currentUserEmail)
+	if err != nil {
+		srcDB.Close()
+		fail(c, 500, 50002, "读取备份用户信息失败")
+		return
+	}
+	sameID := sameIDCandidate || sameIDInBackup
+	sameEmail := sameEmailCandidate || sameEmailInBackup
+	crossAccount := !(sameID || sameEmail)
+	restoreMode := "CROSS_ACCOUNT"
+	if !crossAccount {
+		restoreMode = "SAME_ACCOUNT"
+	}
+
+	log.Printf("[RESTORE] detection_result authenticated_user_id=%s authenticated_user_email=%s backup_user_id=%s backup_user_email=%s same_id=%t same_email=%t restore_mode=%s", currentUserID, currentUserEmail, backupOwnerID, backupOwnerEmail, sameID, sameEmail, restoreMode)
 
 	// Cross-account restore now requires out-of-band email verification.
 	if crossAccount {
@@ -1644,7 +1684,18 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 
 	currentUserID := userID(c)
 	currentUserEmail := c.GetString("userEmail")
-	if !isCrossAccountRestore(ownerID, ownerEmail, currentUserID, currentUserEmail) {
+	sameIDCandidate := strings.TrimSpace(ownerID) != "" && strings.TrimSpace(currentUserID) != "" && ownerID == currentUserID
+	sameEmailCandidate := normalizeEmail(ownerEmail) != "" && normalizeEmail(currentUserEmail) != "" && normalizeEmail(ownerEmail) == normalizeEmail(currentUserEmail)
+	sameIDInBackup, sameEmailInBackup, err := backupHasUser(srcDB, currentUserID, currentUserEmail)
+	if err != nil {
+		os.Remove(tmpPath)
+		fail(c, 500, 50002, "读取备份用户信息失败")
+		return
+	}
+	sameID := sameIDCandidate || sameIDInBackup
+	sameEmail := sameEmailCandidate || sameEmailInBackup
+	log.Printf("[RESTORE] verification_request requester_user_id=%s requester_email=%s pending_backup_user_id=%s pending_backup_email=%s same_id=%t same_email=%t", currentUserID, currentUserEmail, ownerID, ownerEmail, sameID, sameEmail)
+	if sameID || sameEmail {
 		os.Remove(tmpPath)
 		fail(c, http.StatusBadRequest, "RESTORE_VERIFICATION_NOT_REQUIRED", "当前备份属于本账号，无需邮箱验证")
 		return
