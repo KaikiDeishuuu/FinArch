@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
-  changePassword, downloadBackup, requestBackupExportToken, restoreBackup, getBackupInfo,
+  changePassword, downloadBackup, requestBackupExportToken, getBackupInfo,
   requestDeleteAccount, requestEmailChange, getMe,
   createAccount, renameAccount, deleteAccount, updateNickname,
 } from '../api/client'
@@ -16,6 +16,7 @@ import { useMode } from '../contexts/ModeContext'
 import Select from '../components/Select'
 import BackupPasswordModal from '../components/BackupPasswordModal'
 import CrossAccountRestoreModal from '../components/CrossAccountRestoreModal'
+import { useRestoreBackup } from '../hooks/useRestoreBackup'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -212,9 +213,20 @@ export default function SettingsPage() {
   // ── Restore ───────────────────────────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
-  const [restoreLoading, setRestoreLoading] = useState(false)
   const [restoreConfirm, setRestoreConfirm] = useState(false)
-  const [crossRestoreOpen, setCrossRestoreOpen] = useState(false)
+
+  const restoreFlow = useRestoreBackup(async (result) => {
+    toast.success(
+      result.migrated_to > result.restored_version
+        ? t('settings.restore.toast.successMigrated', { from: result.restored_version, to: result.migrated_to })
+        : t('settings.restore.toast.success')
+    )
+    setRestoreFile(null)
+    setRestoreConfirm(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    queryClient.invalidateQueries()
+    getBackupInfo().then(setBackupInfo).catch(() => { })
+  })
 
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + ' B'
@@ -224,58 +236,26 @@ export default function SettingsPage() {
 
   async function handleRestore() {
     if (!restoreFile) return
-    setRestoreLoading(true)
     try {
-      const result = await restoreBackup(restoreFile)
-      toast.success(
-        result.migrated_to > result.restored_version
-          ? t('settings.restore.toast.successMigrated', { from: result.restored_version, to: result.migrated_to })
-          : t('settings.restore.toast.success')
-      )
-      setRestoreFile(null); setRestoreConfirm(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      // Invalidate ALL queries so every page reflects the restored data
-      queryClient.invalidateQueries()
-      // Refresh backup info
-      getBackupInfo().then(setBackupInfo).catch(() => { })
-    } catch (err: unknown) {
-      const anyErr = err as { response?: { status?: number; data?: { message?: string } } }
-      const status = anyErr.response?.status
-      if (status === 401) {
-        // Cross-account restore: require original account verification
-        setCrossRestoreOpen(true)
+      const status = await restoreFlow.requestRestore(restoreFile)
+      if (status.status === 'verification_required') {
         toast.error(t('settings.restore.crossAccount.prompt'))
-        return
       }
-      if (status === 403) {
-        toast.error(t('settings.restore.crossAccount.failed'))
-        return
-      }
-      const msg = anyErr.response?.data?.message
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || t('settings.restore.toast.error'))
-    } finally { setRestoreLoading(false) }
+    }
   }
 
-  async function handleCrossAccountRestore(email: string, password: string) {
+  async function handleCrossAccountSendCode(email: string) {
     if (!restoreFile) return
-    setRestoreLoading(true)
-    try {
-      const result = await restoreBackup(restoreFile, {
-        originalEmail: email,
-        originalPassword: password,
-      })
-      toast.success(
-        result.migrated_to > result.restored_version
-          ? t('settings.restore.toast.successMigrated', { from: result.restored_version, to: result.migrated_to })
-          : t('settings.restore.toast.success')
-      )
-      setRestoreFile(null); setRestoreConfirm(false); setCrossRestoreOpen(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      queryClient.invalidateQueries()
-      getBackupInfo().then(setBackupInfo).catch(() => { })
-    } finally {
-      setRestoreLoading(false)
-    }
+    await restoreFlow.sendEmailCode(restoreFile, email)
+    toast.success(t('settings.restore.crossAccount.emailSentToast'))
+  }
+
+  async function handleCrossAccountVerify(code: string) {
+    await restoreFlow.submitCode(code)
+    toast.success(t('settings.restore.crossAccount.verified'))
   }
 
   // ── Delete account ────────────────────────────────────────────────────────
@@ -711,16 +691,16 @@ export default function SettingsPage() {
                 </div>
               )}
               {restoreFile && restoreConfirm && (
-                <button type="button" onClick={handleRestore} disabled={restoreLoading}
+                <button type="button" onClick={handleRestore} disabled={restoreFlow.loading}
                   className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-                  {restoreLoading ? (
+                  {restoreFlow.loading ? (
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                       <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
                     </svg>
                   )}
-                  {restoreLoading ? t('settings.restore.restoring') : t('settings.restore.restoreNow')}
+                  {restoreFlow.loading ? t('settings.restore.restoring') : t('settings.restore.restoreNow')}
                 </button>
               )}
             </div>
@@ -728,10 +708,13 @@ export default function SettingsPage() {
         </div>
 
         <CrossAccountRestoreModal
-          isOpen={crossRestoreOpen}
-          onClose={() => setCrossRestoreOpen(false)}
-          onSubmit={handleCrossAccountRestore}
-          isLoading={restoreLoading}
+          isOpen={restoreFlow.verification.open}
+          onClose={restoreFlow.closeVerification}
+          onSendCode={handleCrossAccountSendCode}
+          onVerify={handleCrossAccountVerify}
+          isLoading={restoreFlow.loading}
+          emailSent={restoreFlow.verification.emailSent}
+          maskedEmail={restoreFlow.verification.maskedEmail}
           t={t}
         />
 
