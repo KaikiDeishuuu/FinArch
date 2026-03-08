@@ -73,6 +73,12 @@ type pendingRestore struct {
 	token     string
 }
 
+type restoreContext struct {
+	RequesterUserID string
+	BackupUserID    string
+	RestoreMode     string
+}
+
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
@@ -1654,7 +1660,12 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "jwt", "")
+	ctxRestore := restoreContext{
+		RequesterUserID: currentUserID,
+		BackupUserID:    backupUserID,
+		RestoreMode:     restoreMode,
+	}
+	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, ctxRestore)
 	if err != nil {
 		fail(c, 500, "RESTORE_EXECUTE_FAILED", err.Error())
 		return
@@ -1868,7 +1879,12 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		return
 	}
 
-	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "verified", requestUserID)
+	ctxRestore := restoreContext{
+		RequesterUserID: requestUserID,
+		BackupUserID:    strings.TrimSpace(pr.ownerID),
+		RestoreMode:     "CROSS_ACCOUNT",
+	}
+	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, ctxRestore)
 	if err != nil {
 		fail(c, 500, "RESTORE_EXECUTE_FAILED", err.Error())
 		return
@@ -1876,18 +1892,18 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 	ok(c, gin.H{"code": "SUCCESS", "message": "Restore completed", "restored_version": uploadedVersion, "migrated_to": migratedTo})
 }
 
-func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source, targetUserID string) (int, error) {
+func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, restoreCtx restoreContext) (int, error) {
 	safetyDir := filepath.Join(filepath.Dir(s.dbPath), "safety_backups")
 	if err := os.MkdirAll(safetyDir, 0o755); err == nil {
 		safetyPath := filepath.Join(safetyDir, fmt.Sprintf("pre_restore_%s.db", time.Now().Format("20060102_150405")))
 		_, _ = s.db.ExecContext(ctx, fmt.Sprintf("VACUUM INTO '%s'", safetyPath))
 	}
 
-	if source == "verified" && strings.TrimSpace(targetUserID) != "" {
-		return s.performCrossAccountMergeRestore(ctx, tmpPath, uploadedVersion, currentVersion, targetUserID)
+	if restoreCtx.RestoreMode == "CROSS_ACCOUNT" && strings.TrimSpace(restoreCtx.RequesterUserID) != "" {
+		return s.performCrossAccountMergeRestore(ctx, tmpPath, uploadedVersion, currentVersion, restoreCtx)
 	}
 
-	return s.performReplaceRestore(ctx, tmpPath, uploadedVersion, currentVersion, source)
+	return s.performReplaceRestore(ctx, tmpPath, uploadedVersion, currentVersion, restoreCtx.RestoreMode)
 }
 
 func (s *Server) performReplaceRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source string) (int, error) {
@@ -1961,7 +1977,12 @@ func deterministicRestoreID(entity, sourceUserID, targetUserID, oldID string) st
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(seed)).String()
 }
 
-func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, targetUserID string) (int, error) {
+func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, restoreCtx restoreContext) (int, error) {
+	targetUserID := strings.TrimSpace(restoreCtx.RequesterUserID)
+	if targetUserID == "" {
+		return 0, fmt.Errorf("跨账号恢复失败：无法识别目标账号")
+	}
+
 	if uploadedVersion < currentVersion {
 		backupDB, err := sql.Open("sqlite3", tmpPath)
 		if err != nil {
@@ -1980,11 +2001,14 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	}
 	defer srcDB.Close()
 
-	var sourceUserID string
-	ownerRow := srcDB.QueryRow(`SELECT id FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
-	if err := ownerRow.Scan(&sourceUserID); err != nil {
-		return 0, fmt.Errorf("跨账号恢复失败：无法识别备份所有者")
+	sourceUserID := strings.TrimSpace(restoreCtx.BackupUserID)
+	if sourceUserID == "" {
+		ownerRow := srcDB.QueryRow(`SELECT id FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+		if err := ownerRow.Scan(&sourceUserID); err != nil {
+			return 0, fmt.Errorf("跨账号恢复失败：无法识别备份所有者")
+		}
 	}
+	log.Printf("[RESTORE_EXECUTE] restore_mode=%s request_user_id=%s backup_user_id=%s", restoreCtx.RestoreMode, targetUserID, sourceUserID)
 
 	findb.Global().SetState(findb.StateRestore)
 	defer findb.Global().SetState(findb.StateNormal)
@@ -2000,6 +2024,13 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	categoryMap := map[string]string{}
 	projectMap := map[string]string{}
 	groupMap := map[string]string{}
+	logTableRows := func(table string, rowsInserted int64) {
+		log.Printf("[RESTORE_EXECUTE] table=%s rows_inserted=%d request_user_id=%s backup_user_id=%s restore_mode=%s", table, rowsInserted, targetUserID, sourceUserID, restoreCtx.RestoreMode)
+	}
+	var insertedAccounts int64
+	var insertedCategories int64
+	var insertedProjects int64
+	var insertedTransactions int64
 
 	// accounts: map by (type,name,currency), else deterministic remap id
 	rows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type, currency FROM accounts WHERE user_id=?`, targetUserID)
@@ -2034,17 +2065,22 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			continue
 		}
 		newID := deterministicRestoreID("account", sourceUserID, targetUserID, oldID)
-		if _, err := tx.ExecContext(ctx, `
+		res, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO accounts (id, user_id, name, type, currency, balance_cents, version, is_active, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, 0, 1, ?, ?, ?)
-		`, newID, targetUserID, name, typ, currency, active, now, now); err != nil {
+		`, newID, targetUserID, name, typ, currency, active, now, now)
+		if err != nil {
 			accRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：写入账户失败")
+		}
+		if affected, err := res.RowsAffected(); err == nil {
+			insertedAccounts += affected
 		}
 		accountMap[oldID] = newID
 		existingAccounts[key] = newID
 	}
 	accRows.Close()
+	logTableRows("accounts", insertedAccounts)
 
 	// categories: deterministic dedup by (name,type)
 	catRows, err := tx.QueryContext(ctx, `SELECT id, lower(name), type FROM categories WHERE user_id=?`, targetUserID)
@@ -2082,12 +2118,16 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			categoryMap[oldID] = existingID
 		} else {
 			newID := deterministicRestoreID("category", sourceUserID, targetUserID, oldID)
-			if _, err := tx.ExecContext(ctx, `
+			res, err := tx.ExecContext(ctx, `
 				INSERT OR IGNORE INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, created_at, version)
 				VALUES (?, ?, ?, ?, NULL, ?, ?, ?, 1)
-			`, newID, targetUserID, name, typ, sort, active, now); err != nil {
+			`, newID, targetUserID, name, typ, sort, active, now)
+			if err != nil {
 				srcCatRows.Close()
 				return 0, fmt.Errorf("跨账号恢复失败：写入分类失败")
+			}
+			if affected, err := res.RowsAffected(); err == nil {
+				insertedCategories += affected
 			}
 			categoryMap[oldID] = newID
 			existingCategories[key] = newID
@@ -2097,6 +2137,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		}
 	}
 	srcCatRows.Close()
+	logTableRows("categories", insertedCategories)
 	for _, pf := range parentFixes {
 		childID, okChild := categoryMap[pf.child]
 		parentID, okParent := categoryMap[pf.parent]
@@ -2148,9 +2189,13 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			if _, exists := projectByCode[newCode]; exists {
 				newCode = fmt.Sprintf("%s-%s", code, newID[:6])
 			}
-			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO projects (id, name, code, created_at, version) VALUES (?, ?, ?, ?, 1)`, newID, name, newCode, now); err != nil {
+			res, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO projects (id, name, code, created_at, version) VALUES (?, ?, ?, ?, 1)`, newID, name, newCode, now)
+			if err != nil {
 				srcProjRows.Close()
 				return 0, fmt.Errorf("跨账号恢复失败：写入项目失败")
+			}
+			if affected, err := res.RowsAffected(); err == nil {
+				insertedProjects += affected
 			}
 			projectMap[oldID] = newID
 			projectByCode[newCode] = newID
@@ -2158,6 +2203,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		}
 		srcProjRows.Close()
 	}
+	logTableRows("projects", insertedProjects)
 
 	// pre-load transaction fingerprints for deterministic dedup
 	fingerprintSet := map[string]struct{}{}
@@ -2254,7 +2300,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			mappedGroupID = deterministicRestoreID("group", sourceUserID, targetUserID, oldGroupID)
 			groupMap[oldGroupID] = mappedGroupID
 		}
-		if _, err := tx.ExecContext(ctx, `
+		res, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO transactions (
 				id, user_id, group_id, direction, account_id,
 				amount_cents, currency, exchange_rate, base_amount_cents,
@@ -2275,13 +2321,18 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			typ, mappedCategoryID, categoryText,
 			reimbText, mappedReimbTo,
 			mappedProjectID, projectText,
-			noteText, uploaded, txnDate, createdAt, updatedAt); err != nil {
+			noteText, uploaded, txnDate, createdAt, updatedAt)
+		if err != nil {
 			srcTxRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：写入交易失败")
+		}
+		if affected, err := res.RowsAffected(); err == nil {
+			insertedTransactions += affected
 		}
 		fingerprintSet[fp] = struct{}{}
 	}
 	srcTxRows.Close()
+	logTableRows("transactions", insertedTransactions)
 
 	// recalculate balances idempotently
 	if _, err := tx.ExecContext(ctx, `
