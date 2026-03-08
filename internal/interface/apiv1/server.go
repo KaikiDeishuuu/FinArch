@@ -66,9 +66,21 @@ type pendingRestore struct {
 	expiresAt time.Time // when this session expires
 	email     string    // owner email extracted from backup
 	name      string    // owner name extracted from backup
-	attempts  int       // wrong code attempts
+	ownerID   string
+	requester string
+	attempts  int // wrong code attempts
 	verified  bool
 	token     string
+}
+
+func isCrossAccountRestore(backupOwnerID, backupOwnerEmail, currentUserID, currentUserEmail string) bool {
+	if backupOwnerID != "" && currentUserID != "" && backupOwnerID == currentUserID {
+		return false
+	}
+	if backupOwnerEmail != "" && currentUserEmail != "" && strings.EqualFold(strings.TrimSpace(backupOwnerEmail), strings.TrimSpace(currentUserEmail)) {
+		return false
+	}
+	return backupOwnerID != "" && currentUserID != ""
 }
 
 func NewServer(
@@ -1523,7 +1535,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 
 	currentUserID := userID(c)
 	currentUserEmail := c.GetString("userEmail")
-	crossAccount := backupOwnerID != "" && currentUserID != "" && backupOwnerID != currentUserID
+	crossAccount := isCrossAccountRestore(backupOwnerID, backupOwnerEmail, currentUserID, currentUserEmail)
 
 	log.Printf("[RESTORE] backup_owner=%s current_user=%s cross_account=%t", backupOwnerEmail, currentUserEmail, crossAccount)
 
@@ -1546,7 +1558,7 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	migratedTo, err := s.performRestore(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "jwt")
+	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "jwt", "")
 	if err != nil {
 		fail(c, 500, "RESTORE_EXECUTE_FAILED", err.Error())
 		return
@@ -1617,9 +1629,9 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
 		return
 	}
-	var ownerEmail, ownerName string
-	row := srcDB.QueryRow(`SELECT email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
-	if err := row.Scan(&ownerEmail, &ownerName); err != nil {
+	var ownerID, ownerEmail, ownerName string
+	row := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+	if err := row.Scan(&ownerID, &ownerEmail, &ownerName); err != nil {
 		os.Remove(tmpPath)
 		fail(c, 400, 40007, "备份文件中未找到用户数据")
 		return
@@ -1627,6 +1639,14 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 	if !strings.EqualFold(ownerEmail, originalEmail) {
 		os.Remove(tmpPath)
 		fail(c, http.StatusForbidden, "RESTORE_EMAIL_MISMATCH", "原账号邮箱与备份不匹配")
+		return
+	}
+
+	currentUserID := userID(c)
+	currentUserEmail := c.GetString("userEmail")
+	if !isCrossAccountRestore(ownerID, ownerEmail, currentUserID, currentUserEmail) {
+		os.Remove(tmpPath)
+		fail(c, http.StatusBadRequest, "RESTORE_VERIFICATION_NOT_REQUIRED", "当前备份属于本账号，无需邮箱验证")
 		return
 	}
 
@@ -1640,7 +1660,7 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 
 	code := generateCode()
 	restoreID := uuid.NewString()
-	s.pendingRestores.Store(restoreID, &pendingRestore{code: code, tmpPath: tmpPath, expiresAt: time.Now().Add(10 * time.Minute), email: ownerEmail, name: ownerName})
+	s.pendingRestores.Store(restoreID, &pendingRestore{code: code, tmpPath: tmpPath, expiresAt: time.Now().Add(10 * time.Minute), email: ownerEmail, name: ownerName, ownerID: ownerID, requester: currentUserID})
 	if err := s.emailSvc.SendRestoreCode(ownerEmail, ownerName, code); err != nil {
 		os.Remove(tmpPath)
 		s.pendingRestores.Delete(restoreID)
@@ -1718,6 +1738,11 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		return
 	}
 
+	if pr.requester != "" && pr.requester != userID(c) {
+		fail(c, http.StatusForbidden, "RESTORE_TOKEN_INVALID", "恢复授权与当前登录账号不匹配")
+		return
+	}
+
 	tmpPath := pr.tmpPath
 	s.pendingRestores.Delete(restoreID)
 	defer os.Remove(tmpPath)
@@ -1738,7 +1763,7 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		return
 	}
 
-	migratedTo, err := s.performRestore(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "verified")
+	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, "verified", userID(c))
 	if err != nil {
 		fail(c, 500, "RESTORE_EXECUTE_FAILED", err.Error())
 		return
@@ -1746,7 +1771,7 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 	ok(c, gin.H{"code": "SUCCESS", "message": "Restore completed", "restored_version": uploadedVersion, "migrated_to": migratedTo})
 }
 
-func (s *Server) performRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source string) (int, error) {
+func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source, targetUserID string) (int, error) {
 	safetyDir := filepath.Join(filepath.Dir(s.dbPath), "safety_backups")
 	if err := os.MkdirAll(safetyDir, 0o755); err == nil {
 		safetyPath := filepath.Join(safetyDir, fmt.Sprintf("pre_restore_%s.db", time.Now().Format("20060102_150405")))
@@ -1811,11 +1836,146 @@ func (s *Server) performRestore(ctx context.Context, tmpPath string, uploadedVer
 		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&migratedTo)
 	}
 
+	if source == "verified" && strings.TrimSpace(targetUserID) != "" {
+		if err := s.mergeCrossAccountRestore(ctx, targetUserID); err != nil {
+			return 0, err
+		}
+	}
+
 	var users int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM users WHERE deleted_at IS NULL`).Scan(&users); err != nil || users == 0 {
 		return 0, fmt.Errorf("恢复校验失败：用户数据不存在")
 	}
 	return migratedTo, nil
+}
+
+func (s *Server) mergeCrossAccountRestore(ctx context.Context, targetUserID string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE accounts
+		SET user_id = ?, updated_at = ?, version = version + 1
+		WHERE user_id <> ?
+	`, targetUserID, now, targetUserID); err != nil {
+		return fmt.Errorf("跨账号恢复失败：账户归属迁移失败")
+	}
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE transactions
+		SET user_id = ?, updated_at = ?, version = version + 1
+		WHERE user_id <> ?
+	`, targetUserID, now, targetUserID); err != nil {
+		return fmt.Errorf("跨账号恢复失败：交易归属迁移失败")
+	}
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE categories
+		SET user_id = ?, version = version + 1
+		WHERE user_id <> ?
+	`, targetUserID, targetUserID); err != nil {
+		return fmt.Errorf("跨账号恢复失败：分类归属迁移失败")
+	}
+
+	if _, err := s.db.ExecContext(ctx, `
+		INSERT INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, created_at, version)
+		SELECT
+			lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' ||
+			substr(lower(hex(randomblob(2))),2) || '-' ||
+			substr('89ab', abs(random()) % 4 + 1, 1) ||
+			substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))),
+			?, c.name, c.type, NULL, c.sort_order, c.is_active, ?, 1
+		FROM categories c
+		WHERE c.user_id = ?
+		AND EXISTS (
+			SELECT 1 FROM categories dup
+			WHERE dup.user_id = c.user_id AND lower(dup.name) = lower(c.name) AND dup.type = c.type AND dup.id <> c.id
+		)
+		AND c.id IN (
+			SELECT MIN(id) FROM categories grp
+			WHERE grp.user_id = c.user_id
+			GROUP BY lower(grp.name), grp.type
+		)
+	`, targetUserID, now, targetUserID); err != nil {
+		return fmt.Errorf("跨账号恢复失败：分类去重失败")
+	}
+
+	if _, err := s.db.ExecContext(ctx, `
+		DELETE FROM categories
+		WHERE user_id = ?
+		AND id NOT IN (
+			SELECT MIN(id) FROM categories WHERE user_id = ? GROUP BY lower(name), type
+		)
+	`, targetUserID, targetUserID); err != nil {
+		return fmt.Errorf("跨账号恢复失败：分类清理失败")
+	}
+
+	if _, err := s.db.ExecContext(ctx, `
+		DELETE FROM transactions
+		WHERE id IN (
+			SELECT t1.id
+			FROM transactions t1
+			JOIN transactions t2
+			  ON t1.user_id = t2.user_id
+			 AND t1.id = t2.id
+			 AND t1.rowid > t2.rowid
+			WHERE t1.user_id = ?
+		)
+	`, targetUserID); err != nil {
+		return fmt.Errorf("跨账号恢复失败：交易去重失败")
+	}
+
+	if err := s.validateRestoreIntegrity(ctx, targetUserID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) validateRestoreIntegrity(ctx context.Context, targetUserID string) error {
+	var missingAccountOwnership int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(1)
+		FROM transactions t
+		JOIN accounts a ON a.id = t.account_id
+		WHERE t.user_id = ? AND a.user_id <> ?
+	`, targetUserID, targetUserID).Scan(&missingAccountOwnership); err != nil {
+		return fmt.Errorf("恢复校验失败：无法校验账户归属")
+	}
+	if missingAccountOwnership > 0 {
+		return fmt.Errorf("恢复校验失败：存在交易引用了其他账号的账户")
+	}
+
+	var duplicateCategories int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(1)
+		FROM (
+			SELECT lower(name), type, COUNT(1) cnt
+			FROM categories
+			WHERE user_id = ?
+			GROUP BY lower(name), type
+			HAVING COUNT(1) > 1
+		)
+	`, targetUserID).Scan(&duplicateCategories); err != nil {
+		return fmt.Errorf("恢复校验失败：无法校验分类重复")
+	}
+	if duplicateCategories > 0 {
+		return fmt.Errorf("恢复校验失败：分类存在重复")
+	}
+
+	var duplicateTxnIDs int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(1)
+		FROM (
+			SELECT id, COUNT(1) cnt
+			FROM transactions
+			WHERE user_id = ?
+			GROUP BY id
+			HAVING COUNT(1) > 1
+		)
+	`, targetUserID).Scan(&duplicateTxnIDs); err != nil {
+		return fmt.Errorf("恢复校验失败：无法校验交易重复")
+	}
+	if duplicateTxnIDs > 0 {
+		return fmt.Errorf("恢复校验失败：交易主键重复")
+	}
+
+	return nil
 }
 
 // ─── Disaster Recovery (public, email-verified) ──────────────────────────────
@@ -1915,9 +2075,9 @@ func (s *Server) handleRestoreRequest(c *gin.Context) {
 	}
 
 	// Extract owner: first admin user, or first verified user, or first user
-	var ownerEmail, ownerName string
-	row := srcDB.QueryRow(`SELECT email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
-	if err := row.Scan(&ownerEmail, &ownerName); err != nil {
+	var ownerID, ownerEmail, ownerName string
+	row := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
+	if err := row.Scan(&ownerID, &ownerEmail, &ownerName); err != nil {
 		srcDB.Close()
 		os.Remove(tmpPath)
 		fail(c, 400, 40007, "备份文件中未找到用户数据")
