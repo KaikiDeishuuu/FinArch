@@ -1447,6 +1447,31 @@ type disasterRecoveryResult struct {
 	Error            string
 }
 
+type restoreSource string
+
+const (
+	restoreSourceUserBackup      restoreSource = "USER_BACKUP"
+	restoreSourceDisasterRecover restoreSource = "DISASTER_RECOVERY"
+)
+
+type restoreEngineRequest struct {
+	RestoreID    string
+	Source       restoreSource
+	SnapshotID   string
+	TempDBPath   string
+	SchemaBefore int
+}
+
+type restoreEngineResult struct {
+	RestoreID        string
+	Source           restoreSource
+	SnapshotID       string
+	SchemaBefore     int
+	SchemaAfter      int
+	MigrationApplied bool
+	RestoreDuration  time.Duration
+}
+
 func snapshotMetadataPath() string {
 	if p := strings.TrimSpace(os.Getenv("DISASTER_SNAPSHOT_METADATA_PATH")); p != "" {
 		return p
@@ -1566,9 +1591,6 @@ func (s *Server) executeDisasterRecovery(ctx context.Context, snapshotID string,
 	tmpRestore.Close()
 	defer os.Remove(tmpRestorePath)
 
-	findb.Global().SetState(findb.StateRestore)
-	defer findb.Global().SetState(findb.StateNormal)
-
 	args := []string{"restore", "-config", "/etc/litestream.yml"}
 	if strings.TrimSpace(snapshotID) != "" {
 		args = append(args, "-timestamp", snapshotID)
@@ -1580,74 +1602,19 @@ func (s *Server) executeDisasterRecovery(ctx context.Context, snapshotID string,
 		return result
 	}
 
-	restoreSrcDB, err := sql.Open("sqlite3", tmpRestorePath)
-	if err != nil {
-		result.Error = "无法打开恢复快照"
-		return result
-	}
-	defer restoreSrcDB.Close()
-
-	destConn, err := s.db.Conn(ctx)
-	if err != nil {
-		result.Error = "获取数据库连接失败"
-		return result
-	}
-	defer destConn.Close()
-
-	srcConn, err := restoreSrcDB.Conn(ctx)
-	if err != nil {
-		result.Error = "获取快照连接失败"
-		return result
-	}
-	defer srcConn.Close()
-
-	var restoreErr error
-	srcConn.Raw(func(srcRaw interface{}) error {
-		return destConn.Raw(func(destRaw interface{}) error {
-			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
-			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
-			if !ok1 || !ok2 {
-				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
-				return restoreErr
-			}
-			bk, err := destSQLite.Backup("main", srcSQLite, "main")
-			if err != nil {
-				restoreErr = err
-				return err
-			}
-			defer bk.Finish()
-			if _, err := bk.Step(-1); err != nil {
-				restoreErr = err
-				return err
-			}
-			return nil
-		})
+	engineResult, err := s.executeRestoreEngine(ctx, restoreEngineRequest{
+		RestoreID:    recoveryID,
+		Source:       restoreSourceDisasterRecover,
+		SnapshotID:   snapshotID,
+		TempDBPath:   tmpRestorePath,
+		SchemaBefore: schemaBefore,
 	})
-	if restoreErr != nil {
-		result.Error = fmt.Sprintf("替换数据库失败: %v", restoreErr)
-		return result
-	}
-
-	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
-		log.Printf("[WARN] disaster-recovery reapply pragmas: %v", err)
-	}
-	if err := findb.Migrate(ctx, s.db); err != nil {
-		result.Error = fmt.Sprintf("迁移失败: %v", err)
-		return result
-	}
-
-	var schemaAfter int
-	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaAfter); err != nil {
-		result.Error = "读取恢复后版本失败"
-		return result
-	}
-	result.SchemaAfter = schemaAfter
-	result.MigrationApplied = schemaAfter > schemaBefore
-
-	if err := s.validatePostRecovery(ctx); err != nil {
+	if err != nil {
 		result.Error = err.Error()
 		return result
 	}
+	result.SchemaAfter = engineResult.SchemaAfter
+	result.MigrationApplied = engineResult.MigrationApplied
 	result.Success = true
 	return result
 }
@@ -1675,6 +1642,89 @@ func (s *Server) validatePostRecovery(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (s *Server) prepareSafetyBackup(ctx context.Context, prefix string) {
+	safetyDir := filepath.Join(filepath.Dir(s.dbPath), "safety_backups")
+	if err := os.MkdirAll(safetyDir, 0o755); err != nil {
+		return
+	}
+	safetyPath := filepath.Join(safetyDir, fmt.Sprintf("%s_%s.db", prefix, time.Now().Format("20060102_150405")))
+	_, _ = s.db.ExecContext(ctx, fmt.Sprintf("VACUUM INTO '%s'", safetyPath))
+}
+
+func (s *Server) executeRestoreEngine(ctx context.Context, req restoreEngineRequest) (restoreEngineResult, error) {
+	start := time.Now()
+	result := restoreEngineResult{RestoreID: req.RestoreID, Source: req.Source, SnapshotID: req.SnapshotID, SchemaBefore: req.SchemaBefore}
+	defer func() { result.RestoreDuration = time.Since(start) }()
+
+	if strings.TrimSpace(req.TempDBPath) == "" {
+		return result, fmt.Errorf("恢复源无效：缺少临时数据库")
+	}
+	restoreSrcDB, err := sql.Open("sqlite3", req.TempDBPath)
+	if err != nil {
+		return result, fmt.Errorf("无法打开备份文件")
+	}
+	defer restoreSrcDB.Close()
+
+	s.prepareSafetyBackup(ctx, "pre_restore")
+	findb.Global().SetState(findb.StateRestore)
+	defer findb.Global().SetState(findb.StateNormal)
+
+	destConn, err := s.db.Conn(ctx)
+	if err != nil {
+		return result, fmt.Errorf("获取数据库连接失败")
+	}
+	defer destConn.Close()
+	srcConn, err := restoreSrcDB.Conn(ctx)
+	if err != nil {
+		return result, fmt.Errorf("获取备份连接失败")
+	}
+	defer srcConn.Close()
+
+	var restoreErr error
+	srcConn.Raw(func(srcRaw interface{}) error {
+		return destConn.Raw(func(destRaw interface{}) error {
+			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
+			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
+			if !ok1 || !ok2 {
+				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
+				return restoreErr
+			}
+			bk, err := destSQLite.Backup("main", srcSQLite, "main")
+			if err != nil {
+				restoreErr = err
+				return err
+			}
+			defer bk.Finish()
+			if _, err := bk.Step(-1); err != nil {
+				restoreErr = err
+				return err
+			}
+			return nil
+		})
+	})
+	if restoreErr != nil {
+		return result, fmt.Errorf("数据恢复失败，请确认文件完整后重试")
+	}
+
+	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
+		log.Printf("[WARN] restore-engine: reapply pragmas: %v", err)
+	}
+	if err := findb.Migrate(ctx, s.db); err != nil {
+		return result, fmt.Errorf("数据已恢复但自动迁移失败: %s", err.Error())
+	}
+	if err := s.validatePostRecovery(ctx); err != nil {
+		return result, err
+	}
+
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&result.SchemaAfter); err != nil {
+		return result, fmt.Errorf("恢复校验失败：无法读取 schema 版本")
+	}
+	result.MigrationApplied = result.SchemaAfter > result.SchemaBefore
+	log.Printf("RESTORE_COMPLETE restore_id=%s restore_source=%s snapshot_id=%s schema_before=%d schema_after=%d migration=%t duration=%s", result.RestoreID, result.Source, result.SnapshotID, result.SchemaBefore, result.SchemaAfter, result.MigrationApplied, time.Since(start))
+	return result, nil
+}
+
 func (s *Server) handleBackupExportRequest(c *gin.Context) {
 	var req struct {
 		CurrentPassword string `json:"current_password" binding:"required"`
@@ -2160,69 +2210,18 @@ func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, up
 }
 
 func (s *Server) performReplaceRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source string) (int, error) {
-	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
-	if err != nil {
-		return 0, fmt.Errorf("无法打开备份文件")
-	}
-	defer restoreSrcDB.Close()
-
-	findb.Global().SetState(findb.StateRestore)
-	defer findb.Global().SetState(findb.StateNormal)
-
-	destConn, err := s.db.Conn(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("获取数据库连接失败")
-	}
-	defer destConn.Close()
-	srcConn, err := restoreSrcDB.Conn(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("获取备份连接失败")
-	}
-	defer srcConn.Close()
-
-	var restoreErr error
-	srcConn.Raw(func(srcRaw interface{}) error {
-		return destConn.Raw(func(destRaw interface{}) error {
-			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
-			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
-			if !ok1 || !ok2 {
-				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
-				return restoreErr
-			}
-			bk, err := destSQLite.Backup("main", srcSQLite, "main")
-			if err != nil {
-				restoreErr = err
-				return err
-			}
-			defer bk.Finish()
-			if _, err := bk.Step(-1); err != nil {
-				restoreErr = err
-				return err
-			}
-			return nil
-		})
+	_ = currentVersion
+	engineResult, err := s.executeRestoreEngine(ctx, restoreEngineRequest{
+		RestoreID:    uuid.NewString(),
+		Source:       restoreSourceUserBackup,
+		SnapshotID:   source,
+		TempDBPath:   tmpPath,
+		SchemaBefore: currentVersion,
 	})
-	if restoreErr != nil {
-		return 0, fmt.Errorf("数据恢复失败，请确认文件完整后重试")
+	if err != nil {
+		return 0, err
 	}
-
-	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
-		log.Printf("[WARN] restore(%s): reapply pragmas: %v", source, err)
-	}
-
-	migratedTo := uploadedVersion
-	if uploadedVersion < currentVersion {
-		if err := findb.Migrate(ctx, s.db); err != nil {
-			return 0, fmt.Errorf("数据已恢复但自动迁移失败: %s", err.Error())
-		}
-		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&migratedTo)
-	}
-
-	var users int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM users WHERE deleted_at IS NULL`).Scan(&users); err != nil || users == 0 {
-		return 0, fmt.Errorf("恢复校验失败：用户数据不存在")
-	}
-	return migratedTo, nil
+	return engineResult.SchemaAfter, nil
 }
 
 func deterministicRestoreID(entity, sourceUserID, targetUserID, oldID string) string {
@@ -2871,14 +2870,13 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 		return
 	}
 
-	// Code verified — perform restore using same logic as handleRestore
+	// Code verified — execute through unified restore engine
 	tmpPath := pr.tmpPath
 	s.pendingRestores.Delete(req.RestoreID)
+	defer os.Remove(tmpPath)
 
-	// Schema version compatibility check
 	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
-		os.Remove(tmpPath)
 		fail(c, 500, 50002, "无法打开备份文件")
 		return
 	}
@@ -2887,124 +2885,28 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 	srcDB.Close()
 
 	var currentVersion int
-	_ = s.db.QueryRowContext(c.Request.Context(),
-		`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&currentVersion)
-
+	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&currentVersion)
 	if uploadedVersion > currentVersion {
-		os.Remove(tmpPath)
-		fail(c, 400, 40006, fmt.Sprintf(
-			"备份文件版本 (v%d) 高于当前系统版本 (v%d)，请先升级系统再恢复",
-			uploadedVersion, currentVersion,
-		))
+		fail(c, 400, 40006, fmt.Sprintf("备份文件版本 (v%d) 高于当前系统版本 (v%d)，请先升级系统再恢复", uploadedVersion, currentVersion))
 		return
 	}
 
-	// Auto safety backup
-	safetyDir := filepath.Join(filepath.Dir(s.dbPath), "safety_backups")
-	if err := os.MkdirAll(safetyDir, 0o755); err == nil {
-		safetyPath := filepath.Join(safetyDir, fmt.Sprintf(
-			"pre_drestore_%s.db", time.Now().Format("20060102_150405"),
-		))
-		_, _ = s.db.ExecContext(c.Request.Context(), fmt.Sprintf("VACUUM INTO '%s'", safetyPath))
-
-		entries, _ := os.ReadDir(safetyDir)
-		var safetyFiles []os.DirEntry
-		for _, e := range entries {
-			if !e.IsDir() && strings.HasPrefix(e.Name(), "pre_") && strings.HasSuffix(e.Name(), ".db") {
-				safetyFiles = append(safetyFiles, e)
-			}
-		}
-		if len(safetyFiles) > 5 {
-			for i := 0; i < len(safetyFiles)-5; i++ {
-				_ = os.Remove(filepath.Join(safetyDir, safetyFiles[i].Name()))
-			}
-		}
-	}
-
-	log.Printf(`{"event":"restore_start","source":"disaster","restore_id":"%s"}`, req.RestoreID)
-	// Perform restore via SQLite Backup API
-	restoreSrcDB, err := sql.Open("sqlite3", tmpPath)
-	if err != nil {
-		os.Remove(tmpPath)
-		fail(c, 500, 50002, "无法打开备份文件")
-		return
-	}
-	defer restoreSrcDB.Close()
-	defer os.Remove(tmpPath)
-
-	ctx := context.Background()
-
-	destConn, err := s.db.Conn(ctx)
-	if err != nil {
-		fail(c, 500, 50002, "获取数据库连接失败")
-		return
-	}
-	defer destConn.Close()
-
-	srcConn, err := restoreSrcDB.Conn(ctx)
-	if err != nil {
-		fail(c, 500, 50002, "获取备份连接失败")
-		return
-	}
-	defer srcConn.Close()
-
-	var restoreErr error
-	srcConn.Raw(func(srcRaw interface{}) error {
-		return destConn.Raw(func(destRaw interface{}) error {
-			srcSQLite, ok1 := srcRaw.(*sqlite3.SQLiteConn)
-			destSQLite, ok2 := destRaw.(*sqlite3.SQLiteConn)
-			if !ok1 || !ok2 {
-				restoreErr = fmt.Errorf("无法获取底层 SQLite 连接")
-				return restoreErr
-			}
-			bk, err := destSQLite.Backup("main", srcSQLite, "main")
-			if err != nil {
-				restoreErr = err
-				return err
-			}
-			defer bk.Finish()
-			if _, err := bk.Step(-1); err != nil {
-				restoreErr = err
-				return err
-			}
-			return nil
-		})
+	engineResult, err := s.executeRestoreEngine(c.Request.Context(), restoreEngineRequest{
+		RestoreID:    req.RestoreID,
+		Source:       restoreSourceDisasterRecover,
+		SnapshotID:   "upload_confirm",
+		TempDBPath:   tmpPath,
+		SchemaBefore: currentVersion,
 	})
-
-	if restoreErr != nil {
-		log.Printf(`{"event":"restore_failed","source":"disaster","error":%q}`, restoreErr.Error())
-		fail(c, 500, 50003, "数据恢复失败，请确认文件完整后重试")
+	if err != nil {
+		fail(c, 500, 50003, err.Error())
 		return
 	}
-
-	// Post-restore: re-apply PRAGMAs
-	if err := findb.ReapplyPragmas(ctx, s.db); err != nil {
-		log.Printf("[WARN] disaster-restore: reapply pragmas: %v", err)
-	}
-
-	// Post-restore: auto-migrate
-	var migratedTo int
-	if uploadedVersion < currentVersion {
-		if err := findb.Migrate(ctx, s.db); err != nil {
-			log.Printf("[ERROR] disaster-restore: migration failed: %v", err)
-			fail(c, 500, 50004, fmt.Sprintf(
-				"数据已恢复但自动迁移失败 (v%d → v%d): %s。请重启服务。",
-				uploadedVersion, currentVersion, err.Error(),
-			))
-			return
-		}
-		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&migratedTo)
-		log.Printf("[INFO] disaster-restore: migrated from v%d to v%d", uploadedVersion, migratedTo)
-	} else {
-		migratedTo = uploadedVersion
-	}
-
-	log.Printf(`{"event":"restore_success","source":"disaster","version":%d,"email":"%s"}`, migratedTo, maskEmail(pr.email))
 
 	ok(c, gin.H{
 		"message":          "灾难恢复成功！数据库已恢复",
 		"restored_version": uploadedVersion,
-		"migrated_to":      migratedTo,
+		"migrated_to":      engineResult.SchemaAfter,
 	})
 }
 
