@@ -239,7 +239,7 @@ export default function SettingsPage() {
     try {
       const status = await restoreFlow.requestRestore(restoreFile)
       if (status.status === 'verification_required') {
-        toast.error(t('settings.restore.crossAccount.prompt'))
+        toast(t('settings.restore.crossAccount.prompt'))
       }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -248,8 +248,7 @@ export default function SettingsPage() {
   }
 
   async function handleCrossAccountSendCode(email: string) {
-    if (!restoreFile) return
-    await restoreFlow.sendEmailCode(restoreFile, email)
+    await restoreFlow.sendEmailCode(email, restoreFile ?? undefined)
     toast.success(t('settings.restore.crossAccount.emailSentToast'))
   }
 
