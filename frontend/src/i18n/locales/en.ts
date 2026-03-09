@@ -292,14 +292,17 @@ const en = {
       },
       table: {
         date: 'Date',
+        time: 'Time',
         category: 'Category',
         project: 'Project',
         note: 'Note',
+        description: 'Description',
         source: 'Source',
         account: 'Account',
         amount: 'Amount',
         uploaded: 'Upload',
         reimbursed: 'Reimburse',
+        status: 'Status',
       },
       badges: {
         uploaded: 'Uploaded',

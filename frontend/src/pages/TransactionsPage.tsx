@@ -19,6 +19,11 @@ import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
+function splitTimestamp(value: string) {
+  const [date = value, time = ''] = value.split(' ')
+  return { date, time }
+}
+
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
   onClick, disabled, loading, locked, lockedTitle,
@@ -70,7 +75,6 @@ export default function TransactionsPage() {
   const tabLabelPending = isWorkMode ? t('transactions.reimbursementTabs.pending') : t('transactions.life.tabs.pending')
   const tabLabelDone = isWorkMode ? t('transactions.reimbursementTabs.done') : t('transactions.life.tabs.done')
   const processedLabel = isWorkMode ? t('transactions.badges.reimbursed') : t('transactions.life.badges.processed')
-  const processedHeader = isWorkMode ? t('transactions.table.reimbursed') : t('transactions.life.table.processed')
   const lockTitle = isWorkMode ? t('transactions.lockTitle') : t('transactions.life.lockTitle')
   const incomeHint = isWorkMode ? t('transactions.incomeNoReimburse') : t('transactions.life.incomeNoProcess')
 
@@ -481,7 +485,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
+      <div className="hidden md:block bg-[#FFFFFF] dark:bg-[hsl(260,15%,11%)] rounded-xl border border-gray-100/80 dark:border-gray-800/50 p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden">
         {loading ? (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {[0, 1, 2, 3, 4, 5].map(i => <RowSkeleton key={i} />)}
@@ -493,29 +497,25 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto xl:overflow-visible">
-            <table className="w-full table-fixed" style={{ minWidth: '1120px' }}>
+            <table className="w-full table-fixed" style={{ minWidth: '900px' }}>
               <colgroup>
-                <col style={{ width: '124px' }} />
-                <col style={{ width: '170px' }} />
-                <col style={{ width: '130px' }} />
+                <col style={{ width: '110px' }} />
+                <col style={{ width: '120px' }} />
+                <col className="tx-account-col" style={{ width: '120px' }} />
                 <col />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '130px' }} />
-                <col style={{ width: '120px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.date')}</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.category')}</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.project')}</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.note')}</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.source')}</th>
-                  <th className="px-3 py-3 text-left text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.account')}</th>
-                  <th className="px-3 py-3 text-right text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.amount')}</th>
-                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{t('transactions.table.uploaded')}</th>
-                  <th className="px-3 py-3 text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pr-4">{processedHeader}</th>
+                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.time')}</th>
+                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.category')}</th>
+                  <th className="tx-account-col px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.account')}</th>
+                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.description')}</th>
+                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.source')}</th>
+                  <th className="px-3 py-2.5 text-right text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.amount')}</th>
+                  <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pr-4">{t('transactions.table.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -526,11 +526,12 @@ export default function TransactionsPage() {
                   return (
                     <tr
                       key={tx.id}
-                      className={`border-b border-gray-100/80 dark:border-gray-800/50 last:border-0 transition-colors ${done ? 'opacity-40' : 'hover:bg-violet-50/30 dark:hover:bg-violet-500/5'
+                      className={`border-b border-gray-100/80 dark:border-gray-800/50 last:border-0 transition-colors ${done ? 'opacity-40' : 'hover:bg-[#F3F4F6] dark:hover:bg-violet-500/5'
                         }`}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <p className="text-[13px] font-medium text-gray-700 dark:text-gray-300 tabular-nums leading-tight">{tx.occurred_at}</p>
+                      <td className="px-3 py-2.5 whitespace-nowrap align-top">
+                        <p className="text-[13px] font-medium text-[#1F2937] dark:text-gray-300 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).date}</p>
+                        <p className="text-[12px] text-[#6B7280] dark:text-gray-500 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).time}</p>
                         <button
                           onClick={() => copyId(tx.id)}
                           title={t('transactions.copyIdTooltip')}
@@ -542,25 +543,26 @@ export default function TransactionsPage() {
                           {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
                         </button>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2.5">
                         <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
                           <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                           <span className="truncate">{categoryLabel(tx.category)}</span>
                         </span>
                       </td>
-                      <td className="px-3 py-3">
-                        {tx.project_id
-                          ? <span className="inline-flex items-center text-[11px] font-mono font-semibold bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-200/60 dark:border-violet-500/30 px-1.5 py-0.5 rounded-md truncate max-w-full">{tx.project_id}</span>
+                      <td className="tx-account-col px-3 py-2.5">
+                        {tx.account_id && accountMap[tx.account_id]
+                          ? <span className="text-[12px] text-gray-500 dark:text-gray-400 truncate block" title={accountMap[tx.account_id]}>{accountMap[tx.account_id]}</span>
                           : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         }
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-2.5">
                         {tx.note
-                          ? <span className="text-[13px] text-gray-500 dark:text-gray-400 truncate block leading-snug" title={tx.note}>{tx.note}</span>
+                          ? <span className="transaction-description text-[14px] text-gray-500 dark:text-gray-400 block leading-snug" title={tx.note}>{tx.note}</span>
                           : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         }
+                        {tx.project_id && <span className="text-[11px] text-violet-500 dark:text-violet-400 truncate block">#{tx.project_id}</span>}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="px-3 py-2.5 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${tx.source === 'company'
                           ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400'
                           : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
@@ -568,45 +570,35 @@ export default function TransactionsPage() {
                           {tx.source === 'company' ? t('common.company') : t('common.personal')}
                         </span>
                       </td>
-                      <td className="px-3 py-3">
-                        {tx.account_id && accountMap[tx.account_id]
-                          ? <span className="text-[12px] text-gray-500 dark:text-gray-400 truncate block" title={accountMap[tx.account_id]}>{accountMap[tx.account_id]}</span>
-                          : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        }
-                      </td>
-                      <td className={`px-3 py-3 text-right font-bold text-[13px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
+                      <td className={`px-3 py-2.5 text-right font-bold text-[14px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap pr-4">
                         {tx.direction === 'expense' ? (
-                          <StatusBadge
-                            active={tx.uploaded}
-                            activeLabel={t('transactions.badges.uploaded')}
-                            inactiveLabel={t('transactions.badges.notUploaded')}
-                            activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-500/30"
-                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
-                            onClick={() => handleToggleUpload(tx.id)}
-                            disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
-                            loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
-                            locked={tx.uploaded && tx.reimbursed}
-                            lockedTitle={lockTitle}
-                          />
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap pr-4">
-                        {tx.direction === 'expense' ? (
-                          <StatusBadge
-                            active={tx.reimbursed}
-                            activeLabel={processedLabel}
-                            inactiveLabel={t('transactions.badges.pending')}
-                            activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30"
-                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
-                            onClick={() => handleToggle(tx.id)}
-                            disabled={!!togglingAction || !tx.uploaded}
-                            loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
-                          />
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <StatusBadge
+                              active={tx.uploaded}
+                              activeLabel={t('transactions.badges.uploaded')}
+                              inactiveLabel={t('transactions.badges.notUploaded')}
+                              activeClass="bg-[#DBEAFE] text-[#1D4ED8] hover:bg-blue-200"
+                              inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
+                              onClick={() => handleToggleUpload(tx.id)}
+                              disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
+                              loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
+                              locked={tx.uploaded && tx.reimbursed}
+                              lockedTitle={lockTitle}
+                            />
+                            <StatusBadge
+                              active={tx.reimbursed}
+                              activeLabel={processedLabel}
+                              inactiveLabel={t('transactions.badges.pending')}
+                              activeClass="bg-[#DCFCE7] text-[#166534] hover:bg-green-100"
+                              inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
+                              onClick={() => handleToggle(tx.id)}
+                              disabled={!!togglingAction || !tx.uploaded}
+                              loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
+                            />
+                          </div>
                         ) : (
                           <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         )}

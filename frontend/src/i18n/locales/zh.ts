@@ -292,14 +292,17 @@ const zh = {
       },
       table: {
         date: '日期',
+        time: '时间',
         category: '类别',
         project: '项目',
         note: '备注',
+        description: '说明',
         source: '来源',
         account: '账户',
         amount: '金额',
         uploaded: '上传',
         reimbursed: '报销',
+        status: '状态',
       },
       badges: {
         uploaded: '已上传',

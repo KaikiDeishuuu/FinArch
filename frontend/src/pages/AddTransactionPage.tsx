@@ -7,7 +7,6 @@ import { createTransaction } from '../api/client'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
-import DatePicker from '../components/DatePicker'
 import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
@@ -27,8 +26,6 @@ export default function AddTransactionPage() {
 
   const { mode, isWorkMode } = useMode()
   const [form, setForm] = useState({
-    occurred_at: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
-    occurred_time: (() => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` })(),
     direction: 'expense',
     source: isWorkMode ? 'company' : 'personal',
     account_id: '',
@@ -75,9 +72,11 @@ export default function AddTransactionPage() {
     }
     setLoading(true)
     try {
+      const now = new Date()
+      const occurredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       await createTransaction({
         ...form,
-        occurred_at: `${form.occurred_at} ${form.occurred_time}`,
+        occurred_at: occurredAt,
         account_id: form.account_id || undefined,
         project_id: form.project_id.trim() || undefined,
         amount_yuan: amount,
@@ -271,26 +270,8 @@ export default function AddTransactionPage() {
           </div>
         </div>
 
-        {/* Date */}
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-          <label className={labelClass}>{t('addTransaction.form.date')}</label>
-          <DatePicker
-            value={form.occurred_at}
-            onChange={(v) => set('occurred_at', v)}
-            required
-          />
-          <input
-            type="time"
-            step={1}
-            className={`${inputClass} mt-2`}
-            value={form.occurred_time}
-            onChange={(e) => set('occurred_time', e.target.value)}
-            required
-          />
-        </div>
-
         {/* Project + Note */}
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
+        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
           <div>
             <label className={labelClass}>
               {t('addTransaction.form.project')} <span className="text-gray-300 dark:text-gray-600 font-normal normal-case tracking-normal">{t('addTransaction.form.optional')}</span>
