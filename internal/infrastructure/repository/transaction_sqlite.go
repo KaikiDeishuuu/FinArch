@@ -29,8 +29,8 @@ const txnSelectSQL = `
          t.type, t.category_id, t.category,
          t.reimb_status, t.reimb_to_account, t.reimbursement_id,
          t.project_id, t.project,
-         t.mode, t.note, t.uploaded, t.txn_date,
-         t.created_at, t.updated_at,
+         t.mode, t.note, t.uploaded, t.txn_date, t.transaction_time,
+         t.created_at, t.updated_at, t.reported_at, t.reimbursed_at,
          COALESCE(a.type, 'personal') AS account_type
   FROM transactions t
   LEFT JOIN accounts a ON a.id = t.account_id`
@@ -40,6 +40,13 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 	exec := getExecutor(ctx, r.db)
 	if t.TxnDate == "" {
 		t.TxnDate = t.OccurredAt.Format("2006-01-02")
+	}
+	if t.TransactionTime == 0 {
+		if !t.OccurredAt.IsZero() {
+			t.TransactionTime = t.OccurredAt.UTC().Unix()
+		} else {
+			t.TransactionTime = time.Now().UTC().Unix()
+		}
 	}
 	if t.GroupID == "" {
 		t.GroupID = t.ID
@@ -87,21 +94,21 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 			type, category_id, category,
 			reimb_status, reimb_to_account, reimbursement_id,
 			project_id, project,
-			mode, note, uploaded, idempotency_key, txn_date, created_at, updated_at
+			mode, note, uploaded, idempotency_key, txn_date, transaction_time, created_at, updated_at
 		) VALUES (
 			?,?,?,?,?,
 			?,?,?,?,
 			?,?,?,
 			?,?,?,
 			?,?,
-			?,?,?,?,?,?,?
+			?,?,?,?,?,?,?,?
 		)`,
 		t.ID, t.UserID, t.GroupID, string(ledgerDir), t.AccountID,
 		amountCents, t.Currency, exchangeRate, baseAmountCents,
 		string(txType), t.CategoryID, t.Category,
 		string(reimb), t.ReimbToAccount, t.ReimbursementID,
 		t.ProjectID, t.Project,
-		string(t.Mode), t.Note, boolToInt(t.Uploaded), t.IdempotencyKey, t.TxnDate, now, now,
+		string(t.Mode), t.Note, boolToInt(t.Uploaded), t.IdempotencyKey, t.TxnDate, t.TransactionTime, now, now,
 	)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
@@ -113,7 +120,7 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 func (r *SQLiteTransactionRepository) ListByUser(ctx context.Context, userID string, mode model.Mode) ([]model.Transaction, error) {
 	exec := getExecutor(ctx, r.db)
 	rows, err := exec.QueryContext(ctx,
-		txnSelectSQL+` WHERE t.user_id = ? AND t.mode = ? ORDER BY t.txn_date DESC, t.rowid DESC`, userID, string(mode))
+		txnSelectSQL+` WHERE t.user_id = ? AND t.mode = ? ORDER BY t.transaction_time DESC, t.id DESC`, userID, string(mode))
 	if err != nil {
 		return nil, fmt.Errorf("list transactions by user: %w", err)
 	}
@@ -156,7 +163,7 @@ func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx conte
 		q += " AND t.project_id = ?"
 		args = append(args, *projectID)
 	}
-	q += " ORDER BY t.base_amount_cents DESC, t.txn_date ASC"
+	q += " ORDER BY t.base_amount_cents DESC, t.transaction_time ASC, t.id ASC"
 	if maxN > 0 {
 		q += " LIMIT ?"
 		args = append(args, maxN)
@@ -182,6 +189,7 @@ func (r *SQLiteTransactionRepository) MarkReimbursed(ctx context.Context, transa
 	}
 	q := `UPDATE transactions
 		SET reimb_status = 'reimbursed', reimbursement_id = ?,
+		    reimbursed_at = CAST(strftime('%s','now') AS INTEGER),
 		    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
 		WHERE reimb_status = 'pending' AND id IN (` + placeholders + `)`
 	res, err := exec.ExecContext(ctx, q, args...)
@@ -199,9 +207,10 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 	exec := getExecutor(ctx, r.db)
 	var cur string
 	var ownerID string
+	var reportedAt sql.NullInt64
 	if err := exec.QueryRowContext(ctx,
-		`SELECT reimb_status, user_id FROM transactions WHERE id = ?`, id,
-	).Scan(&cur, &ownerID); err != nil {
+		`SELECT reimb_status, user_id, reported_at FROM transactions WHERE id = ?`, id,
+	).Scan(&cur, &ownerID, &reportedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return false, fmt.Errorf("交易记录不存在")
 		}
@@ -211,6 +220,9 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 		return false, fmt.Errorf("无权操作该交易")
 	}
 	var newStatus string
+	if !reportedAt.Valid && cur != string(model.ReimbStatusReimbursed) {
+		return false, fmt.Errorf("请先上报再报销")
+	}
 	if cur == string(model.ReimbStatusReimbursed) {
 		newStatus = string(model.ReimbStatusPending)
 	} else {
@@ -220,11 +232,15 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 	if _, err := exec.ExecContext(ctx,
 		`UPDATE transactions SET reimb_status = ?,
 		  reimbursement_id = CASE WHEN ? = 'pending' THEN NULL ELSE reimbursement_id END,
+		  reimbursed_at = CASE WHEN ? = 'reimbursed' THEN CAST(strftime('%s','now') AS INTEGER) ELSE reimbursed_at END,
 		  updated_at = ?
 		 WHERE id = ?`,
-		newStatus, newStatus, nowStr, id,
+		newStatus, newStatus, newStatus, nowStr, id,
 	); err != nil {
 		return false, fmt.Errorf("toggle reimbursed: %w", err)
+	}
+	if newStatus == string(model.ReimbStatusReimbursed) {
+		fmt.Printf("Transaction %s reimbursed at %s\n", id, nowStr)
 	}
 	return newStatus == string(model.ReimbStatusReimbursed), nil
 }
@@ -248,10 +264,17 @@ func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id str
 	newVal := 1 - cur
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 	if _, err := exec.ExecContext(ctx,
-		`UPDATE transactions SET uploaded = ?, updated_at = ? WHERE id = ?`,
-		newVal, nowStr, id,
+		`UPDATE transactions
+		 SET uploaded = ?,
+		     reported_at = CASE WHEN ? = 1 AND reported_at IS NULL THEN CAST(strftime('%s','now') AS INTEGER) ELSE reported_at END,
+		     updated_at = ?
+		 WHERE id = ?`,
+		newVal, newVal, nowStr, id,
 	); err != nil {
 		return false, fmt.Errorf("toggle uploaded: %w", err)
+	}
+	if newVal == 1 {
+		fmt.Printf("Transaction %s reported at %s\n", id, nowStr)
 	}
 	return newVal == 1, nil
 }
@@ -323,7 +346,9 @@ func scanTransaction(scanner interface {
 	var categoryID, reimbToAccount, reimbursementID sql.NullString
 	var projectID sql.NullString
 	var project sql.NullString
+	var transactionTime sql.NullInt64
 	var createdAt, updatedAt string
+	var reportedAt, reimbursedAt sql.NullInt64
 	var uploaded int
 
 	if err := scanner.Scan(
@@ -333,8 +358,8 @@ func scanTransaction(scanner interface {
 		&txType, &categoryID, &t.Category,
 		&reimbStatus, &reimbToAccount, &reimbursementID,
 		&projectID, &project,
-		&mode, &t.Note, &uploaded, &t.TxnDate,
-		&createdAt, &updatedAt,
+		&mode, &t.Note, &uploaded, &t.TxnDate, &transactionTime,
+		&createdAt, &updatedAt, &reportedAt, &reimbursedAt,
 		&accountType,
 	); err != nil {
 		return model.Transaction{}, fmt.Errorf("scan transaction: %w", err)
@@ -361,9 +386,15 @@ func scanTransaction(scanner interface {
 		t.Source = model.SourceCompany
 	}
 
-	// Parse txn_date → OccurredAt (midnight UTC)
-	if d, err := time.ParseInLocation("2006-01-02", t.TxnDate, time.UTC); err == nil {
-		t.OccurredAt = d
+	if transactionTime.Valid {
+		t.TransactionTime = transactionTime.Int64
+		t.OccurredAt = time.Unix(transactionTime.Int64, 0).UTC()
+	}
+	if t.OccurredAt.IsZero() {
+		if d, err := time.ParseInLocation("2006-01-02", t.TxnDate, time.UTC); err == nil {
+			t.OccurredAt = d
+			t.TransactionTime = d.Unix()
+		}
 	}
 
 	if categoryID.Valid {
@@ -392,6 +423,14 @@ func scanTransaction(scanner interface {
 	}
 	if ts, err := time.Parse(time.RFC3339, updatedAt); err == nil {
 		t.UpdatedAt = ts
+	}
+	if reportedAt.Valid {
+		ts := time.Unix(reportedAt.Int64, 0).UTC()
+		t.ReportedAt = &ts
+	}
+	if reimbursedAt.Valid {
+		ts := time.Unix(reimbursedAt.Int64, 0).UTC()
+		t.ReimbursedAt = &ts
 	}
 	return t, nil
 }
