@@ -157,6 +157,46 @@ body {
   white-space: nowrap;
 }
 
+
+.transaction-table-container {
+  border: 1px solid #E5E7EB;
+  padding: 10px 12px;
+}
+
+.table-header {
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.transaction-row > .transaction-cell {
+  border-top: 1px solid #F1F5F9;
+  border-bottom: 1px solid #F1F5F9;
+  background: #FFFFFF;
+  padding: 12px 14px;
+}
+
+.dark .transaction-row > .transaction-cell {
+  border-color: rgb(55 65 81 / 0.55);
+  background: hsl(260 15% 11%);
+}
+
+.transaction-row > .transaction-cell:first-child {
+  border-left: 1px solid #F1F5F9;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.transaction-row > .transaction-cell:last-child {
+  border-right: 1px solid #F1F5F9;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.dark .transaction-row > .transaction-cell:first-child,
+.dark .transaction-row > .transaction-cell:last-child {
+  border-color: rgb(55 65 81 / 0.55);
+}
+
+
 @media (max-width: 900px) {
   .tx-account-col {
     display: none;

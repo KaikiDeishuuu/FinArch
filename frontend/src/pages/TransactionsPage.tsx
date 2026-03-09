@@ -24,6 +24,13 @@ function splitTimestamp(value: string) {
   return { date, time }
 }
 
+function formatLifecycleTimestamp(value?: string | null) {
+  if (!value) return null
+  const { date, time } = splitTimestamp(value)
+  const shortDate = date.length >= 10 ? date.slice(5) : date
+  return `${shortDate} ${time.slice(0, 5)}`.trim()
+}
+
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
   onClick, disabled, loading, locked, lockedTitle,
@@ -485,7 +492,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-[#FFFFFF] dark:bg-[hsl(260,15%,11%)] rounded-xl border border-gray-100/80 dark:border-gray-800/50 p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden">
+      <div className="transaction-table-container hidden md:block bg-[#FFFFFF] dark:bg-[hsl(260,15%,11%)] rounded-xl border border-gray-100/80 dark:border-gray-800/50 p-3 shadow-[0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden">
         {loading ? (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {[0, 1, 2, 3, 4, 5].map(i => <RowSkeleton key={i} />)}
@@ -497,23 +504,21 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto xl:overflow-visible">
-            <table className="w-full table-fixed" style={{ minWidth: '900px' }}>
+            <table className="w-full table-fixed border-separate [border-spacing:0_8px]" style={{ minWidth: '900px' }}>
               <colgroup>
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '120px' }} />
                 <col className="tx-account-col" style={{ width: '120px' }} />
                 <col />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '100px' }} />
+                <col style={{ width: '130px' }} />
               </colgroup>
-              <thead>
-                <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">
+              <thead className="table-header">
+                <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-200/80 dark:border-gray-700/70">
                   <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.time')}</th>
                   <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.category')}</th>
                   <th className="tx-account-col px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.account')}</th>
                   <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.description')}</th>
-                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.source')}</th>
                   <th className="px-3 py-2.5 text-right text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.amount')}</th>
                   <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pr-4">{t('transactions.table.status')}</th>
                 </tr>
@@ -526,12 +531,16 @@ export default function TransactionsPage() {
                   return (
                     <tr
                       key={tx.id}
-                      className={`border-b border-gray-100/80 dark:border-gray-800/50 last:border-0 transition-colors ${done ? 'opacity-40' : 'hover:bg-[#F3F4F6] dark:hover:bg-violet-500/5'
+                      className={`transaction-row transition-all duration-150 ${done ? 'opacity-45' : 'hover:bg-[#F8FAFC] dark:hover:bg-violet-500/5 hover:-translate-y-0.5 hover:shadow-[0_4px_10px_rgba(0,0,0,0.05)]'
                         }`}
                     >
-                      <td className="px-3 py-2.5 whitespace-nowrap align-top">
-                        <p className="text-[13px] font-medium text-[#1F2937] dark:text-gray-300 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).date}</p>
-                        <p className="text-[12px] text-[#6B7280] dark:text-gray-500 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).time}</p>
+                      <td className="transaction-cell px-3 py-3 whitespace-nowrap align-middle">
+                        <div className="cell-container flex flex-col items-center gap-1.5">
+                          <div className="time-box min-w-[98px] px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 text-center">
+                            <p className="time-date text-[12px] font-medium text-[#1F2937] dark:text-gray-300 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).date}</p>
+                            <p className="time-clock text-[11px] text-[#6B7280] dark:text-gray-500 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).time}</p>
+                          </div>
+                        </div>
                         <button
                           onClick={() => copyId(tx.id)}
                           title={t('transactions.copyIdTooltip')}
@@ -543,39 +552,46 @@ export default function TransactionsPage() {
                           {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
                         </button>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <td className="transaction-cell px-3 py-3 align-middle">
+                        <div className="cell-container">
+                          <span className={`category-pill inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium ${urgent
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                            }`}>
                           <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                           <span className="truncate">{categoryLabel(tx.category)}</span>
-                        </span>
+                          </span>
+                        </div>
                       </td>
-                      <td className="tx-account-col px-3 py-2.5">
+                      <td className="transaction-cell tx-account-col px-3 py-3 align-middle">
                         {tx.account_id && accountMap[tx.account_id]
-                          ? <span className="text-[12px] text-gray-500 dark:text-gray-400 truncate block" title={accountMap[tx.account_id]}>{accountMap[tx.account_id]}</span>
+                          ? <span className="account-chip inline-flex max-w-full items-center rounded-md bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 text-[12px] truncate" title={accountMap[tx.account_id]}>{accountMap[tx.account_id]}</span>
                           : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
                         }
                       </td>
-                      <td className="px-3 py-2.5">
-                        {tx.note
-                          ? <span className="transaction-description text-[14px] text-gray-500 dark:text-gray-400 block leading-snug" title={tx.note}>{tx.note}</span>
-                          : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        }
-                        {tx.project_id && <span className="text-[11px] text-violet-500 dark:text-violet-400 truncate block">#{tx.project_id}</span>}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${tx.source === 'company'
+                      <td className="transaction-cell px-3 py-3 align-middle">
+                        <div className="txn-info-container flex flex-col gap-1">
+                          {tx.note
+                            ? <span className="txn-title transaction-description text-[14px] font-medium text-gray-700 dark:text-gray-300 block leading-snug" title={tx.note}>{tx.note}</span>
+                            : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
+                          }
+                          <div className="txn-meta flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-gray-400">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${tx.source === 'company'
                           ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400'
                           : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
                           }`}>
-                          {tx.source === 'company' ? t('common.company') : t('common.personal')}
-                        </span>
+                              {tx.source === 'company' ? t('common.company') : t('common.personal')}
+                            </span>
+                            {tx.project_id && <span className="text-[11px] text-violet-500 dark:text-violet-400 truncate block">#{tx.project_id}</span>}
+                          </div>
+                        </div>
                       </td>
-                      <td className={`px-3 py-2.5 text-right font-bold text-[14px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
+                      <td className={`transaction-cell px-3 py-3 text-right amount text-[15px] font-semibold tabular-nums whitespace-nowrap align-middle ${tx.direction === 'income' ? 'amount-income text-emerald-600' : 'amount-expense text-rose-600'}`} style={{ letterSpacing: '-0.02em' }}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </td>
-                      <td className="px-3 py-2.5 text-center whitespace-nowrap pr-4">
+                      <td className="transaction-cell px-3 py-3 text-center whitespace-nowrap pr-4 align-middle">
                         {tx.direction === 'expense' ? (
-                          <div className="inline-flex flex-col items-center gap-1">
+                          <div className="status-block inline-flex flex-col items-start gap-1.5">
                             <StatusBadge
                               active={tx.uploaded}
                               activeLabel={t('transactions.badges.uploaded')}
@@ -598,6 +614,11 @@ export default function TransactionsPage() {
                               disabled={!!togglingAction || !tx.uploaded}
                               loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
                             />
+                            {(formatLifecycleTimestamp(tx.reimbursed_at) || formatLifecycleTimestamp(tx.reported_at)) && (
+                              <span className="status-time text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
+                                {formatLifecycleTimestamp(tx.reimbursed_at) || formatLifecycleTimestamp(tx.reported_at)}
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
