@@ -24,6 +24,13 @@ function splitTimestamp(value: string) {
   return { date, time }
 }
 
+function formatLifecycleTimestamp(value?: string | null) {
+  if (!value) return null
+  const { date, time } = splitTimestamp(value)
+  const shortDate = date.length >= 10 ? date.slice(5) : date
+  return `${shortDate} ${time.slice(0, 5)}`.trim()
+}
+
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
   onClick, disabled, loading, locked, lockedTitle,
@@ -484,130 +491,103 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block bg-[#FFFFFF] dark:bg-[hsl(260,15%,11%)] rounded-xl border border-gray-100/80 dark:border-gray-800/50 p-4 shadow-[0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden">
+      {/* Desktop Feed */}
+      <div className="hidden md:block space-y-2.5">
         {loading ? (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="divide-y divide-gray-100 dark:divide-gray-800 rounded-2xl bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100/80 dark:border-gray-800/60 p-4">
             {[0, 1, 2, 3, 4, 5].map(i => <RowSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-2">
+          <div className="transaction-table-container flex flex-col items-center justify-center py-16 gap-2 rounded-2xl">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12 text-gray-200 dark:text-gray-700"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
             <p className="text-sm text-gray-400 dark:text-gray-500">{t('transactions.noRecords')}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto xl:overflow-visible">
-            <table className="w-full table-fixed" style={{ minWidth: '900px' }}>
-              <colgroup>
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '120px' }} />
-                <col className="tx-account-col" style={{ width: '120px' }} />
-                <col />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '100px' }} />
-              </colgroup>
-              <thead>
-                <tr className="bg-gradient-to-r from-gray-50/90 to-gray-50/50 dark:from-gray-800/50 dark:to-gray-800/20 border-b border-gray-100 dark:border-gray-800">
-                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.time')}</th>
-                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.category')}</th>
-                  <th className="tx-account-col px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.account')}</th>
-                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.description')}</th>
-                  <th className="px-3 py-2.5 text-left text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.source')}</th>
-                  <th className="px-3 py-2.5 text-right text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('transactions.table.amount')}</th>
-                  <th className="px-3 py-2.5 text-center text-[13px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pr-4">{t('transactions.table.status')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((tx) => {
-                  const isExpense = tx.direction === 'expense'
-                  const done = isExpense && tx.reimbursed && tx.uploaded
-                  const urgent = isExpense && !tx.reimbursed && !tx.uploaded
-                  return (
-                    <tr
-                      key={tx.id}
-                      className={`border-b border-gray-100/80 dark:border-gray-800/50 last:border-0 transition-colors ${done ? 'opacity-40' : 'hover:bg-[#F3F4F6] dark:hover:bg-violet-500/5'
+          <div className="transaction-feed">
+            {filtered.map((tx) => {
+              const isExpense = tx.direction === 'expense'
+              const done = isExpense && tx.reimbursed && tx.uploaded
+              const urgent = isExpense && !tx.reimbursed && !tx.uploaded
+              return (
+                <article
+                  key={tx.id}
+                  className={`transaction-feed-row group ${done ? 'opacity-55' : ''}`}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className={`mt-1 h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${tx.direction === 'income' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'}`}>
+                      <span className="text-sm font-bold">{tx.direction === 'income' ? '+' : '−'}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[16px] leading-6 font-semibold text-gray-900 dark:text-gray-100 truncate" title={tx.note || categoryLabel(tx.category)}>
+                        {tx.note || categoryLabel(tx.category)}
+                      </p>
+                      <p className="mt-0.5 text-[14px] leading-5 text-gray-500 dark:text-gray-400 truncate">
+                        {categoryLabel(tx.category)}
+                        {tx.account_id && accountMap[tx.account_id] ? ` · ${accountMap[tx.account_id]}` : ''}
+                        {tx.project_id ? ` · ${tx.project_id}` : ''}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-400 dark:text-gray-500 tabular-nums">
+                        <span>{splitTimestamp(tx.occurred_at).date}</span>
+                        <span>·</span>
+                        <span>{splitTimestamp(tx.occurred_at).time}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ml-4 flex shrink-0 flex-col items-end gap-1.5 text-right">
+                    <div className={`amount text-[20px] leading-6 font-semibold tabular-nums ${tx.direction === 'income' ? 'amount-income text-emerald-600' : 'amount-expense text-rose-600'}`}>
+                      {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
+                    </div>
+                    {tx.direction === 'expense' ? (
+                      <div className="status-block inline-flex flex-col items-end gap-1.5">
+                        <div className="inline-flex items-center gap-1.5">
+                          <StatusBadge
+                            active={tx.uploaded}
+                            activeLabel={t('transactions.badges.uploaded')}
+                            inactiveLabel={t('transactions.badges.notUploaded')}
+                            activeClass="bg-[#DBEAFE] text-[#1D4ED8]"
+                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                            onClick={() => handleToggleUpload(tx.id)}
+                            disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
+                            loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
+                            locked={tx.uploaded && tx.reimbursed}
+                            lockedTitle={lockTitle}
+                          />
+                          <StatusBadge
+                            active={tx.reimbursed}
+                            activeLabel={processedLabel}
+                            inactiveLabel={t('transactions.badges.pending')}
+                            activeClass="bg-[#DCFCE7] text-[#166534]"
+                            inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                            onClick={() => handleToggle(tx.id)}
+                            disabled={!!togglingAction || !tx.uploaded}
+                            loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
+                          />
+                        </div>
+                        {(formatLifecycleTimestamp(tx.reimbursed_at) || formatLifecycleTimestamp(tx.reported_at)) && (
+                          <span className="status-time text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
+                            {formatLifecycleTimestamp(tx.reimbursed_at) || formatLifecycleTimestamp(tx.reported_at)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[12px] text-gray-400 dark:text-gray-500">{incomeHint}</span>
+                    )}
+                    <button
+                      onClick={() => copyId(tx.id)}
+                      title={t('transactions.copyIdTooltip')}
+                      className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-all ${copiedId === tx.id
+                        ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
+                        : 'text-gray-300 dark:text-gray-600 hover:text-violet-400 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10'
                         }`}
                     >
-                      <td className="px-3 py-2.5 whitespace-nowrap align-top">
-                        <p className="text-[13px] font-medium text-[#1F2937] dark:text-gray-300 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).date}</p>
-                        <p className="text-[12px] text-[#6B7280] dark:text-gray-500 tabular-nums leading-tight">{splitTimestamp(tx.occurred_at).time}</p>
-                        <button
-                          onClick={() => copyId(tx.id)}
-                          title={t('transactions.copyIdTooltip')}
-                          className={`font-mono text-[10px] rounded px-1 py-0.5 transition-all mt-0.5 block leading-none ${copiedId === tx.id
-                            ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
-                            : 'text-gray-300 dark:text-gray-600 hover:text-violet-400 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10'
-                            }`}
-                        >
-                          {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${urgent ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                          <span className="truncate">{categoryLabel(tx.category)}</span>
-                        </span>
-                      </td>
-                      <td className="tx-account-col px-3 py-2.5">
-                        {tx.account_id && accountMap[tx.account_id]
-                          ? <span className="text-[12px] text-gray-500 dark:text-gray-400 truncate block" title={accountMap[tx.account_id]}>{accountMap[tx.account_id]}</span>
-                          : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        }
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {tx.note
-                          ? <span className="transaction-description text-[14px] text-gray-500 dark:text-gray-400 block leading-snug" title={tx.note}>{tx.note}</span>
-                          : <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        }
-                        {tx.project_id && <span className="text-[11px] text-violet-500 dark:text-violet-400 truncate block">#{tx.project_id}</span>}
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${tx.source === 'company'
-                          ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400'
-                          : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                          }`}>
-                          {tx.source === 'company' ? t('common.company') : t('common.personal')}
-                        </span>
-                      </td>
-                      <td className={`px-3 py-2.5 text-right font-bold text-[14px] tabular-nums whitespace-nowrap ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'}`} style={{ letterSpacing: '-0.02em' }}>
-                        {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
-                      </td>
-                      <td className="px-3 py-2.5 text-center whitespace-nowrap pr-4">
-                        {tx.direction === 'expense' ? (
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <StatusBadge
-                              active={tx.uploaded}
-                              activeLabel={t('transactions.badges.uploaded')}
-                              inactiveLabel={t('transactions.badges.notUploaded')}
-                              activeClass="bg-[#DBEAFE] text-[#1D4ED8] hover:bg-blue-200"
-                              inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400"
-                              onClick={() => handleToggleUpload(tx.id)}
-                              disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
-                              loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
-                              locked={tx.uploaded && tx.reimbursed}
-                              lockedTitle={lockTitle}
-                            />
-                            <StatusBadge
-                              active={tx.reimbursed}
-                              activeLabel={processedLabel}
-                              inactiveLabel={t('transactions.badges.pending')}
-                              activeClass="bg-[#DCFCE7] text-[#166534] hover:bg-green-100"
-                              inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-500 dark:hover:text-emerald-400"
-                              onClick={() => handleToggle(tx.id)}
-                              disabled={!!togglingAction || !tx.uploaded}
-                              loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 text-[13px]">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
+                    </button>
+                  </div>
+                  {urgent && <span className="absolute left-3 top-3 h-2 w-2 rounded-full bg-amber-400" />}
+                </article>
+              )
+            })}
           </div>
         )}
       </div>
