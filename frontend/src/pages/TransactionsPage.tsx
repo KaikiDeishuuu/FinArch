@@ -21,8 +21,9 @@ type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
 function splitTimestamp(value: string) {
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-  const hasTimezone = /([zZ]|[+\-]\d{2}:?\d{2})$/.test(normalized)
-  const parsed = new Date(hasTimezone ? normalized : `${normalized}Z`)
+  // We no longer forcefully append 'Z' for timestamps without a timezone.
+  // This allows the browser to parse 'YYYY-MM-DDTHH:mm:ss' as local time, avoiding the 8-hour offset.
+  const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) {
     const [date = value, time = ''] = value.split(' ')
     return { date, time: time.slice(0, 5) }

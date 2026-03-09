@@ -30,10 +30,6 @@ export default function ExchangeTrendChart({
   locale: string
 }) {
   const isMobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
-  const tickInterval = useMemo(() => {
-    if (!isMobile || data.length <= 3) return 0
-    return Math.max(1, Math.floor((data.length - 1) / 2))
-  }, [data.length, isMobile])
 
   const tooltipPosition = useMemo(() => ({ x: isMobile ? 10 : 20, y: 16 }), [isMobile])
 
@@ -45,7 +41,7 @@ export default function ExchangeTrendChart({
       : { stroke: '#6B7280', gradientStart: 'rgba(107,114,128,0.12)' }
 
   return (
-    <div className="h-[320px] w-full max-w-full overflow-hidden touch-none">
+    <div className="h-[320px] w-full max-w-full overflow-hidden touch-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 16, right: isMobile ? 12 : 16, left: isMobile ? 48 : 48, bottom: 20 }}>
           <defs>
@@ -60,7 +56,7 @@ export default function ExchangeTrendChart({
             tick={{ fontSize: 11, fill: '#6B7280' }}
             tickMargin={8}
             minTickGap={isMobile ? 36 : 24}
-            interval={tickInterval}
+            interval="preserveStartEnd"
             tickLine={false}
             axisLine={false}
             padding={{ left: 12, right: 12 }}

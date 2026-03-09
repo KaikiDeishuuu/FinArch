@@ -136,37 +136,38 @@ function CurrencySelector({
       <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
       <button
         onClick={() => setOpen(v => !v)}
-        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-900/70"
+        className="group flex h-12 w-full items-center justify-between rounded-2xl border border-gray-200/80 bg-white/60 px-4 text-left shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:border-blue-300 hover:bg-white hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700/80 dark:bg-black/20 dark:hover:border-blue-500/50 dark:hover:bg-gray-900/60"
       >
-        <span className="flex items-center gap-2.5">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-gray-200 text-gray-500">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
+        <span className="flex items-center gap-3">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:bg-blue-500/10 dark:group-hover:text-blue-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
           </span>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">{selected.code}</span>
-          <span className="truncate text-sm text-gray-500 dark:text-gray-400">{selected.en}</span>
+          <span className="font-bold text-gray-900 dark:text-gray-100">{selected.code}</span>
+          <span className="truncate text-sm text-gray-500 transition-colors group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300">{selected.en}</span>
         </span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" /></svg>
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-2 w-full rounded-2xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-gray-900">
+        <div className="absolute z-30 mt-2 w-full origin-top transform rounded-[20px] border border-white/60 bg-white/80 p-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-2xl transition-all duration-300 dark:border-white/10 dark:bg-gray-900/80">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('exchange.searchCurrency')}
-            className="mb-2 h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800"
+            className="mb-2 h-10 w-full rounded-xl border border-gray-200/80 bg-white/50 px-3 text-sm shadow-inner outline-none transition-all focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-gray-700/80 dark:bg-black/20 focus:dark:ring-blue-500/20"
           />
-          <div className="max-h-56 overflow-auto space-y-1 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="max-h-56 overflow-auto space-y-1 rounded-xl p-1 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
             {options.map(c => (
               <button
                 key={c.code}
                 onClick={() => { onChange(c.code); setOpen(false); setQuery('') }}
-                className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                className="group flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all duration-200 hover:bg-blue-50 hover:pl-4 dark:hover:bg-blue-500/10"
               >
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-gray-200 text-gray-500">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors group-hover:border-blue-200 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:text-blue-400">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
                 </span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">{c.code}</span>
-                <span className="truncate text-sm text-gray-500 dark:text-gray-400">{c.en}</span>
+                <span className="font-bold text-gray-900 transition-colors group-hover:text-blue-700 dark:text-gray-100 dark:group-hover:text-blue-300">{c.code}</span>
+                <span className="truncate text-sm text-gray-500 transition-colors group-hover:text-blue-600/70 dark:text-gray-400 dark:group-hover:text-blue-400/70">{c.en}</span>
               </button>
             ))}
           </div>
@@ -286,14 +287,18 @@ export default function ExchangeRatePage() {
   const toMeta = CURRENCIES.find(c => c.code === to) ?? CURRENCIES[1]
 
   return (
-    <div className="space-y-6 font-['Noto_Sans_TC','Noto_Sans_Traditional_Chinese',sans-serif] text-[#111827]">
-      <div>
-        <h1 className="text-[26px] font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('exchange.title')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('exchange.subtitle')}</p>
+    <div className="relative min-h-[calc(100vh-80px)] space-y-6 font-['Noto_Sans_TC','Noto_Sans_Traditional_Chinese',sans-serif] text-[#111827]">
+      {/* Decorative blurred backgrounds */}
+      <div className="absolute top-[-10%] left-[-5%] z-[-1] h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px] dark:bg-blue-900/20 pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-5%] z-[-1] h-[600px] w-[600px] rounded-full bg-purple-500/10 blur-[120px] dark:bg-purple-900/20 pointer-events-none" />
+
+      <div className="relative z-10">
+        <h1 className="text-[28px] font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('exchange.title')}</h1>
+        <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">{t('exchange.subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <section className="max-w-full xl:col-span-2 rounded-2xl border border-[#E6E8EB] bg-white p-4 md:p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
+      <div className="relative z-10 grid grid-cols-1 gap-6 xl:grid-cols-5">
+        <section className="max-w-full xl:col-span-2 relative overflow-hidden rounded-[24px] border border-white/60 bg-white/70 p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#1A1825]/70 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
           {latestLoading ? (
             <div className="space-y-3">
               <Skeleton height="h-4" width="w-20" />
@@ -302,7 +307,7 @@ export default function ExchangeRatePage() {
           ) : (
             <>
               <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('exchange.amount')}</label>
-              <div className="mt-1 rounded-xl border border-gray-200 bg-[#F7F8FA] px-4 py-3 transition-all focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 dark:border-gray-700 dark:bg-gray-900/40">
+              <div className="mt-1.5 rounded-2xl border border-gray-200/80 bg-white/50 px-4 py-3 shadow-inner transition-all focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-gray-700/80 dark:bg-black/20 focus-within:dark:ring-blue-500/20">
                 <input
                   type="number"
                   value={amountInput}
@@ -325,20 +330,21 @@ export default function ExchangeRatePage() {
                 setTo(from)
                 window.setTimeout(() => setSwapSpin(false), 280)
               }}
-              className="my-2 mx-auto md:my-0 md:mb-0.5 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
+              className="group relative z-10 my-2 mx-auto md:my-0 md:mb-0.5 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200/80 bg-white text-gray-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:scale-110 hover:border-blue-200 hover:text-blue-600 hover:shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500/30 dark:hover:text-blue-400"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-200 ${swapSpin ? 'rotate-180' : ''}`}><path d="M4 7h12" /><path d="m12 3 4 4-4 4" /><path d="M20 17H8" /><path d="m12 13-4 4 4 4" /></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-300 ease-in-out ${swapSpin ? 'rotate-180 scale-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h12" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 3 4 4-4 4" /><path strokeLinecap="round" strokeLinejoin="round" d="M20 17H8" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 13-4 4 4 4" /></svg>
             </button>
             <div className="w-full">
               {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />}
             </div>
           </div>
 
-          <button className="mt-4 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md">
+          <button className="mt-5 h-12 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-bold tracking-wide text-white shadow-[0_4px_14px_0_rgba(79,70,229,0.39)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(79,70,229,0.39)] hover:from-blue-500 hover:to-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 active:scale-[0.98]">
             {t('exchange.convert')}
           </button>
 
-          <div className="mt-5 rounded-2xl border border-gray-100 bg-[#F7F8FA] p-4 dark:border-gray-800 dark:bg-gray-900/40">
+          <div className="mt-6 overflow-hidden relative rounded-3xl border border-white/60 bg-gradient-to-br from-blue-50/50 to-purple-50/50 p-5 backdrop-blur-md shadow-inner dark:border-white/5 dark:from-blue-900/10 dark:to-purple-900/10">
+            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-blue-400/20 blur-[40px] pointer-events-none" />
             {latestLoading ? (
               <div className="space-y-3">
                 <Skeleton height="h-4" width="w-28" />
@@ -347,27 +353,27 @@ export default function ExchangeRatePage() {
               </div>
             ) : (
               <>
-            <p className="text-sm text-gray-500">{debouncedAmount.toLocaleString()} {fromMeta.code}</p>
-            <p className="mt-1 text-[32px] font-semibold leading-9 text-gray-900 transition-all duration-300 dark:text-gray-100">
-              <AnimatedNumber value={converted} formatter={(n) => `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${toMeta.code}`} />
-            </p>
-            <p className="mt-2 text-base text-gray-600 dark:text-gray-300">
-              {t('exchange.exchangeRate')}: 1 {from} = {rate.toFixed(4)} {to}
-              <span className={`ml-2 text-sm font-semibold ${trendMeta.cls}`}>{trendMeta.arrow} {trendMeta.value}</span>
-            </p>
-            <p className="mt-1 text-[13px] text-gray-400">{t('exchange.lastUpdated', { sec: ageSec })}</p>
-            {error && <p className="mt-2 text-xs text-amber-600">{error}</p>}
+                <p className="text-sm text-gray-500">{debouncedAmount.toLocaleString()} {fromMeta.code}</p>
+                <p className="mt-1 text-[32px] font-semibold leading-9 text-gray-900 transition-all duration-300 dark:text-gray-100">
+                  <AnimatedNumber value={converted} formatter={(n) => `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${toMeta.code}`} />
+                </p>
+                <p className="mt-2 text-base text-gray-600 dark:text-gray-300">
+                  {t('exchange.exchangeRate')}: 1 {from} = {rate.toFixed(4)} {to}
+                  <span className={`ml-2 text-sm font-semibold ${trendMeta.cls}`}>{trendMeta.arrow} {trendMeta.value}</span>
+                </p>
+                <p className="mt-1 text-[13px] text-gray-400">{t('exchange.lastUpdated', { sec: ageSec })}</p>
+                {error && <p className="mt-2 text-xs text-amber-600">{error}</p>}
               </>
             )}
           </div>
         </section>
 
-        <section className="max-w-full overflow-hidden xl:col-span-3 rounded-2xl border border-[#E6E8EB] bg-white p-4 md:p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{from} / {to} {t('exchange.trend')}</h2>
-            <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+        <section className="max-w-full overflow-hidden xl:col-span-3 relative rounded-[24px] border border-white/60 bg-white/70 p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#1A1825]/70 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+          <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-[1.1rem] font-bold text-gray-900 dark:text-gray-100 tracking-tight">{from} / {to} {t('exchange.trend')}</h2>
+            <div className="flex items-center gap-1 rounded-xl bg-black/5 p-1 backdrop-blur-md dark:bg-white/5">
               {(['1D', '1W', '1M', '1Y'] as RangeKey[]).map(r => (
-                <button key={r} onClick={() => setRange(r)} className={`min-h-11 rounded-lg px-3 text-xs font-medium transition ${range === r ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>
+                <button key={r} onClick={() => setRange(r)} className={`min-h-9 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-300 ${range === r ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 hover:bg-black/5 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5'}`}>
                   {t(`exchange.ranges.${r}`)}
                 </button>
               ))}
