@@ -132,11 +132,11 @@ function CurrencySelector({
   }, [open])
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative w-full max-w-full box-border">
       <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
       <button
         onClick={() => setOpen(v => !v)}
-        className="group flex h-12 w-full items-center justify-between rounded-2xl border border-gray-200/80 bg-white/60 px-4 text-left shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:border-blue-300 hover:bg-white hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700/80 dark:bg-black/20 dark:hover:border-blue-500/50 dark:hover:bg-gray-900/60"
+        className="group flex h-12 w-full max-w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white/60 px-3 md:px-4 text-left shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.01] hover:border-blue-300 hover:bg-white hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700/80 dark:bg-black/20 dark:hover:border-blue-500/50 dark:hover:bg-gray-900/60" style={{ boxSizing: 'border-box' }}
       >
         <span className="flex items-center gap-3">
           <span className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:bg-blue-500/10 dark:group-hover:text-blue-400">
@@ -149,7 +149,7 @@ function CurrencySelector({
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-2 w-full origin-top transform rounded-[20px] border border-white/60 bg-white/80 p-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-2xl transition-all duration-300 dark:border-white/10 dark:bg-gray-900/80">
+        <div className="absolute right-0 z-30 mt-2 w-full max-w-full origin-top transform rounded-[20px] border border-white/60 bg-white/80 p-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-2xl transition-all duration-300 dark:border-white/10 dark:bg-gray-900/80" style={{ boxSizing: 'border-box' }}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -319,7 +319,7 @@ export default function ExchangeRatePage() {
             </>
           )}
 
-          <div className="mt-4 flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:items-end">
+          <div className="mt-4 grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4">
             <div className="w-full">
               {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />}
             </div>
@@ -330,7 +330,7 @@ export default function ExchangeRatePage() {
                 setTo(from)
                 window.setTimeout(() => setSwapSpin(false), 280)
               }}
-              className="group relative z-10 my-2 mx-auto md:my-0 md:mb-0.5 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200/80 bg-white text-gray-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:scale-110 hover:border-blue-200 hover:text-blue-600 hover:shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500/30 dark:hover:text-blue-400"
+              className="group relative z-10 mx-auto my-0 flex h-12 w-12 shrink-0 self-center items-center justify-center rounded-full border border-gray-200/80 bg-white text-gray-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:scale-110 hover:border-blue-200 hover:text-blue-600 hover:shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500/30 dark:hover:text-blue-400"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-300 ease-in-out ${swapSpin ? 'rotate-180 scale-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h12" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 3 4 4-4 4" /><path strokeLinecap="round" strokeLinejoin="round" d="M20 17H8" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 13-4 4 4 4" /></svg>
             </button>
@@ -368,7 +368,7 @@ export default function ExchangeRatePage() {
           </div>
         </section>
 
-        <section className="max-w-full overflow-hidden xl:col-span-3 relative rounded-[24px] border border-white/60 bg-white/70 p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#1A1825]/70 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+        <section className="max-w-full overflow-hidden xl:col-span-3 relative rounded-[24px] border border-white/60 bg-white/70 p-4 sm:p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#1A1825]/70 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
           <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-[1.1rem] font-bold text-gray-900 dark:text-gray-100 tracking-tight">{from} / {to} {t('exchange.trend')}</h2>
             <div className="flex items-center gap-1 rounded-xl bg-black/5 p-1 backdrop-blur-md dark:bg-white/5">

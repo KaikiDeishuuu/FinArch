@@ -16,28 +16,21 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
+import { clampLifecycleTimestamp } from '../utils/timestamp'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
 function splitTimestamp(value: string) {
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-  // We no longer forcefully append 'Z' for timestamps without a timezone.
-  // This allows the browser to parse 'YYYY-MM-DDTHH:mm:ss' as local time, avoiding the 8-hour offset.
   const parsed = new Date(normalized)
   if (Number.isNaN(parsed.getTime())) {
     const [date = value, time = ''] = value.split(' ')
-    return { date, time: time.slice(0, 5) }
+    return { date, time: time.slice(0, 8) }
   }
-  return {
-    date: parsed.toLocaleDateString(),
-    time: parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
-  }
-}
-
-function formatLifecycleTimestamp(value?: string | null) {
-  if (!value) return null
-  const { date, time } = splitTimestamp(value)
-  return `${date} ${time}`.trim()
+  const formatted = clampLifecycleTimestamp(value, value)
+  if (!formatted) return { date: value, time: '' }
+  const [date, time = ''] = formatted.split(' ')
+  return { date, time }
 }
 
 const TagIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><path d="m20 12-8 8-8-8 8-8h8z" /><circle cx="16" cy="8" r="1.5" /></svg>
@@ -579,9 +572,9 @@ export default function TransactionsPage() {
                             loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
                           />
                         </div>
-                        {(formatLifecycleTimestamp(tx.reimbursed_at) || formatLifecycleTimestamp(tx.reported_at)) && (
+                        {(clampLifecycleTimestamp(tx.reimbursed_at, tx.created_at) || clampLifecycleTimestamp(tx.reported_at, tx.created_at)) && (
                           <span className="status-time text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">
-                            {formatLifecycleTimestamp(tx.reimbursed_at) || formatLifecycleTimestamp(tx.reported_at)}
+                            {clampLifecycleTimestamp(tx.reimbursed_at, tx.created_at) || clampLifecycleTimestamp(tx.reported_at, tx.created_at)}
                           </span>
                         )}
                       </div>

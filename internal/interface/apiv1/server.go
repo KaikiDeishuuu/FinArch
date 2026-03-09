@@ -981,6 +981,18 @@ func formatSecond(ts time.Time) string {
 	return ts.Local().Format("2006-01-02 15:04:05")
 }
 
+func formatLifecycleSecond(ts *time.Time, createdAt time.Time) *string {
+	if ts == nil || ts.IsZero() {
+		return nil
+	}
+	effective := *ts
+	if !createdAt.IsZero() && effective.Before(createdAt) {
+		effective = createdAt
+	}
+	v := formatSecond(effective)
+	return &v
+}
+
 // ─── Transactions ────────────────────────────────────────────────────────────
 
 func (s *Server) handleListTransactions(c *gin.Context) {
@@ -1034,16 +1046,8 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		for _, tg := range tags {
 			tagNames = append(tagNames, tg.Name)
 		}
-		var reportedAt *string
-		if t.ReportedAt != nil {
-			v := formatSecond(*t.ReportedAt)
-			reportedAt = &v
-		}
-		var reimbursedAt *string
-		if t.ReimbursedAt != nil {
-			v := formatSecond(*t.ReimbursedAt)
-			reimbursedAt = &v
-		}
+		reportedAt := formatLifecycleSecond(t.ReportedAt, t.CreatedAt)
+		reimbursedAt := formatLifecycleSecond(t.ReimbursedAt, t.CreatedAt)
 		dtos = append(dtos, txDTO{
 			ID: t.ID, GroupID: t.GroupID,
 			AccountID: t.AccountID, AccountType: string(t.AccountType),
