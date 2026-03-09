@@ -3,6 +3,7 @@ import { formatAmount, toCNY } from './format'
 import { FALLBACK_RATES } from './exchangeRates'
 import i18n from '../i18n'
 import { categoryLabel } from './categoryLabel'
+import { clampLifecycleTimestamp } from './timestamp'
 
 function fmt(t: Transaction) {
   return formatAmount(t.amount_yuan, t.currency)
@@ -10,17 +11,6 @@ function fmt(t: Transaction) {
 
 function fmtTotal(n: number) {
   return formatAmount(n, 'CNY')
-}
-
-function formatLifecycleTimestamp(value?: string | null) {
-  if (!value) return '—'
-  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-  const hasTimezone = /([zZ]|[+\-]\d{2}:?\d{2})$/.test(normalized)
-  const parsed = new Date(hasTimezone ? normalized : `${normalized}Z`)
-  if (Number.isNaN(parsed.getTime())) return '—'
-  const date = parsed.toLocaleDateString()
-  const time = parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-  return `${date} ${time}`
 }
 
 export function exportTransactionsPDF(
@@ -93,8 +83,8 @@ export function exportTransactionsPDF(
     const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     const workflow = workflowStatus(t)
-    const reportedAt = formatLifecycleTimestamp(t.reported_at)
-    const reimbursedAt = formatLifecycleTimestamp(t.reimbursed_at)
+    const reportedAt = clampLifecycleTimestamp(t.reported_at, t.created_at) ?? '—'
+    const reimbursedAt = clampLifecycleTimestamp(t.reimbursed_at, t.created_at) ?? '—'
     return [
       '<tr class="tx-row">',
       `<td>${t.occurred_at}</td>`,

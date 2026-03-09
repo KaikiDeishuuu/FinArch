@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useTheme } from '../contexts/ThemeContext'
 
 export interface TrendPoint {
   date: string
@@ -30,58 +31,85 @@ export default function ExchangeTrendChart({
   locale: string
 }) {
   const isMobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
-
+  const { resolved } = useTheme()
+  const isDark = resolved === 'dark'
+  const palette = { primary: '#3B82F6', income: '#22C55E', expense: '#EF4444', secondary: '#6B7280' }
   const tooltipPosition = useMemo(() => ({ x: isMobile ? 10 : 20, y: 16 }), [isMobile])
 
   const trendDelta = data.length > 1 ? data[data.length - 1].rate - data[0].rate : 0
   const trendColors = trendDelta > 0
-    ? { stroke: '#EF4444', gradientStart: 'rgba(239,68,68,0.12)' }
+    ? { stroke: palette.expense, gradientStart: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(239,68,68,0.20)' }
     : trendDelta < 0
-      ? { stroke: '#22C55E', gradientStart: 'rgba(34,197,94,0.12)' }
-      : { stroke: '#6B7280', gradientStart: 'rgba(107,114,128,0.12)' }
+      ? { stroke: palette.income, gradientStart: isDark ? 'rgba(74,222,128,0.3)' : 'rgba(34,197,94,0.18)' }
+      : { stroke: palette.secondary, gradientStart: isDark ? 'rgba(156,163,175,0.28)' : 'rgba(107,114,128,0.14)' }
+
+  const yFormatter = (v: number) => Number(v).toFixed(isMobile ? 2 : 4)
 
   return (
-    <div className="h-[320px] w-full max-w-full overflow-hidden touch-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 16, right: isMobile ? 12 : 16, left: isMobile ? 48 : 48, bottom: 20 }}>
-          <defs>
-            <linearGradient id="rateGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={trendColors.gradientStart} />
-              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" vertical={false} />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 11, fill: '#6B7280' }}
-            tickMargin={8}
-            minTickGap={isMobile ? 36 : 24}
-            interval="preserveStartEnd"
-            tickLine={false}
-            axisLine={false}
-            padding={{ left: 12, right: 12 }}
-            tickFormatter={(v) => formatDate(String(v), locale)}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: '#6B7280' }}
-            tickMargin={8}
-            tickLine={false}
-            axisLine={false}
-            width={64}
-            domain={['dataMin - 0.02', 'dataMax + 0.02']}
-            tickFormatter={(v) => Number(v).toFixed(2)}
-          />
-          <Tooltip
-            allowEscapeViewBox={{ x: false, y: false }}
-            position={tooltipPosition}
-            cursor={{ stroke: '#93C5FD', strokeWidth: 1 }}
-            contentStyle={{ background: '#FFFFFF', borderRadius: 12, border: '1px solid #E5E7EB', boxShadow: '0 8px 20px rgba(15,23,42,0.08)' }}
-            labelFormatter={(label) => formatDate(String(label), locale)}
-            formatter={(value: number | string | undefined) => [formatRate(Number(value ?? 0), from, to), `${from}/${to}`]}
-          />
-          <Area type="monotone" dataKey="rate" stroke={trendColors.stroke} strokeWidth={2.5} fill="url(#rateGradient)" dot={{ r: 0 }} activeDot={{ r: 5, fill: '#FFF', stroke: trendColors.stroke, strokeWidth: 2 }} isAnimationActive />
-        </AreaChart>
-      </ResponsiveContainer>
+    <div
+      className="w-full max-w-full overflow-x-auto overflow-y-visible touch-pan-x md:overflow-visible"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
+      <div className="h-[220px] min-w-[520px] w-full px-1 sm:h-[240px] md:h-[320px] md:min-w-0 md:px-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 16, right: isMobile ? 8 : 16, left: isMobile ? 8 : 24, bottom: 16 }}>
+            <defs>
+              <linearGradient id="rateGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={trendColors.gradientStart} />
+                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={isDark ? '#374151' : '#E5E7EB'} strokeDasharray="3 3" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
+              tickMargin={8}
+              minTickGap={isMobile ? 48 : 24}
+              interval={isMobile ? 'preserveStartEnd' : 0}
+              tickCount={isMobile ? 4 : undefined}
+              tickLine={false}
+              axisLine={false}
+              padding={{ left: 14, right: 14 }}
+              tickFormatter={(v) => formatDate(String(v), locale)}
+            />
+            <YAxis
+              tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
+              tickMargin={6}
+              tickLine={false}
+              axisLine={false}
+              width={isMobile ? 42 : 64}
+              domain={['auto', 'auto']}
+              tickFormatter={yFormatter}
+            />
+            <Tooltip
+              allowEscapeViewBox={{ x: false, y: false }}
+              position={tooltipPosition}
+              cursor={{ stroke: palette.primary, strokeWidth: 1.2, strokeDasharray: '4 4' }}
+              contentStyle={{
+                background: isDark ? '#111827' : '#FFFFFF',
+                borderRadius: 12,
+                border: `1px solid ${isDark ? '#374151' : '#E5E7EB'}`,
+                color: isDark ? '#F3F4F6' : '#111827',
+                boxShadow: '0 8px 20px rgba(15,23,42,0.14)',
+              }}
+              wrapperStyle={{ zIndex: 20 }}
+              labelFormatter={(label) => formatDate(String(label), locale)}
+              formatter={(value: number | string | undefined) => [formatRate(Number(value ?? 0), from, to), `${from}/${to}`]}
+            />
+            <Area
+              type="monotone"
+              dataKey="rate"
+              stroke={trendColors.stroke}
+              strokeWidth={isMobile ? 2.5 : 3}
+              fill="url(#rateGradient)"
+              dot={false}
+              activeDot={{ r: 5, fill: isDark ? '#111827' : '#FFF', stroke: trendColors.stroke, strokeWidth: 2 }}
+              isAnimationActive
+              animationDuration={420}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }
