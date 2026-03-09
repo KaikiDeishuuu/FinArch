@@ -84,6 +84,28 @@ const zh = {
       },
     },
 
+    exchange: {
+      title: '汇率计算器',
+      subtitle: '专业级汇率转换与趋势洞察。',
+      amount: '金额',
+      fromCurrency: '原始货币',
+      toCurrency: '目标货币',
+      convert: '换算',
+      exchangeRate: '当前汇率',
+      lastUpdated: '最后更新 {{sec}} 秒前',
+      fallback: '实时汇率不可用，当前使用备用汇率。',
+      searchCurrency: '搜索货币',
+      trend: '趋势',
+      loadingChart: '图表加载中…',
+      flat: '持平',
+      ranges: {
+        '1D': '1天',
+        '1W': '1周',
+        '1M': '1月',
+        '1Y': '1年',
+      },
+    },
+
     // ── Theme ──
     theme: {
       light: '浅色',

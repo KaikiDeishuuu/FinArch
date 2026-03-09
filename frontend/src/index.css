@@ -169,19 +169,19 @@ body {
 .transaction-feed-row {
   position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   min-height: 78px;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 18px;
   background: #FFFFFF;
   border: 1px solid #E6E8EB;
-  transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
 .transaction-feed-row:hover {
-  background: #F8FAFC;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+  background: #FAFBFC;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.05);
   transform: translateY(-1px);
 }
 

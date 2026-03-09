@@ -84,6 +84,28 @@ const en = {
       },
     },
 
+    exchange: {
+      title: 'Exchange Rate Calculator',
+      subtitle: 'Professional FX conversion with trend insights.',
+      amount: 'Amount',
+      fromCurrency: 'From Currency',
+      toCurrency: 'To Currency',
+      convert: 'Convert',
+      exchangeRate: 'Exchange Rate',
+      lastUpdated: 'Last updated {{sec}}s ago',
+      fallback: 'Live exchange rate unavailable, fallback data in use.',
+      searchCurrency: 'Search currency',
+      trend: 'Trend',
+      loadingChart: 'Loading chart…',
+      flat: 'Flat',
+      ranges: {
+        '1D': '1D',
+        '1W': '1W',
+        '1M': '1M',
+        '1Y': '1Y',
+      },
+    },
+
     // ── Theme ──
     theme: {
       light: 'Light',

@@ -513,20 +513,21 @@ export default function TransactionsPage() {
                   key={tx.id}
                   className={`transaction-feed-row group ${done ? 'opacity-55' : ''}`}
                 >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className={`mt-1 h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${tx.direction === 'income' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'}`}>
-                      <span className="text-sm font-bold">{tx.direction === 'income' ? '+' : '−'}</span>
+                  <div className="min-w-0 flex flex-1 items-center gap-3">
+                    <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${tx.direction === 'income' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'}`}>
+                      <span className="text-sm">{tx.direction === 'income' ? '↗' : '↙'}</span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[16px] leading-6 font-semibold text-gray-900 dark:text-gray-100 truncate" title={tx.note || categoryLabel(tx.category)}>
                         {tx.note || categoryLabel(tx.category)}
                       </p>
-                      <p className="mt-0.5 text-[14px] leading-5 text-gray-500 dark:text-gray-400 truncate">
-                        {categoryLabel(tx.category)}
-                        {tx.account_id && accountMap[tx.account_id] ? ` · ${accountMap[tx.account_id]}` : ''}
-                        {tx.project_id ? ` · ${tx.project_id}` : ''}
-                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="rounded-md bg-gray-100 px-1.5 py-0.5">🏷 {categoryLabel(tx.category)}</span>
+                        {tx.account_id && accountMap[tx.account_id] && <span className="rounded-md bg-gray-100 px-1.5 py-0.5">🏦 {accountMap[tx.account_id]}</span>}
+                        {tx.project_id && <span className="rounded-md bg-gray-100 px-1.5 py-0.5">📁 {tx.project_id}</span>}
+                      </div>
                       <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-400 dark:text-gray-500 tabular-nums">
+                        <span>🕒</span>
                         <span>{splitTimestamp(tx.occurred_at).date}</span>
                         <span>·</span>
                         <span>{splitTimestamp(tx.occurred_at).time}</span>
@@ -534,7 +535,7 @@ export default function TransactionsPage() {
                     </div>
                   </div>
 
-                  <div className="ml-4 flex shrink-0 flex-col items-end gap-1.5 text-right">
+                  <div className="ml-4 flex shrink-0 flex-col items-end justify-center gap-1.5 text-right">
                     <div className={`amount text-[20px] leading-6 font-semibold tabular-nums ${tx.direction === 'income' ? 'amount-income text-emerald-600' : 'amount-expense text-rose-600'}`}>
                       {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                     </div>
