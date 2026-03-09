@@ -110,7 +110,11 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		return model.Transaction{}, fmt.Errorf("请选择分类")
 	}
 	now := time.Now()
-	txnDate := req.OccurredAt.Format("2006-01-02")
+	occurredAt := req.OccurredAt.UTC().Truncate(time.Second)
+	if occurredAt.IsZero() {
+		occurredAt = time.Now().UTC().Truncate(time.Second)
+	}
+	txnDate := occurredAt.Format("2006-01-02")
 	baseAmountCents := int64(float64(req.AmountCents) * req.ExchangeRate)
 	t := model.Transaction{
 		ID:              uuid.NewString(),
@@ -132,7 +136,8 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		ProjectID:       req.ProjectID,
 		Uploaded:        false,
 		TxnDate:         txnDate,
-		OccurredAt:      req.OccurredAt,
+		TransactionTime: occurredAt.Unix(),
+		OccurredAt:      occurredAt,
 		// backward-compat
 		Direction:  model.Direction(txType),
 		Source:     sourceFromAccountType(accountType),

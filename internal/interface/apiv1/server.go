@@ -957,6 +957,30 @@ func parseMode(raw string) (model.Mode, bool) {
 	return mode, true
 }
 
+func parseOccurredAt(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Now().UTC().Truncate(time.Second), nil
+	}
+	layouts := []string{"2006-01-02 15:04:05", time.RFC3339, "2006-01-02"}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			if layout == "2006-01-02" {
+				return t.UTC(), nil
+			}
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid occurred_at format")
+}
+
+func formatSecond(ts time.Time) string {
+	if ts.IsZero() {
+		return ""
+	}
+	return ts.Local().Format("2006-01-02 15:04:05")
+}
+
 // ─── Transactions ────────────────────────────────────────────────────────────
 
 func (s *Server) handleListTransactions(c *gin.Context) {
@@ -983,6 +1007,11 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		ExchangeRate    float64 `json:"exchange_rate"`
 		ReimbStatus     string  `json:"reimb_status"`
 		TxnDate         string  `json:"txn_date"`
+		TransactionTime int64   `json:"transaction_time"`
+		CreatedAt       string  `json:"created_at"`
+		UpdatedAt       string  `json:"updated_at"`
+		ReportedAt      *string `json:"reported_at"`
+		ReimbursedAt    *string `json:"reimbursed_at"`
 		// Backward-compat fields retained for frontend
 		OccurredAt string   `json:"occurred_at"`
 		Direction  string   `json:"direction"`
@@ -1005,15 +1034,27 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		for _, tg := range tags {
 			tagNames = append(tagNames, tg.Name)
 		}
+		var reportedAt *string
+		if t.ReportedAt != nil {
+			v := formatSecond(*t.ReportedAt)
+			reportedAt = &v
+		}
+		var reimbursedAt *string
+		if t.ReimbursedAt != nil {
+			v := formatSecond(*t.ReimbursedAt)
+			reimbursedAt = &v
+		}
 		dtos = append(dtos, txDTO{
 			ID: t.ID, GroupID: t.GroupID,
 			AccountID: t.AccountID, AccountType: string(t.AccountType),
 			LedgerDir: string(t.LedgerDir), TxType: string(t.TxType),
 			AmountCents: t.AmountCents, BaseAmountCents: t.BaseAmountCents,
 			ExchangeRate: t.ExchangeRate, ReimbStatus: string(t.ReimbStatus),
-			TxnDate: t.TxnDate,
+			TxnDate: t.TxnDate, TransactionTime: t.TransactionTime,
+			CreatedAt: formatSecond(t.CreatedAt), UpdatedAt: formatSecond(t.UpdatedAt),
+			ReportedAt: reportedAt, ReimbursedAt: reimbursedAt,
 			// backward-compat
-			OccurredAt: t.TxnDate,
+			OccurredAt: formatSecond(t.OccurredAt),
 			Direction:  string(t.Direction), Source: string(t.Source),
 			Category: t.Category, AmountYuan: t.AmountYuan.Float64(),
 			Currency: t.Currency, Note: t.Note,
@@ -1052,11 +1093,10 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 		fail(c, 422, 40001, "请输入有效的金额")
 		return
 	}
-	txDate := time.Now()
-	if req.OccurredAt != "" {
-		if parsed, err := time.Parse("2006-01-02", req.OccurredAt); err == nil {
-			txDate = parsed
-		}
+	txDate, err := parseOccurredAt(req.OccurredAt)
+	if err != nil {
+		fail(c, 422, 40001, "时间格式必须为 YYYY-MM-DD HH:mm:ss")
+		return
 	}
 	// Normalize type from direction for backward compat
 	txType := model.TxType(req.Type)
@@ -1086,7 +1126,7 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	var createdTx model.Transaction
 	var tagFoundErr = errors.New("标签不存在")
 
-	err := s.txManager.WithinTransaction(c.Request.Context(), func(ctx context.Context) error {
+	err = s.txManager.WithinTransaction(c.Request.Context(), func(ctx context.Context) error {
 		var inErr error
 		createdTx, inErr = s.txSvc.CreateTransaction(ctx, service.CreateTransactionRequest{
 			UserID:       userID(c),
@@ -1125,12 +1165,14 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	}
 
 	created(c, gin.H{
-		"id":           createdTx.ID,
-		"amount_yuan":  createdTx.AmountYuan.Float64(),
-		"amount_cents": createdTx.AmountCents,
-		"reimb_status": string(createdTx.ReimbStatus),
-		"account_id":   createdTx.AccountID,
-		"mode":         string(createdTx.Mode),
+		"id":               createdTx.ID,
+		"amount_yuan":      createdTx.AmountYuan.Float64(),
+		"amount_cents":     createdTx.AmountCents,
+		"reimb_status":     string(createdTx.ReimbStatus),
+		"account_id":       createdTx.AccountID,
+		"mode":             string(createdTx.Mode),
+		"occurred_at":      formatSecond(createdTx.OccurredAt),
+		"transaction_time": createdTx.TransactionTime,
 	})
 }
 

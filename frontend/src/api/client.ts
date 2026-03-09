@@ -182,6 +182,11 @@ export interface Transaction {
 
   id: string
   occurred_at: string
+  transaction_time?: number
+  created_at?: string
+  updated_at?: string
+  reported_at?: string | null
+  reimbursed_at?: string | null
   direction: 'income' | 'expense'
   source: 'company' | 'personal'
   account_id: string
@@ -195,7 +200,7 @@ export interface Transaction {
 }
 
 export interface CreateTransactionRequest {
-  occurred_at: string
+  occurred_at: string // YYYY-MM-DD HH:mm:ss
   direction: string
   source: string
   account_id?: string
@@ -266,6 +271,11 @@ export async function deleteAccount(id: string): Promise<void> {
 export interface MatchResultItem {
   id: string
   occurred_at: string
+  transaction_time?: number
+  created_at?: string
+  updated_at?: string
+  reported_at?: string | null
+  reimbursed_at?: string | null
   direction: string
   source: string
   category: string

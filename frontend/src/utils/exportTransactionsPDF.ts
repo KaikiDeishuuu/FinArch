@@ -64,7 +64,14 @@ export function exportTransactionsPDF(
     return { text: i18n.t('exportPdf.workflow.life.done'), className: 'wf-done' }
   }
 
-  const rows = filtered.map(t => {
+  const ordered = [...filtered].sort((a, b) => {
+    const ta = a.transaction_time ?? 0
+    const tb = b.transaction_time ?? 0
+    if (ta !== tb) return ta - tb
+    return a.id.localeCompare(b.id)
+  })
+
+  const rows = ordered.map(t => {
     const src = t.source === 'company' ? i18n.t('exportPdf.companyLabel') : i18n.t('exportPdf.personalLabel')
     const acctName = (t.account_id && accountMap[t.account_id]) ? accountMap[t.account_id] : '—'
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`

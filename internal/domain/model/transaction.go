@@ -95,12 +95,13 @@ type Transaction struct {
 	Project   *string // denormalized project name
 
 	// ── Misc ──────────────────────────────────────────────────────────────────
-	Mode           Mode // 'work' | 'life'
-	Note           string
-	AttachmentKey  *string
-	Uploaded       bool
-	IdempotencyKey *string
-	TxnDate        string // 'YYYY-MM-DD'
+	Mode            Mode // 'work' | 'life'
+	Note            string
+	AttachmentKey   *string
+	Uploaded        bool
+	IdempotencyKey  *string
+	TxnDate         string // legacy 'YYYY-MM-DD' (backward compatible)
+	TransactionTime int64  // unix seconds (UTC)
 
 	// ── Backward-compat (derived during scan) ─────────────────────────────────
 	Direction  Direction // mirrors TxType: income→income, expense→expense
@@ -109,7 +110,9 @@ type Transaction struct {
 	OccurredAt time.Time // parsed from TxnDate (midnight UTC)
 	Reimbursed bool      // = ReimbStatus == ReimbStatusReimbursed
 
-	Version   int
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Version      int
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ReportedAt   *time.Time
+	ReimbursedAt *time.Time
 }

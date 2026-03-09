@@ -28,6 +28,7 @@ export default function AddTransactionPage() {
   const { mode, isWorkMode } = useMode()
   const [form, setForm] = useState({
     occurred_at: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })(),
+    occurred_time: (() => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}` })(),
     direction: 'expense',
     source: isWorkMode ? 'company' : 'personal',
     account_id: '',
@@ -76,6 +77,7 @@ export default function AddTransactionPage() {
     try {
       await createTransaction({
         ...form,
+        occurred_at: `${form.occurred_at} ${form.occurred_time}`,
         account_id: form.account_id || undefined,
         project_id: form.project_id.trim() || undefined,
         amount_yuan: amount,
@@ -275,6 +277,14 @@ export default function AddTransactionPage() {
           <DatePicker
             value={form.occurred_at}
             onChange={(v) => set('occurred_at', v)}
+            required
+          />
+          <input
+            type="time"
+            step={1}
+            className={`${inputClass} mt-2`}
+            value={form.occurred_time}
+            onChange={(e) => set('occurred_time', e.target.value)}
             required
           />
         </div>
