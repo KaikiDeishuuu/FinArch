@@ -72,6 +72,7 @@ const zh = {
       add: '添加',
       match: '匹配',
       stats: '统计',
+      exchange: '汇率',
       settings: '设置',
       subtitle: '收支 · 报销 · 统计',
       logout: '退出登录',

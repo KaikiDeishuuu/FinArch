@@ -72,6 +72,7 @@ const en = {
       add: 'Add',
       match: 'Match',
       stats: 'Stats',
+      exchange: 'Exchange',
       settings: 'Settings',
       subtitle: 'Finance · Reimburse · Stats',
       logout: 'Log out',

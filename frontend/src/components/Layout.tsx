@@ -37,6 +37,16 @@ const IconChart = () => (
     <path d="M18 20V10M12 20V4M6 20v-6" />
   </svg>
 )
+
+const IconExchange = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+    <path d="M4 7h13" />
+    <path d="M13 4l4 3-4 3" />
+    <path d="M20 17H7" />
+    <path d="M11 14l-4 3 4 3" />
+  </svg>
+)
+
 const IconSettings = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
     <circle cx="12" cy="12" r="3" />
@@ -57,6 +67,7 @@ const NAV_ITEMS = [
   { to: '/add', labelKey: 'nav.add', Icon: IconPlus, isPrimary: true },
   { to: '/match', labelKey: 'nav.match', Icon: IconMatch },
   { to: '/stats', labelKey: 'nav.stats', Icon: IconChart },
+  { to: '/exchange', labelKey: 'nav.exchange', Icon: IconExchange },
   { to: '/settings', labelKey: 'nav.settings', Icon: IconSettings },
 ]
 
