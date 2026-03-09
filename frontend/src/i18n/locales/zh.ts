@@ -948,6 +948,8 @@ const zh = {
       thReimbursed: '报销状态',
       thCleared: '整理状态',
       thWorkflow: '流程状态',
+      reportedAt: '已上报：',
+      reimbursedAt: '已报销：',
       uploadedYes: '✓ 已上传',
       uploadedNo: '✗ 未上传',
       reimbursedYes: '✓ 已报销',
