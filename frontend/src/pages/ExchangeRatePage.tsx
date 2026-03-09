@@ -111,13 +111,28 @@ function CurrencySelector({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
   const selected = CURRENCIES.find(c => c.code === value) ?? CURRENCIES[0]
   const options = CURRENCIES
     .filter(c => c.code !== peerValue)
     .filter(c => `${c.code} ${c.en} ${c.zh}`.toLowerCase().includes(query.trim().toLowerCase()))
 
+  useEffect(() => {
+    if (!open) return
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!containerRef.current) return
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+    return () => document.removeEventListener('click', handleDocumentClick)
+  }, [open])
+
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
       <button
         onClick={() => setOpen(v => !v)}
@@ -140,7 +155,7 @@ function CurrencySelector({
             placeholder={t('exchange.searchCurrency')}
             className="mb-2 h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800"
           />
-          <div className="max-h-56 overflow-auto space-y-1">
+          <div className="max-h-56 overflow-auto space-y-1 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
             {options.map(c => (
               <button
                 key={c.code}
@@ -174,6 +189,8 @@ export default function ExchangeRatePage() {
   const [ageSec, setAgeSec] = useState(0)
   const [swapSpin, setSwapSpin] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [latestLoading, setLatestLoading] = useState(true)
+  const [chartRenderKey, setChartRenderKey] = useState(0)
   const historyReqId = useRef(0)
 
   useEffect(() => {
@@ -186,12 +203,14 @@ export default function ExchangeRatePage() {
 
   useEffect(() => {
     let alive = true
+    setLatestLoading(true)
     fetchLatest(from)
       .then((r) => {
         if (!alive) return
         setRates(r.rates)
         setAgeSec(Math.max(0, Math.round((Date.now() - r.updatedAt) / 1000)))
         setError('')
+        setLatestLoading(false)
       })
       .catch(() => {
         if (!alive) return
@@ -208,6 +227,7 @@ export default function ExchangeRatePage() {
         setRates(fallback)
         setError(t('exchange.fallback'))
         setAgeSec(0)
+        setLatestLoading(false)
       })
     return () => { alive = false }
   }, [from, t])
@@ -237,6 +257,16 @@ export default function ExchangeRatePage() {
     return () => window.clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    const rerenderChart = () => setChartRenderKey(v => v + 1)
+    window.addEventListener('resize', rerenderChart)
+    window.addEventListener('orientationchange', rerenderChart)
+    return () => {
+      window.removeEventListener('resize', rerenderChart)
+      window.removeEventListener('orientationchange', rerenderChart)
+    }
+  }, [])
+
   const rate = rates[to] ?? 1
   const converted = debouncedAmount * rate
   const trendPct = useMemo(() => {
@@ -264,19 +294,30 @@ export default function ExchangeRatePage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
         <section className="max-w-full xl:col-span-2 rounded-2xl border border-[#E6E8EB] bg-white p-4 md:p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
-          <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('exchange.amount')}</label>
-          <div className="mt-1 rounded-xl border border-gray-200 bg-[#F7F8FA] px-4 py-3 transition-all focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 dark:border-gray-700 dark:bg-gray-900/40">
-            <input
-              type="number"
-              value={amountInput}
-              onChange={e => setAmountInput(e.target.value)}
-              className="h-10 w-full bg-transparent text-[28px] font-semibold text-gray-900 outline-none dark:text-gray-100"
-            />
-            <p className="text-xs text-gray-400">{fromMeta.code}</p>
-          </div>
+          {latestLoading ? (
+            <div className="space-y-3">
+              <Skeleton height="h-4" width="w-20" />
+              <Skeleton height="h-[84px]" />
+            </div>
+          ) : (
+            <>
+              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('exchange.amount')}</label>
+              <div className="mt-1 rounded-xl border border-gray-200 bg-[#F7F8FA] px-4 py-3 transition-all focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 dark:border-gray-700 dark:bg-gray-900/40">
+                <input
+                  type="number"
+                  value={amountInput}
+                  onChange={e => setAmountInput(e.target.value)}
+                  className="h-10 w-full bg-transparent text-[28px] font-semibold text-gray-900 outline-none dark:text-gray-100"
+                />
+                <p className="text-xs text-gray-400">{fromMeta.code}</p>
+              </div>
+            </>
+          )}
 
-          <div className="mt-4 grid grid-cols-1 items-end gap-2 md:grid-cols-[1fr_auto_1fr]">
-            <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />
+          <div className="mt-4 flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:items-end">
+            <div className="w-full">
+              {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />}
+            </div>
             <button
               onClick={() => {
                 setSwapSpin(true)
@@ -284,11 +325,13 @@ export default function ExchangeRatePage() {
                 setTo(from)
                 window.setTimeout(() => setSwapSpin(false), 280)
               }}
-              className="mx-auto md:mb-0.5 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
+              className="my-2 mx-auto md:my-0 md:mb-0.5 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-200 ${swapSpin ? 'rotate-180' : ''}`}><path d="M4 7h12" /><path d="m12 3 4 4-4 4" /><path d="M20 17H8" /><path d="m12 13-4 4 4 4" /></svg>
             </button>
-            <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />
+            <div className="w-full">
+              {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />}
+            </div>
           </div>
 
           <button className="mt-4 h-11 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md">
@@ -296,6 +339,14 @@ export default function ExchangeRatePage() {
           </button>
 
           <div className="mt-5 rounded-2xl border border-gray-100 bg-[#F7F8FA] p-4 dark:border-gray-800 dark:bg-gray-900/40">
+            {latestLoading ? (
+              <div className="space-y-3">
+                <Skeleton height="h-4" width="w-28" />
+                <Skeleton height="h-10" width="w-48" />
+                <Skeleton height="h-4" width="w-64" />
+              </div>
+            ) : (
+              <>
             <p className="text-sm text-gray-500">{debouncedAmount.toLocaleString()} {fromMeta.code}</p>
             <p className="mt-1 text-[32px] font-semibold leading-9 text-gray-900 transition-all duration-300 dark:text-gray-100">
               <AnimatedNumber value={converted} formatter={(n) => `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${toMeta.code}`} />
@@ -306,6 +357,8 @@ export default function ExchangeRatePage() {
             </p>
             <p className="mt-1 text-[13px] text-gray-400">{t('exchange.lastUpdated', { sec: ageSec })}</p>
             {error && <p className="mt-2 text-xs text-amber-600">{error}</p>}
+              </>
+            )}
           </div>
         </section>
 
@@ -324,7 +377,7 @@ export default function ExchangeRatePage() {
             {historyLoading ? (
               <div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>
             ) : (
-              <ExchangeTrendChart data={history} from={from} to={to} locale={i18n.language} />
+              <ExchangeTrendChart key={chartRenderKey} data={history} from={from} to={to} locale={i18n.language} />
             )}
           </Suspense>
         </section>

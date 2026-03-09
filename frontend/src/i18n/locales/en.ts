@@ -948,6 +948,8 @@ const en = {
       thReimbursed: 'Reimburse Status',
       thCleared: 'Clear Status',
       thWorkflow: 'Workflow Status',
+      reportedAt: 'Reported at:',
+      reimbursedAt: 'Reimbursed at:',
       uploadedYes: '✓ Uploaded',
       uploadedNo: '✗ Not uploaded',
       reimbursedYes: '✓ Reimbursed',

@@ -12,6 +12,17 @@ function fmtTotal(n: number) {
   return formatAmount(n, 'CNY')
 }
 
+function formatLifecycleTimestamp(value?: string | null) {
+  if (!value) return '—'
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const hasTimezone = /([zZ]|[+\-]\d{2}:?\d{2})$/.test(normalized)
+  const parsed = new Date(hasTimezone ? normalized : `${normalized}Z`)
+  if (Number.isNaN(parsed.getTime())) return '—'
+  const date = parsed.toLocaleDateString()
+  const time = parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${date} ${time}`
+}
+
 export function exportTransactionsPDF(
   filtered: Transaction[],
   filterLabel: string,
@@ -82,14 +93,16 @@ export function exportTransactionsPDF(
     const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     const workflow = workflowStatus(t)
+    const reportedAt = formatLifecycleTimestamp(t.reported_at)
+    const reimbursedAt = formatLifecycleTimestamp(t.reimbursed_at)
     return [
-      '<tr>',
+      '<tr class="tx-row">',
       `<td>${t.occurred_at}</td>`,
       `<td><span class="${dotClass}"></span>${categoryLabel(t.category)}</td>`,
       `<td>${src}</td>`,
       `<td class="note">${acctName}</td>`,
       `<td>${t.project_id ?? '—'}</td>`,
-      `<td class="note">${t.note || '—'}</td>`,
+      `<td class="note">${t.note || '—'}<div class="lifecycle"><span>${i18n.t('exportPdf.reportedAt')} ${reportedAt}</span><span>${i18n.t('exportPdf.reimbursedAt')} ${reimbursedAt}</span></div></td>`,
       `<td style="color:${amtColor};font-weight:700;text-align:right">${amount}</td>`,
       `<td style="color:${uploadedColor};text-align:center">${uploaded}</td>`,
       `<td style="color:${reimbursedColor};text-align:center">${reimbursed}</td>`,
@@ -139,9 +152,12 @@ export function exportTransactionsPDF(
     'thead th:last-child, thead th:nth-child(7) { text-align: center; }',
     'thead th:nth-child(7) { text-align: right; }',
     'tbody tr { border-bottom: 1px solid #f3f4f6; }',
+    'tbody tr, tbody td { page-break-inside: avoid; break-inside: avoid; }',
     'tbody tr:nth-child(even) { background: #f9fafb; }',
     'tbody td { padding: 6px 10px; vertical-align: middle; }',
     'td.note { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7280; }',
+    '.tx-row { page-break-inside: avoid; break-inside: avoid; }',
+    '.lifecycle { margin-top: 4px; display:flex; flex-direction:column; gap:2px; font-size:9px; color:#6b7280; line-height:1.2; white-space:normal; }',
     '.wf-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:3px 8px; font-size:9.5px; font-weight:700; white-space:nowrap; }',
     '.wf-chip.wf-income { background:#e5e7eb; color:#4b5563; }',
     '.wf-chip.wf-pending { background:#fef3c7; color:#92400e; }',
