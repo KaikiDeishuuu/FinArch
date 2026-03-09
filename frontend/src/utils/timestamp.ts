@@ -1,7 +1,8 @@
 export function parseApiTimestamp(value?: string | null): Date | null {
   if (!value) return null
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
-  const parsed = new Date(normalized)
+  const utcNormalized = normalized.endsWith('Z') || /([+-]\d{2}:?\d{2})$/.test(normalized) ? normalized : `${normalized}Z`
+  const parsed = new Date(utcNormalized)
   if (Number.isNaN(parsed.getTime())) return null
   return parsed
 }
