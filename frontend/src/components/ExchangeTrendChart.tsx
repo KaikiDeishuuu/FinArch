@@ -16,7 +16,11 @@ function formatDate(input: string, locale: string) {
 function formatRate(value: number, from: string, to: string) {
   const lowPrecisionPairs = new Set(['JPY', 'KRW'])
   const digits = lowPrecisionPairs.has(from) || lowPrecisionPairs.has(to) ? 2 : 4
-  return Number(value).toFixed(digits)
+  const num = Number(value)
+  if (num > 0 && num < 0.01) {
+    return num.toPrecision(2)
+  }
+  return num.toFixed(digits)
 }
 
 export default function ExchangeTrendChart({
@@ -43,14 +47,21 @@ export default function ExchangeTrendChart({
       ? { stroke: palette.income, gradientStart: isDark ? 'rgba(74,222,128,0.3)' : 'rgba(34,197,94,0.18)' }
       : { stroke: palette.secondary, gradientStart: isDark ? 'rgba(156,163,175,0.28)' : 'rgba(107,114,128,0.14)' }
 
-  const yFormatter = (v: number) => Number(v).toFixed(isMobile ? 2 : 4)
+  const yFormatter = (v: number) => {
+    const num = Number(v)
+    if (num > 0 && num < 0.01) {
+      if (isMobile) return num.toPrecision(1)
+      return num.toPrecision(2)
+    }
+    return num.toFixed(isMobile ? 2 : 4)
+  }
 
   return (
     <div
-      className="w-full max-w-full overflow-x-auto overflow-y-visible touch-pan-x md:overflow-visible"
+      className="w-full max-w-full overflow-x-auto overflow-y-visible touch-pan-y md:overflow-visible"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      <div className="h-[220px] min-w-[520px] w-full px-1 sm:h-[240px] md:h-[320px] md:min-w-0 md:px-0">
+      <div className="h-[220px] w-full px-1 sm:h-[240px] md:h-[320px] md:min-w-0 md:px-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 16, right: isMobile ? 8 : 16, left: isMobile ? 8 : 24, bottom: 16 }}>
             <defs>
@@ -64,7 +75,7 @@ export default function ExchangeTrendChart({
               dataKey="date"
               tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
               tickMargin={8}
-              minTickGap={isMobile ? 48 : 24}
+              minTickGap={isMobile ? 64 : 32}
               interval={isMobile ? 'preserveStartEnd' : 0}
               tickCount={isMobile ? 4 : undefined}
               tickLine={false}
@@ -77,7 +88,7 @@ export default function ExchangeTrendChart({
               tickMargin={6}
               tickLine={false}
               axisLine={false}
-              width={isMobile ? 42 : 64}
+              width={isMobile ? 48 : 64}
               domain={['auto', 'auto']}
               tickFormatter={yFormatter}
             />

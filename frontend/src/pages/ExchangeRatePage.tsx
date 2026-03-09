@@ -138,14 +138,14 @@ function CurrencySelector({
         onClick={() => setOpen(v => !v)}
         className="group flex h-12 w-full max-w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white/60 px-3 md:px-4 text-left shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.01] hover:border-blue-300 hover:bg-white hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700/80 dark:bg-black/20 dark:hover:border-blue-500/50 dark:hover:bg-gray-900/60" style={{ boxSizing: 'border-box' }}
       >
-        <span className="flex items-center gap-3">
-          <span className="flex h-6 w-6 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:bg-blue-500/10 dark:group-hover:text-blue-400">
+        <span className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:bg-blue-500/10 dark:group-hover:text-blue-400">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
           </span>
-          <span className="font-bold text-gray-900 dark:text-gray-100">{selected.code}</span>
+          <span className="font-bold shrink-0 text-gray-900 dark:text-gray-100">{selected.code}</span>
           <span className="truncate text-sm text-gray-500 transition-colors group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300">{selected.en}</span>
         </span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-4 w-4 text-gray-400 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" /></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" /></svg>
       </button>
 
       {open && (
@@ -166,7 +166,7 @@ function CurrencySelector({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors group-hover:border-blue-200 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:text-blue-400">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
                 </span>
-                <span className="font-bold text-gray-900 transition-colors group-hover:text-blue-700 dark:text-gray-100 dark:group-hover:text-blue-300">{c.code}</span>
+                <span className="font-bold shrink-0 text-gray-900 transition-colors group-hover:text-blue-700 dark:text-gray-100 dark:group-hover:text-blue-300">{c.code}</span>
                 <span className="truncate text-sm text-gray-500 transition-colors group-hover:text-blue-600/70 dark:text-gray-400 dark:group-hover:text-blue-400/70">{c.en}</span>
               </button>
             ))}
@@ -319,22 +319,24 @@ export default function ExchangeRatePage() {
             </>
           )}
 
-          <div className="mt-4 grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4">
-            <div className="w-full">
+          <div className="mt-4 flex flex-col md:flex-row items-center gap-3 md:gap-4 relative">
+            <div className="w-full flex-1 min-w-0">
               {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />}
             </div>
-            <button
-              onClick={() => {
-                setSwapSpin(true)
-                setFrom(to)
-                setTo(from)
-                window.setTimeout(() => setSwapSpin(false), 280)
-              }}
-              className="group relative z-10 mx-auto my-0 flex h-12 w-12 shrink-0 self-center items-center justify-center rounded-full border border-gray-200/80 bg-white text-gray-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:scale-110 hover:border-blue-200 hover:text-blue-600 hover:shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500/30 dark:hover:text-blue-400"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-300 ease-in-out ${swapSpin ? 'rotate-180 scale-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h12" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 3 4 4-4 4" /><path strokeLinecap="round" strokeLinejoin="round" d="M20 17H8" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 13-4 4 4 4" /></svg>
-            </button>
-            <div className="w-full">
+            <div className="md:mt-[24px] z-10 -my-1 md:my-0 shrink-0">
+              <button
+                onClick={() => {
+                  setSwapSpin(true)
+                  setFrom(to)
+                  setTo(from)
+                  window.setTimeout(() => setSwapSpin(false), 280)
+                }}
+                className="group relative flex h-12 w-12 items-center justify-center rounded-full border border-gray-200/80 bg-white text-gray-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:scale-110 hover:border-blue-200 hover:text-blue-600 hover:shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500/30 dark:hover:text-blue-400"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-300 ease-in-out ${swapSpin ? 'rotate-180 scale-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h12" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 3 4 4-4 4" /><path strokeLinecap="round" strokeLinejoin="round" d="M20 17H8" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 13-4 4 4 4" /></svg>
+              </button>
+            </div>
+            <div className="w-full flex-1 min-w-0">
               {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />}
             </div>
           </div>
