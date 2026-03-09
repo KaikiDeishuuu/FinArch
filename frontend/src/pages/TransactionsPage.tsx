@@ -423,8 +423,8 @@ export default function TransactionsPage() {
                           }`} />
                         <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{categoryLabel(tx.category)}</span>
                         {tx.project_id && (
-                          <span className="text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded shrink-0">
-                            {tx.project_id}
+                          <span className="inline-flex items-center gap-1 text-xs font-mono bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 font-medium px-1.5 py-0.5 rounded shrink-0 border border-purple-100/50 dark:border-purple-500/30 shadow-sm">
+                            <FolderIcon /> {tx.project_id}
                           </span>
                         )}
                       </div>
@@ -441,8 +441,8 @@ export default function TransactionsPage() {
                         {tx.source === 'company' ? t('common.company') : t('common.personal')}
                       </span>
                       {tx.account_id && accountMap[tx.account_id] && (
-                        <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded shrink-0 truncate max-w-[120px]" title={accountMap[tx.account_id]}>
-                          {accountMap[tx.account_id]}
+                        <span className="inline-flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-medium px-1.5 py-0.5 rounded shrink-0 truncate max-w-[120px] border border-indigo-100/50 dark:border-indigo-500/30 shadow-sm" title={accountMap[tx.account_id]}>
+                          <BuildingIcon /> {accountMap[tx.account_id]}
                         </span>
                       )}
                     </div>
@@ -528,10 +528,10 @@ export default function TransactionsPage() {
                       <p className="text-[16px] leading-6 font-semibold text-gray-900 dark:text-gray-100 truncate" title={tx.note || categoryLabel(tx.category)}>
                         {tx.note || categoryLabel(tx.category)}
                       </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5"><TagIcon /> {categoryLabel(tx.category)}</span>
-                        {tx.account_id && accountMap[tx.account_id] && <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5"><BuildingIcon /> {accountMap[tx.account_id]}</span>}
-                        {tx.project_id && <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5"><FolderIcon /> {tx.project_id}</span>}
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 font-medium px-1.5 py-0.5 border border-gray-200/50 dark:border-gray-700/50 shadow-sm"><TagIcon /> {categoryLabel(tx.category)}</span>
+                        {tx.account_id && accountMap[tx.account_id] && <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-medium px-1.5 py-0.5 border border-indigo-100/50 dark:border-indigo-500/30 shadow-sm"><BuildingIcon /> {accountMap[tx.account_id]}</span>}
+                        {tx.project_id && <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 font-medium px-1.5 py-0.5 border border-purple-100/50 dark:border-purple-500/30 shadow-sm"><FolderIcon /> {tx.project_id}</span>}
                       </div>
                       <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-400 dark:text-gray-500 tabular-nums">
                         <ClockIcon />
