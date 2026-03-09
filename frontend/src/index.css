@@ -135,6 +135,10 @@ html {
   overscroll-behavior: none;
 }
 
+* , *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   font-family: "Noto Sans Traditional Chinese", "Noto Sans TC", system-ui, sans-serif;
   background-color: hsl(var(--background));
