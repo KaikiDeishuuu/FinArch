@@ -308,7 +308,7 @@ export default function DashboardPage() {
               {ratesLoading
                 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">{t('dashboard.hero.exRateLoading')}</span>
                 : rateDate
-                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium">💱 $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3 h-3"><path d="M4 7h16M4 17h16M10 4c-2 2-2 14 0 16M14 4c2 2 2 14 0 16" /></svg> $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
                   : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">{t('dashboard.hero.exRateFallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
               }
             </div>
@@ -495,8 +495,8 @@ export default function DashboardPage() {
           <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.workflowTitle')}</h2>
           {isWorkMode && (
             <div className="inline-flex bg-gray-100 dark:bg-gray-800/60 rounded-lg p-0.5">
-              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm">
-                🏦 {t('dashboard.workflow.companyTitle')}
+              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm inline-flex items-center gap-1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3 h-3"><path d="M3 10h18" /><path d="M5 10v8M9 10v8M15 10v8M19 10v8" /><path d="M2 18h20" /><path d="m12 4 10 4H2z" /></svg>{t('dashboard.workflow.companyTitle')}
               </span>
             </div>
           )}

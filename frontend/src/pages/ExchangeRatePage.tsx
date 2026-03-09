@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
+import AnimatedNumber from '../motion/AnimatedNumber'
+import Skeleton from '../motion/Skeleton'
 
 const ExchangeTrendChart = lazy(() => import('../components/ExchangeTrendChart'))
 
@@ -7,43 +9,52 @@ type RangeKey = '1D' | '1W' | '1M' | '1Y'
 
 interface CurrencyMeta {
   code: string
-  flag: string
   en: string
   zh: string
 }
 
 const CURRENCIES: CurrencyMeta[] = [
-  { code: 'USD', flag: '🇺🇸', en: 'US Dollar', zh: '美元' },
-  { code: 'EUR', flag: '🇪🇺', en: 'Euro', zh: '欧元' },
-  { code: 'JPY', flag: '🇯🇵', en: 'Japanese Yen', zh: '日元' },
-  { code: 'CNY', flag: '🇨🇳', en: 'Chinese Yuan', zh: '人民币' },
-  { code: 'GBP', flag: '🇬🇧', en: 'British Pound', zh: '英镑' },
-  { code: 'HKD', flag: '🇭🇰', en: 'Hong Kong Dollar', zh: '港元' },
-  { code: 'CAD', flag: '🇨🇦', en: 'Canadian Dollar', zh: '加元' },
-  { code: 'AUD', flag: '🇦🇺', en: 'Australian Dollar', zh: '澳元' },
-  { code: 'SGD', flag: '🇸🇬', en: 'Singapore Dollar', zh: '新加坡元' },
-  { code: 'KRW', flag: '🇰🇷', en: 'South Korean Won', zh: '韩元' },
+  { code: 'USD', en: 'US Dollar', zh: '美元' },
+  { code: 'EUR', en: 'Euro', zh: '欧元' },
+  { code: 'JPY', en: 'Japanese Yen', zh: '日元' },
+  { code: 'CNY', en: 'Chinese Yuan', zh: '人民币' },
+  { code: 'GBP', en: 'British Pound', zh: '英镑' },
+  { code: 'HKD', en: 'Hong Kong Dollar', zh: '港元' },
+  { code: 'CAD', en: 'Canadian Dollar', zh: '加元' },
+  { code: 'AUD', en: 'Australian Dollar', zh: '澳元' },
+  { code: 'SGD', en: 'Singapore Dollar', zh: '新加坡元' },
+  { code: 'KRW', en: 'South Korean Won', zh: '韩元' },
 ]
 
 const RATE_CACHE_TTL = 60_000
 const HISTORY_CACHE_TTL = 5 * 60_000
 const rateCache = new Map<string, { updatedAt: number; rates: Record<string, number> }>()
 const historyCache = new Map<string, { updatedAt: number; data: Array<{ date: string; rate: number }> }>()
+const latestRequestMap = new Map<string, Promise<{ rates: Record<string, number>; updatedAt: number }>>()
+const historyRequestMap = new Map<string, Promise<Array<{ date: string; rate: number }>>>()
 
 async function fetchLatest(base: string): Promise<{ rates: Record<string, number>; updatedAt: number }> {
   const cacheHit = rateCache.get(base)
   if (cacheHit && Date.now() - cacheHit.updatedAt < RATE_CACHE_TTL) return cacheHit
 
-  const res = await fetch(`https://open.er-api.com/v6/latest/${base}`)
-  if (!res.ok) throw new Error('rate fetch failed')
-  const data = await res.json() as { rates?: Record<string, number>; time_last_update_unix?: number }
-  if (!data.rates) throw new Error('invalid rate payload')
-  const payload = {
-    rates: data.rates,
-    updatedAt: (data.time_last_update_unix ?? Math.floor(Date.now() / 1000)) * 1000,
-  }
-  rateCache.set(base, payload)
-  return payload
+  const inflight = latestRequestMap.get(base)
+  if (inflight) return inflight
+
+  const request = (async () => {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${base}`)
+    if (!res.ok) throw new Error('rate fetch failed')
+    const data = await res.json() as { rates?: Record<string, number>; time_last_update_unix?: number }
+    if (!data.rates) throw new Error('invalid rate payload')
+    const payload = {
+      rates: data.rates,
+      updatedAt: (data.time_last_update_unix ?? Math.floor(Date.now() / 1000)) * 1000,
+    }
+    rateCache.set(base, payload)
+    return payload
+  })()
+
+  latestRequestMap.set(base, request)
+  return request.finally(() => latestRequestMap.delete(base))
 }
 
 function pointsForRange(range: RangeKey) {
@@ -58,6 +69,9 @@ async function fetchHistory(from: string, to: string, range: RangeKey) {
   const hit = historyCache.get(key)
   if (hit && Date.now() - hit.updatedAt < HISTORY_CACHE_TTL) return hit.data
 
+  const inflight = historyRequestMap.get(key)
+  if (inflight) return inflight
+
   const end = new Date()
   const start = new Date()
   if (range === '1D') start.setDate(end.getDate() - 1)
@@ -67,14 +81,19 @@ async function fetchHistory(from: string, to: string, range: RangeKey) {
 
   const s = start.toISOString().slice(0, 10)
   const e = end.toISOString().slice(0, 10)
-  const res = await fetch(`https://api.frankfurter.app/${s}..${e}?from=${from}&to=${to}`)
-  if (!res.ok) throw new Error('history fetch failed')
-  const raw = await res.json() as { rates?: Record<string, Record<string, number>> }
-  const list = Object.entries(raw.rates ?? {}).map(([date, v]) => ({ date, rate: v[to] ?? 0 })).filter(p => p.rate > 0)
-  const step = Math.max(1, Math.floor(list.length / pointsForRange(range)))
-  const sampled = list.filter((_, i) => i % step === 0)
-  historyCache.set(key, { updatedAt: Date.now(), data: sampled })
-  return sampled
+  const request = (async () => {
+    const res = await fetch(`https://api.frankfurter.app/${s}..${e}?from=${from}&to=${to}`)
+    if (!res.ok) throw new Error('history fetch failed')
+    const raw = await res.json() as { rates?: Record<string, Record<string, number>> }
+    const list = Object.entries(raw.rates ?? {}).map(([date, v]) => ({ date, rate: v[to] ?? 0 })).filter(p => p.rate > 0)
+    const step = Math.max(1, Math.floor(list.length / pointsForRange(range)))
+    const sampled = list.filter((_, i) => i % step === 0)
+    historyCache.set(key, { updatedAt: Date.now(), data: sampled })
+    return sampled
+  })()
+
+  historyRequestMap.set(key, request)
+  return request.finally(() => historyRequestMap.delete(key))
 }
 
 function CurrencySelector({
@@ -105,7 +124,9 @@ function CurrencySelector({
         className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-900/70"
       >
         <span className="flex items-center gap-2.5">
-          <span className="text-lg leading-none">{selected.flag}</span>
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-gray-200 text-gray-500">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
+          </span>
           <span className="font-semibold text-gray-900 dark:text-gray-100">{selected.code}</span>
           <span className="truncate text-sm text-gray-500 dark:text-gray-400">{selected.en}</span>
         </span>
@@ -126,7 +147,9 @@ function CurrencySelector({
                 onClick={() => { onChange(c.code); setOpen(false); setQuery('') }}
                 className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10"
               >
-                <span className="text-lg leading-none">{c.flag}</span>
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-gray-200 text-gray-500">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
+                </span>
                 <span className="font-semibold text-gray-900 dark:text-gray-100">{c.code}</span>
                 <span className="truncate text-sm text-gray-500 dark:text-gray-400">{c.en}</span>
               </button>
@@ -150,12 +173,14 @@ export default function ExchangeRatePage() {
   const [error, setError] = useState('')
   const [ageSec, setAgeSec] = useState(0)
   const [swapSpin, setSwapSpin] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const historyReqId = useRef(0)
 
   useEffect(() => {
     const id = window.setTimeout(() => {
       const n = Number(amountInput)
       setDebouncedAmount(Number.isFinite(n) ? n : 0)
-    }, 320)
+    }, 360)
     return () => window.clearTimeout(id)
   }, [amountInput])
 
@@ -188,13 +213,22 @@ export default function ExchangeRatePage() {
   }, [from, t])
 
   useEffect(() => {
+    const requestId = historyReqId.current + 1
+    historyReqId.current = requestId
+    setHistoryLoading(true)
     const id = window.setTimeout(() => {
-      let alive = true
       fetchHistory(from, to, range)
-        .then((rows) => { if (alive) setHistory(rows) })
-        .catch(() => { if (alive) setHistory([]) })
-      return () => { alive = false }
-    }, 260)
+        .then((rows) => {
+          if (requestId !== historyReqId.current) return
+          setHistory(rows)
+          setHistoryLoading(false)
+        })
+        .catch(() => {
+          if (requestId !== historyReqId.current) return
+          setHistory([])
+          setHistoryLoading(false)
+        })
+    }, 320)
     return () => window.clearTimeout(id)
   }, [from, to, range])
 
@@ -213,23 +247,23 @@ export default function ExchangeRatePage() {
   }, [history])
 
   const trendMeta = trendPct > 0.02
-    ? { arrow: '↑', cls: 'text-emerald-600', value: `+${trendPct.toFixed(2)}%` }
+    ? { arrow: '↑', cls: 'text-rose-600', value: `+${trendPct.toFixed(2)}%` }
     : trendPct < -0.02
-      ? { arrow: '↓', cls: 'text-rose-600', value: `${trendPct.toFixed(2)}%` }
+      ? { arrow: '↓', cls: 'text-emerald-600', value: `${trendPct.toFixed(2)}%` }
       : { arrow: '→', cls: 'text-gray-400', value: t('exchange.flat') }
 
   const fromMeta = CURRENCIES.find(c => c.code === from) ?? CURRENCIES[0]
   const toMeta = CURRENCIES.find(c => c.code === to) ?? CURRENCIES[1]
 
   return (
-    <div className="space-y-6 font-['Noto_Sans_TC','Noto_Sans_Traditional_Chinese',sans-serif]">
+    <div className="space-y-6 font-['Noto_Sans_TC','Noto_Sans_Traditional_Chinese',sans-serif] text-[#111827]">
       <div>
         <h1 className="text-[26px] font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('exchange.title')}</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('exchange.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <section className="xl:col-span-2 rounded-2xl border border-[#E6E8EB] bg-white p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
+        <section className="max-w-full xl:col-span-2 rounded-2xl border border-[#E6E8EB] bg-white p-4 md:p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
           <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('exchange.amount')}</label>
           <div className="mt-1 rounded-xl border border-gray-200 bg-[#F7F8FA] px-4 py-3 transition-all focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 dark:border-gray-700 dark:bg-gray-900/40">
             <input
@@ -238,10 +272,10 @@ export default function ExchangeRatePage() {
               onChange={e => setAmountInput(e.target.value)}
               className="h-10 w-full bg-transparent text-[28px] font-semibold text-gray-900 outline-none dark:text-gray-100"
             />
-            <p className="text-xs text-gray-400">{fromMeta.flag} {fromMeta.code}</p>
+            <p className="text-xs text-gray-400">{fromMeta.code}</p>
           </div>
 
-          <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+          <div className="mt-4 grid grid-cols-1 items-end gap-2 md:grid-cols-[1fr_auto_1fr]">
             <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />
             <button
               onClick={() => {
@@ -250,9 +284,9 @@ export default function ExchangeRatePage() {
                 setTo(from)
                 window.setTimeout(() => setSwapSpin(false), 280)
               }}
-              className="mb-0.5 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
+              className="mx-auto md:mb-0.5 flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
             >
-              <span className={`inline-block text-lg transition-transform duration-300 ${swapSpin ? 'rotate-180' : ''}`}>⇄</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-200 ${swapSpin ? 'rotate-180' : ''}`}><path d="M4 7h12" /><path d="m12 3 4 4-4 4" /><path d="M20 17H8" /><path d="m12 13-4 4 4 4" /></svg>
             </button>
             <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />
           </div>
@@ -263,8 +297,8 @@ export default function ExchangeRatePage() {
 
           <div className="mt-5 rounded-2xl border border-gray-100 bg-[#F7F8FA] p-4 dark:border-gray-800 dark:bg-gray-900/40">
             <p className="text-sm text-gray-500">{debouncedAmount.toLocaleString()} {fromMeta.code}</p>
-            <p key={`${converted.toFixed(2)}-${to}`} className="mt-1 text-[32px] font-semibold leading-9 text-gray-900 transition-all duration-300 dark:text-gray-100">
-              {toMeta.flag} {converted.toLocaleString(undefined, { maximumFractionDigits: 2 })} {toMeta.code}
+            <p className="mt-1 text-[32px] font-semibold leading-9 text-gray-900 transition-all duration-300 dark:text-gray-100">
+              <AnimatedNumber value={converted} formatter={(n) => `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${toMeta.code}`} />
             </p>
             <p className="mt-2 text-base text-gray-600 dark:text-gray-300">
               {t('exchange.exchangeRate')}: 1 {from} = {rate.toFixed(4)} {to}
@@ -275,7 +309,7 @@ export default function ExchangeRatePage() {
           </div>
         </section>
 
-        <section className="xl:col-span-3 rounded-2xl border border-[#E6E8EB] bg-white p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
+        <section className="max-w-full overflow-hidden xl:col-span-3 rounded-2xl border border-[#E6E8EB] bg-white p-4 md:p-5 shadow-[0_6px_14px_rgba(15,23,42,0.04)] dark:border-gray-700 dark:bg-[hsl(260,15%,11%)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{from} / {to} {t('exchange.trend')}</h2>
             <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
@@ -286,8 +320,12 @@ export default function ExchangeRatePage() {
               ))}
             </div>
           </div>
-          <Suspense fallback={<div className="flex h-[320px] items-center justify-center text-sm text-gray-400">{t('exchange.loadingChart')}</div>}>
-            <ExchangeTrendChart data={history} from={from} to={to} locale={i18n.language} />
+          <Suspense fallback={<div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>}>
+            {historyLoading ? (
+              <div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>
+            ) : (
+              <ExchangeTrendChart data={history} from={from} to={to} locale={i18n.language} />
+            )}
           </Suspense>
         </section>
       </div>

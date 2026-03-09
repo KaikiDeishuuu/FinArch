@@ -132,12 +132,12 @@ const en = {
       greeting: {
         dawn: [
           'Late night? Take a break soon!',
-          'Still burning the midnight oil? 🌙',
+          'Still burning the midnight oil?',
           'Jot it down now, rest easy tomorrow',
           'A quiet night, perfect for bookkeeping',
         ],
         earlyMorning: [
-          'Early bird gets the worm 🌅',
+          'Early bird gets the worm',
           'A new day, a fresh start!',
           'Good morning! Let\'s be productive',
           'Rise and shine! Let\'s go',
@@ -145,35 +145,35 @@ const en = {
         morning: [
           'Good morning! How are you today?',
           'Great morning — time to log expenses',
-          'Hello! Grab a coffee and start ☕',
+          'Hello! Grab a coffee and start',
           'Busy morning — don\'t forget to log!',
         ],
         beforeNoon: [
           'Almost lunchtime! What\'s for lunch?',
-          'Hard-working morning! Lunch soon 🍜',
+          'Hard-working morning! Lunch soon',
           'Nice work this morning, take a break',
         ],
         lunch: [
-          'Lunchtime! 🍱',
+          'Lunchtime!',
           'Good noon — log your lunch expense',
           'Lunch break — check your accounts',
-          'Fuel up and keep going 💪',
+          'Fuel up and keep going',
         ],
         afternoon: [
           'Good afternoon! Looking sharp',
-          'Tea time ☕ and a bit of bookkeeping',
+          'Tea time and a bit of bookkeeping',
           'Afternoon! How\'s the project going?',
           'Keep it up this afternoon!',
         ],
         evening: [
-          'Good evening! Hard day\'s work done 🌇',
+          'Good evening! Hard day\'s work done',
           'Off work? Review today\'s spending',
           'Evening! How much did you spend today?',
           'Day\'s done — let\'s check the books',
-          'Wind down and tidy the accounts 📒',
+          'Wind down and tidy the accounts',
         ],
         night: [
-          'Getting late — rest well 🌙',
+          'Getting late — rest well',
           'Good night! Keep it up tomorrow',
           'Did you log everything today?',
           'Quiet night, perfect for a review',
@@ -219,7 +219,7 @@ const en = {
         maxLabel: 'Max',
         daysAgo: '{{days}} days ago',
         oldestNote: 'Oldest: ',
-        noPending: 'No pending items 🎉',
+        noPending: 'No pending items',
         tip: 'Reimburse promptly to ease cash flow',
         // ── Smart sub-messages ──
         notUploaded: {
@@ -260,7 +260,7 @@ const en = {
       workflowTitle: 'Workflow',
       life: {
         pendingOverview: 'Items to Review',
-        noPending: 'All caught up 🎉',
+        noPending: 'All caught up',
         tip: 'Your records are well organized',
         allClear: 'Keeping a great financial rhythm today',
       },

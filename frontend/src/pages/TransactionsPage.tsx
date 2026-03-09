@@ -20,16 +20,29 @@ import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
 
 function splitTimestamp(value: string) {
-  const [date = value, time = ''] = value.split(' ')
-  return { date, time }
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const hasTimezone = /([zZ]|[+\-]\d{2}:?\d{2})$/.test(normalized)
+  const parsed = new Date(hasTimezone ? normalized : `${normalized}Z`)
+  if (Number.isNaN(parsed.getTime())) {
+    const [date = value, time = ''] = value.split(' ')
+    return { date, time: time.slice(0, 5) }
+  }
+  return {
+    date: parsed.toLocaleDateString(),
+    time: parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }),
+  }
 }
 
 function formatLifecycleTimestamp(value?: string | null) {
   if (!value) return null
   const { date, time } = splitTimestamp(value)
-  const shortDate = date.length >= 10 ? date.slice(5) : date
-  return `${shortDate} ${time.slice(0, 5)}`.trim()
+  return `${date} ${time}`.trim()
 }
+
+const TagIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><path d="m20 12-8 8-8-8 8-8h8z" /><circle cx="16" cy="8" r="1.5" /></svg>
+const BuildingIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><path d="M3 21h18" /><path d="M5 21V7l7-3v17" /><path d="M19 21V11l-7-2" /></svg>
+const FolderIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+const ClockIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
 
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
@@ -522,12 +535,12 @@ export default function TransactionsPage() {
                         {tx.note || categoryLabel(tx.category)}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="rounded-md bg-gray-100 px-1.5 py-0.5">🏷 {categoryLabel(tx.category)}</span>
-                        {tx.account_id && accountMap[tx.account_id] && <span className="rounded-md bg-gray-100 px-1.5 py-0.5">🏦 {accountMap[tx.account_id]}</span>}
-                        {tx.project_id && <span className="rounded-md bg-gray-100 px-1.5 py-0.5">📁 {tx.project_id}</span>}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5"><TagIcon /> {categoryLabel(tx.category)}</span>
+                        {tx.account_id && accountMap[tx.account_id] && <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5"><BuildingIcon /> {accountMap[tx.account_id]}</span>}
+                        {tx.project_id && <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5"><FolderIcon /> {tx.project_id}</span>}
                       </div>
                       <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-400 dark:text-gray-500 tabular-nums">
-                        <span>🕒</span>
+                        <ClockIcon />
                         <span>{splitTimestamp(tx.occurred_at).date}</span>
                         <span>·</span>
                         <span>{splitTimestamp(tx.occurred_at).time}</span>
