@@ -385,7 +385,7 @@ export default function ExchangeRatePage() {
             {historyLoading ? (
               <div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>
             ) : (
-              <ExchangeTrendChart key={chartRenderKey} data={history} from={from} to={to} locale={i18n.language} />
+              <ExchangeTrendChart key={chartRenderKey} data={history} from={from} to={to} locale={i18n.language} range={range} />
             )}
           </Suspense>
         </section>

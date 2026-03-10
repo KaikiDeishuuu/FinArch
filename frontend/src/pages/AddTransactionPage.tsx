@@ -216,7 +216,7 @@ export default function AddTransactionPage() {
                 value={form.currency}
                 onChange={(v) => set('currency', v)}
                 size="sm"
-                className="!bg-gray-100 !border-gray-200 !rounded-lg min-w-[72px]"
+                className="!rounded-lg min-w-[72px] !bg-gray-100 !text-gray-700 !border-gray-200 hover:!bg-white hover:!border-gray-300 dark:!bg-gray-800 dark:!text-gray-200 dark:!border-gray-600 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
                 options={[
                   { value: 'CNY', label: 'CNY' },
                   { value: 'USD', label: 'USD' },
