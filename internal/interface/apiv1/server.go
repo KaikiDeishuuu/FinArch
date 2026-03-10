@@ -1069,6 +1069,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded, Mode: string(t.Mode), Tags: tagNames,
 		})
 	}
+	log.Printf("BALANCE_DIAG scope=accounts_list user_id=%s mode=%s account_count=%d total_balance_cents=%d", userID(c), mode, len(accounts), diagBalanceCents)
 	ok(c, dtos)
 }
 
@@ -1407,6 +1408,7 @@ func (s *Server) handleMatch(c *gin.Context) {
 			Items:        items,
 		})
 	}
+	log.Printf("BALANCE_DIAG scope=accounts_list user_id=%s mode=%s account_count=%d total_balance_cents=%d", userID(c), mode, len(accounts), diagBalanceCents)
 	ok(c, dtos)
 }
 
