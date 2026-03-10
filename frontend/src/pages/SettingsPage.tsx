@@ -17,6 +17,7 @@ import Select from '../components/Select'
 import BackupPasswordModal from '../components/BackupPasswordModal'
 import CrossAccountRestoreModal from '../components/CrossAccountRestoreModal'
 import { useRestoreBackup } from '../hooks/useRestoreBackup'
+import { CURRENCY_SYMBOLS } from '../constants/currencies'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -403,7 +404,7 @@ export default function SettingsPage() {
                         <>
                           <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200 min-w-0 truncate">{a.name}</span>
                           <span className={`text-sm font-bold tabular-nums shrink-0 ${balanceColor}`}>
-                            {a.balance_yuan >= 0 ? '' : '−'}¥{Math.abs(a.balance_yuan).toFixed(2)}
+                            {a.balance_yuan >= 0 ? '' : '−'}{CURRENCY_SYMBOLS[a.currency] ?? a.currency} {Math.abs(a.balance_yuan).toFixed(2)}
                             <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">{a.currency}</span>
                           </span>
                           <button

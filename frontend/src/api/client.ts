@@ -193,6 +193,11 @@ export interface Transaction {
   category: string
   amount_yuan: number
   currency: string
+  base_amount_cents?: number
+  base_currency?: string
+  exchange_rate?: number
+  exchange_rate_source?: string
+  exchange_rate_at?: number
   note: string
   project_id: string | null
   reimbursed: boolean
@@ -281,6 +286,11 @@ export interface MatchResultItem {
   category: string
   amount_yuan: number
   currency: string
+  base_amount_cents?: number
+  base_currency?: string
+  exchange_rate?: number
+  exchange_rate_source?: string
+  exchange_rate_at?: number
   note: string
   project_id: string
   uploaded: boolean

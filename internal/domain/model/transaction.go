@@ -76,10 +76,13 @@ type Transaction struct {
 	TxType      TxType      // 'income' | 'expense' | 'transfer'
 
 	// ── Amount ────────────────────────────────────────────────────────────────
-	AmountCents     int64
-	Currency        string
-	ExchangeRate    float64
-	BaseAmountCents int64 // CNY equivalent
+	AmountCents        int64
+	Currency           string
+	ExchangeRate       float64
+	ExchangeRateSource string
+	ExchangeRateAt     int64
+	BaseCurrency       string
+	BaseAmountCents    int64 // amount normalized into BaseCurrency
 
 	// ── Category ──────────────────────────────────────────────────────────────
 	CategoryID *string

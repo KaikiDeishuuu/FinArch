@@ -7,10 +7,12 @@ export interface TrendPoint {
   rate: number
 }
 
-function formatDate(input: string, locale: string) {
+function formatDate(input: string, locale: string, includeYear = false) {
   const d = new Date(input)
   if (Number.isNaN(d.getTime())) return input
-  return d.toLocaleDateString(locale.startsWith('zh') ? 'zh-TW' : 'en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(locale.startsWith('zh') ? 'zh-TW' : 'en-US', includeYear
+    ? { month: 'short', day: 'numeric', year: 'numeric' }
+    : { month: 'short', day: 'numeric' })
 }
 
 function formatRate(value: number, from: string, to: string) {
@@ -28,17 +30,27 @@ export default function ExchangeTrendChart({
   from,
   to,
   locale,
+  range,
 }: {
   data: TrendPoint[]
   from: string
   to: string
   locale: string
+  range: '1D' | '1W' | '1M' | '1Y'
 }) {
   const isMobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
   const { resolved } = useTheme()
   const isDark = resolved === 'dark'
   const palette = { primary: '#3B82F6', income: '#22C55E', expense: '#EF4444', secondary: '#6B7280' }
   const tooltipPosition = useMemo(() => ({ x: isMobile ? 10 : 20, y: 16 }), [isMobile])
+
+  const includeYearInTicks = range === '1M' || range === '1Y'
+  const xAxisInterval = useMemo(() => {
+    if (range === '1Y') return isMobile ? 7 : 3
+    if (range === '1M') return isMobile ? 4 : 2
+    if (range === '1W') return isMobile ? 1 : 0
+    return isMobile ? 3 : 1
+  }, [isMobile, range])
 
   const trendDelta = data.length > 1 ? data[data.length - 1].rate - data[0].rate : 0
   const trendColors = trendDelta > 0
@@ -75,13 +87,12 @@ export default function ExchangeTrendChart({
               dataKey="date"
               tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
               tickMargin={8}
-              minTickGap={isMobile ? 64 : 32}
-              interval={isMobile ? 'preserveStartEnd' : 0}
-              tickCount={isMobile ? 4 : undefined}
+              minTickGap={isMobile ? 40 : 24}
+              interval={xAxisInterval}
               tickLine={false}
               axisLine={false}
               padding={{ left: 14, right: 14 }}
-              tickFormatter={(v) => formatDate(String(v), locale)}
+              tickFormatter={(v) => formatDate(String(v), locale, includeYearInTicks)}
             />
             <YAxis
               tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
@@ -104,7 +115,7 @@ export default function ExchangeTrendChart({
                 boxShadow: '0 8px 20px rgba(15,23,42,0.14)',
               }}
               wrapperStyle={{ zIndex: 20 }}
-              labelFormatter={(label) => formatDate(String(label), locale)}
+              labelFormatter={(label) => formatDate(String(label), locale, true)}
               formatter={(value: number | string | undefined) => [formatRate(Number(value ?? 0), from, to), `${from}/${to}`]}
             />
             <Area
