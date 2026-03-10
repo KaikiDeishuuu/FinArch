@@ -2,29 +2,13 @@ import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import AnimatedNumber from '../motion/AnimatedNumber'
 import Skeleton from '../motion/Skeleton'
+import { SUPPORTED_CURRENCIES } from '../constants/currencies'
 
 const ExchangeTrendChart = lazy(() => import('../components/ExchangeTrendChart'))
 
 type RangeKey = '1D' | '1W' | '1M' | '1Y'
 
-interface CurrencyMeta {
-  code: string
-  en: string
-  zh: string
-}
-
-const CURRENCIES: CurrencyMeta[] = [
-  { code: 'USD', en: 'US Dollar', zh: '美元' },
-  { code: 'EUR', en: 'Euro', zh: '欧元' },
-  { code: 'JPY', en: 'Japanese Yen', zh: '日元' },
-  { code: 'CNY', en: 'Chinese Yuan', zh: '人民币' },
-  { code: 'GBP', en: 'British Pound', zh: '英镑' },
-  { code: 'HKD', en: 'Hong Kong Dollar', zh: '港元' },
-  { code: 'CAD', en: 'Canadian Dollar', zh: '加元' },
-  { code: 'AUD', en: 'Australian Dollar', zh: '澳元' },
-  { code: 'SGD', en: 'Singapore Dollar', zh: '新加坡元' },
-  { code: 'KRW', en: 'South Korean Won', zh: '韩元' },
-]
+const CURRENCIES = SUPPORTED_CURRENCIES
 
 const RATE_CACHE_TTL = 60_000
 const HISTORY_CACHE_TTL = 5 * 60_000

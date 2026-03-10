@@ -27,4 +27,6 @@ type TransactionRepository interface {
 	// HasUnreimbursedByAccount returns true when the account has expense transactions
 	// with reimb_status='pending'. Used to guard sub-account deletion.
 	HasUnreimbursedByAccount(ctx context.Context, accountID, userID string) (bool, error)
+	// GetRecentRate returns the most recently persisted rate for a currency pair and base currency.
+	GetRecentRate(ctx context.Context, userID, fromCurrency, baseCurrency string) (rate float64, rateAt int64, source string, err error)
 }

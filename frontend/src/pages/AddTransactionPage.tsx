@@ -10,6 +10,7 @@ import Select from '../components/Select'
 import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../contexts/ModeContext'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
+import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from '../constants/currencies'
 
 
 export default function AddTransactionPage() {
@@ -84,7 +85,7 @@ export default function AddTransactionPage() {
       })
       haptic.success()
       refreshFinanceData()
-      toast.success(t('addTransaction.toast.success'), { description: `${form.currency === 'USD' ? '$' : form.currency === 'EUR' ? '€' : '¥'}${amount.toFixed(2)}` })
+      toast.success(t('addTransaction.toast.success'), { description: `${CURRENCY_SYMBOLS[form.currency] ?? form.currency}${amount.toFixed(2)}` })
       setSuccess(true)
       setTimeout(() => navigate('/transactions'), 1200)
     } catch (err: unknown) {
@@ -199,7 +200,7 @@ export default function AddTransactionPage() {
           <label className={labelClass}>{t('addTransaction.form.amount')}</label>
           <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 dark:border-rose-500/30 focus-within:border-red-400 dark:focus-within:border-rose-400' : 'border-green-200 dark:border-emerald-500/30 focus-within:border-green-400 dark:focus-within:border-emerald-400'}`}>
             <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {isExpense ? '−' : '+'}{form.currency === 'USD' ? '$' : form.currency === 'EUR' ? '€' : '¥'}
+              {isExpense ? '−' : '+'}{CURRENCY_SYMBOLS[form.currency] ?? form.currency}
             </span>
             <input
               type="number"
@@ -217,11 +218,10 @@ export default function AddTransactionPage() {
                 onChange={(v) => set('currency', v)}
                 size="sm"
                 className="!rounded-lg min-w-[72px] !bg-gray-100 !text-gray-700 !border-gray-200 hover:!bg-white hover:!border-gray-300 dark:!bg-gray-800 dark:!text-gray-200 dark:!border-gray-600 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
-                options={[
-                  { value: 'CNY', label: 'CNY' },
-                  { value: 'USD', label: 'USD' },
-                  { value: 'EUR', label: 'EUR' },
-                ]}
+                options={SUPPORTED_CURRENCIES.map((currency) => ({
+                  value: currency.code,
+                  label: currency.code,
+                }))}
               />
             </div>
           </div>

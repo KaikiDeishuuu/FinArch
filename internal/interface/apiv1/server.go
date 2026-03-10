@@ -1008,22 +1008,25 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 	}
 	type txDTO struct {
 		// V9 fields
-		ID              string  `json:"id"`
-		GroupID         string  `json:"group_id"`
-		AccountID       string  `json:"account_id"`
-		AccountType     string  `json:"account_type"`
-		LedgerDir       string  `json:"ledger_dir"`
-		TxType          string  `json:"type"`
-		AmountCents     int64   `json:"amount_cents"`
-		BaseAmountCents int64   `json:"base_amount_cents"`
-		ExchangeRate    float64 `json:"exchange_rate"`
-		ReimbStatus     string  `json:"reimb_status"`
-		TxnDate         string  `json:"txn_date"`
-		TransactionTime int64   `json:"transaction_time"`
-		CreatedAt       string  `json:"created_at"`
-		UpdatedAt       string  `json:"updated_at"`
-		ReportedAt      *string `json:"reported_at"`
-		ReimbursedAt    *string `json:"reimbursed_at"`
+		ID                 string  `json:"id"`
+		GroupID            string  `json:"group_id"`
+		AccountID          string  `json:"account_id"`
+		AccountType        string  `json:"account_type"`
+		LedgerDir          string  `json:"ledger_dir"`
+		TxType             string  `json:"type"`
+		AmountCents        int64   `json:"amount_cents"`
+		BaseAmountCents    int64   `json:"base_amount_cents"`
+		ExchangeRate       float64 `json:"exchange_rate"`
+		ExchangeRateSource string  `json:"exchange_rate_source"`
+		ExchangeRateAt     int64   `json:"exchange_rate_at"`
+		BaseCurrency       string  `json:"base_currency"`
+		ReimbStatus        string  `json:"reimb_status"`
+		TxnDate            string  `json:"txn_date"`
+		TransactionTime    int64   `json:"transaction_time"`
+		CreatedAt          string  `json:"created_at"`
+		UpdatedAt          string  `json:"updated_at"`
+		ReportedAt         *string `json:"reported_at"`
+		ReimbursedAt       *string `json:"reimbursed_at"`
 		// Backward-compat fields retained for frontend
 		OccurredAt string   `json:"occurred_at"`
 		Direction  string   `json:"direction"`
@@ -1053,7 +1056,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			AccountID: t.AccountID, AccountType: string(t.AccountType),
 			LedgerDir: string(t.LedgerDir), TxType: string(t.TxType),
 			AmountCents: t.AmountCents, BaseAmountCents: t.BaseAmountCents,
-			ExchangeRate: t.ExchangeRate, ReimbStatus: string(t.ReimbStatus),
+			ExchangeRate: t.ExchangeRate, ExchangeRateSource: t.ExchangeRateSource, ExchangeRateAt: t.ExchangeRateAt, BaseCurrency: t.BaseCurrency, ReimbStatus: string(t.ReimbStatus),
 			TxnDate: t.TxnDate, TransactionTime: t.TransactionTime,
 			CreatedAt: formatSecond(t.CreatedAt), UpdatedAt: formatSecond(t.UpdatedAt),
 			ReportedAt: reportedAt, ReimbursedAt: reimbursedAt,
@@ -1169,14 +1172,19 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	}
 
 	created(c, gin.H{
-		"id":               createdTx.ID,
-		"amount_yuan":      createdTx.AmountYuan.Float64(),
-		"amount_cents":     createdTx.AmountCents,
-		"reimb_status":     string(createdTx.ReimbStatus),
-		"account_id":       createdTx.AccountID,
-		"mode":             string(createdTx.Mode),
-		"occurred_at":      formatSecond(createdTx.OccurredAt),
-		"transaction_time": createdTx.TransactionTime,
+		"id":                   createdTx.ID,
+		"amount_yuan":          createdTx.AmountYuan.Float64(),
+		"amount_cents":         createdTx.AmountCents,
+		"reimb_status":         string(createdTx.ReimbStatus),
+		"account_id":           createdTx.AccountID,
+		"mode":                 string(createdTx.Mode),
+		"occurred_at":          formatSecond(createdTx.OccurredAt),
+		"transaction_time":     createdTx.TransactionTime,
+		"base_amount_cents":    createdTx.BaseAmountCents,
+		"base_currency":        createdTx.BaseCurrency,
+		"exchange_rate":        createdTx.ExchangeRate,
+		"exchange_rate_source": createdTx.ExchangeRateSource,
+		"exchange_rate_at":     createdTx.ExchangeRateAt,
 	})
 }
 

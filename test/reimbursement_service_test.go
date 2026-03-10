@@ -58,7 +58,7 @@ func TestReimburse_RejectDuplicateTxIDs(t *testing.T) {
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
 	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
-	txSvc := service.NewTransactionService(txRepo, acctRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, nil)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 
 	tx, err := txSvc.CreateTransaction(ctx, service.CreateTransactionRequest{
@@ -94,7 +94,7 @@ func TestReimburse_AtomicAndSingleUse(t *testing.T) {
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
 	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
-	txSvc := service.NewTransactionService(txRepo, acctRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, nil)
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 
 	tx, err := txSvc.CreateTransaction(ctx, service.CreateTransactionRequest{

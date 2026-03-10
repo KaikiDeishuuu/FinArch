@@ -78,7 +78,7 @@ func main() {
 	tagRepo := sqliterepo.NewSQLiteTagRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
 
-	txSvc := service.NewTransactionService(txRepo, acctRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, service.NewHTTPExchangeRateService())
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
 	authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL, tm)

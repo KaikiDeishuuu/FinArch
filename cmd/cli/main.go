@@ -329,7 +329,7 @@ func buildServicesWithRepo(database *sql.DB) (*service.TransactionService, *serv
 	reimRepo := sqliterepo.NewSQLiteReimbursementRepository(database)
 	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
-	txSvc := service.NewTransactionService(txRepo, acctRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, service.NewHTTPExchangeRateService())
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
 	acctSvc := service.NewAccountService(acctRepo, txRepo, tm)
@@ -376,7 +376,7 @@ func buildServices(database *sql.DB) (*service.TransactionService, *service.Reim
 	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
 
-	txSvc := service.NewTransactionService(txRepo, acctRepo)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, service.NewHTTPExchangeRateService())
 	reimSvc := service.NewReimbursementService(tm, txRepo, reimRepo)
 	matchSvc := service.NewMatchingService(txRepo)
 	return txSvc, reimSvc, matchSvc, projectRepo

@@ -25,7 +25,7 @@ func NewSQLiteTransactionRepository(db *sql.DB) *SQLiteTransactionRepository {
 const txnSelectSQL = `
   SELECT t.id, t.user_id, t.group_id,
          t.direction, t.account_id,
-         t.amount_cents, t.currency, t.exchange_rate, t.base_amount_cents,
+         t.amount_cents, t.currency, t.exchange_rate, t.exchange_rate_source, t.exchange_rate_at, t.base_currency, t.base_amount_cents,
          t.type, t.category_id, t.category,
          t.reimb_status, t.reimb_to_account, t.reimbursement_id,
          t.project_id, t.project,
@@ -67,6 +67,15 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 	if exchangeRate == 0 {
 		exchangeRate = 1.0
 	}
+	if t.ExchangeRateAt == 0 {
+		t.ExchangeRateAt = time.Now().UTC().Unix()
+	}
+	if t.ExchangeRateSource == "" {
+		t.ExchangeRateSource = "manual"
+	}
+	if t.BaseCurrency == "" {
+		t.BaseCurrency = "CNY"
+	}
 	amountCents := t.AmountCents
 	if amountCents == 0 && t.AmountYuan != 0 {
 		amountCents = int64(t.AmountYuan * 100)
@@ -90,21 +99,21 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 	_, err := exec.ExecContext(ctx, `
 		INSERT INTO transactions (
 			id, user_id, group_id, direction, account_id,
-			amount_cents, currency, exchange_rate, base_amount_cents,
+			amount_cents, currency, exchange_rate, exchange_rate_source, exchange_rate_at, base_currency, base_amount_cents,
 			type, category_id, category,
 			reimb_status, reimb_to_account, reimbursement_id,
 			project_id, project,
 			mode, note, uploaded, idempotency_key, txn_date, transaction_time, created_at, updated_at
 		) VALUES (
 			?,?,?,?,?,
-			?,?,?,?,
+			?,?,?,?,?,?,?,
 			?,?,?,
 			?,?,?,
 			?,?,
 			?,?,?,?,?,?,?,?
 		)`,
 		t.ID, t.UserID, t.GroupID, string(ledgerDir), t.AccountID,
-		amountCents, t.Currency, exchangeRate, baseAmountCents,
+		amountCents, t.Currency, exchangeRate, t.ExchangeRateSource, t.ExchangeRateAt, t.BaseCurrency, baseAmountCents,
 		string(txType), t.CategoryID, t.Category,
 		string(reimb), t.ReimbToAccount, t.ReimbursementID,
 		t.ProjectID, t.Project,
@@ -321,6 +330,25 @@ func (r *SQLiteTransactionRepository) HasUnreimbursedByAccount(ctx context.Conte
 	return count > 0, nil
 }
 
+// GetRecentRate returns the latest stored exchange rate for a pair.
+func (r *SQLiteTransactionRepository) GetRecentRate(ctx context.Context, userID, fromCurrency, baseCurrency string) (float64, int64, string, error) {
+	exec := getExecutor(ctx, r.db)
+	var rate float64
+	var at sql.NullInt64
+	var source sql.NullString
+	err := exec.QueryRowContext(ctx, `SELECT exchange_rate, exchange_rate_at, COALESCE(exchange_rate_source,'')
+		FROM transactions
+		WHERE user_id=? AND currency=? AND base_currency=? AND exchange_rate > 0
+		ORDER BY exchange_rate_at DESC, created_at DESC LIMIT 1`, userID, fromCurrency, baseCurrency).Scan(&rate, &at, &source)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, 0, "", fmt.Errorf("rate not found")
+		}
+		return 0, 0, "", fmt.Errorf("query recent rate: %w", err)
+	}
+	return rate, at.Int64, source.String, nil
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func collectTransactions(rows *sql.Rows) ([]model.Transaction, error) {
@@ -347,6 +375,7 @@ func scanTransaction(scanner interface {
 	var projectID sql.NullString
 	var project sql.NullString
 	var transactionTime sql.NullInt64
+	var exchangeRateAt sql.NullInt64
 	var createdAt, updatedAt string
 	var reportedAt, reimbursedAt sql.NullInt64
 	var uploaded int
@@ -354,7 +383,7 @@ func scanTransaction(scanner interface {
 	if err := scanner.Scan(
 		&t.ID, &t.UserID, &t.GroupID,
 		&ledgerDir, &t.AccountID,
-		&t.AmountCents, &t.Currency, &t.ExchangeRate, &t.BaseAmountCents,
+		&t.AmountCents, &t.Currency, &t.ExchangeRate, &t.ExchangeRateSource, &exchangeRateAt, &t.BaseCurrency, &t.BaseAmountCents,
 		&txType, &categoryID, &t.Category,
 		&reimbStatus, &reimbToAccount, &reimbursementID,
 		&projectID, &project,
@@ -386,6 +415,9 @@ func scanTransaction(scanner interface {
 		t.Source = model.SourceCompany
 	}
 
+	if exchangeRateAt.Valid {
+		t.ExchangeRateAt = exchangeRateAt.Int64
+	}
 	if transactionTime.Valid {
 		t.TransactionTime = transactionTime.Int64
 		t.OccurredAt = time.Unix(transactionTime.Int64, 0).UTC()
