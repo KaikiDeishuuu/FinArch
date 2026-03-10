@@ -2,18 +2,8 @@ import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useTheme } from '../contexts/ThemeContext'
 
-export interface TrendPoint {
-  date: string
-  rate: number
-}
-
-function formatDate(input: string, locale: string, includeYear = false) {
-  const d = new Date(input)
-  if (Number.isNaN(d.getTime())) return input
-  return d.toLocaleDateString(locale.startsWith('zh') ? 'zh-TW' : 'en-US', includeYear
-    ? { month: 'short', day: 'numeric', year: 'numeric' }
-    : { month: 'short', day: 'numeric' })
-}
+import type { TrendPoint, ExchangeRange } from '../utils/exchangeChart'
+import { buildChartPoints, xAxisInterval } from '../utils/exchangeChart'
 
 function formatRate(value: number, from: string, to: string) {
   const lowPrecisionPairs = new Set(['JPY', 'KRW'])
@@ -36,7 +26,7 @@ export default function ExchangeTrendChart({
   from: string
   to: string
   locale: string
-  range: '1D' | '1W' | '1M' | '1Y'
+  range: ExchangeRange
 }) {
   const isMobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
   const { resolved } = useTheme()
@@ -44,15 +34,10 @@ export default function ExchangeTrendChart({
   const palette = { primary: '#3B82F6', income: '#22C55E', expense: '#EF4444', secondary: '#6B7280' }
   const tooltipPosition = useMemo(() => ({ x: isMobile ? 10 : 20, y: 16 }), [isMobile])
 
-  const includeYearInTicks = range === '1M' || range === '1Y'
-  const xAxisInterval = useMemo(() => {
-    if (range === '1Y') return isMobile ? 7 : 3
-    if (range === '1M') return isMobile ? 4 : 2
-    if (range === '1W') return isMobile ? 1 : 0
-    return isMobile ? 3 : 1
-  }, [isMobile, range])
+  const chartData = useMemo(() => buildChartPoints(data, range, locale), [data, locale, range])
+  const tickInterval = useMemo(() => xAxisInterval(range, isMobile), [isMobile, range])
 
-  const trendDelta = data.length > 1 ? data[data.length - 1].rate - data[0].rate : 0
+  const trendDelta = chartData.length > 1 ? chartData[chartData.length - 1].rate - chartData[0].rate : 0
   const trendColors = trendDelta > 0
     ? { stroke: palette.expense, gradientStart: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(239,68,68,0.20)' }
     : trendDelta < 0
@@ -75,7 +60,7 @@ export default function ExchangeTrendChart({
     >
       <div className="h-[220px] w-full px-1 sm:h-[240px] md:h-[320px] md:min-w-0 md:px-0">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 16, right: isMobile ? 8 : 16, left: isMobile ? 8 : 24, bottom: 16 }}>
+          <AreaChart data={chartData} margin={{ top: 16, right: isMobile ? 8 : 16, left: isMobile ? 8 : 24, bottom: 16 }}>
             <defs>
               <linearGradient id="rateGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={trendColors.gradientStart} />
@@ -84,15 +69,15 @@ export default function ExchangeTrendChart({
             </defs>
             <CartesianGrid stroke={isDark ? '#374151' : '#E5E7EB'} strokeDasharray="3 3" vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="tickLabel"
               tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
               tickMargin={8}
               minTickGap={isMobile ? 40 : 24}
-              interval={xAxisInterval}
+              interval={tickInterval}
               tickLine={false}
               axisLine={false}
               padding={{ left: 14, right: 14 }}
-              tickFormatter={(v) => formatDate(String(v), locale, includeYearInTicks)}
+
             />
             <YAxis
               tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
@@ -115,7 +100,7 @@ export default function ExchangeTrendChart({
                 boxShadow: '0 8px 20px rgba(15,23,42,0.14)',
               }}
               wrapperStyle={{ zIndex: 20 }}
-              labelFormatter={(label) => formatDate(String(label), locale, true)}
+              labelFormatter={(_, payload) => String(payload?.[0]?.payload?.tooltipLabel ?? '')}
               formatter={(value: number | string | undefined) => [formatRate(Number(value ?? 0), from, to), `${from}/${to}`]}
             />
             <Area

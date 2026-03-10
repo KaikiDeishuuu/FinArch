@@ -155,6 +155,9 @@ END`,
 // updated WHEN conditions take effect on existing databases (IF NOT EXISTS would
 // silently keep the stale version).
 var dropAndRecreate = []string{
+	"trg_balance_insert",
+	"trg_balance_delete",
+	"trg_balance_update",
 	"trg_balance_reimburse",
 	"trg_balance_unreimburse",
 }
