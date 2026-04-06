@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Cormorant Garamond", "Noto Serif SC", serif;
+  --font-sans: "Saira", "Noto Serif SC", sans-serif;
 }
 
 /* Tailwind v4: class-based dark mode */
@@ -143,10 +143,10 @@ html {
 }
 
 body {
-  font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+  font-family: var(--font-sans);
   font-weight: 400;
-  line-height: 1.65;
-  letter-spacing: 0.005em;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
   background-color: hsl(var(--background));
   height: 100%;
   overflow: hidden;
@@ -162,14 +162,18 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  letter-spacing: -0.012em;
+  letter-spacing: 0;
   line-height: 1.25;
 }
 
 :lang(zh),
 :lang(zh-CN),
 :lang(zh-Hans) {
+  font-family: "Noto Serif SC", "Saira", sans-serif;
   letter-spacing: 0;
+  line-height: 1.7;
+  word-break: break-word;
+  font-variant-east-asian: proportional-width;
 }
 
 .transaction-description {
