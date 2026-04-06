@@ -26,7 +26,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap"
     />
 
     <!-- 禁止自动识别电话号码 -->
@@ -60,6 +60,7 @@
       (function(){
         var lang = localStorage.getItem('finarch-lang') || navigator.language || 'zh';
         var isEn = lang.indexOf('en') === 0;
+        document.documentElement.lang = isEn ? 'en' : 'zh-CN';
         window.__splashTagline = isEn ? 'Accounting · Reimbursement · Analytics' : '记账 · 报销 · 统计';
         // Dark-mode splash
         var theme = localStorage.getItem('finarch-theme') || 'system';
@@ -125,14 +126,14 @@
         </div>
         <!-- Brand name with fade-slide in -->
         <span id="splash-brand" style="
-          color:#0d0b14;font-family:'Cormorant Garamond','Noto Serif SC',serif;
-          font-size:22px;font-weight:700;letter-spacing:0.05em;
+          color:#0d0b14;font-family:'Saira','Noto Serif SC',sans-serif;
+          font-size:22px;font-weight:700;letter-spacing:0.01em;
           animation:splash-text-in 0.5s ease-out 0.4s both;
         ">FinArch</span>
         <script>if(window.__splashDark)document.getElementById('splash-brand').style.color='#e5e7eb';</script>
         <!-- Tagline with staggered entrance -->
         <span id="splash-tagline" style="
-          color:#6b7280;font-family:'Cormorant Garamond','Noto Serif SC',serif;
+          color:#6b7280;font-family:'Saira','Noto Serif SC',sans-serif;
           font-size:13px;
           animation:splash-text-in 0.5s ease-out 0.55s both;
         "></span>
