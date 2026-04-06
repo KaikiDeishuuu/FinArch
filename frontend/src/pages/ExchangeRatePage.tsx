@@ -271,7 +271,7 @@ export default function ExchangeRatePage() {
   const toMeta = CURRENCIES.find(c => c.code === to) ?? CURRENCIES[1]
 
   return (
-    <div className="relative min-h-[calc(100vh-80px)] space-y-6 font-['Noto_Sans_TC','Noto_Sans_Traditional_Chinese',sans-serif] text-[#111827]">
+    <div className="relative min-h-[calc(100vh-80px)] space-y-6 text-[#111827]">
       {/* Decorative blurred backgrounds */}
       <div className="absolute top-[-10%] left-[-5%] z-[-1] h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px] dark:bg-blue-900/20 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-5%] z-[-1] h-[600px] w-[600px] rounded-full bg-purple-500/10 blur-[120px] dark:bg-purple-900/20 pointer-events-none" />

@@ -56,7 +56,6 @@ function ThemedToaster() {
       position="bottom-right"
       richColors
       theme={resolved}
-      toastOptions={{ style: { fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' } }}
     />
   )
 }
@@ -105,4 +104,3 @@ function App() {
 }
 
 export default App
-
