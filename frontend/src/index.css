@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Saira", "Noto Serif SC", sans-serif;
+  --font-serif: "Libre Baskerville", "Noto Serif SC", serif;
 }
 
 /* Tailwind v4: class-based dark mode */
@@ -15,6 +15,8 @@
    Typography: high-contrast, premium spacing
 ───────────────────────────────────────────────────────────────────────────── */
 :root {
+  --font-serif: "Libre Baskerville", "Noto Serif SC", serif;
+
   /* Background / Surface */
   --background: 60 9% 98%;
   /* stone-50  #FAFAF9 */
@@ -143,10 +145,10 @@ html {
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-serif);
   font-weight: 400;
-  line-height: 1.6;
-  letter-spacing: 0.01em;
+  line-height: 1.65;
+  letter-spacing: 0;
   background-color: hsl(var(--background));
   height: 100%;
   overflow: hidden;
@@ -161,17 +163,22 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+h1, h2, h3 {
+  letter-spacing: -0.01em;
+}
+
 h1, h2, h3, h4, h5, h6 {
-  letter-spacing: 0;
   line-height: 1.25;
+}
+
+p {
+  line-height: 1.7;
 }
 
 :lang(zh),
 :lang(zh-CN),
 :lang(zh-Hans) {
-  font-family: "Noto Serif SC", "Saira", sans-serif;
-  letter-spacing: 0;
-  line-height: 1.7;
+  font-family: "Noto Serif SC", serif;
   word-break: break-word;
   font-variant-east-asian: proportional-width;
 }
