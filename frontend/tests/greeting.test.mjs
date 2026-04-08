@@ -17,23 +17,65 @@ process.on('exit', () => {
   rmSync(tempDir, { recursive: true, force: true })
 })
 
-test('zh-CN with username', () => {
-  assert.equal(formatGreeting({ locale: 'zh-CN', greeting: '下午好', message: '项目进展如何', username: '昊伟' }), '下午好，项目进展如何，昊伟')
+test('formats zh-CN greeting when username is present', () => {
+  assert.equal(
+    formatGreeting({ locale: 'zh-CN', greeting: '下午好', message: '项目进展如何', username: '测试用户' }),
+    '下午好，项目进展如何，测试用户',
+  )
 })
 
-test('zh-CN without username', () => {
-  assert.equal(formatGreeting({ locale: 'zh-CN', greeting: '下午好', message: '项目进展如何' }), '下午好，项目进展如何')
+test('formats zh-CN greeting when username is undefined', () => {
+  assert.equal(
+    formatGreeting({ locale: 'zh-CN', greeting: '下午好', message: '项目进展如何' }),
+    '下午好，项目进展如何',
+  )
 })
 
-test('en with username', () => {
-  assert.equal(formatGreeting({ locale: 'en', greeting: 'Good afternoon', message: 'how is your project going', username: 'Haowei' }), 'Good afternoon, how is your project going, Haowei.')
+test('formats zh-CN greeting when username is empty string', () => {
+  assert.equal(
+    formatGreeting({ locale: 'zh-CN', greeting: '下午好', message: '项目进展如何', username: '   ' }),
+    '下午好，项目进展如何',
+  )
 })
 
-test('en without username', () => {
-  assert.equal(formatGreeting({ locale: 'en', greeting: 'Good afternoon', message: 'how is your project going' }), 'Good afternoon, how is your project going.')
+test('formats en greeting when username is present', () => {
+  assert.equal(
+    formatGreeting({ locale: 'en', greeting: 'Good afternoon', message: 'how is your project going', username: 'Test User' }),
+    'Good afternoon, how is your project going, Test User.',
+  )
 })
 
-test('malformed input punctuation is stripped', () => {
-  assert.equal(formatGreeting({ locale: 'zh-CN', greeting: '下午好，', message: '项目进展如何？，', username: '昊伟.' }), '下午好，项目进展如何，昊伟')
-  assert.equal(formatGreeting({ locale: 'en', greeting: 'Good afternoon?!', message: 'how is your project going，', username: 'Haowei...' }), 'Good afternoon, how is your project going, Haowei.')
+test('formats en greeting when username is undefined', () => {
+  assert.equal(
+    formatGreeting({ locale: 'en', greeting: 'Good afternoon', message: 'how is your project going' }),
+    'Good afternoon, how is your project going.',
+  )
+})
+
+test('formats en greeting when username is empty string', () => {
+  assert.equal(
+    formatGreeting({ locale: 'en', greeting: 'Good afternoon', message: 'how is your project going', username: '   ' }),
+    'Good afternoon, how is your project going.',
+  )
+})
+
+test('strips malformed punctuation before formatting', () => {
+  assert.equal(
+    formatGreeting({ locale: 'zh-CN', greeting: '下午好，', message: '项目进展如何？，', username: '测试用户.' }),
+    '下午好，项目进展如何，测试用户',
+  )
+
+  assert.equal(
+    formatGreeting({ locale: 'en', greeting: 'Good afternoon?!', message: 'how is your project going，', username: 'Test User...' }),
+    'Good afternoon, how is your project going, Test User.',
+  )
+})
+
+test('safeguard: source greeting logic does not contain hardcoded real usernames', () => {
+  const dashboardSource = readFileSync(new URL('../src/pages/DashboardPage.tsx', import.meta.url), 'utf8')
+  const greetingUtilSource = readFileSync(new URL('../src/utils/greeting.ts', import.meta.url), 'utf8')
+  const forbiddenNameRegex = /(昊伟|Haowei)/
+
+  assert.equal(forbiddenNameRegex.test(dashboardSource), false)
+  assert.equal(forbiddenNameRegex.test(greetingUtilSource), false)
 })

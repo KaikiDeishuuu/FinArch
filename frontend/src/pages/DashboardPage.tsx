@@ -129,12 +129,12 @@ export default function DashboardPage() {
   const greetingMessages = t(`dashboard.greeting.${greetingKey}`, { returnObjects: true }) as string[]
   const [greetingIdx] = useState(() => Math.floor(Math.random() * greetingMessages.length))
   const rawGreetingText = greetingMessages[greetingIdx] || greetingMessages[0] || ''
-  const displayName = user?.nickname || user?.username || user?.email?.split('@')[0] || ''
+  const username = user?.nickname || user?.username || user?.email?.split('@')[0] || ''
   const greetingText = formatGreeting({
     locale: normalizeGreetingLocale(i18n.language),
     greeting: rawGreetingText,
     message: t('dashboard.greetingPrompt'),
-    username: displayName,
+    username,
   })
 
   const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
