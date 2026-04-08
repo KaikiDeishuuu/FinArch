@@ -96,6 +96,7 @@ const en = {
       fallback: 'Live exchange rate unavailable, fallback data in use.',
       searchCurrency: 'Search currency',
       trend: 'Trend',
+      noHistory: 'No exchange rate history available for this range.',
       loadingChart: 'Loading chart…',
       flat: 'Flat',
       ranges: {
