@@ -179,6 +179,7 @@ const en = {
           'Quiet night, perfect for a review',
         ],
       },
+      greetingPrompt: 'how is your project going',
       features: {
         smartAccounting: {
           title: 'Accounting',

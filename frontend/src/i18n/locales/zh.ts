@@ -179,6 +179,7 @@ const zh = {
           '夜晚安静，适合复盘财务',
         ],
       },
+      greetingPrompt: '项目进展如何',
       features: {
         smartAccounting: {
           title: '智能记账',
