@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
 import { formatGreeting, normalizeGreetingLocale } from '../utils/greeting'
+import { secureRandomInt } from '../utils/secureRandom'
 import CompactAmount from '../components/CompactAmount'
 import { BrandWatermark } from '../components/Brand'
 import { useTransactions } from '../hooks/useTransactions'
@@ -127,7 +128,10 @@ export default function DashboardPage() {
   // Greeting — generated once per mount, pick random from i18n array
   const [greetingKey] = useState(getGreetingKey)
   const greetingMessages = t(`dashboard.greeting.${greetingKey}`, { returnObjects: true }) as string[]
-  const [greetingIdx] = useState(() => Math.floor(Math.random() * greetingMessages.length))
+  const [greetingIdx] = useState(() => {
+    if (greetingMessages.length <= 1) return 0
+    return secureRandomInt(greetingMessages.length)
+  })
   const rawGreetingText = greetingMessages[greetingIdx] || greetingMessages[0] || ''
   const username = user?.nickname || user?.username || user?.email?.split('@')[0] || ''
   const greetingText = formatGreeting({
