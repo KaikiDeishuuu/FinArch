@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { useExchangeRates } from '../contexts/ExchangeRateContext'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
+import { formatGreeting, normalizeGreetingLocale } from '../utils/greeting'
+import { secureRandomInt } from '../utils/secureRandom'
 import CompactAmount from '../components/CompactAmount'
 import { BrandWatermark } from '../components/Brand'
 import { useTransactions } from '../hooks/useTransactions'
@@ -126,8 +128,18 @@ export default function DashboardPage() {
   // Greeting — generated once per mount, pick random from i18n array
   const [greetingKey] = useState(getGreetingKey)
   const greetingMessages = t(`dashboard.greeting.${greetingKey}`, { returnObjects: true }) as string[]
-  const [greetingIdx] = useState(() => Math.floor(Math.random() * greetingMessages.length))
-  const greetingText = greetingMessages[greetingIdx] || greetingMessages[0]
+  const [greetingIdx] = useState(() => {
+    if (greetingMessages.length <= 1) return 0
+    return secureRandomInt(greetingMessages.length)
+  })
+  const rawGreetingText = greetingMessages[greetingIdx] || greetingMessages[0] || ''
+  const username = user?.nickname || user?.username || user?.email?.split('@')[0] || ''
+  const greetingText = formatGreeting({
+    locale: normalizeGreetingLocale(i18n.language),
+    greeting: rawGreetingText,
+    message: t('dashboard.greetingPrompt'),
+    username,
+  })
 
   const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
   const { data: accounts = [] } = useAccounts()
@@ -303,7 +315,7 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greetingText}{i18n.language === 'zh' ? '，' : ', '}{user?.nickname || user?.username || user?.email?.split('@')[0]}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greetingText}</h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {ratesLoading
                 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">{t('dashboard.hero.exRateLoading')}</span>

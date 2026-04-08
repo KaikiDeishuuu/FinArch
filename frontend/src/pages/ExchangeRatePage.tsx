@@ -41,6 +41,22 @@ async function fetchLatest(base: string): Promise<{ rates: Record<string, number
   return request.finally(() => latestRequestMap.delete(base))
 }
 
+
+function normalizeHistoryRows(rawRates: Record<string, Record<string, number>> | undefined, to: string) {
+  return Object.entries(rawRates ?? {})
+    .map(([date, row]) => ({ date, rate: Number(row?.[to]) }))
+    .filter((point) => Number.isFinite(point.rate) && point.rate > 0)
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
+function fallbackHistory(startDate: string, endDate: string, rate: number) {
+  if (!Number.isFinite(rate) || rate <= 0) return []
+  return [
+    { date: startDate, rate },
+    { date: endDate, rate },
+  ]
+}
+
 function pointsForRange(range: RangeKey) {
   if (range === '1D') return 24
   if (range === '1W') return 7
@@ -68,10 +84,19 @@ async function fetchHistory(from: string, to: string, range: RangeKey) {
   const request = (async () => {
     const res = await fetch(`https://api.frankfurter.app/${s}..${e}?from=${from}&to=${to}`)
     if (!res.ok) throw new Error('history fetch failed')
+
     const raw = await res.json() as { rates?: Record<string, Record<string, number>> }
-    const list = Object.entries(raw.rates ?? {}).map(([date, v]) => ({ date, rate: v[to] ?? 0 })).filter(p => p.rate > 0)
-    const step = Math.max(1, Math.floor(list.length / pointsForRange(range)))
-    const sampled = list.filter((_, i) => i % step === 0)
+    const list = normalizeHistoryRows(raw.rates, to)
+
+    let sampled: Array<{ date: string; rate: number }>
+    if (list.length > 0) {
+      const step = Math.max(1, Math.floor(list.length / pointsForRange(range)))
+      sampled = list.filter((_, i) => i % step === 0)
+    } else {
+      const latest = await fetchLatest(from)
+      sampled = fallbackHistory(s, e, Number(latest.rates[to]))
+    }
+
     historyCache.set(key, { updatedAt: Date.now(), data: sampled })
     return sampled
   })()
@@ -368,8 +393,12 @@ export default function ExchangeRatePage() {
           <Suspense fallback={<div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>}>
             {historyLoading ? (
               <div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>
-            ) : (
+            ) : history.length > 0 ? (
               <ExchangeTrendChart key={chartRenderKey} data={history} from={from} to={to} locale={i18n.language} range={range} />
+            ) : (
+              <div className="h-[320px] flex items-center justify-center rounded-2xl border border-dashed border-gray-200/80 dark:border-gray-700/80 text-sm text-gray-500 dark:text-gray-400">
+                {t('exchange.noHistory')}
+              </div>
             )}
           </Suspense>
         </section>

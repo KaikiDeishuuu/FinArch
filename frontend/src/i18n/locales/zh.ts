@@ -96,6 +96,7 @@ const zh = {
       fallback: '实时汇率不可用，当前使用备用汇率。',
       searchCurrency: '搜索货币',
       trend: '趋势',
+      noHistory: '当前时间范围暂无汇率历史数据。',
       loadingChart: '图表加载中…',
       flat: '持平',
       ranges: {
@@ -179,6 +180,7 @@ const zh = {
           '夜晚安静，适合复盘财务',
         ],
       },
+      greetingPrompt: '项目进展如何',
       features: {
         smartAccounting: {
           title: '智能记账',
