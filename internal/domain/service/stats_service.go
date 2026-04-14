@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
+	"finarch/internal/domain/model"
 )
 
 // StatsService provides aggregated financial statistics (V9 schema).
@@ -44,6 +47,11 @@ type ProjectStat struct {
 	Income      float64 `json:"income"`
 	Expense     float64 `json:"expense"`
 	Net         float64 `json:"net"`
+}
+
+type BalanceHistoryPoint struct {
+	Date    string  `json:"date"`
+	Balance float64 `json:"balance"`
 }
 
 // Summary returns company balance + personal outstanding for a user.
@@ -171,3 +179,135 @@ func (s *StatsService) ByProject(ctx context.Context, userID string) ([]ProjectS
 	return stats, rows.Err()
 }
 
+func (s *StatsService) AccountBalanceHistory(
+	ctx context.Context,
+	userID string,
+	mode model.Mode,
+	rangeKey string,
+	accountID string,
+) ([]BalanceHistoryPoint, error) {
+	type window struct {
+		start time.Time
+		end   time.Time
+		all   bool
+	}
+
+	resolveWindow := func() (window, error) {
+		today := time.Now().UTC().Truncate(24 * time.Hour)
+		switch rangeKey {
+		case "7d":
+			return window{start: today.AddDate(0, 0, -6), end: today}, nil
+		case "30d", "":
+			return window{start: today.AddDate(0, 0, -29), end: today}, nil
+		case "90d":
+			return window{start: today.AddDate(0, 0, -89), end: today}, nil
+		case "1y":
+			return window{start: today.AddDate(-1, 0, 1), end: today}, nil
+		case "all":
+			return window{all: true}, nil
+		default:
+			return window{}, fmt.Errorf("invalid range")
+		}
+	}
+
+	buildWhere := func(includeDate bool) (string, []any) {
+		where := " WHERE user_id = ? AND mode = ?"
+		args := []any{userID, string(mode)}
+		if accountID != "" {
+			where += " AND account_id = ?"
+			args = append(args, accountID)
+		}
+		if includeDate {
+			where += " AND txn_date >= ? AND txn_date <= ?"
+		}
+		return where, args
+	}
+
+	w, err := resolveWindow()
+	if err != nil {
+		return nil, err
+	}
+
+	if w.all {
+		where, args := buildWhere(false)
+		var startRaw, endRaw sql.NullString
+		if err := s.db.QueryRowContext(ctx, `
+			SELECT MIN(txn_date), MAX(txn_date)
+			FROM transactions`+where, args...).Scan(&startRaw, &endRaw); err != nil {
+			return nil, fmt.Errorf("history window: %w", err)
+		}
+		if !startRaw.Valid || !endRaw.Valid || startRaw.String == "" || endRaw.String == "" {
+			return []BalanceHistoryPoint{}, nil
+		}
+		startAt, err := time.Parse("2006-01-02", startRaw.String)
+		if err != nil {
+			return nil, fmt.Errorf("parse start date: %w", err)
+		}
+		endAt, err := time.Parse("2006-01-02", endRaw.String)
+		if err != nil {
+			return nil, fmt.Errorf("parse end date: %w", err)
+		}
+		w.start = startAt
+		w.end = endAt
+	}
+
+	whereByDate, dateArgs := buildWhere(true)
+	startDate := w.start.Format("2006-01-02")
+	endDate := w.end.Format("2006-01-02")
+	args := append(dateArgs, startDate, endDate)
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT txn_date,
+		  COALESCE(SUM(CASE direction
+		    WHEN 'credit' THEN base_amount_cents
+		    ELSE -base_amount_cents
+		  END), 0) AS delta_cents
+		FROM transactions`+whereByDate+`
+		GROUP BY txn_date
+		ORDER BY txn_date ASC`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("daily deltas: %w", err)
+	}
+	defer rows.Close()
+
+	deltaByDate := make(map[string]int64)
+	for rows.Next() {
+		var day string
+		var deltaCents int64
+		if err := rows.Scan(&day, &deltaCents); err != nil {
+			return nil, err
+		}
+		deltaByDate[day] = deltaCents
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	var runningCents int64
+	if !w.all {
+		where, openingArgs := buildWhere(false)
+		openingArgs = append(openingArgs, startDate)
+		if err := s.db.QueryRowContext(ctx, `
+			SELECT COALESCE(SUM(CASE direction
+			  WHEN 'credit' THEN base_amount_cents
+			  ELSE -base_amount_cents
+			END), 0)
+			FROM transactions`+where+` AND txn_date < ?`, openingArgs...).Scan(&runningCents); err != nil {
+			return nil, fmt.Errorf("opening balance: %w", err)
+		}
+	}
+
+	points := make([]BalanceHistoryPoint, 0, int(w.end.Sub(w.start).Hours()/24)+1)
+	for d := w.start; !d.After(w.end); d = d.AddDate(0, 0, 1) {
+		day := d.Format("2006-01-02")
+		if delta, ok := deltaByDate[day]; ok {
+			runningCents += delta
+		}
+		points = append(points, BalanceHistoryPoint{
+			Date:    day,
+			Balance: float64(runningCents) / 100.0,
+		})
+	}
+
+	return points, nil
+}
