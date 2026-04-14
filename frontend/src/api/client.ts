@@ -356,6 +356,11 @@ export interface ProjectStat {
   net: number
 }
 
+export interface AccountBalanceHistoryPoint {
+  date: string
+  balance: number
+}
+
 export async function getStatsSummary(): Promise<PoolBalance> {
   const { data } = await client.get('/stats/summary')
   return data.data
@@ -377,6 +382,17 @@ export async function getStatsByCategory(dateFrom?: string, dateTo?: string): Pr
 
 export async function getStatsByProject(): Promise<ProjectStat[]> {
   const { data } = await client.get('/stats/by-project')
+  return data.data
+}
+
+export async function getAccountBalanceHistory(
+  mode: AppMode,
+  range: '7d' | '30d' | '90d' | '1y' | 'all',
+  accountId?: string
+): Promise<AccountBalanceHistoryPoint[]> {
+  const params: Record<string, string> = { mode, range }
+  if (accountId) params.account_id = accountId
+  const { data } = await client.get('/stats/account-balance-history', { params })
   return data.data
 }
 

@@ -16,6 +16,7 @@ import { useMode } from '../contexts/ModeContext'
 import ResponsivePieCard from '../components/ResponsivePieCard'
 import { calculateWorkModeAdjustments } from '../utils/workModeStats'
 import { getModeChartPalette } from '../utils/chartPalette'
+import AccountBalanceChart from '../components/AccountBalanceChart'
 
 
 // ─── Custom SVG bar chart (avoids recharts BarChart cursor/overflow bugs) ─────
@@ -415,6 +416,8 @@ export default function StatsPage() {
           </div>
         </StaggerItem>
       </StaggerContainer>
+
+      <AccountBalanceChart accounts={activeAccounts} />
 
       {/* Monthly bar chart — Premium */}
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">

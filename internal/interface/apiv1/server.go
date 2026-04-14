@@ -310,6 +310,7 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/monthly", s.handleStatsMonthly)
 	api.GET("/stats/by-category", s.handleStatsByCategory)
 	api.GET("/stats/by-project", s.handleStatsByProject)
+	api.GET("/stats/account-balance-history", s.handleStatsAccountBalanceHistory)
 
 	// Backup & Restore
 	api.POST("/backup/export-request", s.handleBackupExportRequest)
@@ -1486,6 +1487,29 @@ func (s *Server) handleStatsByProject(c *gin.Context) {
 		stats = []service.ProjectStat{}
 	}
 	ok(c, stats)
+}
+
+func (s *Server) handleStatsAccountBalanceHistory(c *gin.Context) {
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	rangeKey := c.DefaultQuery("range", "30d")
+	accountID := strings.TrimSpace(c.Query("account_id"))
+	points, err := s.statsSvc.AccountBalanceHistory(c.Request.Context(), userID(c), mode, rangeKey, accountID)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid range") {
+			fail(c, 400, 40001, "invalid range")
+			return
+		}
+		failInternal(c, err)
+		return
+	}
+	if points == nil {
+		points = []service.BalanceHistoryPoint{}
+	}
+	ok(c, points)
 }
 
 func (s *Server) handleLitestreamHealth(c *gin.Context) {

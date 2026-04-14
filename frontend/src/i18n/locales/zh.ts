@@ -527,6 +527,10 @@ const zh = {
       chart: {
         monthlyTitle: '{{year}} 年月度收支',
         monthlySubtitle: '按月统计收入与支出',
+        balanceTitle: '余额趋势',
+        balanceSubtitle: '当前模式下的日累计余额',
+        allAccounts: '全部账户',
+        balanceNoData: '当前区间暂无余额历史数据',
         pieTitle: '收支比例',
         categoryTitle: '支出类别分布',
         incomeCategoryTitle: '收入类别分布',

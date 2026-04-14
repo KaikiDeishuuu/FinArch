@@ -527,6 +527,10 @@ const en = {
       chart: {
         monthlyTitle: '{{year}} Monthly Trend',
         monthlySubtitle: 'Monthly income and expense breakdown',
+        balanceTitle: 'Balance Timeline',
+        balanceSubtitle: 'Daily cumulative balance in current mode',
+        allAccounts: 'All Accounts',
+        balanceNoData: 'No balance history for this range',
         pieTitle: 'Income vs Expense',
         categoryTitle: 'Expense Category Distribution',
         incomeCategoryTitle: 'Income Category Distribution',
