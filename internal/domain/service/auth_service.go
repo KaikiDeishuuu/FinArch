@@ -501,16 +501,16 @@ func (s *AuthService) verifyAndLoadAction(ctx context.Context, token, action str
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResponse, error) {
 	// Check account lockout before any DB access to prevent timing-based enumeration.
 	if s.tracker.IsLocked(email) {
-		return LoginResponse{}, fmt.Errorf("账户已因多次失败尝试被锁定，请稍后再试")
+		return LoginResponse{}, ErrAccountLocked
 	}
 	u, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		s.tracker.RecordFailure(email)
-		return LoginResponse{}, fmt.Errorf("邮箱或密码错误")
+		return LoginResponse{}, ErrInvalidCredentials
 	}
 	if err := auth.CheckPassword(u.PasswordHash, password); err != nil {
 		s.tracker.RecordFailure(email)
-		return LoginResponse{}, fmt.Errorf("邮箱或密码错误")
+		return LoginResponse{}, ErrInvalidCredentials
 	}
 	if !u.EmailVerified {
 		return LoginResponse{}, ErrEmailNotVerified
@@ -519,7 +519,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	s.tracker.RecordSuccess(email)
 	token, exp, err := s.jwt.Issue(u.ID, u.Email, u.Role, u.PwdVersion)
 	if err != nil {
-		return LoginResponse{}, fmt.Errorf("登录失败，请稍后重试")
+		return LoginResponse{}, ErrLoginFailed
 	}
 	return LoginResponse{
 		Token: token, ExpiresAt: exp,

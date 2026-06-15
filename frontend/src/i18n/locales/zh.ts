@@ -957,6 +957,8 @@ const zh = {
       },
       captchaError: '请先完成人机验证',
       captchaLoadError: '人机验证加载失败，请刷新页面重试',
+      configLoading: '安全验证加载中，请稍后重试',
+      configLoadError: '安全验证暂不可用，请刷新页面重试',
       operationFailed: '操作失败，请重试',
       processing: '处理中...',
       sending: '发送中...',

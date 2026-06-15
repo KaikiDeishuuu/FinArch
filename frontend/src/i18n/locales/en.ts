@@ -957,6 +957,8 @@ const en = {
       },
       captchaError: 'Please complete the captcha first',
       captchaLoadError: 'Captcha failed to load, please refresh and try again',
+      configLoading: 'Loading security verification. Please try again in a moment.',
+      configLoadError: 'Security verification is unavailable. Please refresh and try again.',
       operationFailed: 'Operation failed, please retry',
       processing: 'Processing...',
       sending: 'Sending...',

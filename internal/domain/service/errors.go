@@ -22,6 +22,9 @@ var (
 	ErrInvalidOrUsedToken     = &DomainError{Code: "invalid_or_used_token"}
 	ErrSystemUnavailable      = &DomainError{Code: "system_unavailable"}
 	ErrInvalidPassword        = &DomainError{Code: "invalid_password"}
+	ErrInvalidCredentials     = &DomainError{Code: "invalid_credentials"}
+	ErrAccountLocked          = &DomainError{Code: "account_locked"}
+	ErrLoginFailed            = &DomainError{Code: "login_failed"}
 
 	ErrEmailNotVerified = errors.New("email_not_verified")
 )

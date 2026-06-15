@@ -77,7 +77,7 @@ function StatusMessage({ children, tone = 'neutral' }: { children: ReactNode; to
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
   const { login, register } = useAuth()
-  const { turnstileSiteKey, loaded: configLoaded } = useConfig()
+  const { turnstileSiteKey, captchaEnabled, loaded: configLoaded, loadError: configLoadError } = useConfig()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -101,6 +101,8 @@ export default function LoginPage() {
   const tokenError = searchParams.get('error') === 'invalid_token'
   const accountDeleted = searchParams.get('deleted') === '1'
   const emailChanged = searchParams.get('email_changed') === '1'
+  const captchaRequired = captchaEnabled && !!turnstileSiteKey
+  const captchaUnavailable = configLoadError || (captchaEnabled && !turnstileSiteKey)
 
   function switchMode(next: 'login' | 'register') {
     if (next === mode) return
@@ -116,7 +118,15 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setPendingVerification(false)
-    if (turnstileSiteKey && !captchaToken) {
+    if (!configLoaded) {
+      setError(t('login.configLoading'))
+      return
+    }
+    if (captchaUnavailable) {
+      setError(t('login.configLoadError'))
+      return
+    }
+    if (captchaRequired && !captchaToken) {
       setError(t('login.captchaError'))
       return
     }
@@ -268,7 +278,7 @@ export default function LoginPage() {
             {mode === 'register' && <PasswordStrength password={password} />}
           </div>
 
-          {turnstileSiteKey && configLoaded && (
+          {captchaRequired && configLoaded && (
             <div className="rounded-xl border border-gray-200 bg-white/80 p-2 dark:border-gray-700 dark:bg-gray-800/70">
               <div className="mx-auto max-w-full overflow-hidden" style={{ minHeight: 70 }}>
                 <Turnstile
@@ -286,6 +296,7 @@ export default function LoginPage() {
             </div>
           )}
 
+          {captchaUnavailable && <StatusMessage tone="error">{t('login.configLoadError')}</StatusMessage>}
           {error && <StatusMessage tone="error">{error}</StatusMessage>}
 
           {unverifiedEmail && (
@@ -305,7 +316,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading || (!!turnstileSiteKey && !captchaToken)}
+            disabled={loading || !configLoaded || captchaUnavailable || (captchaRequired && !captchaToken)}
             className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:from-violet-700 hover:to-purple-700 disabled:opacity-50"
           >
             {loading ? t('login.processing') : mode === 'login' ? t('login.submitLogin') : t('login.submitRegister')}

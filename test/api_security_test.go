@@ -59,6 +59,34 @@ func serveTestRequest(s *apiv1.Server, req *http.Request) *httptest.ResponseReco
 	return w
 }
 
+func TestLoginInvalidCredentialsReturnsUnauthorized(t *testing.T) {
+	database := setupDB(t)
+	defer database.Close()
+	srv := newTestServer(t, database, auth.NewJWTService("test-secret"))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"email":"test@example.com","password":"wrong-password"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := serveTestRequest(srv, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid login: got %d body=%s, want %d", w.Code, w.Body.String(), http.StatusUnauthorized)
+	}
+	var body struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Code != "invalid_credentials" {
+		t.Fatalf("error code = %q, want invalid_credentials", body.Error.Code)
+	}
+	if body.Error.Message == "Something went wrong. Please try again." {
+		t.Fatalf("invalid login returned generic error message")
+	}
+}
+
 func TestDisasterRecoveryRoutesRequireJWT(t *testing.T) {
 	database := setupDB(t)
 	defer database.Close()
