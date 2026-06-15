@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line } from 'recharts'
 import type { Account } from '../api/client'
@@ -29,14 +29,9 @@ export default function AccountBalanceChart({ accounts }: Props) {
   const [accountId, setAccountId] = useState('')
 
   const activeAccounts = useMemo(() => accounts.filter(a => a.is_active), [accounts])
+  const selectedAccountId = accountId && accounts.some(a => a.id === accountId) ? accountId : ''
 
-  useEffect(() => {
-    if (accountId && !accounts.some(a => a.id === accountId)) {
-      setAccountId('')
-    }
-  }, [accounts, accountId])
-
-  const { data = [], isLoading } = useAccountBalanceHistory(range, accountId || undefined)
+  const { data = [], isLoading } = useAccountBalanceHistory(range, selectedAccountId || undefined)
 
   const chartData = useMemo(() => data.map((p) => ({
     ...p,
@@ -73,7 +68,7 @@ export default function AccountBalanceChart({ accounts }: Props) {
             <div className="w-fit min-w-[8rem]">
               <Select
                 size="sm"
-                value={accountId}
+                value={selectedAccountId}
                 onChange={setAccountId}
                 placeholder={t('stats.chart.allAccounts')}
                 options={[
