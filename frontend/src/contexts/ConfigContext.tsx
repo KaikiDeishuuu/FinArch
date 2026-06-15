@@ -1,14 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { getAppConfig } from '../api/client'
-
-interface ConfigState {
-  turnstileSiteKey: string
-  emailVerificationRequired: boolean
-  loaded: boolean
-}
-
-const ConfigContext = createContext<ConfigState>({ turnstileSiteKey: '', emailVerificationRequired: false, loaded: false })
+import { ConfigContext } from './configContextCore'
+import type { ConfigState } from './configContextCore'
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ConfigState>({ turnstileSiteKey: '', loaded: false, emailVerificationRequired: false })
@@ -20,8 +14,4 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return <ConfigContext.Provider value={state}>{children}</ConfigContext.Provider>
-}
-
-export function useConfig(): ConfigState {
-  return useContext(ConfigContext)
 }

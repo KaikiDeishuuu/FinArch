@@ -91,9 +91,9 @@ func (s *LedgerService) PostEntry(ctx context.Context, req PostEntryRequest) err
 	}
 
 	payload := map[string]any{
-		"user_id":     req.UserID,
+		"user_id":      req.UserID,
 		"reference_id": req.ReferenceID,
-		"description": req.Description,
+		"description":  req.Description,
 		"source":       req.Source,
 	}
 	payloadJSON, _ := json.Marshal(payload)
@@ -217,5 +217,3 @@ func appendLedgerFileLog(line string) error {
 	}
 	return nil
 }
-
-

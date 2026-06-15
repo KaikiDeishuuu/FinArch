@@ -1,12 +1,35 @@
 services:
+  init-permissions:
+    image: alpine:3.23
+    restart: "no"
+    command: ["sh", "-c", "chown -R 10001:10001 /data"]
+    volumes:
+      - finarch-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+
   api:
-    image: ghcr.io/kaikideishuuu/finarch:latest
+    image: ghcr.io/kaikideishuuu/finarch:${FINARCH_IMAGE_TAG:?FINARCH_IMAGE_TAG is required}
     container_name: finarch-api
     restart: unless-stopped
     environment:
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - FINARCH_DB=/data/finarch.db
-      - FINARCH_ADDR=127.0.0.1:8080
+      - FINARCH_ADDR=0.0.0.0:8080
+      - FINARCH_ATTACHMENTS_DIR=/data/attachments
+      - FINARCH_ATTACHMENT_MAX_BYTES=${FINARCH_ATTACHMENT_MAX_BYTES:-20971520}
+      - FINARCH_RECURRING_AUTORUN=${FINARCH_RECURRING_AUTORUN:-true}
+      - FINARCH_RECURRING_INTERVAL=${FINARCH_RECURRING_INTERVAL:-15m}
+      - FINARCH_RECURRING_BATCH_LIMIT=${FINARCH_RECURRING_BATCH_LIMIT:-100}
+      - FINARCH_RECURRING_DRY_RUN=${FINARCH_RECURRING_DRY_RUN:-false}
+      - FINARCH_OCR_PROVIDER=${FINARCH_OCR_PROVIDER:-none}
+      - FINARCH_OCR_URL=${FINARCH_OCR_URL:-http://ocr:8000/ocr}
+      - FINARCH_OCR_TIMEOUT=${FINARCH_OCR_TIMEOUT:-45s}
+      - FINARCH_OCR_LANG=${FINARCH_OCR_LANG:-ch}
       - GIN_MODE=release
       # Cloudflare Turnstile CAPTCHA (leave empty to disable for local dev)
       # Get keys at https://dash.cloudflare.com/?to=/:account/turnstile
@@ -19,11 +42,27 @@ services:
       # App base URL used in email links (defaults to https://farc.dev)
       - APP_BASE_URL=${APP_BASE_URL:-}
       - LITESTREAM_STATUS_FILE=${LITESTREAM_STATUS_FILE:-/data/litestream_status.json}
+      - LITESTREAM_ACCESS_KEY_ID=${LITESTREAM_ACCESS_KEY_ID:-}
+      - LITESTREAM_SECRET_ACCESS_KEY=${LITESTREAM_SECRET_ACCESS_KEY:-}
+      - LITESTREAM_BUCKET=${LITESTREAM_BUCKET:-}
+      - LITESTREAM_ENDPOINT=${LITESTREAM_ENDPOINT:-}
     volumes:
       - finarch-data:/data
-    network_mode: host
+      - ./litestream.yml:/etc/litestream.yml:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO /dev/null --post-data='{\"email\":\"_\",\"password\":\"_\"}' --header='Content-Type:application/json' http://localhost:8080/api/v1/auth/login 2>&1; ret=$$?; [ $$ret -eq 0 ] || [ $$ret -eq 8 ]"]
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8080/api/v1/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -32,9 +71,10 @@ services:
   # Litestream 实时备份 sidecar（可选，需要 Cloudflare R2 凭据）
   # 启用方式：docker compose --profile backup up -d
   litestream:
-    image: litestream/litestream:latest
+    image: litestream/litestream:0.3.13
     container_name: finarch-litestream
     restart: unless-stopped
+    user: "10001:10001"
     command: ["replicate", "-config", "/etc/litestream.yml"]
     volumes:
       - finarch-data:/data
@@ -45,7 +85,11 @@ services:
       - LITESTREAM_SECRET_ACCESS_KEY=${LITESTREAM_SECRET_ACCESS_KEY:-}
       - LITESTREAM_BUCKET=${LITESTREAM_BUCKET:-}
       - LITESTREAM_ENDPOINT=${LITESTREAM_ENDPOINT:-}
-    network_mode: host
+      - LITESTREAM_STATUS_FILE=${LITESTREAM_STATUS_FILE:-/data/litestream_status.json}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD-SHELL", "sh /usr/local/bin/litestream-healthcheck.sh"]
       interval: 60s

@@ -26,4 +26,3 @@ type LedgerRepository interface {
 	// RebuildBalanceCache recomputes balances from journal lines.
 	RebuildBalanceCache(ctx context.Context, userID string) error
 }
-

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../contexts/AuthContext'
-import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useAuth } from '../hooks/useAuth'
+import { useExchangeRates } from '../hooks/useExchangeRates'
 import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
 import { formatGreeting, normalizeGreetingLocale } from '../utils/greeting'
 import { secureRandomInt } from '../utils/secureRandom'
@@ -13,7 +13,11 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useHeartbeat } from '../hooks/useHeartbeat'
 import { useOnlineDevices } from '../hooks/useOnlineDevices'
 import { StaggerContainer, StaggerItem, AnimatedCard, CardSkeleton } from '../motion'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
+import { useBudgetSummary, currentBudgetMonth } from '../hooks/useBudgets'
+import { useRecurringRules } from '../hooks/useRecurringRules'
+import { EmptyState, FinanceCard, ProgressBar, SectionHeader } from '../components/FinancePrimitives'
+import { categoryLabel } from '../utils/categoryLabel'
 
 const IconList = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -115,11 +119,8 @@ export default function DashboardPage() {
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { t, i18n } = useTranslation()
   const { isWorkMode } = useMode()
-  const [workflowTab, setWorkflowTab] = useState<'personal' | 'company'>(isWorkMode ? 'company' : 'personal')
-
-  useEffect(() => {
-    setWorkflowTab(isWorkMode ? 'company' : 'personal')
-  }, [isWorkMode])
+  const workflowTab = isWorkMode ? 'company' : 'personal'
+  const [analysisNow] = useState(Date.now)
 
   // Device heartbeat — keeps this device marked as online
   useHeartbeat()
@@ -143,6 +144,10 @@ export default function DashboardPage() {
 
   const { data: transactions = [], isLoading: loading, error: txError } = useTransactions()
   const { data: accounts = [] } = useAccounts()
+  const budgetMonth = currentBudgetMonth()
+  const { data: budgetSummary } = useBudgetSummary(budgetMonth)
+  const { data: recurringRules = [] } = useRecurringRules()
+  const sourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
   const error = txError
     ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.error'))
     : ''
@@ -180,18 +185,52 @@ export default function DashboardPage() {
   const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
   const fmtCompact = (n: number) => formatAmountCompact(n, 'CNY')
 
-  const pendingTxs = isWorkMode ? [] : transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
-  const notUploaded = pendingTxs.filter((t) => !t.uploaded)
-  const uploadedNotReimbursed = pendingTxs.filter((t) => t.uploaded && !t.reimbursed)
-  const companyNotUploaded = isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded) : []
-  const companyUploadedNotReimbursed = isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed) : []
+  const monthInsights = useMemo(() => {
+    const monthPrefix = budgetMonth
+    const monthly = transactions.filter(t => t.source === sourceFilter && t.occurred_at.startsWith(monthPrefix))
+    const byCategory = new Map<string, number>()
+    let income = 0
+    let expense = 0
+    for (const tx of monthly) {
+      const amount = toCNY(tx.amount_yuan, tx.currency || 'CNY', rates)
+      if (tx.direction === 'income') {
+        income += amount
+      } else {
+        expense += amount
+        const key = tx.category || t('categories.other')
+        byCategory.set(key, (byCategory.get(key) ?? 0) + amount)
+      }
+    }
+    const topCategory = Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1])[0]
+    return {
+      income,
+      expense,
+      net: income - expense,
+      topCategory: topCategory ? { category: topCategory[0], amount: topCategory[1] } : null,
+    }
+  }, [budgetMonth, rates, sourceFilter, t, transactions])
+
+  const pendingTxs = useMemo(
+    () => isWorkMode ? [] : transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed),
+    [isWorkMode, transactions]
+  )
+  const notUploaded = useMemo(() => pendingTxs.filter((t) => !t.uploaded), [pendingTxs])
+  const uploadedNotReimbursed = useMemo(() => pendingTxs.filter((t) => t.uploaded && !t.reimbursed), [pendingTxs])
+  const companyNotUploaded = useMemo(
+    () => isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded) : [],
+    [isWorkMode, transactions]
+  )
+  const companyUploadedNotReimbursed = useMemo(
+    () => isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed) : [],
+    [isWorkMode, transactions]
+  )
 
   // ─── Smart pending item analysis ───────────────────────────────────────────
   const hasPending = isWorkMode && (companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0)
   const allClear = !loading && !hasPending && transactions.length > 0
 
   const pendingAnalysis = useMemo(() => {
-    const now = Date.now()
+    const now = analysisNow
     const DAY = 86400000
 
     const notUploadedAmount = notUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
@@ -270,7 +309,7 @@ export default function DashboardPage() {
     else if (totalPending > 0) headerHint = t('dashboard.pending.header.default', { count: totalPending })
 
     return { notUploadedSub, uploadedNotReimbursedSub, companyNotUploadedSub, companyUploadedSub, headerHint }
-  }, [notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates, t])
+  }, [analysisNow, notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates, t])
 
   if (loading) {
     return (
@@ -296,6 +335,9 @@ export default function DashboardPage() {
 
   const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
   const featureCards = FEATURES.filter((f) => isWorkMode || f.to !== '/match')
+  const nextRecurringRule = recurringRules
+    .filter(rule => rule.status === 'active')
+    .sort((a, b) => (a.next_run_at || 0) - (b.next_run_at || 0))[0]
 
   return (
     <div className="space-y-6">
@@ -400,6 +442,87 @@ export default function DashboardPage() {
           </StaggerItem>
         </StaggerContainer>
       )}
+
+      {/* Monthly insights */}
+      <FinanceCard>
+        <SectionHeader title={t('dashboard.insights.title')} subtitle={t('dashboard.insights.subtitle')} />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: t('dashboard.insights.income'), value: monthInsights.income, tone: 'text-emerald-600 dark:text-emerald-300' },
+            { label: t('dashboard.insights.expense'), value: monthInsights.expense, tone: 'text-rose-500 dark:text-rose-300' },
+            { label: t('dashboard.insights.net'), value: monthInsights.net, tone: monthInsights.net >= 0 ? 'text-violet-600 dark:text-violet-300' : 'text-orange-500 dark:text-orange-300' },
+          ].map(item => (
+            <div key={item.label} className="rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{item.label}</p>
+              <p className={`mt-1 text-lg font-bold tabular-nums ${item.tone}`}>
+                <CompactAmount compact={fmtCompact(item.value)} exact={fmtExact(item.value)} prefix={item.label === t('dashboard.insights.net') && item.value >= 0 ? '+' : ''} />
+              </p>
+            </div>
+          ))}
+          <div className="rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('dashboard.insights.topCategory')}</p>
+            {monthInsights.topCategory ? (
+              <>
+                <p className="mt-1 truncate text-sm font-bold text-gray-800 dark:text-gray-100">{categoryLabel(monthInsights.topCategory.category)}</p>
+                <p className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">{fmtCompact(monthInsights.topCategory.amount)}</p>
+              </>
+            ) : (
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('dashboard.insights.noCategory')}</p>
+            )}
+          </div>
+        </div>
+      </FinanceCard>
+
+      {/* Budget and recurring preview */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <FinanceCard interactive>
+          <SectionHeader
+            title={t('dashboard.budgetCard.title')}
+            subtitle={t('dashboard.budgetCard.subtitle')}
+            action={<Link to="/budgets" className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25">{t('dashboard.budgetCard.action')}</Link>}
+          />
+          {budgetSummary?.total_budget ? (
+            <div className="space-y-3">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('budgets.actual')}</p>
+                  <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{fmtCompact(budgetSummary.total_budget.actual_yuan)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('budgets.planned')}</p>
+                  <p className="text-sm font-semibold tabular-nums text-gray-600 dark:text-gray-300">{fmtCompact(budgetSummary.total_budget.budget.base_amount_yuan)}</p>
+                </div>
+              </div>
+              <ProgressBar value={budgetSummary.total_budget.usage_ratio} tone={budgetSummary.total_budget.status === 'over' ? 'danger' : budgetSummary.total_budget.status === 'warning' ? 'warning' : 'success'} />
+              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
+                <span>{Math.round(budgetSummary.total_budget.usage_ratio * 100)}%</span>
+                <span>{budgetSummary.total_budget.remaining_yuan < 0 ? t('budgets.overBy') : t('budgets.remaining')}: {fmtCompact(Math.abs(budgetSummary.total_budget.remaining_yuan))}</span>
+              </div>
+            </div>
+          ) : (
+            <EmptyState title={t('dashboard.budgetCard.emptyTitle')} description={t('dashboard.budgetCard.emptyDesc')} />
+          )}
+        </FinanceCard>
+        <FinanceCard interactive>
+          <SectionHeader
+            title={t('dashboard.recurringCard.title')}
+            subtitle={t('dashboard.recurringCard.subtitle')}
+            action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>}
+          />
+          {recurringRules.length > 0 ? (
+            <div className="space-y-3">
+              <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm leading-relaxed text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
+                {nextRecurringRule
+                  ? t('dashboard.recurringCard.next', { name: nextRecurringRule.name, time: nextRecurringRule.next_occurred_at })
+                  : t('dashboard.recurringCard.desc')}
+              </div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('dashboard.recurringCard.activeCount', { count: recurringRules.filter(rule => rule.status === 'active').length })}</p>
+            </div>
+          ) : (
+            <EmptyState title={t('dashboard.recurringCard.emptyTitle')} description={t('dashboard.recurringCard.emptyDesc')} action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>} />
+          )}
+        </FinanceCard>
+      </div>
 
       {/* Pending action hints */}
       {hasPending && (

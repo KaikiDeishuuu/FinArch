@@ -1,6 +1,7 @@
 package apiv1
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -12,6 +13,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -35,26 +37,30 @@ import (
 
 // Server is the Gin-based API v1 server.
 type Server struct {
-	engine           *gin.Engine
-	addr             string
-	db               *sql.DB
-	dbPath           string
-	authSvc          *service.AuthService
-	txSvc            *service.TransactionService
-	reimSvc          *service.ReimbursementService
-	matchSvc         *service.MatchingService
-	statsSvc         *service.StatsService
-	txRepo           repository.TransactionRepository
-	tagRepo          repository.TagRepository
-	txManager        repository.TransactionManager
-	jwtSvc           *auth.JWTService
-	authLimiter      *auth.IPRateLimiter
-	captchaVerifier  *auth.TurnstileVerifier
-	turnstileSiteKey string
-	acctSvc          *service.AccountService
-	emailSvc         email.Sender
-	pendingRestores  sync.Map // restoreID → *pendingRestore
-	activeDevices    sync.Map // "userID:deviceID" → *deviceSession
+	engine             *gin.Engine
+	addr               string
+	db                 *sql.DB
+	dbPath             string
+	authSvc            *service.AuthService
+	txSvc              *service.TransactionService
+	reimSvc            *service.ReimbursementService
+	matchSvc           *service.MatchingService
+	statsSvc           *service.StatsService
+	budgetSvc          *service.BudgetService
+	recurringSvc       *service.RecurringTransactionService
+	attachmentSvc      *service.AttachmentService
+	txRepo             repository.TransactionRepository
+	tagRepo            repository.TagRepository
+	txManager          repository.TransactionManager
+	jwtSvc             *auth.JWTService
+	authLimiter        *auth.IPRateLimiter
+	captchaVerifier    *auth.TurnstileVerifier
+	turnstileSiteKey   string
+	acctSvc            *service.AccountService
+	emailSvc           email.Sender
+	pendingRestores    sync.Map // restoreID → *pendingRestore
+	activeDevices      sync.Map // "userID:deviceID" → *deviceSession
+	disasterRecoveryMu sync.Mutex
 }
 
 // deviceSession tracks a single device's last heartbeat.
@@ -65,23 +71,45 @@ type deviceSession struct {
 
 // pendingRestore holds temporary state for a disaster recovery restore session.
 type pendingRestore struct {
-	code      string    // 6-digit verification code
-	tmpPath   string    // path to the uploaded .db tmp file
-	expiresAt time.Time // when this session expires
-	email     string    // owner email extracted from backup
-	name      string    // owner name extracted from backup
-	ownerID   string
-	requester string
-	attempts  int // wrong code attempts
-	verified  bool
-	token     string
+	code          string    // 6-digit verification code
+	tmpPath       string    // path to the uploaded .db tmp file
+	attachmentDir string    // extracted attachment files for ZIP restores
+	cleanupPath   string    // file or directory to remove when session is done
+	expiresAt     time.Time // when this session expires
+	email         string    // owner email extracted from backup
+	name          string    // owner name extracted from backup
+	ownerID       string
+	requester     string
+	attempts      int // wrong code attempts
+	verified      bool
+	token         string
 }
 
 type restoreContext struct {
-	RequesterUserID string
-	BackupUserID    string
-	RestoreMode     string
-	DataScope       string
+	RequesterUserID      string
+	BackupUserID         string
+	RestoreMode          string
+	DataScope            string
+	AttachmentRestoreDir string
+}
+
+type attachmentBackupManifest struct {
+	Version     int                    `json:"version"`
+	GeneratedAt string                 `json:"generated_at"`
+	Files       []attachmentBackupFile `json:"files"`
+}
+
+type attachmentBackupFile struct {
+	StorageKey string `json:"storage_key"`
+	SizeBytes  int64  `json:"size_bytes"`
+	SHA256     string `json:"sha256"`
+}
+
+type attachmentRestoreFile struct {
+	SourceKey string
+	TargetKey string
+	SizeBytes int64
+	SHA256    string
 }
 
 func normalizeEmail(email string) string {
@@ -198,6 +226,9 @@ func NewServer(
 	matchSvc *service.MatchingService,
 	authSvc *service.AuthService,
 	statsSvc *service.StatsService,
+	budgetSvc *service.BudgetService,
+	recurringSvc *service.RecurringTransactionService,
+	attachmentSvc *service.AttachmentService,
 	jwtSvc *auth.JWTService,
 	authLimiter *auth.IPRateLimiter,
 	captchaVerifier *auth.TurnstileVerifier,
@@ -218,6 +249,9 @@ func NewServer(
 		reimSvc:          reimSvc,
 		matchSvc:         matchSvc,
 		statsSvc:         statsSvc,
+		budgetSvc:        budgetSvc,
+		recurringSvc:     recurringSvc,
+		attachmentSvc:    attachmentSvc,
 		txRepo:           txRepo,
 		tagRepo:          tagRepo,
 		txManager:        txManager,
@@ -236,12 +270,17 @@ func (s *Server) Run() error {
 	return s.engine.Run(s.addr)
 }
 
+func (s *Server) Handler() http.Handler {
+	return s.engine
+}
+
 func (s *Server) registerRoutes() {
 	r := s.engine
 	r.Use(gin.Recovery(), s.securityHeaders(), s.corsMiddleware(), s.writeGateMiddleware())
 
 	// ─── Public routes ───────────────────────────────────────────
 	pub := r.Group("/api/v1")
+	pub.GET("/health", s.handleHealth)
 	pub.GET("/config", s.handleConfig)
 	pub.POST("/auth/register", s.authRateLimitMiddleware(), s.handleRegister)
 	pub.POST("/auth/login", s.authRateLimitMiddleware(), s.handleLogin)
@@ -256,9 +295,7 @@ func (s *Server) registerRoutes() {
 
 	// Disaster recovery (public — email-verified restore when JWT auth unavailable)
 	pub.POST("/backup/restore-request", s.authRateLimitMiddleware(), s.handleRestoreRequest)
-	pub.POST("/backup/restore-confirm", s.handleRestoreConfirm)
-	pub.GET("/disaster-recovery/snapshots", s.handleDisasterRecoverySnapshots)
-	pub.POST("/disaster-recovery/restore", s.handleDisasterRecoveryExecute)
+	pub.POST("/backup/restore-confirm", s.authRateLimitMiddleware(), s.handleRestoreConfirm)
 
 	// Shortcut: /verify-email → same handler (for emails already sent with old link)
 	r.GET("/verify-email", s.handleVerifyEmail)
@@ -312,11 +349,42 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/by-project", s.handleStatsByProject)
 	api.GET("/stats/account-balance-history", s.handleStatsAccountBalanceHistory)
 
+	// Budgets
+	api.GET("/budgets", s.handleListBudgets)
+	api.GET("/budgets/summary", s.handleBudgetSummary)
+	api.POST("/budgets", s.handleCreateBudget)
+	api.PATCH("/budgets/:id", s.handleUpdateBudget)
+	api.DELETE("/budgets/:id", s.handleDeleteBudget)
+
+	// Recurring transactions
+	api.GET("/recurring-rules", s.handleListRecurringRules)
+	api.GET("/recurring-rules/preview", s.handlePreviewRecurringRules)
+	api.POST("/recurring-rules", s.handleCreateRecurringRule)
+	api.PATCH("/recurring-rules/:id", s.handleUpdateRecurringRule)
+	api.PATCH("/recurring-rules/:id/status", s.handleUpdateRecurringRuleStatus)
+	api.DELETE("/recurring-rules/:id", s.handleDeleteRecurringRule)
+	api.GET("/recurring-rules/:id/instances", s.handleListRecurringInstances)
+	api.POST("/recurring-rules/:id/generate-now", s.handleGenerateRecurringRuleNow)
+
+	// Attachments and OCR
+	api.POST("/attachments", s.handleUploadAttachment)
+	api.GET("/attachments/:id", s.handleGetAttachment)
+	api.GET("/attachments/:id/download", s.handleDownloadAttachment)
+	api.DELETE("/attachments/:id", s.handleDeleteAttachment)
+	api.POST("/attachments/:id/link", s.handleLinkAttachment)
+	api.POST("/attachments/:id/ocr", s.handleRunAttachmentOCR)
+	api.GET("/attachments/:id/ocr", s.handleGetAttachmentOCR)
+	api.POST("/transactions/:id/attachments", s.handleUploadTransactionAttachment)
+	api.GET("/transactions/:id/attachments", s.handleListTransactionAttachments)
+
 	// Backup & Restore
 	api.POST("/backup/export-request", s.handleBackupExportRequest)
 	api.GET("/backup/download", s.handleBackupDownload)
 	api.GET("/backup/info", s.handleBackupInfo)
 	api.GET("/backup/litestream-health", s.handleLitestreamHealth)
+	api.GET("/disaster-recovery/snapshots", s.handleDisasterRecoverySnapshots)
+	api.POST("/disaster-recovery/authorize", s.authRateLimitMiddleware(), s.handleDisasterRecoveryAuthorize)
+	api.POST("/disaster-recovery/restore", s.handleDisasterRecoveryExecute)
 	api.POST("/backup/restore", s.handleRestore)
 	api.POST("/backup/restore/send-verification", s.handleRestoreSendVerification)
 	api.POST("/backup/restore/verify", s.handleRestoreVerify)
@@ -440,10 +508,16 @@ func (s *Server) jwtMiddleware() gin.HandlerFunc {
 		}
 		// Verify pwd_version matches DB — invalidates tokens from before a password change.
 		var dbPwdVer int
-		_ = s.db.QueryRowContext(c.Request.Context(),
+		if err := s.db.QueryRowContext(c.Request.Context(),
 			"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ? AND deleted_at IS NULL",
 			claims.UserID,
-		).Scan(&dbPwdVer)
+		).Scan(&dbPwdVer); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				log.Printf("[ERROR] jwt middleware user lookup: %v", err)
+			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "认证令牌无效或已过期"})
+			return
+		}
 		if dbPwdVer != claims.PwdVersion {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40102, "message": "密码已更改，请重新登录"})
 			return
@@ -591,6 +665,21 @@ func (s *Server) writeGateMiddleware() gin.HandlerFunc {
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
+
+func (s *Server) handleHealth(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+	if err := s.db.PingContext(ctx); err != nil {
+		fail(c, http.StatusServiceUnavailable, "unhealthy", "Service unavailable.")
+		return
+	}
+	var ready int
+	if err := s.db.QueryRowContext(ctx, `SELECT 1`).Scan(&ready); err != nil {
+		fail(c, http.StatusServiceUnavailable, "unhealthy", "Service unavailable.")
+		return
+	}
+	ok(c, gin.H{"status": "ok"})
+}
 
 // handleConfig returns public runtime configuration consumed by the frontend.
 func (s *Server) handleConfig(c *gin.Context) {
@@ -815,9 +904,16 @@ func (s *Server) handleRefreshToken(c *gin.Context) {
 		return
 	}
 	var pwdVer int
-	_ = s.db.QueryRowContext(c.Request.Context(),
-		"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ?", u.ID,
-	).Scan(&pwdVer)
+	if err := s.db.QueryRowContext(c.Request.Context(),
+		"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ? AND deleted_at IS NULL", u.ID,
+	).Scan(&pwdVer); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			fail(c, http.StatusUnauthorized, "auth_invalid_token", "认证令牌无效或已过期")
+			return
+		}
+		failInternal(c, err)
+		return
+	}
 	token, exp, err := s.jwtSvc.Issue(u.ID, u.Email, u.Role, pwdVer)
 	if err != nil {
 		failInternal(c, err)
@@ -1029,19 +1125,23 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		ReportedAt         *string `json:"reported_at"`
 		ReimbursedAt       *string `json:"reimbursed_at"`
 		// Backward-compat fields retained for frontend
-		OccurredAt string   `json:"occurred_at"`
-		Direction  string   `json:"direction"`
-		Source     string   `json:"source"`
-		Category   string   `json:"category"`
-		AmountYuan float64  `json:"amount_yuan"`
-		Currency   string   `json:"currency"`
-		Note       string   `json:"note"`
-		ProjectID  *string  `json:"project_id"`
-		Project    *string  `json:"project"`
-		Reimbursed bool     `json:"reimbursed"`
-		Uploaded   bool     `json:"uploaded"`
-		Mode       string   `json:"mode"`
-		Tags       []string `json:"tags"`
+		OccurredAt              string   `json:"occurred_at"`
+		Direction               string   `json:"direction"`
+		Source                  string   `json:"source"`
+		Category                string   `json:"category"`
+		AmountYuan              float64  `json:"amount_yuan"`
+		Currency                string   `json:"currency"`
+		Note                    string   `json:"note"`
+		ProjectID               *string  `json:"project_id"`
+		Project                 *string  `json:"project"`
+		Reimbursed              bool     `json:"reimbursed"`
+		Uploaded                bool     `json:"uploaded"`
+		AttachmentKey           *string  `json:"attachment_key"`
+		HasAttachment           bool     `json:"has_attachment"`
+		RecurringRuleID         *string  `json:"recurring_rule_id"`
+		RecurringOccurrenceDate *string  `json:"recurring_occurrence_date"`
+		Mode                    string   `json:"mode"`
+		Tags                    []string `json:"tags"`
 	}
 	dtos := make([]txDTO, 0, len(txs))
 	for _, t := range txs {
@@ -1067,7 +1167,10 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			Category: t.Category, AmountYuan: t.AmountYuan.Float64(),
 			Currency: t.Currency, Note: t.Note,
 			ProjectID: t.ProjectID, Project: t.Project,
-			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded, Mode: string(t.Mode), Tags: tagNames,
+			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded,
+			AttachmentKey: t.AttachmentKey, HasAttachment: t.AttachmentKey != nil,
+			RecurringRuleID: t.RecurringRuleID, RecurringOccurrenceDate: t.RecurringOccurrenceDate,
+			Mode: string(t.Mode), Tags: tagNames,
 		})
 	}
 	ok(c, dtos)
@@ -1512,6 +1615,226 @@ func (s *Server) handleStatsAccountBalanceHistory(c *gin.Context) {
 	ok(c, points)
 }
 
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+
+type budgetDTO struct {
+	ID              string  `json:"id"`
+	Mode            string  `json:"mode"`
+	PeriodMonth     string  `json:"period_month"`
+	Category        string  `json:"category"`
+	AmountCents     int64   `json:"amount_cents"`
+	AmountYuan      float64 `json:"amount_yuan"`
+	Currency        string  `json:"currency"`
+	BaseCurrency    string  `json:"base_currency"`
+	BaseAmountCents int64   `json:"base_amount_cents"`
+	BaseAmountYuan  float64 `json:"base_amount_yuan"`
+	IsActive        bool    `json:"is_active"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+}
+
+type budgetProgressDTO struct {
+	Budget         budgetDTO `json:"budget"`
+	ActualCents    int64     `json:"actual_cents"`
+	ActualYuan     float64   `json:"actual_yuan"`
+	RemainingCents int64     `json:"remaining_cents"`
+	RemainingYuan  float64   `json:"remaining_yuan"`
+	UsageRatio     float64   `json:"usage_ratio"`
+	Status         string    `json:"status"`
+}
+
+func budgetToDTO(b model.Budget) budgetDTO {
+	return budgetDTO{
+		ID:              b.ID,
+		Mode:            string(b.Mode),
+		PeriodMonth:     b.PeriodMonth,
+		Category:        b.Category,
+		AmountCents:     b.AmountCents,
+		AmountYuan:      float64(b.AmountCents) / 100,
+		Currency:        b.Currency,
+		BaseCurrency:    b.BaseCurrency,
+		BaseAmountCents: b.BaseAmountCents,
+		BaseAmountYuan:  float64(b.BaseAmountCents) / 100,
+		IsActive:        b.IsActive,
+		CreatedAt:       formatSecond(b.CreatedAt),
+		UpdatedAt:       formatSecond(b.UpdatedAt),
+	}
+}
+
+func budgetProgressToDTO(p service.BudgetProgress) budgetProgressDTO {
+	return budgetProgressDTO{
+		Budget:         budgetToDTO(p.Budget),
+		ActualCents:    p.ActualCents,
+		ActualYuan:     float64(p.ActualCents) / 100,
+		RemainingCents: p.RemainingCents,
+		RemainingYuan:  float64(p.RemainingCents) / 100,
+		UsageRatio:     p.UsageRatio,
+		Status:         p.Status,
+	}
+}
+
+func parseBudgetMonth(c *gin.Context) string {
+	if period := c.Query("period"); period != "" {
+		return period
+	}
+	return c.Query("period_month")
+}
+
+func budgetAmountCents(amountCents int64, amountYuan float64) int64 {
+	if amountCents > 0 {
+		return amountCents
+	}
+	if amountYuan > 0 {
+		return int64(amountYuan*100 + 0.5)
+	}
+	return 0
+}
+
+func (s *Server) handleListBudgets(c *gin.Context) {
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	budgets, err := s.budgetSvc.ListBudgets(c.Request.Context(), userID(c), mode, parseBudgetMonth(c))
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	dtos := make([]budgetDTO, 0, len(budgets))
+	for _, b := range budgets {
+		dtos = append(dtos, budgetToDTO(b))
+	}
+	ok(c, dtos)
+}
+
+func (s *Server) handleCreateBudget(c *gin.Context) {
+	var req struct {
+		Mode            string  `json:"mode" binding:"required"`
+		PeriodMonth     string  `json:"period_month"`
+		Period          string  `json:"period"`
+		Category        string  `json:"category"`
+		AmountCents     int64   `json:"amount_cents"`
+		AmountYuan      float64 `json:"amount_yuan"`
+		Currency        string  `json:"currency"`
+		BaseCurrency    string  `json:"base_currency"`
+		BaseAmountCents int64   `json:"base_amount_cents"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	mode, modeOK := parseMode(req.Mode)
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	periodMonth := req.PeriodMonth
+	if periodMonth == "" {
+		periodMonth = req.Period
+	}
+	budget, err := s.budgetSvc.CreateBudget(c.Request.Context(), service.CreateBudgetRequest{
+		UserID:          userID(c),
+		Mode:            mode,
+		PeriodMonth:     periodMonth,
+		Category:        req.Category,
+		AmountCents:     budgetAmountCents(req.AmountCents, req.AmountYuan),
+		Currency:        req.Currency,
+		BaseCurrency:    req.BaseCurrency,
+		BaseAmountCents: req.BaseAmountCents,
+	})
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	created(c, budgetToDTO(budget))
+}
+
+func (s *Server) handleUpdateBudget(c *gin.Context) {
+	var req struct {
+		Mode            string  `json:"mode"`
+		PeriodMonth     string  `json:"period_month"`
+		Period          string  `json:"period"`
+		Category        string  `json:"category"`
+		AmountCents     int64   `json:"amount_cents"`
+		AmountYuan      float64 `json:"amount_yuan"`
+		Currency        string  `json:"currency"`
+		BaseCurrency    string  `json:"base_currency"`
+		BaseAmountCents int64   `json:"base_amount_cents"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	mode := model.Mode(req.Mode)
+	if req.Mode != "" {
+		parsed, modeOK := parseMode(req.Mode)
+		if !modeOK {
+			fail(c, 400, 40001, "invalid mode")
+			return
+		}
+		mode = parsed
+	}
+	periodMonth := req.PeriodMonth
+	if periodMonth == "" {
+		periodMonth = req.Period
+	}
+	budget, err := s.budgetSvc.UpdateBudget(c.Request.Context(), service.UpdateBudgetRequest{
+		ID:              c.Param("id"),
+		UserID:          userID(c),
+		Mode:            mode,
+		PeriodMonth:     periodMonth,
+		Category:        req.Category,
+		AmountCents:     budgetAmountCents(req.AmountCents, req.AmountYuan),
+		Currency:        req.Currency,
+		BaseCurrency:    req.BaseCurrency,
+		BaseAmountCents: req.BaseAmountCents,
+	})
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	ok(c, budgetToDTO(budget))
+}
+
+func (s *Server) handleDeleteBudget(c *gin.Context) {
+	if err := s.budgetSvc.DeleteBudget(c.Request.Context(), userID(c), c.Param("id")); err != nil {
+		fail(c, 400, 40001, err.Error())
+		return
+	}
+	ok(c, gin.H{"id": c.Param("id"), "deleted": true})
+}
+
+func (s *Server) handleBudgetSummary(c *gin.Context) {
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	summary, err := s.budgetSvc.Summary(c.Request.Context(), userID(c), mode, parseBudgetMonth(c))
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	categoryBudgets := make([]budgetProgressDTO, 0, len(summary.CategoryBudgets))
+	for _, p := range summary.CategoryBudgets {
+		categoryBudgets = append(categoryBudgets, budgetProgressToDTO(p))
+	}
+	var totalBudget *budgetProgressDTO
+	if summary.TotalBudget != nil {
+		dto := budgetProgressToDTO(*summary.TotalBudget)
+		totalBudget = &dto
+	}
+	ok(c, gin.H{
+		"mode":               string(summary.Mode),
+		"period_month":       summary.PeriodMonth,
+		"total_actual_cents": summary.TotalActualCents,
+		"total_actual_yuan":  float64(summary.TotalActualCents) / 100,
+		"total_budget":       totalBudget,
+		"category_budgets":   categoryBudgets,
+	})
+}
+
 func (s *Server) handleLitestreamHealth(c *gin.Context) {
 	statusPath := os.Getenv("LITESTREAM_STATUS_FILE")
 	if statusPath == "" {
@@ -1564,11 +1887,12 @@ const (
 )
 
 type restoreEngineRequest struct {
-	RestoreID    string
-	Source       restoreSource
-	SnapshotID   string
-	TempDBPath   string
-	SchemaBefore int
+	RestoreID            string
+	Source               restoreSource
+	SnapshotID           string
+	TempDBPath           string
+	SchemaBefore         int
+	AttachmentRestoreDir string
 }
 
 type restoreEngineResult struct {
@@ -1613,6 +1937,22 @@ func (s *Server) handleDisasterRecoverySnapshots(c *gin.Context) {
 	ok(c, snapshots)
 }
 
+func (s *Server) handleDisasterRecoveryAuthorize(c *gin.Context) {
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	token, err := s.authSvc.RequestDisasterRecovery(c.Request.Context(), userID(c), req.CurrentPassword)
+	if err != nil {
+		mapAuthError(c, err, 40060)
+		return
+	}
+	ok(c, gin.H{"token": token, "expires_in": 300})
+}
+
 func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 	var req struct {
 		SnapshotID           string `json:"snapshot_id" binding:"required"`
@@ -1620,6 +1960,7 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		AllowMissingMetadata bool   `json:"allow_missing_metadata"`
 		ApplyMode            string `json:"apply_mode"`    // replace | merge
 		RestoreScope         string `json:"restore_scope"` // both | work | life
+		AuthorizationToken   string `json:"authorization_token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, "INVALID_INPUT", "请提供 snapshot_id")
@@ -1673,9 +2014,22 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		return
 	}
 
+	s.disasterRecoveryMu.Lock()
+	defer s.disasterRecoveryMu.Unlock()
+
+	authReq, err := s.authSvc.VerifyDisasterRecoveryToken(c.Request.Context(), userID(c), req.AuthorizationToken)
+	if err != nil {
+		mapAuthError(c, err, 40061)
+		return
+	}
+
 	result := s.executeDisasterRecovery(c.Request.Context(), selected.SnapshotID, schemaBefore, applyMode, restoreScope)
 	if !result.Success {
 		fail(c, 500, "DISASTER_RECOVERY_FAILED", result.Error)
+		return
+	}
+	if err := s.authSvc.CompleteDisasterRecoveryToken(c.Request.Context(), authReq, applyMode == "merge"); err != nil {
+		mapAuthError(c, err, 40062)
 		return
 	}
 	ok(c, gin.H{
@@ -1883,6 +2237,11 @@ func (s *Server) executeRestoreEngine(ctx context.Context, req restoreEngineRequ
 	if err := findb.Migrate(ctx, s.db); err != nil {
 		return result, fmt.Errorf("数据已恢复但自动迁移失败: %s", err.Error())
 	}
+	if strings.TrimSpace(req.AttachmentRestoreDir) != "" && s.attachmentSvc != nil {
+		if err := restoreReplacementAttachments(ctx, s.db, req.AttachmentRestoreDir, s.attachmentSvc); err != nil {
+			return result, fmt.Errorf("附件恢复失败: %s", err.Error())
+		}
+	}
 	if err := s.validatePostRecovery(ctx); err != nil {
 		return result, err
 	}
@@ -1985,14 +2344,115 @@ func (s *Server) handleBackupDownload(c *gin.Context) {
 	}
 
 	ts := time.Now().Format("20060102_150405")
-	filename := fmt.Sprintf("finarch_backup_v%d_%s.db", schemaVer, ts)
 	// Add proper cache-control headers to prevent the browser from caching the backup download
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
+
+	if s.attachmentSvc != nil {
+		zipPath, attachmentCount, err := s.createBackupZip(c.Request.Context(), tmpPath, userID(c), ts)
+		if err != nil {
+			log.Printf("[ERROR] handleBackupDownload: attachment zip failed: %v", err)
+			fail(c, 500, 50001, "附件备份生成失败，请稍后重试")
+			return
+		}
+		if attachmentCount > 0 {
+			defer os.Remove(zipPath)
+			filename := fmt.Sprintf("finarch_backup_v%d_%s.zip", schemaVer, ts)
+			c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, filename, filename))
+			c.Header("Content-Type", "application/zip")
+			c.File(zipPath)
+			return
+		}
+		_ = os.Remove(zipPath)
+	}
+
+	filename := fmt.Sprintf("finarch_backup_v%d_%s.db", schemaVer, ts)
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, filename, filename))
 	c.Header("Content-Type", "application/octet-stream")
 	c.File(tmpPath)
+}
+
+func (s *Server) createBackupZip(ctx context.Context, dbPath, userID, ts string) (string, int, error) {
+	attachments, err := s.attachmentSvc.ListByUser(ctx, userID)
+	if err != nil {
+		return "", 0, err
+	}
+	zipFile, err := os.CreateTemp("", "finarch-backup-*.zip")
+	if err != nil {
+		return "", 0, err
+	}
+	zipPath := zipFile.Name()
+	zw := zip.NewWriter(zipFile)
+	cleanup := func(retErr error) (string, int, error) {
+		_ = zw.Close()
+		_ = zipFile.Close()
+		_ = os.Remove(zipPath)
+		return "", 0, retErr
+	}
+
+	dbEntry, err := zw.Create("finarch.db")
+	if err != nil {
+		return cleanup(err)
+	}
+	dbFile, err := os.Open(dbPath)
+	if err != nil {
+		return cleanup(err)
+	}
+	if _, err := io.Copy(dbEntry, dbFile); err != nil {
+		dbFile.Close()
+		return cleanup(err)
+	}
+	dbFile.Close()
+
+	manifest := attachmentBackupManifest{Version: 1, GeneratedAt: time.Now().UTC().Format(time.RFC3339), Files: []attachmentBackupFile{}}
+	for _, attachment := range attachments {
+		r, err := s.attachmentSvc.OpenStorage(ctx, attachment.StorageKey)
+		if err != nil {
+			return cleanup(err)
+		}
+		entryName, ok := safeAttachmentZipPath(attachment.StorageKey)
+		if !ok {
+			r.Close()
+			return cleanup(fmt.Errorf("invalid attachment storage key"))
+		}
+		entry, err := zw.Create(entryName)
+		if err != nil {
+			r.Close()
+			return cleanup(err)
+		}
+		if _, err := io.Copy(entry, r); err != nil {
+			r.Close()
+			return cleanup(err)
+		}
+		r.Close()
+		manifest.Files = append(manifest.Files, attachmentBackupFile{StorageKey: attachment.StorageKey, SizeBytes: attachment.SizeBytes, SHA256: attachment.SHA256})
+	}
+	manifestEntry, err := zw.Create("attachments/manifest.json")
+	if err != nil {
+		return cleanup(err)
+	}
+	if err := json.NewEncoder(manifestEntry).Encode(manifest); err != nil {
+		return cleanup(err)
+	}
+	if err := zw.Close(); err != nil {
+		_ = zipFile.Close()
+		_ = os.Remove(zipPath)
+		return "", 0, err
+	}
+	if err := zipFile.Close(); err != nil {
+		_ = os.Remove(zipPath)
+		return "", 0, err
+	}
+	return zipPath, len(attachments), nil
+}
+
+func safeAttachmentZipPath(storageKey string) (string, bool) {
+	cleaned := filepath.Clean(strings.TrimPrefix(filepath.FromSlash(storageKey), string(os.PathSeparator)))
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(os.PathSeparator)) || filepath.IsAbs(cleaned) {
+		return "", false
+	}
+	return filepath.ToSlash(filepath.Join("attachments", "files", cleaned)), true
 }
 
 // handleBackupInfo returns metadata about the current database (for UI preview).
@@ -2025,6 +2485,262 @@ func (s *Server) handleBackupInfo(c *gin.Context) {
 
 const maxRestoreSize = 100 << 20 // 100 MB
 
+func extractRestoreUpload(fh *multipart.FileHeader) (dbPath string, attachmentDir string, cleanupPath string, cleanup func(), err error) {
+	cleanupPaths := []string{}
+	cleanup = func() {
+		for _, path := range cleanupPaths {
+			_ = os.RemoveAll(path)
+		}
+	}
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	switch ext {
+	case ".db":
+		tmp, createErr := os.CreateTemp("", "finarch-restore-*.db")
+		if createErr != nil {
+			return "", "", "", cleanup, createErr
+		}
+		dbPath = tmp.Name()
+		cleanupPaths = append(cleanupPaths, dbPath)
+		src, openErr := fh.Open()
+		if openErr != nil {
+			tmp.Close()
+			cleanup()
+			return "", "", "", cleanup, openErr
+		}
+		_, copyErr := io.Copy(tmp, src)
+		src.Close()
+		closeErr := tmp.Close()
+		if copyErr != nil {
+			cleanup()
+			return "", "", "", cleanup, copyErr
+		}
+		if closeErr != nil {
+			cleanup()
+			return "", "", "", cleanup, closeErr
+		}
+		return dbPath, "", dbPath, cleanup, nil
+	case ".zip":
+		baseDir, mkErr := os.MkdirTemp("", "finarch-restore-zip-*")
+		if mkErr != nil {
+			return "", "", "", cleanup, mkErr
+		}
+		cleanupPaths = append(cleanupPaths, baseDir)
+		src, openErr := fh.Open()
+		if openErr != nil {
+			cleanup()
+			return "", "", "", cleanup, openErr
+		}
+		zipPath := filepath.Join(baseDir, "upload.zip")
+		zipTmp, createErr := os.Create(zipPath)
+		if createErr != nil {
+			src.Close()
+			cleanup()
+			return "", "", "", cleanup, createErr
+		}
+		_, copyErr := io.Copy(zipTmp, src)
+		src.Close()
+		closeErr := zipTmp.Close()
+		if copyErr != nil {
+			cleanup()
+			return "", "", "", cleanup, copyErr
+		}
+		if closeErr != nil {
+			cleanup()
+			return "", "", "", cleanup, closeErr
+		}
+		dbPath, attachmentDir, err = extractRestoreZip(zipPath, baseDir)
+		if err != nil {
+			cleanup()
+			return "", "", "", cleanup, err
+		}
+		return dbPath, attachmentDir, baseDir, cleanup, nil
+	default:
+		return "", "", "", cleanup, fmt.Errorf("unsupported restore file type")
+	}
+}
+
+func extractRestoreZip(zipPath, baseDir string) (string, string, error) {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return "", "", err
+	}
+	defer zr.Close()
+	extractDir := filepath.Join(baseDir, "extracted")
+	if err := os.MkdirAll(extractDir, 0o700); err != nil {
+		return "", "", err
+	}
+	for _, file := range zr.File {
+		name := filepath.Clean(strings.TrimPrefix(filepath.FromSlash(file.Name), string(os.PathSeparator)))
+		if name == "." || name == ".." || strings.HasPrefix(name, ".."+string(os.PathSeparator)) || filepath.IsAbs(name) {
+			return "", "", fmt.Errorf("zip path traversal rejected")
+		}
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		target := filepath.Join(extractDir, name)
+		rel, err := filepath.Rel(extractDir, target)
+		if err != nil || filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return "", "", fmt.Errorf("zip path traversal rejected")
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			return "", "", err
+		}
+		r, err := file.Open()
+		if err != nil {
+			return "", "", err
+		}
+		w, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			r.Close()
+			return "", "", err
+		}
+		_, copyErr := io.Copy(w, r)
+		closeErr := w.Close()
+		r.Close()
+		if copyErr != nil {
+			return "", "", copyErr
+		}
+		if closeErr != nil {
+			return "", "", closeErr
+		}
+	}
+	dbPath := filepath.Join(extractDir, "finarch.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		return "", "", fmt.Errorf("zip backup missing finarch.db")
+	}
+	attachmentDir := filepath.Join(extractDir, "attachments", "files")
+	if _, err := os.Stat(attachmentDir); err != nil {
+		attachmentDir = ""
+	}
+	return dbPath, attachmentDir, nil
+}
+
+func validateSQLiteMagic(path string) error {
+	magic := make([]byte, 16)
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := io.ReadFull(f, magic); err != nil {
+		return err
+	}
+	if string(magic[:15]) != "SQLite format 3" {
+		return fmt.Errorf("not sqlite")
+	}
+	return nil
+}
+
+func restoreReplacementAttachments(ctx context.Context, database *sql.DB, sourceDir string, attachmentSvc *service.AttachmentService) error {
+	if strings.TrimSpace(sourceDir) == "" || attachmentSvc == nil {
+		return nil
+	}
+	rows, err := database.QueryContext(ctx, `SELECT storage_key, size_bytes, sha256 FROM attachments ORDER BY created_at ASC, id ASC`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	files := []attachmentRestoreFile{}
+	for rows.Next() {
+		var file attachmentRestoreFile
+		if err := rows.Scan(&file.SourceKey, &file.SizeBytes, &file.SHA256); err != nil {
+			return err
+		}
+		file.TargetKey = file.SourceKey
+		files = append(files, file)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return restoreAttachmentFiles(ctx, sourceDir, files, attachmentSvc)
+}
+
+func restoreAttachmentFiles(ctx context.Context, sourceDir string, files []attachmentRestoreFile, attachmentSvc *service.AttachmentService) error {
+	if strings.TrimSpace(sourceDir) == "" || attachmentSvc == nil || len(files) == 0 {
+		return nil
+	}
+	sourceRoot, err := filepath.Abs(sourceDir)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		cleaned := filepath.Clean(strings.TrimPrefix(filepath.FromSlash(file.SourceKey), string(os.PathSeparator)))
+		if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(os.PathSeparator)) || filepath.IsAbs(cleaned) {
+			return fmt.Errorf("invalid attachment key in backup")
+		}
+		sourcePath := filepath.Join(sourceRoot, cleaned)
+		rel, err := filepath.Rel(sourceRoot, sourcePath)
+		if err != nil || filepath.IsAbs(rel) || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid attachment key in backup")
+		}
+		f, err := os.Open(sourcePath)
+		if err != nil {
+			return fmt.Errorf("attachment file missing: %w", err)
+		}
+		if file.SizeBytes > 0 || strings.TrimSpace(file.SHA256) != "" {
+			info, statErr := f.Stat()
+			if statErr != nil {
+				f.Close()
+				return statErr
+			}
+			if file.SizeBytes > 0 && info.Size() != file.SizeBytes {
+				f.Close()
+				return fmt.Errorf("attachment file size mismatch")
+			}
+			if strings.TrimSpace(file.SHA256) != "" {
+				h := sha256.New()
+				if _, err := io.Copy(h, f); err != nil {
+					f.Close()
+					return err
+				}
+				if !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), strings.TrimSpace(file.SHA256)) {
+					f.Close()
+					return fmt.Errorf("attachment checksum mismatch")
+				}
+				if _, err := f.Seek(0, io.SeekStart); err != nil {
+					f.Close()
+					return err
+				}
+			}
+		}
+		err = attachmentSvc.RestoreStorage(ctx, file.TargetKey, f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanupPendingRestore(pr *pendingRestore) {
+	if pr == nil {
+		return
+	}
+	if strings.TrimSpace(pr.cleanupPath) != "" {
+		_ = os.RemoveAll(pr.cleanupPath)
+		return
+	}
+	if strings.TrimSpace(pr.tmpPath) != "" {
+		_ = os.Remove(pr.tmpPath)
+	}
+}
+
+func safeStorageSegment(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "unknown"
+	}
+	var b strings.Builder
+	for _, r := range value {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
+}
+
 // handleRestore accepts a SQLite database file upload and restores it into the
 // live database using the SQLite Online Backup API — no restart needed.
 // Safety: automatically creates a pre-restore snapshot so data is never lost.
@@ -2034,8 +2750,9 @@ func (s *Server) handleRestore(c *gin.Context) {
 		fail(c, 400, 40001, "请上传数据库文件（multipart field: file）")
 		return
 	}
-	if filepath.Ext(fh.Filename) != ".db" {
-		fail(c, 400, 40002, "仅接受 .db 文件")
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	if ext != ".db" && ext != ".zip" {
+		fail(c, 400, 40002, "仅接受 .db 或 .zip 备份文件")
 		return
 	}
 	if fh.Size > maxRestoreSize {
@@ -2043,40 +2760,14 @@ func (s *Server) handleRestore(c *gin.Context) {
 		return
 	}
 
-	// Save upload to temp file
-	tmp, err := os.CreateTemp("", "finarch-restore-*.db")
+	tmpPath, attachmentDir, _, cleanup, err := extractRestoreUpload(fh)
 	if err != nil {
-		fail(c, 500, 50001, "无法创建临时文件")
+		fail(c, 400, 40003, "备份文件解压或读取失败")
 		return
 	}
-	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer cleanup()
 
-	src, err := fh.Open()
-	if err != nil {
-		tmp.Close()
-		fail(c, 500, 50001, "无法读取上传文件")
-		return
-	}
-	defer src.Close()
-
-	if _, err := io.Copy(tmp, src); err != nil {
-		tmp.Close()
-		fail(c, 500, 50001, "写入临时文件失败")
-		return
-	}
-	tmp.Close()
-
-	// Validate SQLite magic bytes
-	magic := make([]byte, 16)
-	f, err := os.Open(tmpPath)
-	if err != nil {
-		fail(c, 500, 50001, "无法验证文件")
-		return
-	}
-	f.Read(magic)
-	f.Close()
-	if string(magic[:15]) != "SQLite format 3" {
+	if err := validateSQLiteMagic(tmpPath); err != nil {
 		fail(c, 400, 40003, "文件不是有效的 SQLite 数据库")
 		return
 	}
@@ -2139,10 +2830,11 @@ func (s *Server) handleRestore(c *gin.Context) {
 	}
 
 	ctxRestore := restoreContext{
-		RequesterUserID: currentUserID,
-		BackupUserID:    backupUserID,
-		RestoreMode:     restoreMode,
-		DataScope:       "both",
+		RequesterUserID:      currentUserID,
+		BackupUserID:         backupUserID,
+		RestoreMode:          restoreMode,
+		DataScope:            "both",
+		AttachmentRestoreDir: attachmentDir,
 	}
 	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, ctxRestore)
 	if err != nil {
@@ -2164,8 +2856,9 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 		fail(c, 400, 40001, "请上传数据库文件（multipart field: file）")
 		return
 	}
-	if filepath.Ext(fh.Filename) != ".db" {
-		fail(c, 400, 40002, "仅接受 .db 文件")
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	if ext != ".db" && ext != ".zip" {
+		fail(c, 400, 40002, "仅接受 .db 或 .zip 备份文件")
 		return
 	}
 	if fh.Size > maxRestoreSize {
@@ -2178,32 +2871,15 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 		return
 	}
 
-	tmp, err := os.CreateTemp("", "finarch-restore-verify-*.db")
+	tmpPath, attachmentDir, cleanupPath, cleanup, err := extractRestoreUpload(fh)
 	if err != nil {
-		fail(c, 500, 50001, "无法创建临时文件")
+		fail(c, 400, 40003, "备份文件解压或读取失败")
 		return
 	}
-	tmpPath := tmp.Name()
-	src, err := fh.Open()
-	if err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
-		fail(c, 500, 50001, "无法读取上传文件")
-		return
-	}
-	if _, err := io.Copy(tmp, src); err != nil {
-		tmp.Close()
-		src.Close()
-		os.Remove(tmpPath)
-		fail(c, 500, 50001, "写入临时文件失败")
-		return
-	}
-	tmp.Close()
-	src.Close()
 
 	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, 500, 50002, "无法打开备份文件")
 		return
 	}
@@ -2211,13 +2887,13 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 
 	var uploadedVersion int
 	if err := srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&uploadedVersion); err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
 		return
 	}
 	identity, err := readBackupIdentity(srcDB)
 	if err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		if strings.Contains(err.Error(), "备份文件中未找到用户数据") {
 			fail(c, 400, 40007, "备份文件中未找到用户数据")
 			return
@@ -2230,14 +2906,14 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 	restoreMode, backupUserID, backupEmail, sameID, sameEmail := detectRestoreMode(identity, currentUserID, c.GetString("userEmail"))
 	backupName := identity.FallbackOwnerName
 	if normalizeEmail(backupEmail) != normalizeEmail(originalEmail) {
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, http.StatusForbidden, "RESTORE_EMAIL_MISMATCH", "原账号邮箱与备份不匹配")
 		return
 	}
 
 	log.Printf("[RESTORE] verification_request restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s", restoreMode, sameID, sameEmail, identity.MetadataPresent, currentUserID, backupUserID)
 	if restoreMode == "SAME_ACCOUNT" {
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, http.StatusBadRequest, "RESTORE_VERIFICATION_NOT_REQUIRED", "当前备份属于本账号，无需邮箱验证")
 		return
 	}
@@ -2245,16 +2921,16 @@ func (s *Server) handleRestoreSendVerification(c *gin.Context) {
 	var currentVersion int
 	_ = s.db.QueryRowContext(c.Request.Context(), `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&currentVersion)
 	if uploadedVersion > currentVersion {
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, 400, 40006, fmt.Sprintf("备份文件版本 (v%d) 高于当前系统版本 (v%d)，请先升级系统再恢复", uploadedVersion, currentVersion))
 		return
 	}
 
 	code := generateCode()
 	restoreID := uuid.NewString()
-	s.pendingRestores.Store(restoreID, &pendingRestore{code: code, tmpPath: tmpPath, expiresAt: time.Now().Add(10 * time.Minute), email: backupEmail, name: backupName, ownerID: backupUserID, requester: currentUserID})
+	s.pendingRestores.Store(restoreID, &pendingRestore{code: code, tmpPath: tmpPath, attachmentDir: attachmentDir, cleanupPath: cleanupPath, expiresAt: time.Now().Add(10 * time.Minute), email: backupEmail, name: backupName, ownerID: backupUserID, requester: currentUserID})
 	if err := s.emailSvc.SendRestoreCode(backupEmail, backupName, code); err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		s.pendingRestores.Delete(restoreID)
 		fail(c, 500, 50005, "验证码发送失败，请检查邮件服务配置")
 		return
@@ -2279,13 +2955,13 @@ func (s *Server) handleRestoreVerify(c *gin.Context) {
 	}
 	pr := val.(*pendingRestore)
 	if time.Now().After(pr.expiresAt) {
-		os.Remove(pr.tmpPath)
+		cleanupPendingRestore(pr)
 		s.pendingRestores.Delete(req.RestoreID)
 		fail(c, 400, 40009, "验证码已过期，请重新上传备份文件")
 		return
 	}
 	if pr.attempts >= 5 {
-		os.Remove(pr.tmpPath)
+		cleanupPendingRestore(pr)
 		s.pendingRestores.Delete(req.RestoreID)
 		fail(c, 400, 40010, "验证码错误次数过多，请重新上传备份文件")
 		return
@@ -2324,7 +3000,7 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 		return
 	}
 	if time.Now().After(pr.expiresAt) {
-		os.Remove(pr.tmpPath)
+		cleanupPendingRestore(pr)
 		s.pendingRestores.Delete(restoreID)
 		fail(c, 400, 40009, "恢复授权已过期，请重新上传备份文件")
 		return
@@ -2339,8 +3015,9 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 	log.Printf("[RESTORE] execute_after_verification restore_mode=%s same_id=%t same_email=%t metadata_present=%t request_user_id=%s backup_user_id=%s", "CROSS_ACCOUNT", false, false, true, requestUserID, pr.ownerID)
 
 	tmpPath := pr.tmpPath
+	attachmentDir := pr.attachmentDir
 	s.pendingRestores.Delete(restoreID)
-	defer os.Remove(tmpPath)
+	defer cleanupPendingRestore(pr)
 
 	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
@@ -2359,10 +3036,11 @@ func (s *Server) handleRestoreExecute(c *gin.Context) {
 	}
 
 	ctxRestore := restoreContext{
-		RequesterUserID: requestUserID,
-		BackupUserID:    strings.TrimSpace(pr.ownerID),
-		RestoreMode:     "CROSS_ACCOUNT",
-		DataScope:       "both",
+		RequesterUserID:      requestUserID,
+		BackupUserID:         strings.TrimSpace(pr.ownerID),
+		RestoreMode:          "CROSS_ACCOUNT",
+		DataScope:            "both",
+		AttachmentRestoreDir: attachmentDir,
 	}
 	migratedTo, err := s.performRestoreWithMerge(c.Request.Context(), tmpPath, uploadedVersion, currentVersion, ctxRestore)
 	if err != nil {
@@ -2383,17 +3061,18 @@ func (s *Server) performRestoreWithMerge(ctx context.Context, tmpPath string, up
 		return s.performCrossAccountMergeRestore(ctx, tmpPath, uploadedVersion, currentVersion, restoreCtx)
 	}
 
-	return s.performReplaceRestore(ctx, tmpPath, uploadedVersion, currentVersion, restoreCtx.RestoreMode)
+	return s.performReplaceRestore(ctx, tmpPath, uploadedVersion, currentVersion, restoreCtx)
 }
 
-func (s *Server) performReplaceRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, source string) (int, error) {
+func (s *Server) performReplaceRestore(ctx context.Context, tmpPath string, uploadedVersion, currentVersion int, restoreCtx restoreContext) (int, error) {
 	_ = currentVersion
 	engineResult, err := s.executeRestoreEngine(ctx, restoreEngineRequest{
-		RestoreID:    uuid.NewString(),
-		Source:       restoreSourceUserBackup,
-		SnapshotID:   source,
-		TempDBPath:   tmpPath,
-		SchemaBefore: currentVersion,
+		RestoreID:            uuid.NewString(),
+		Source:               restoreSourceUserBackup,
+		SnapshotID:           restoreCtx.RestoreMode,
+		TempDBPath:           tmpPath,
+		SchemaBefore:         currentVersion,
+		AttachmentRestoreDir: restoreCtx.AttachmentRestoreDir,
 	})
 	if err != nil {
 		return 0, err
@@ -2508,6 +3187,8 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	categoryMap := map[string]string{}
 	projectMap := map[string]string{}
 	groupMap := map[string]string{}
+	transactionMap := map[string]string{}
+	attachmentFiles := []attachmentRestoreFile{}
 	logTableRows := func(table string, rowsInserted int64) {
 		log.Printf("[RESTORE_EXECUTE] table=%s rows_inserted=%d request_user_id=%s backup_user_id=%s restore_mode=%s", table, rowsInserted, targetUserID, sourceUserID, restoreCtx.RestoreMode)
 	}
@@ -2518,6 +3199,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	var insertedCategories int64
 	var insertedProjects int64
 	var insertedTransactions int64
+	var insertedAttachments int64
 	var skippedDuplicateTransactions int64
 	var renamedAccounts int64
 	insertedAccountsByMode := map[string]int64{string(model.ModeWork): 0, string(model.ModeLife): 0}
@@ -2715,23 +3397,23 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	logTableRows("projects", insertedProjects)
 
 	// pre-load transaction fingerprints for deterministic dedup
-	fingerprintSet := map[string]struct{}{}
+	fingerprintMap := map[string]string{}
 	existingTxRows, err := tx.QueryContext(ctx, `
-		SELECT account_id, COALESCE(category_id,''), COALESCE(project_id,''), direction, type, amount_cents, currency, txn_date, COALESCE(note,''), mode
+		SELECT id, account_id, COALESCE(category_id,''), COALESCE(project_id,''), direction, type, amount_cents, currency, txn_date, COALESCE(note,''), mode
 		FROM transactions WHERE user_id = ?
 	`, targetUserID)
 	if err != nil {
 		return 0, fmt.Errorf("跨账号恢复失败：读取现有交易失败")
 	}
 	for existingTxRows.Next() {
-		var acc, cat, proj, dir, typ, currency, txnDate, note, mode string
+		var id, acc, cat, proj, dir, typ, currency, txnDate, note, mode string
 		var amount int64
-		if err := existingTxRows.Scan(&acc, &cat, &proj, &dir, &typ, &amount, &currency, &txnDate, &note, &mode); err != nil {
+		if err := existingTxRows.Scan(&id, &acc, &cat, &proj, &dir, &typ, &amount, &currency, &txnDate, &note, &mode); err != nil {
 			existingTxRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：读取现有交易失败")
 		}
 		fp := strings.Join([]string{acc, cat, proj, dir, typ, fmt.Sprint(amount), currency, txnDate, note, mode}, "|")
-		fingerprintSet[fp] = struct{}{}
+		fingerprintMap[fp] = id
 	}
 	existingTxRows.Close()
 
@@ -2807,7 +3489,8 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		}
 		restoreTxnHash := buildRestoreTxnHash(mappedAccountID, amount, txnDate, typ, noteText, txnMode)
 		fp := strings.Join([]string{mappedAccountID, mappedCategoryID.String, mappedProjectID.String, dir, typ, fmt.Sprint(amount), currency, txnDate, noteText, txnMode}, "|")
-		if _, exists := fingerprintSet[fp]; exists {
+		if existingID, exists := fingerprintMap[fp]; exists {
+			transactionMap[oldID] = existingID
 			skippedDuplicateTransactions++
 			log.Printf("RESTORE_DUPLICATE table=transactions action=skip reason=fingerprint old_txn_id=%s mode=%s request_user_id=%s backup_user_id=%s", oldID, strings.ToUpper(txnMode), targetUserID, sourceUserID)
 			continue
@@ -2857,7 +3540,8 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			insertedTransactions += affected
 			insertedTransactionsByMode[txnMode] += affected
 		}
-		fingerprintSet[fp] = struct{}{}
+		transactionMap[oldID] = newID
+		fingerprintMap[fp] = newID
 	}
 	srcTxRows.Close()
 	logTableRows("transactions", insertedTransactions)
@@ -2866,6 +3550,69 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 	log.Printf("RESTORE_TABLE table=transactions skipped_duplicates=%d request_user_id=%s backup_user_id=%s restore_mode=%s", skippedDuplicateTransactions, targetUserID, sourceUserID, restoreCtx.RestoreMode)
 	log.Printf("RESTORE_SUMMARY recovered_work_accounts=%d recovered_life_accounts=%d imported_transactions=%d skipped_duplicates=%d renamed_accounts=%d request_user_id=%s backup_user_id=%s restore_mode=%s scope=%s",
 		insertedAccountsByMode[string(model.ModeWork)], insertedAccountsByMode[string(model.ModeLife)], insertedTransactions, skippedDuplicateTransactions, renamedAccounts, targetUserID, sourceUserID, restoreCtx.RestoreMode, restoreScope)
+
+	if strings.TrimSpace(restoreCtx.AttachmentRestoreDir) != "" && s.attachmentSvc != nil {
+		srcAttachmentRows, err := srcDB.QueryContext(ctx, `
+			SELECT id, transaction_id, storage_key, original_filename, content_type, size_bytes, sha256, kind,
+			       ocr_status, ocr_provider, ocr_text, ocr_json, ocr_error, created_at, updated_at
+			FROM attachments
+			WHERE user_id = ?
+			ORDER BY created_at ASC, id ASC
+		`, sourceUserID)
+		if err != nil {
+			return 0, fmt.Errorf("跨账号恢复失败：读取备份附件失败")
+		}
+		for srcAttachmentRows.Next() {
+			var oldID, oldStorageKey, filename, contentType, sha, kind, ocrStatus, createdAt, updatedAt string
+			var oldTransactionID, ocrProvider, ocrText, ocrJSON, ocrError sql.NullString
+			var sizeBytes int64
+			if err := srcAttachmentRows.Scan(&oldID, &oldTransactionID, &oldStorageKey, &filename, &contentType, &sizeBytes, &sha, &kind, &ocrStatus, &ocrProvider, &ocrText, &ocrJSON, &ocrError, &createdAt, &updatedAt); err != nil {
+				srcAttachmentRows.Close()
+				return 0, fmt.Errorf("跨账号恢复失败：读取备份附件失败")
+			}
+			var mappedTransactionID sql.NullString
+			if oldTransactionID.Valid && strings.TrimSpace(oldTransactionID.String) != "" {
+				mappedID := transactionMap[oldTransactionID.String]
+				if mappedID == "" {
+					continue
+				}
+				mappedTransactionID = sql.NullString{String: mappedID, Valid: true}
+			}
+			newID := deterministicRestoreID("attachment", sourceUserID, targetUserID, oldID)
+			ext := strings.ToLower(filepath.Ext(oldStorageKey))
+			if ext == "" {
+				ext = strings.ToLower(filepath.Ext(filename))
+			}
+			targetKey := filepath.ToSlash(filepath.Join(safeStorageSegment(targetUserID), newID+ext))
+			res, err := tx.ExecContext(ctx, `
+				INSERT OR IGNORE INTO attachments (
+					id, user_id, transaction_id, storage_key, original_filename, content_type,
+					size_bytes, sha256, kind, ocr_status, ocr_provider, ocr_text, ocr_json,
+					ocr_error, created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, newID, targetUserID, mappedTransactionID, targetKey, filename, contentType, sizeBytes, sha, kind, ocrStatus, ocrProvider, ocrText, ocrJSON, ocrError, createdAt, updatedAt)
+			if err != nil {
+				srcAttachmentRows.Close()
+				return 0, fmt.Errorf("跨账号恢复失败：写入附件失败")
+			}
+			if affected, err := res.RowsAffected(); err == nil {
+				insertedAttachments += affected
+			}
+			if mappedTransactionID.Valid {
+				_, _ = tx.ExecContext(ctx, `UPDATE transactions SET attachment_key = COALESCE(attachment_key, ?), updated_at = ? WHERE id = ? AND user_id = ?`, targetKey, now, mappedTransactionID.String, targetUserID)
+			}
+			attachmentFiles = append(attachmentFiles, attachmentRestoreFile{SourceKey: oldStorageKey, TargetKey: targetKey, SizeBytes: sizeBytes, SHA256: sha})
+		}
+		if err := srcAttachmentRows.Err(); err != nil {
+			srcAttachmentRows.Close()
+			return 0, fmt.Errorf("跨账号恢复失败：读取备份附件失败")
+		}
+		srcAttachmentRows.Close()
+		if err := restoreAttachmentFiles(ctx, restoreCtx.AttachmentRestoreDir, attachmentFiles, s.attachmentSvc); err != nil {
+			return 0, fmt.Errorf("跨账号恢复失败：恢复附件文件失败: %w", err)
+		}
+	}
+	logTableRows("attachments", insertedAttachments)
 
 	// recalculate balances idempotently
 	if _, err := tx.ExecContext(ctx, `
@@ -2978,7 +3725,7 @@ func maskEmail(email string) string {
 	return local[:1] + strings.Repeat("*", len(local)-2) + local[len(local)-1:] + "@" + parts[1]
 }
 
-// handleRestoreRequest accepts a backup .db file, extracts the owner email,
+// handleRestoreRequest accepts a backup .db or .zip file, extracts the owner email,
 // sends a 6-digit verification code, and returns a restore_id for step 2.
 func (s *Server) handleRestoreRequest(c *gin.Context) {
 	fh, err := c.FormFile("file")
@@ -2986,8 +3733,9 @@ func (s *Server) handleRestoreRequest(c *gin.Context) {
 		fail(c, 400, 40001, "请上传数据库文件（multipart field: file）")
 		return
 	}
-	if filepath.Ext(fh.Filename) != ".db" {
-		fail(c, 400, 40002, "仅接受 .db 文件")
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	if ext != ".db" && ext != ".zip" {
+		fail(c, 400, 40002, "仅接受 .db 或 .zip 备份文件")
 		return
 	}
 	if fh.Size > maxRestoreSize {
@@ -2995,115 +3743,84 @@ func (s *Server) handleRestoreRequest(c *gin.Context) {
 		return
 	}
 
-	// Save upload to temp file
-	tmp, err := os.CreateTemp("", "finarch-dr-*.db")
+	tmpPath, attachmentDir, cleanupPath, cleanup, err := extractRestoreUpload(fh)
 	if err != nil {
-		fail(c, 500, 50001, "无法创建临时文件")
+		fail(c, 400, 40003, "备份文件解压或读取失败")
 		return
 	}
-	tmpPath := tmp.Name()
 
-	src, err := fh.Open()
-	if err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
-		fail(c, 500, 50001, "无法读取上传文件")
-		return
-	}
-	if _, err := io.Copy(tmp, src); err != nil {
-		tmp.Close()
-		src.Close()
-		os.Remove(tmpPath)
-		fail(c, 500, 50001, "写入临时文件失败")
-		return
-	}
-	tmp.Close()
-	src.Close()
-
-	// Validate SQLite magic bytes
-	magic := make([]byte, 16)
-	f, err := os.Open(tmpPath)
-	if err != nil {
-		os.Remove(tmpPath)
-		fail(c, 500, 50001, "无法验证文件")
-		return
-	}
-	f.Read(magic)
-	f.Close()
-	if string(magic[:15]) != "SQLite format 3" {
-		os.Remove(tmpPath)
+	if err := validateSQLiteMagic(tmpPath); err != nil {
+		cleanup()
 		fail(c, 400, 40003, "文件不是有效的 SQLite 数据库")
 		return
 	}
 
-	// Open backup and extract owner email
 	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, 500, 50002, "无法打开备份文件")
 		return
 	}
-
 	if err := ensureSQLiteIntegrity(c.Request.Context(), srcDB); err != nil {
 		srcDB.Close()
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, 400, 40003, "备份文件完整性校验失败")
 		return
 	}
-
-	// Check schema_migrations exists
-	var schemaVer int
-	if err := srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&schemaVer); err != nil {
+	if err := srcDB.QueryRow(`SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(new(int)); err != nil {
 		srcDB.Close()
-		os.Remove(tmpPath)
+		cleanup()
 		fail(c, 400, 40005, "备份文件缺少 schema_migrations 表，不是有效的 FinArch 备份")
 		return
 	}
-
-	// Extract owner: first admin user, or first verified user, or first user
-	var ownerID, ownerEmail, ownerName string
-	row := srcDB.QueryRow(`SELECT id, email, COALESCE(nickname, username, '') FROM users WHERE deleted_at IS NULL ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, CASE WHEN email_verified=1 THEN 0 ELSE 1 END, created_at ASC LIMIT 1`)
-	if err := row.Scan(&ownerID, &ownerEmail, &ownerName); err != nil {
-		srcDB.Close()
-		os.Remove(tmpPath)
-		fail(c, 400, 40007, "备份文件中未找到用户数据")
+	identity, err := readBackupIdentity(srcDB)
+	srcDB.Close()
+	if err != nil {
+		cleanup()
+		if strings.Contains(err.Error(), "备份文件中未找到用户数据") {
+			fail(c, 400, 40007, "备份文件中未找到用户数据")
+			return
+		}
+		fail(c, 400, 40007, "读取备份所有者信息失败")
 		return
 	}
-	srcDB.Close()
 
+	ownerEmail := strings.TrimSpace(identity.MetadataUserEmail)
 	if ownerEmail == "" {
-		os.Remove(tmpPath)
+		ownerEmail = strings.TrimSpace(identity.FallbackOwnerEmail)
+	}
+	ownerName := strings.TrimSpace(identity.FallbackOwnerName)
+	if ownerEmail == "" {
+		cleanup()
 		fail(c, 400, 40007, "备份文件中的用户没有邮箱地址")
 		return
 	}
 
-	// Generate verification code and store pending restore
 	code := generateCode()
 	restoreID := uuid.NewString()
-
 	s.pendingRestores.Store(restoreID, &pendingRestore{
-		code:      code,
-		tmpPath:   tmpPath,
-		expiresAt: time.Now().Add(10 * time.Minute),
-		email:     ownerEmail,
-		name:      ownerName,
+		code:          code,
+		tmpPath:       tmpPath,
+		attachmentDir: attachmentDir,
+		cleanupPath:   cleanupPath,
+		expiresAt:     time.Now().Add(10 * time.Minute),
+		email:         ownerEmail,
+		name:          ownerName,
 	})
 
-	// Cleanup expired pending restores
 	s.pendingRestores.Range(func(key, value any) bool {
 		pr := value.(*pendingRestore)
 		if time.Now().After(pr.expiresAt) {
-			os.Remove(pr.tmpPath)
+			cleanupPendingRestore(pr)
 			s.pendingRestores.Delete(key)
 		}
 		return true
 	})
 
-	// Send verification code via email
 	if err := s.emailSvc.SendRestoreCode(ownerEmail, ownerName, code); err != nil {
-		os.Remove(tmpPath)
+		cleanupPendingRestore(&pendingRestore{tmpPath: tmpPath, cleanupPath: cleanupPath})
 		s.pendingRestores.Delete(restoreID)
-		log.Printf("[ERROR] disaster-restore: send code to %s: %v", ownerEmail, err)
+		log.Printf("[ERROR] disaster-restore: send code to %s: %v", maskEmail(ownerEmail), err)
 		fail(c, 500, 50005, "验证码发送失败，请检查邮件服务配置")
 		return
 	}
@@ -3135,33 +3852,28 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 	}
 	pr := val.(*pendingRestore)
 
-	// Check expiry
 	if time.Now().After(pr.expiresAt) {
-		os.Remove(pr.tmpPath)
+		cleanupPendingRestore(pr)
 		s.pendingRestores.Delete(req.RestoreID)
 		fail(c, 400, 40009, "验证码已过期，请重新上传备份文件")
 		return
 	}
-
-	// Check attempts (max 5)
 	if pr.attempts >= 5 {
-		os.Remove(pr.tmpPath)
+		cleanupPendingRestore(pr)
 		s.pendingRestores.Delete(req.RestoreID)
 		fail(c, 400, 40010, "验证码错误次数过多，请重新上传备份文件")
 		return
 	}
-
-	// Verify code
 	if req.Code != pr.code {
 		pr.attempts++
 		fail(c, 400, 40011, fmt.Sprintf("验证码错误，剩余 %d 次尝试", 5-pr.attempts))
 		return
 	}
 
-	// Code verified — execute through unified restore engine
 	tmpPath := pr.tmpPath
+	attachmentDir := pr.attachmentDir
 	s.pendingRestores.Delete(req.RestoreID)
-	defer os.Remove(tmpPath)
+	defer cleanupPendingRestore(pr)
 
 	srcDB, err := sql.Open("sqlite3", tmpPath+"?mode=ro")
 	if err != nil {
@@ -3180,11 +3892,12 @@ func (s *Server) handleRestoreConfirm(c *gin.Context) {
 	}
 
 	engineResult, err := s.executeRestoreEngine(c.Request.Context(), restoreEngineRequest{
-		RestoreID:    req.RestoreID,
-		Source:       restoreSourceDisasterRecover,
-		SnapshotID:   "upload_confirm",
-		TempDBPath:   tmpPath,
-		SchemaBefore: currentVersion,
+		RestoreID:            req.RestoreID,
+		Source:               restoreSourceDisasterRecover,
+		SnapshotID:           "upload_confirm",
+		TempDBPath:           tmpPath,
+		SchemaBefore:         currentVersion,
+		AttachmentRestoreDir: attachmentDir,
 	})
 	if err != nil {
 		fail(c, 500, 50003, err.Error())

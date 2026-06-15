@@ -93,10 +93,9 @@ type LedgerBalance struct {
 
 // LedgerSnapshot for periodic balance snapshots.
 type LedgerSnapshot struct {
-	ID                  string
-	UserID              string
+	ID                   string
+	UserID               string
 	SnapshotBalanceCents int64
-	Checksum            string
-	CreatedAt           time.Time
+	Checksum             string
+	CreatedAt            time.Time
 }
-

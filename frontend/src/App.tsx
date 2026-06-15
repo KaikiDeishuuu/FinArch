@@ -1,31 +1,74 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
+import { useAuth } from './hooks/useAuth'
 import { ConfigProvider } from './contexts/ConfigContext'
-import { ThemeProvider, useTheme } from './contexts/ThemeContext'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { useTheme } from './hooks/useTheme'
 import { ModeProvider } from './contexts/ModeContext'
 import Layout from './components/Layout'
 import PwaUpdatePrompt from './components/PwaUpdatePrompt'
-import LoginPage from './pages/LoginPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import VerifyEmailPage from './pages/VerifyEmailPage'
-import ConfirmDeleteAccountPage from './pages/ConfirmDeleteAccountPage'
-import ConfirmEmailChangePage from './pages/ConfirmEmailChangePage'
-import ConfirmOldEmailChangePage from './pages/ConfirmOldEmailChangePage'
-import DisasterRestorePage from './pages/DisasterRestorePage'
-import DashboardPage from './pages/DashboardPage'
-import TransactionsPage from './pages/TransactionsPage'
-import AddTransactionPage from './pages/AddTransactionPage'
-import MatchPage from './pages/MatchPage'
-import StatsPage from './pages/StatsPage'
-import SettingsPage from './pages/SettingsPage'
-import ExchangeRatePage from './pages/ExchangeRatePage'
+const loadLoginPage = () => import('./pages/LoginPage')
+const loadForgotPasswordPage = () => import('./pages/ForgotPasswordPage')
+const loadResetPasswordPage = () => import('./pages/ResetPasswordPage')
+const loadVerifyEmailPage = () => import('./pages/VerifyEmailPage')
+const loadConfirmDeleteAccountPage = () => import('./pages/ConfirmDeleteAccountPage')
+const loadConfirmEmailChangePage = () => import('./pages/ConfirmEmailChangePage')
+const loadConfirmOldEmailChangePage = () => import('./pages/ConfirmOldEmailChangePage')
+const loadDisasterRestorePage = () => import('./pages/DisasterRestorePage')
+const loadDashboardPage = () => import('./pages/DashboardPage')
+const loadTransactionsPage = () => import('./pages/TransactionsPage')
+const loadAddTransactionPage = () => import('./pages/AddTransactionPage')
+const loadMatchPage = () => import('./pages/MatchPage')
+const loadStatsPage = () => import('./pages/StatsPage')
+const loadBudgetsPage = () => import('./pages/BudgetsPage')
+const loadRecurringPage = () => import('./pages/RecurringPage')
+const loadSettingsPage = () => import('./pages/SettingsPage')
+const loadExchangeRatePage = () => import('./pages/ExchangeRatePage')
+
+const LoginPage = lazy(loadLoginPage)
+const ForgotPasswordPage = lazy(loadForgotPasswordPage)
+const ResetPasswordPage = lazy(loadResetPasswordPage)
+const VerifyEmailPage = lazy(loadVerifyEmailPage)
+const ConfirmDeleteAccountPage = lazy(loadConfirmDeleteAccountPage)
+const ConfirmEmailChangePage = lazy(loadConfirmEmailChangePage)
+const ConfirmOldEmailChangePage = lazy(loadConfirmOldEmailChangePage)
+const DisasterRestorePage = lazy(loadDisasterRestorePage)
+const DashboardPage = lazy(loadDashboardPage)
+const TransactionsPage = lazy(loadTransactionsPage)
+const AddTransactionPage = lazy(loadAddTransactionPage)
+const MatchPage = lazy(loadMatchPage)
+const StatsPage = lazy(loadStatsPage)
+const BudgetsPage = lazy(loadBudgetsPage)
+const RecurringPage = lazy(loadRecurringPage)
+const SettingsPage = lazy(loadSettingsPage)
+const ExchangeRatePage = lazy(loadExchangeRatePage)
 
 function ProtectedRoutes() {
   const { isAuthenticated } = useAuth()
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const preload = () => {
+      void loadTransactionsPage()
+      void loadAddTransactionPage()
+      void loadStatsPage()
+      void loadBudgetsPage()
+      void loadRecurringPage()
+      void loadSettingsPage()
+    }
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+      const id = idleWindow.requestIdleCallback(preload, { timeout: 2000 })
+      return () => idleWindow.cancelIdleCallback?.(id)
+    }
+    const id = globalThis.setTimeout(preload, 800)
+    return () => globalThis.clearTimeout(id)
+  }, [isAuthenticated])
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return (
     <Layout>
@@ -35,6 +78,8 @@ function ProtectedRoutes() {
         <Route path="/add" element={<AddTransactionPage />} />
         <Route path="/match" element={<MatchPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/budgets" element={<BudgetsPage />} />
+        <Route path="/recurring" element={<RecurringPage />} />
         <Route path="/exchange" element={<ExchangeRatePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -49,6 +94,12 @@ function LoginRouteWrapper() {
   return <LoginPage />
 }
 
+function ProtectedDisasterRestorePage() {
+  const { isAuthenticated } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return <DisasterRestorePage />
+}
+
 function ThemedToaster() {
   const { resolved } = useTheme()
   return (
@@ -60,18 +111,29 @@ function ThemedToaster() {
   )
 }
 
+function PageFallback() {
+  return <div className="min-h-screen bg-stone-50 dark:bg-[#0f0d18]" />
+}
+
 function App() {
-  // Fade out the inline splash screen after React mounts
   useEffect(() => {
     const splash = document.getElementById('splash')
     if (!splash) return
-    // Show splash ~2.5s, then fade-out 450ms, then remove
-    const fadeTimer = setTimeout(() => {
-      splash.classList.add('splash-fade-out')
-      const removeTimer = setTimeout(() => splash.remove(), 500)
-      return () => clearTimeout(removeTimer)
-    }, 2500)
-    return () => clearTimeout(fadeTimer)
+
+    let fadeTimer: number | undefined
+    let removeTimer: number | undefined
+    const frame = window.requestAnimationFrame(() => {
+      fadeTimer = window.setTimeout(() => {
+        splash.classList.add('splash-fade-out')
+        removeTimer = window.setTimeout(() => splash.remove(), 500)
+      }, 150)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      if (fadeTimer !== undefined) window.clearTimeout(fadeTimer)
+      if (removeTimer !== undefined) window.clearTimeout(removeTimer)
+    }
   }, [])
 
   return (
@@ -81,17 +143,19 @@ function App() {
       <ConfigProvider>
         <ModeProvider>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<LoginRouteWrapper />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
-            <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
-            <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
-            <Route path="/disaster-restore" element={<DisasterRestorePage />} />
-            <Route path="/*" element={<ProtectedRoutes />} />
-          </Routes>
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/login" element={<LoginRouteWrapper />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
+              <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
+              <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
+              <Route path="/disaster-restore" element={<ProtectedDisasterRestorePage />} />
+              <Route path="/*" element={<ProtectedRoutes />} />
+            </Routes>
+          </Suspense>
         </AuthProvider>
         </ModeProvider>
       </ConfigProvider>

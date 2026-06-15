@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../contexts/AuthContext'
-import { useMode } from '../contexts/ModeContext'
+import { useAuth } from '../hooks/useAuth'
+import { useMode } from '../hooks/useMode'
 import { TRANSACTIONS_QUERY_KEY } from './useTransactions'
 
 export function useRefreshFinanceData() {

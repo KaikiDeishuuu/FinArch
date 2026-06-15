@@ -27,10 +27,11 @@ var (
 )
 
 const (
-	ActionRegisterVerify = "register"
-	ActionEmailChangeOld = "email_change_old"
-	ActionEmailChangeNew = "email_change"
-	ActionPasswordReset  = "password_reset"
-	ActionAccountDelete  = "account_delete"
-	ActionBackupExport   = "backup_export"
+	ActionRegisterVerify   = "register"
+	ActionEmailChangeOld   = "email_change_old"
+	ActionEmailChangeNew   = "email_change"
+	ActionPasswordReset    = "password_reset"
+	ActionAccountDelete    = "account_delete"
+	ActionBackupExport     = "backup_export"
+	ActionDisasterRecovery = "disaster_recovery"
 )

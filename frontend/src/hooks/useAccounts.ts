@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { listAccounts } from '../api/client'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 
 export function useAccounts() {
   const { user } = useAuth()
@@ -10,7 +10,7 @@ export function useAccounts() {
     queryKey: ['accounts', user?.id, mode],
     queryFn: () => listAccounts(mode),
     enabled: !!user,
-    staleTime: 5_000,
+    staleTime: 30_000,
   })
 }
 

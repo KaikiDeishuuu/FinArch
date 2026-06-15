@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../hooks/useTheme'
 
 import type { TrendPoint, ExchangeRange } from '../utils/exchangeChart'
 import { buildChartPoints, xAxisInterval } from '../utils/exchangeChart'

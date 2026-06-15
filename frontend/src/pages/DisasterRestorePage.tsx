@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { executeDisasterRecovery, listDisasterSnapshots, type DisasterSnapshot } from '../api/client'
+import { authorizeDisasterRecovery, executeDisasterRecovery, listDisasterSnapshots, type DisasterSnapshot } from '../api/client'
 
 type Step = 'select' | 'confirm' | 'done'
 
@@ -12,6 +12,7 @@ export default function DisasterRestorePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [allowMissingMetadata, setAllowMissingMetadata] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [result, setResult] = useState<{ recovery_id: string; schema_after: number; duration_ms: number } | null>(null)
 
   useEffect(() => {
@@ -38,13 +39,15 @@ export default function DisasterRestorePage() {
     setLoading(true)
     setError('')
     try {
-      const res = await executeDisasterRecovery(selected.snapshot_id, allowMissingMetadata)
+      const auth = await authorizeDisasterRecovery(currentPassword)
+      const res = await executeDisasterRecovery(selected.snapshot_id, auth.token, allowMissingMetadata)
       setResult({ recovery_id: res.recovery_id, schema_after: res.schema_after, duration_ms: res.duration_ms })
       setStep('done')
+      setCurrentPassword('')
       toast.success('Disaster recovery completed')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setError(msg || 'Restore failed')
+      const msg = (err as { response?: { data?: { message?: string; error?: { message?: string } } } })?.response?.data
+      setError(msg?.message || msg?.error?.message || 'Restore failed')
     } finally {
       setLoading(false)
     }
@@ -107,11 +110,22 @@ export default function DisasterRestorePage() {
                 I understand metadata is missing and still want to continue.
               </label>
             )}
+            <label className="block text-sm text-gray-600 dark:text-gray-300">
+              Current password
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
+                placeholder="Required to authorize disaster recovery"
+              />
+            </label>
             <div className="flex gap-2">
               <button className="flex-1 rounded-xl border border-gray-300 py-2" onClick={() => setStep('select')}>Back</button>
               <button
                 className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl py-2"
-                disabled={loading || (!selected.has_metadata && !allowMissingMetadata)}
+                disabled={loading || !currentPassword || (!selected.has_metadata && !allowMissingMetadata)}
                 onClick={startRestore}
               >
                 {loading ? 'Restoring...' : 'Confirm Restore'}
@@ -132,7 +146,7 @@ export default function DisasterRestorePage() {
         {error && <div className="text-sm text-rose-600">{error}</div>}
 
         <div className="text-sm text-center pt-2">
-          <Link className="text-violet-600 hover:underline" to="/login">Back to login</Link>
+          <Link className="text-violet-600 hover:underline" to="/">Back to dashboard</Link>
         </div>
       </div>
     </div>

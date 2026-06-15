@@ -50,7 +50,7 @@ export function buildChartPoints(data: TrendPoint[], range: ExchangeRange, local
     monthly.set(key, current)
   }
 
-  return Array.from(monthly.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([_, v]) => {
+  return Array.from(monthly.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => {
     const d = new Date(v.lastDate)
     return {
       date: v.lastDate,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import type { FormEvent } from 'react'
 
 interface BackupPasswordModalProps {
     isOpen: boolean
@@ -15,12 +16,9 @@ export default function BackupPasswordModal({ isOpen, onClose, onSubmit, isLoadi
     const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
-        if (isOpen) {
-            setPassword('')
-            setShowPassword(false)
-            setError('')
-            setTimeout(() => inputRef.current?.focus(), 100)
-        }
+        if (!isOpen) return
+        const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 100)
+        return () => window.clearTimeout(focusTimer)
     }, [isOpen])
 
     // handle Esc
@@ -36,7 +34,14 @@ export default function BackupPasswordModal({ isOpen, onClose, onSubmit, isLoadi
 
     if (!isOpen) return null
 
-    async function handleSubmit(e: React.FormEvent) {
+    function handleClose() {
+        setPassword('')
+        setShowPassword(false)
+        setError('')
+        onClose()
+    }
+
+    async function handleSubmit(e: FormEvent) {
         e.preventDefault()
         if (!password) {
             setError(t('settings.password.currentPlaceholder'))
@@ -45,8 +50,10 @@ export default function BackupPasswordModal({ isOpen, onClose, onSubmit, isLoadi
         setError('')
         try {
             await onSubmit(password)
-        } catch (err: any) {
-            const msg = err?.response?.data?.message || err.message || t('settings.backup.toast.error')
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+                || (err as { message?: string })?.message
+                || t('settings.backup.toast.error')
             setError(msg)
         }
     }
@@ -93,7 +100,7 @@ export default function BackupPasswordModal({ isOpen, onClose, onSubmit, isLoadi
                     <div className="flex items-center justify-end gap-3 mt-6">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleClose}
                             disabled={isLoading}
                             className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-50"
                         >

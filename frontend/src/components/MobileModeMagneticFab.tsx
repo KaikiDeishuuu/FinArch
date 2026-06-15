@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -70,8 +70,8 @@ export default function MobileModeMagneticFab() {
             aria-label={`Switch to ${nextLabel}`}
             className="md:hidden fixed z-50 flex items-center gap-2 h-12 px-4 rounded-full backdrop-blur-md transition-all duration-150 select-none active:scale-95"
             style={{
-                right: 20,
-                bottom: 'calc(5rem + env(safe-area-inset-bottom))',
+                right: 16,
+                bottom: 'var(--mobile-fab-bottom)',
                 transform: `translate(${offset.x}px, ${offset.y}px) scale(${tapping ? 1.05 : 1})`,
                 background: isWork
                     ? 'linear-gradient(to right, rgba(59,130,246,0.9), rgba(99,102,241,0.9))'

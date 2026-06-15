@@ -1,28 +1,14 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { login as apiLogin, register as apiRegister, refreshToken as apiRefresh, setToken } from '../api/client'
 import type { AuthResponse, LoginRequest, RegisterRequest } from '../api/client'
+import { AuthContext } from './authContextCore'
+import type { AuthState, AuthUser } from './authContextCore'
 
 const SESSION_KEY = 'finarch_session'
 // Refresh when < 1 hour of TTL remains; check every 10 minutes
 const REFRESH_THRESHOLD_MS = 60 * 60 * 1000
 const CHECK_INTERVAL_MS = 10 * 60 * 1000
-
-interface AuthState {
-  user: { id: string; email: string; username: string; nickname: string; role: string } | null
-  token: string | null
-  expiresAt: number | null  // unix ms
-}
-
-interface AuthContextValue extends Omit<AuthState, 'expiresAt'> {
-  login: (req: LoginRequest) => Promise<void>
-  register: (req: RegisterRequest) => Promise<boolean>
-  logout: () => void
-  updateUser: (patch: Partial<NonNullable<AuthState['user']>>) => void
-  isAuthenticated: boolean
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
 
 /** Decode the exp claim from a JWT (no signature verification). */
 function jwtExpMs(token: string): number | null {
@@ -85,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login'
   }, [])
 
-  const updateUser = useCallback((patch: Partial<NonNullable<AuthState['user']>>) => {
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
     setState(prev => {
       if (!prev.user) return prev
       const next = { ...prev, user: { ...prev.user, ...patch } }
@@ -117,10 +103,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>')
-  return ctx
 }

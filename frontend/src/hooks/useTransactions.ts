@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { listTransactions } from '../api/client'
-import { useAuth } from '../contexts/AuthContext'
-import { useMode } from '../contexts/ModeContext'
+import { useAuth } from '../hooks/useAuth'
+import { useMode } from '../hooks/useMode'
 
 export const TRANSACTIONS_QUERY_KEY = (userId?: string, mode: 'work' | 'life' = 'work') =>
   ['transactions', userId, mode] as const

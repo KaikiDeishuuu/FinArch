@@ -29,7 +29,9 @@ const txnSelectSQL = `
          t.type, t.category_id, t.category,
          t.reimb_status, t.reimb_to_account, t.reimbursement_id,
          t.project_id, t.project,
-         t.mode, t.note, t.uploaded, t.txn_date, t.transaction_time,
+         t.mode, t.note, t.attachment_key, t.uploaded, t.idempotency_key,
+         t.recurring_rule_id, t.recurring_occurrence_date,
+         t.txn_date, t.transaction_time,
          t.created_at, t.updated_at, t.reported_at, t.reimbursed_at,
          COALESCE(a.type, 'personal') AS account_type
   FROM transactions t
@@ -103,21 +105,24 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 			type, category_id, category,
 			reimb_status, reimb_to_account, reimbursement_id,
 			project_id, project,
-			mode, note, uploaded, idempotency_key, txn_date, transaction_time, created_at, updated_at
+			mode, note, attachment_key, uploaded, idempotency_key, recurring_rule_id, recurring_occurrence_date,
+			txn_date, transaction_time, created_at, updated_at
 		) VALUES (
 			?,?,?,?,?,
 			?,?,?,?,?,?,?,
 			?,?,?,
 			?,?,?,
 			?,?,
-			?,?,?,?,?,?,?,?
+			?,?,?,?,?,?,?,
+			?,?,?,?
 		)`,
 		t.ID, t.UserID, t.GroupID, string(ledgerDir), t.AccountID,
 		amountCents, t.Currency, exchangeRate, t.ExchangeRateSource, t.ExchangeRateAt, t.BaseCurrency, baseAmountCents,
 		string(txType), t.CategoryID, t.Category,
 		string(reimb), t.ReimbToAccount, t.ReimbursementID,
 		t.ProjectID, t.Project,
-		string(t.Mode), t.Note, boolToInt(t.Uploaded), t.IdempotencyKey, t.TxnDate, t.TransactionTime, now, now,
+		string(t.Mode), t.Note, t.AttachmentKey, boolToInt(t.Uploaded), t.IdempotencyKey, t.RecurringRuleID, t.RecurringOccurrenceDate,
+		t.TxnDate, t.TransactionTime, now, now,
 	)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
@@ -155,6 +160,45 @@ func (r *SQLiteTransactionRepository) GetByIDs(ctx context.Context, ids []string
 	}
 	defer rows.Close()
 	return collectTransactions(rows)
+}
+
+// GetByIDForUser loads one transaction by ID and owner.
+func (r *SQLiteTransactionRepository) GetByIDForUser(ctx context.Context, id, userID string) (model.Transaction, error) {
+	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
+		txnSelectSQL+` WHERE t.id = ? AND t.user_id = ?`, id, userID)
+	return scanTransaction(row)
+}
+
+// GetByIdempotencyKey loads one transaction for an idempotency key.
+func (r *SQLiteTransactionRepository) GetByIdempotencyKey(ctx context.Context, userID, key string) (model.Transaction, error) {
+	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
+		txnSelectSQL+` WHERE t.user_id = ? AND t.idempotency_key = ?`, userID, key)
+	return scanTransaction(row)
+}
+
+// SetAttachmentKey links the primary attachment key to a transaction.
+func (r *SQLiteTransactionRepository) SetAttachmentKey(ctx context.Context, transactionID, userID, key string) error {
+	res, err := getExecutor(ctx, r.db).ExecContext(ctx,
+		`UPDATE transactions SET attachment_key = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
+		key, time.Now().UTC().Format(time.RFC3339), transactionID, userID)
+	if err != nil {
+		return fmt.Errorf("set attachment key: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("transaction not found")
+	}
+	return nil
+}
+
+// ClearAttachmentKey removes the primary attachment key when it matches key.
+func (r *SQLiteTransactionRepository) ClearAttachmentKey(ctx context.Context, transactionID, userID, key string) error {
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
+		`UPDATE transactions SET attachment_key = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND attachment_key = ?`,
+		time.Now().UTC().Format(time.RFC3339), transactionID, userID, key)
+	if err != nil {
+		return fmt.Errorf("clear attachment key: %w", err)
+	}
+	return nil
 }
 
 // ListUnreimbursedPersonalExpenses lists personal expenses with reimb_status='pending'.
@@ -374,6 +418,7 @@ func scanTransaction(scanner interface {
 	var categoryID, reimbToAccount, reimbursementID sql.NullString
 	var projectID sql.NullString
 	var project sql.NullString
+	var attachmentKey, idempotencyKey, recurringRuleID, recurringOccurrenceDate sql.NullString
 	var transactionTime sql.NullInt64
 	var exchangeRateAt sql.NullInt64
 	var createdAt, updatedAt string
@@ -387,7 +432,9 @@ func scanTransaction(scanner interface {
 		&txType, &categoryID, &t.Category,
 		&reimbStatus, &reimbToAccount, &reimbursementID,
 		&projectID, &project,
-		&mode, &t.Note, &uploaded, &t.TxnDate, &transactionTime,
+		&mode, &t.Note, &attachmentKey, &uploaded, &idempotencyKey,
+		&recurringRuleID, &recurringOccurrenceDate,
+		&t.TxnDate, &transactionTime,
 		&createdAt, &updatedAt, &reportedAt, &reimbursedAt,
 		&accountType,
 	); err != nil {
@@ -448,6 +495,22 @@ func scanTransaction(scanner interface {
 	if project.Valid {
 		v := project.String
 		t.Project = &v
+	}
+	if attachmentKey.Valid {
+		v := attachmentKey.String
+		t.AttachmentKey = &v
+	}
+	if idempotencyKey.Valid {
+		v := idempotencyKey.String
+		t.IdempotencyKey = &v
+	}
+	if recurringRuleID.Valid {
+		v := recurringRuleID.String
+		t.RecurringRuleID = &v
+	}
+	if recurringOccurrenceDate.Valid {
+		v := recurringOccurrenceDate.String
+		t.RecurringOccurrenceDate = &v
 	}
 
 	if ts, err := time.Parse(time.RFC3339, createdAt); err == nil {

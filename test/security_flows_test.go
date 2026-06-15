@@ -90,8 +90,8 @@ func TestPasswordResetExpiredAndReplay(t *testing.T) {
 func TestEmailChangeRequiresReauthAndConcurrentConsume(t *testing.T) {
 	svc, repo, sender, _, u := setupFlowAuth(t)
 	ctx := context.Background()
-	if err := svc.RequestEmailChange(ctx, u.ID, "bad-pass", "new@test.com"); err != service.ErrNotAuthorized {
-		t.Fatalf("want not_authorized, got %v", err)
+	if err := svc.RequestEmailChange(ctx, u.ID, "bad-pass", "new@test.com"); err != service.ErrInvalidPassword {
+		t.Fatalf("want invalid_password, got %v", err)
 	}
 	if err := svc.RequestEmailChange(ctx, u.ID, "Password123", "new@test.com"); err != nil {
 		t.Fatal(err)
@@ -162,4 +162,56 @@ func TestConcurrentTokenConsumption(t *testing.T) {
 	if successCount != 1 {
 		t.Fatalf("expected exactly 1 successful token consumption, got %d", successCount)
 	}
+}
+
+func TestDisasterRecoveryTokenVerifyDoesNotConsume(t *testing.T) {
+	svc, _, _, db, u := setupFlowAuth(t)
+	ctx := context.Background()
+
+	token, err := svc.RequestDisasterRecovery(ctx, u.ID, "Password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := svc.VerifyDisasterRecoveryToken(ctx, u.ID, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var status string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM action_requests WHERE jti = ?`, req.JTI).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "pending" {
+		t.Fatalf("verify consumed token: status=%s", status)
+	}
+	if got := auditEventCount(t, db, u.ID, "disaster_recovery_executed"); got != 0 {
+		t.Fatalf("verify wrote execution audit event: got %d", got)
+	}
+
+	if err := svc.CompleteDisasterRecoveryToken(ctx, req, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT status FROM action_requests WHERE jti = ?`, req.JTI).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "completed" {
+		t.Fatalf("complete did not consume token: status=%s", status)
+	}
+	if got := auditEventCount(t, db, u.ID, "disaster_recovery_executed"); got != 1 {
+		t.Fatalf("complete audit count = %d, want 1", got)
+	}
+}
+
+func auditEventCount(t *testing.T, db *sql.DB, userID, eventType string) int {
+	t.Helper()
+	var count int
+	if err := db.QueryRowContext(context.Background(), `
+		SELECT COUNT(1)
+		FROM audit_log
+		WHERE user_id = ?
+		  AND table_name = 'security_events'
+		  AND new_data LIKE ?`, userID, `%"event_type":"`+eventType+`"%`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	return count
 }

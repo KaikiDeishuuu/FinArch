@@ -213,7 +213,7 @@ export default function ExchangeRatePage() {
 
   useEffect(() => {
     let alive = true
-    setLatestLoading(true)
+    const loadingTimer = window.setTimeout(() => setLatestLoading(true), 0)
     fetchLatest(from)
       .then((r) => {
         if (!alive) return
@@ -239,13 +239,16 @@ export default function ExchangeRatePage() {
         setAgeSec(0)
         setLatestLoading(false)
       })
-    return () => { alive = false }
+    return () => {
+      alive = false
+      window.clearTimeout(loadingTimer)
+    }
   }, [from, t])
 
   useEffect(() => {
     const requestId = historyReqId.current + 1
     historyReqId.current = requestId
-    setHistoryLoading(true)
+    const loadingTimer = window.setTimeout(() => setHistoryLoading(true), 0)
     const id = window.setTimeout(() => {
       fetchHistory(from, to, range)
         .then((rows) => {
@@ -259,7 +262,10 @@ export default function ExchangeRatePage() {
           setHistoryLoading(false)
         })
     }, 320)
-    return () => window.clearTimeout(id)
+    return () => {
+      window.clearTimeout(loadingTimer)
+      window.clearTimeout(id)
+    }
   }, [from, to, range])
 
   useEffect(() => {

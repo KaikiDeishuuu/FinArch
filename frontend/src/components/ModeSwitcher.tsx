@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 
 interface ModeSwitcherProps {
     variant?: 'header' | 'sidebar'

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { sendHeartbeat } from '../api/client'
 
 const DEVICE_ID_KEY = 'finarch_device_id'
