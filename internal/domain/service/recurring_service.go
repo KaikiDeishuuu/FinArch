@@ -187,7 +187,7 @@ func (s *RecurringTransactionService) PreviewOccurrences(rule model.RecurringTra
 	if count <= 0 || count > 12 {
 		count = 5
 	}
-	out := make([]RecurringOccurrence, 0, count)
+	out := []RecurringOccurrence{}
 	cursor := time.Unix(rule.NextRunAt, 0)
 	if rule.NextRunAt == 0 {
 		start, err := ruleStartTime(rule)

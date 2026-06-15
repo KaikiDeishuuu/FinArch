@@ -5,7 +5,7 @@ import type { Account } from '../api/client'
 import Select from './Select'
 import { useAccountBalanceHistory, type BalanceRange } from '../hooks/useAccountBalanceHistory'
 import { formatAmount, formatAmountCompact } from '../utils/format'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 import { getModeChartPalette } from '../utils/chartPalette'
 
 interface Props {
