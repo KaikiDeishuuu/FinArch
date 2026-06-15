@@ -4,8 +4,8 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Turnstile } from '@marsidev/react-turnstile'
 import type { TurnstileInstance } from '@marsidev/react-turnstile'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../contexts/AuthContext'
-import { useConfig } from '../contexts/ConfigContext'
+import { useAuth } from '../hooks/useAuth'
+import { useConfig } from '../hooks/useConfig'
 import { resendVerification } from '../api/client'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
@@ -316,9 +316,6 @@ export default function LoginPage() {
           <div className="space-y-1 text-center">
             <Link to="/forgot-password" className="block text-xs font-medium text-gray-500 transition-colors hover:text-violet-600 dark:text-gray-400 dark:hover:text-violet-400">
               {t('login.forgotPassword')}
-            </Link>
-            <Link to="/disaster-restore" className="block text-xs font-medium text-gray-500 transition-colors hover:text-violet-600 dark:text-gray-400 dark:hover:text-violet-400">
-              {t('login.disasterRestore')}
             </Link>
           </div>
         )}

@@ -93,6 +93,21 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'vendor-react'
+          if (id.includes('/react-router/') || id.includes('/react-router-dom/') || id.includes('/@remix-run/')) return 'vendor-router'
+          if (id.includes('/@tanstack/')) return 'vendor-tanstack'
+          if (id.includes('/i18next') || id.includes('/react-i18next/')) return 'vendor-i18n'
+          if (id.includes('/recharts/') || id.includes('/d3-')) return 'vendor-charts'
+          return 'vendor-misc'
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

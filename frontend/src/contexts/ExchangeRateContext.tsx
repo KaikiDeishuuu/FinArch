@@ -1,19 +1,8 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fetchRates, FALLBACK_RATES } from '../utils/exchangeRates'
 import type { RateCache } from '../utils/exchangeRates'
-
-interface ExchangeRateCtx {
-  rates: Record<string, number>
-  /** ISO date of rates, empty string means fallback/offline */
-  rateDate: string
-  loading: boolean
-}
-
-const ExchangeRateContext = createContext<ExchangeRateCtx>({
-  rates: FALLBACK_RATES,
-  rateDate: '',
-  loading: true,
-})
+import { ExchangeRateContext } from './exchangeRateContextCore'
+import type { ExchangeRateCtx } from './exchangeRateContextCore'
 
 export function ExchangeRateProvider({ children }: { children: React.ReactNode }) {
   const [ctx, setCtx] = useState<ExchangeRateCtx>({
@@ -33,8 +22,4 @@ export function ExchangeRateProvider({ children }: { children: React.ReactNode }
       {children}
     </ExchangeRateContext.Provider>
   )
-}
-
-export function useExchangeRates() {
-  return useContext(ExchangeRateContext)
 }

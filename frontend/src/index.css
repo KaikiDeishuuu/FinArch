@@ -65,6 +65,8 @@
   --tooltip-bg: #fff;
   --tooltip-text: #374151;
   --tooltip-border: #e5e7eb;
+  --mobile-bottom-nav-height: 4.75rem;
+  --mobile-fab-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 0.875rem);
 }
 
 /* ── Dark theme overrides ── */
@@ -154,8 +156,8 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
-  -webkit-user-select: none;
-  user-select: none;
+  -webkit-user-select: text;
+  user-select: text;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -271,10 +273,21 @@ p {
   }
 }
 
-/* 允许输入框/文本区域选中文字 */
+button,
+a,
+svg,
+[role="button"],
+.select-none {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 input,
 textarea,
-[contenteditable] {
+[contenteditable],
+.font-mono,
+.transaction-feed-row,
+.transaction-table-container {
   -webkit-user-select: text;
   user-select: text;
 }
@@ -318,10 +331,9 @@ a,
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 主内容区底部留白 = 底栏高度(56px) + 安全区域，防止内容被遮挡 */
 @media (max-width: 767px) {
   .scroll-main {
-    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 1.25rem);
   }
 }
 
@@ -432,8 +444,7 @@ a,
   /* 移动端 PWA 导航栏增强 — 更大的底部安全区域 */
   @media (max-width: 767px) {
     .scroll-main {
-      /* 略增底部留白，PWA 全屏模式底栏需要更多空间 */
-      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 1.75rem);
     }
   }
 

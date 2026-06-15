@@ -3,12 +3,8 @@ import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { categoryLabel } from '../utils/categoryLabel'
-
-const PIE_COLORS = [
-    '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#06b6d4',
-    '#f97316', '#84cc16', '#ec4899', '#22c55e', '#14b8a6',
-    '#a855f7', '#eab308', '#0ea5e9',
-]
+import { useMode } from '../hooks/useMode'
+import { getModeChartPalette } from '../utils/chartPalette'
 
 interface PieRow {
     category: string
@@ -25,17 +21,18 @@ interface ResponsivePieCardProps {
 
 export default function ResponsivePieCard({ title, rows, formatFn, colors }: ResponsivePieCardProps) {
     const { t } = useTranslation()
-    const palette = colors ?? PIE_COLORS
+    const { mode } = useMode()
+    const palette = colors ?? getModeChartPalette(mode).categories
 
     return (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{title}</h2>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
+            <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 md:mb-4">{title}</h2>
             {rows.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
             ) : (
-                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start">
                     {/* Pie chart — centered on mobile, left-aligned on desktop */}
-                    <div className="w-full max-w-[200px] mx-auto md:mx-0 md:w-64 h-44 md:h-56 shrink-0">
+                    <div className="w-full max-w-[180px] mx-auto md:mx-0 md:w-64 h-40 md:h-56 shrink-0">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -64,7 +61,7 @@ export default function ResponsivePieCard({ title, rows, formatFn, colors }: Res
                     {/* Legend — wrapping on mobile, vertical scrollable list on desktop */}
                     <div className="w-full flex-1 min-w-0">
                         {/* Mobile: compact wrapping legend */}
-                        <div className="flex flex-wrap gap-x-4 gap-y-2 md:hidden">
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 md:hidden">
                             {rows.map((c, idx) => (
                                 <div key={c.category} className="flex items-center gap-1.5 min-w-0">
                                     <span

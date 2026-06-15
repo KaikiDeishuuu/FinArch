@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"net/url"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -73,16 +74,15 @@ var migrationV20SQL string
 //go:embed migration_v21.sql
 var migrationV21SQL string
 
+//go:embed migration_v22.sql
+var migrationV22SQL string
+
+//go:embed migration_v23.sql
+var migrationV23SQL string
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
-	// Enforce BEGIN IMMEDIATE for all transactions to avoid SQLITE_BUSY deadlocks
-	if !strings.Contains(dsn, "_txlock=immediate") {
-		if strings.Contains(dsn, "?") {
-			dsn += "&_txlock=immediate"
-		} else {
-			dsn += "?_txlock=immediate"
-		}
-	}
+	dsn = normalizeSQLiteDSN(dsn)
 
 	database, err := sql.Open("sqlite3", dsn)
 	if err != nil {
@@ -167,6 +167,8 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		{19, migrationV19SQL},
 		{20, migrationV20SQL},
 		{21, migrationV21SQL},
+		{22, migrationV22SQL},
+		{23, migrationV23SQL},
 	}
 
 	for _, m := range migrations {
@@ -194,6 +196,40 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		return fmt.Errorf("apply triggers: %w", err)
 	}
 	return nil
+}
+
+func normalizeSQLiteDSN(dsn string) string {
+	params := []string{"_txlock=immediate", "_busy_timeout=5000", "_fk=1"}
+	base, rawQuery, hasQuery := strings.Cut(dsn, "?")
+	seen := map[string]struct{}{}
+	if hasQuery {
+		for _, part := range strings.Split(rawQuery, "&") {
+			if part == "" {
+				continue
+			}
+			key, _, _ := strings.Cut(part, "=")
+			if decoded, err := url.QueryUnescape(key); err == nil {
+				key = decoded
+			}
+			seen[key] = struct{}{}
+		}
+	}
+
+	query := rawQuery
+	for _, param := range params {
+		key, _, _ := strings.Cut(param, "=")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		if query != "" {
+			query += "&"
+		}
+		query += param
+	}
+	if query == "" {
+		return base
+	}
+	return base + "?" + query
 }
 
 func execStatements(ctx context.Context, database *sql.DB, script string) error {

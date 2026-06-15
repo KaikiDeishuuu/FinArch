@@ -126,7 +126,8 @@ func main() {
 		tm := sqliterepo.NewSQLiteTransactionManager(database)
 		authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL, tm)
 		statsSvc := service.NewStatsService(database)
-		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, tm, txSvc, reimSvc, matchSvc, authSvc, statsSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
+		budgetSvc := service.NewBudgetService(sqliterepo.NewSQLiteBudgetRepository(database))
+		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, tm, txSvc, reimSvc, matchSvc, authSvc, statsSvc, budgetSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 		log.Printf("FinArch API v1: http://%s", addr)
 		log.Fatal(srv.Run())
 	default:

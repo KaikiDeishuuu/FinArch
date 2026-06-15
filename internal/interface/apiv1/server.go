@@ -35,26 +35,28 @@ import (
 
 // Server is the Gin-based API v1 server.
 type Server struct {
-	engine           *gin.Engine
-	addr             string
-	db               *sql.DB
-	dbPath           string
-	authSvc          *service.AuthService
-	txSvc            *service.TransactionService
-	reimSvc          *service.ReimbursementService
-	matchSvc         *service.MatchingService
-	statsSvc         *service.StatsService
-	txRepo           repository.TransactionRepository
-	tagRepo          repository.TagRepository
-	txManager        repository.TransactionManager
-	jwtSvc           *auth.JWTService
-	authLimiter      *auth.IPRateLimiter
-	captchaVerifier  *auth.TurnstileVerifier
-	turnstileSiteKey string
-	acctSvc          *service.AccountService
-	emailSvc         email.Sender
-	pendingRestores  sync.Map // restoreID → *pendingRestore
-	activeDevices    sync.Map // "userID:deviceID" → *deviceSession
+	engine             *gin.Engine
+	addr               string
+	db                 *sql.DB
+	dbPath             string
+	authSvc            *service.AuthService
+	txSvc              *service.TransactionService
+	reimSvc            *service.ReimbursementService
+	matchSvc           *service.MatchingService
+	statsSvc           *service.StatsService
+	budgetSvc          *service.BudgetService
+	txRepo             repository.TransactionRepository
+	tagRepo            repository.TagRepository
+	txManager          repository.TransactionManager
+	jwtSvc             *auth.JWTService
+	authLimiter        *auth.IPRateLimiter
+	captchaVerifier    *auth.TurnstileVerifier
+	turnstileSiteKey   string
+	acctSvc            *service.AccountService
+	emailSvc           email.Sender
+	pendingRestores    sync.Map // restoreID → *pendingRestore
+	activeDevices      sync.Map // "userID:deviceID" → *deviceSession
+	disasterRecoveryMu sync.Mutex
 }
 
 // deviceSession tracks a single device's last heartbeat.
@@ -198,6 +200,7 @@ func NewServer(
 	matchSvc *service.MatchingService,
 	authSvc *service.AuthService,
 	statsSvc *service.StatsService,
+	budgetSvc *service.BudgetService,
 	jwtSvc *auth.JWTService,
 	authLimiter *auth.IPRateLimiter,
 	captchaVerifier *auth.TurnstileVerifier,
@@ -218,6 +221,7 @@ func NewServer(
 		reimSvc:          reimSvc,
 		matchSvc:         matchSvc,
 		statsSvc:         statsSvc,
+		budgetSvc:        budgetSvc,
 		txRepo:           txRepo,
 		tagRepo:          tagRepo,
 		txManager:        txManager,
@@ -236,12 +240,17 @@ func (s *Server) Run() error {
 	return s.engine.Run(s.addr)
 }
 
+func (s *Server) Handler() http.Handler {
+	return s.engine
+}
+
 func (s *Server) registerRoutes() {
 	r := s.engine
 	r.Use(gin.Recovery(), s.securityHeaders(), s.corsMiddleware(), s.writeGateMiddleware())
 
 	// ─── Public routes ───────────────────────────────────────────
 	pub := r.Group("/api/v1")
+	pub.GET("/health", s.handleHealth)
 	pub.GET("/config", s.handleConfig)
 	pub.POST("/auth/register", s.authRateLimitMiddleware(), s.handleRegister)
 	pub.POST("/auth/login", s.authRateLimitMiddleware(), s.handleLogin)
@@ -256,9 +265,7 @@ func (s *Server) registerRoutes() {
 
 	// Disaster recovery (public — email-verified restore when JWT auth unavailable)
 	pub.POST("/backup/restore-request", s.authRateLimitMiddleware(), s.handleRestoreRequest)
-	pub.POST("/backup/restore-confirm", s.handleRestoreConfirm)
-	pub.GET("/disaster-recovery/snapshots", s.handleDisasterRecoverySnapshots)
-	pub.POST("/disaster-recovery/restore", s.handleDisasterRecoveryExecute)
+	pub.POST("/backup/restore-confirm", s.authRateLimitMiddleware(), s.handleRestoreConfirm)
 
 	// Shortcut: /verify-email → same handler (for emails already sent with old link)
 	r.GET("/verify-email", s.handleVerifyEmail)
@@ -312,11 +319,21 @@ func (s *Server) registerRoutes() {
 	api.GET("/stats/by-project", s.handleStatsByProject)
 	api.GET("/stats/account-balance-history", s.handleStatsAccountBalanceHistory)
 
+	// Budgets
+	api.GET("/budgets", s.handleListBudgets)
+	api.GET("/budgets/summary", s.handleBudgetSummary)
+	api.POST("/budgets", s.handleCreateBudget)
+	api.PATCH("/budgets/:id", s.handleUpdateBudget)
+	api.DELETE("/budgets/:id", s.handleDeleteBudget)
+
 	// Backup & Restore
 	api.POST("/backup/export-request", s.handleBackupExportRequest)
 	api.GET("/backup/download", s.handleBackupDownload)
 	api.GET("/backup/info", s.handleBackupInfo)
 	api.GET("/backup/litestream-health", s.handleLitestreamHealth)
+	api.GET("/disaster-recovery/snapshots", s.handleDisasterRecoverySnapshots)
+	api.POST("/disaster-recovery/authorize", s.authRateLimitMiddleware(), s.handleDisasterRecoveryAuthorize)
+	api.POST("/disaster-recovery/restore", s.handleDisasterRecoveryExecute)
 	api.POST("/backup/restore", s.handleRestore)
 	api.POST("/backup/restore/send-verification", s.handleRestoreSendVerification)
 	api.POST("/backup/restore/verify", s.handleRestoreVerify)
@@ -440,10 +457,16 @@ func (s *Server) jwtMiddleware() gin.HandlerFunc {
 		}
 		// Verify pwd_version matches DB — invalidates tokens from before a password change.
 		var dbPwdVer int
-		_ = s.db.QueryRowContext(c.Request.Context(),
+		if err := s.db.QueryRowContext(c.Request.Context(),
 			"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ? AND deleted_at IS NULL",
 			claims.UserID,
-		).Scan(&dbPwdVer)
+		).Scan(&dbPwdVer); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				log.Printf("[ERROR] jwt middleware user lookup: %v", err)
+			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40101, "message": "认证令牌无效或已过期"})
+			return
+		}
 		if dbPwdVer != claims.PwdVersion {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 40102, "message": "密码已更改，请重新登录"})
 			return
@@ -591,6 +614,21 @@ func (s *Server) writeGateMiddleware() gin.HandlerFunc {
 }
 
 // ─── Config ──────────────────────────────────────────────────────────────────
+
+func (s *Server) handleHealth(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+	if err := s.db.PingContext(ctx); err != nil {
+		fail(c, http.StatusServiceUnavailable, "unhealthy", "Service unavailable.")
+		return
+	}
+	var ready int
+	if err := s.db.QueryRowContext(ctx, `SELECT 1`).Scan(&ready); err != nil {
+		fail(c, http.StatusServiceUnavailable, "unhealthy", "Service unavailable.")
+		return
+	}
+	ok(c, gin.H{"status": "ok"})
+}
 
 // handleConfig returns public runtime configuration consumed by the frontend.
 func (s *Server) handleConfig(c *gin.Context) {
@@ -815,9 +853,16 @@ func (s *Server) handleRefreshToken(c *gin.Context) {
 		return
 	}
 	var pwdVer int
-	_ = s.db.QueryRowContext(c.Request.Context(),
-		"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ?", u.ID,
-	).Scan(&pwdVer)
+	if err := s.db.QueryRowContext(c.Request.Context(),
+		"SELECT COALESCE(pwd_version,0) FROM users WHERE id = ? AND deleted_at IS NULL", u.ID,
+	).Scan(&pwdVer); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			fail(c, http.StatusUnauthorized, "auth_invalid_token", "认证令牌无效或已过期")
+			return
+		}
+		failInternal(c, err)
+		return
+	}
 	token, exp, err := s.jwtSvc.Issue(u.ID, u.Email, u.Role, pwdVer)
 	if err != nil {
 		failInternal(c, err)
@@ -1512,6 +1557,226 @@ func (s *Server) handleStatsAccountBalanceHistory(c *gin.Context) {
 	ok(c, points)
 }
 
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+
+type budgetDTO struct {
+	ID              string  `json:"id"`
+	Mode            string  `json:"mode"`
+	PeriodMonth     string  `json:"period_month"`
+	Category        string  `json:"category"`
+	AmountCents     int64   `json:"amount_cents"`
+	AmountYuan      float64 `json:"amount_yuan"`
+	Currency        string  `json:"currency"`
+	BaseCurrency    string  `json:"base_currency"`
+	BaseAmountCents int64   `json:"base_amount_cents"`
+	BaseAmountYuan  float64 `json:"base_amount_yuan"`
+	IsActive        bool    `json:"is_active"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+}
+
+type budgetProgressDTO struct {
+	Budget         budgetDTO `json:"budget"`
+	ActualCents    int64     `json:"actual_cents"`
+	ActualYuan     float64   `json:"actual_yuan"`
+	RemainingCents int64     `json:"remaining_cents"`
+	RemainingYuan  float64   `json:"remaining_yuan"`
+	UsageRatio     float64   `json:"usage_ratio"`
+	Status         string    `json:"status"`
+}
+
+func budgetToDTO(b model.Budget) budgetDTO {
+	return budgetDTO{
+		ID:              b.ID,
+		Mode:            string(b.Mode),
+		PeriodMonth:     b.PeriodMonth,
+		Category:        b.Category,
+		AmountCents:     b.AmountCents,
+		AmountYuan:      float64(b.AmountCents) / 100,
+		Currency:        b.Currency,
+		BaseCurrency:    b.BaseCurrency,
+		BaseAmountCents: b.BaseAmountCents,
+		BaseAmountYuan:  float64(b.BaseAmountCents) / 100,
+		IsActive:        b.IsActive,
+		CreatedAt:       formatSecond(b.CreatedAt),
+		UpdatedAt:       formatSecond(b.UpdatedAt),
+	}
+}
+
+func budgetProgressToDTO(p service.BudgetProgress) budgetProgressDTO {
+	return budgetProgressDTO{
+		Budget:         budgetToDTO(p.Budget),
+		ActualCents:    p.ActualCents,
+		ActualYuan:     float64(p.ActualCents) / 100,
+		RemainingCents: p.RemainingCents,
+		RemainingYuan:  float64(p.RemainingCents) / 100,
+		UsageRatio:     p.UsageRatio,
+		Status:         p.Status,
+	}
+}
+
+func parseBudgetMonth(c *gin.Context) string {
+	if period := c.Query("period"); period != "" {
+		return period
+	}
+	return c.Query("period_month")
+}
+
+func budgetAmountCents(amountCents int64, amountYuan float64) int64 {
+	if amountCents > 0 {
+		return amountCents
+	}
+	if amountYuan > 0 {
+		return int64(amountYuan*100 + 0.5)
+	}
+	return 0
+}
+
+func (s *Server) handleListBudgets(c *gin.Context) {
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	budgets, err := s.budgetSvc.ListBudgets(c.Request.Context(), userID(c), mode, parseBudgetMonth(c))
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	dtos := make([]budgetDTO, 0, len(budgets))
+	for _, b := range budgets {
+		dtos = append(dtos, budgetToDTO(b))
+	}
+	ok(c, dtos)
+}
+
+func (s *Server) handleCreateBudget(c *gin.Context) {
+	var req struct {
+		Mode            string  `json:"mode" binding:"required"`
+		PeriodMonth     string  `json:"period_month"`
+		Period          string  `json:"period"`
+		Category        string  `json:"category"`
+		AmountCents     int64   `json:"amount_cents"`
+		AmountYuan      float64 `json:"amount_yuan"`
+		Currency        string  `json:"currency"`
+		BaseCurrency    string  `json:"base_currency"`
+		BaseAmountCents int64   `json:"base_amount_cents"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	mode, modeOK := parseMode(req.Mode)
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	periodMonth := req.PeriodMonth
+	if periodMonth == "" {
+		periodMonth = req.Period
+	}
+	budget, err := s.budgetSvc.CreateBudget(c.Request.Context(), service.CreateBudgetRequest{
+		UserID:          userID(c),
+		Mode:            mode,
+		PeriodMonth:     periodMonth,
+		Category:        req.Category,
+		AmountCents:     budgetAmountCents(req.AmountCents, req.AmountYuan),
+		Currency:        req.Currency,
+		BaseCurrency:    req.BaseCurrency,
+		BaseAmountCents: req.BaseAmountCents,
+	})
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	created(c, budgetToDTO(budget))
+}
+
+func (s *Server) handleUpdateBudget(c *gin.Context) {
+	var req struct {
+		Mode            string  `json:"mode"`
+		PeriodMonth     string  `json:"period_month"`
+		Period          string  `json:"period"`
+		Category        string  `json:"category"`
+		AmountCents     int64   `json:"amount_cents"`
+		AmountYuan      float64 `json:"amount_yuan"`
+		Currency        string  `json:"currency"`
+		BaseCurrency    string  `json:"base_currency"`
+		BaseAmountCents int64   `json:"base_amount_cents"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	mode := model.Mode(req.Mode)
+	if req.Mode != "" {
+		parsed, modeOK := parseMode(req.Mode)
+		if !modeOK {
+			fail(c, 400, 40001, "invalid mode")
+			return
+		}
+		mode = parsed
+	}
+	periodMonth := req.PeriodMonth
+	if periodMonth == "" {
+		periodMonth = req.Period
+	}
+	budget, err := s.budgetSvc.UpdateBudget(c.Request.Context(), service.UpdateBudgetRequest{
+		ID:              c.Param("id"),
+		UserID:          userID(c),
+		Mode:            mode,
+		PeriodMonth:     periodMonth,
+		Category:        req.Category,
+		AmountCents:     budgetAmountCents(req.AmountCents, req.AmountYuan),
+		Currency:        req.Currency,
+		BaseCurrency:    req.BaseCurrency,
+		BaseAmountCents: req.BaseAmountCents,
+	})
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	ok(c, budgetToDTO(budget))
+}
+
+func (s *Server) handleDeleteBudget(c *gin.Context) {
+	if err := s.budgetSvc.DeleteBudget(c.Request.Context(), userID(c), c.Param("id")); err != nil {
+		fail(c, 400, 40001, err.Error())
+		return
+	}
+	ok(c, gin.H{"id": c.Param("id"), "deleted": true})
+}
+
+func (s *Server) handleBudgetSummary(c *gin.Context) {
+	mode, modeOK := parseMode(c.Query("mode"))
+	if !modeOK {
+		fail(c, 400, 40001, "invalid mode")
+		return
+	}
+	summary, err := s.budgetSvc.Summary(c.Request.Context(), userID(c), mode, parseBudgetMonth(c))
+	if err != nil {
+		fail(c, 422, 40001, err.Error())
+		return
+	}
+	categoryBudgets := make([]budgetProgressDTO, 0, len(summary.CategoryBudgets))
+	for _, p := range summary.CategoryBudgets {
+		categoryBudgets = append(categoryBudgets, budgetProgressToDTO(p))
+	}
+	var totalBudget *budgetProgressDTO
+	if summary.TotalBudget != nil {
+		dto := budgetProgressToDTO(*summary.TotalBudget)
+		totalBudget = &dto
+	}
+	ok(c, gin.H{
+		"mode":               string(summary.Mode),
+		"period_month":       summary.PeriodMonth,
+		"total_actual_cents": summary.TotalActualCents,
+		"total_actual_yuan":  float64(summary.TotalActualCents) / 100,
+		"total_budget":       totalBudget,
+		"category_budgets":   categoryBudgets,
+	})
+}
+
 func (s *Server) handleLitestreamHealth(c *gin.Context) {
 	statusPath := os.Getenv("LITESTREAM_STATUS_FILE")
 	if statusPath == "" {
@@ -1613,6 +1878,22 @@ func (s *Server) handleDisasterRecoverySnapshots(c *gin.Context) {
 	ok(c, snapshots)
 }
 
+func (s *Server) handleDisasterRecoveryAuthorize(c *gin.Context) {
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	token, err := s.authSvc.RequestDisasterRecovery(c.Request.Context(), userID(c), req.CurrentPassword)
+	if err != nil {
+		mapAuthError(c, err, 40060)
+		return
+	}
+	ok(c, gin.H{"token": token, "expires_in": 300})
+}
+
 func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 	var req struct {
 		SnapshotID           string `json:"snapshot_id" binding:"required"`
@@ -1620,6 +1901,7 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		AllowMissingMetadata bool   `json:"allow_missing_metadata"`
 		ApplyMode            string `json:"apply_mode"`    // replace | merge
 		RestoreScope         string `json:"restore_scope"` // both | work | life
+		AuthorizationToken   string `json:"authorization_token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, 422, "INVALID_INPUT", "请提供 snapshot_id")
@@ -1673,9 +1955,22 @@ func (s *Server) handleDisasterRecoveryExecute(c *gin.Context) {
 		return
 	}
 
+	s.disasterRecoveryMu.Lock()
+	defer s.disasterRecoveryMu.Unlock()
+
+	authReq, err := s.authSvc.VerifyDisasterRecoveryToken(c.Request.Context(), userID(c), req.AuthorizationToken)
+	if err != nil {
+		mapAuthError(c, err, 40061)
+		return
+	}
+
 	result := s.executeDisasterRecovery(c.Request.Context(), selected.SnapshotID, schemaBefore, applyMode, restoreScope)
 	if !result.Success {
 		fail(c, 500, "DISASTER_RECOVERY_FAILED", result.Error)
+		return
+	}
+	if err := s.authSvc.CompleteDisasterRecoveryToken(c.Request.Context(), authReq, applyMode == "merge"); err != nil {
+		mapAuthError(c, err, 40062)
 		return
 	}
 	ok(c, gin.H{

@@ -2,17 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   changePassword, downloadBackup, requestBackupExportToken, getBackupInfo,
   requestDeleteAccount, requestEmailChange, getMe,
   createAccount, renameAccount, deleteAccount, updateNickname,
 } from '../api/client'
 import type { UserProfile, BackupInfo } from '../api/client'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
-import { useTransactions } from '../hooks/useTransactions'
-import { useMode } from '../contexts/ModeContext'
+import { TRANSACTIONS_QUERY_KEY, useTransactions } from '../hooks/useTransactions'
+import { useMode } from '../hooks/useMode'
 import Select from '../components/Select'
 import BackupPasswordModal from '../components/BackupPasswordModal'
 import CrossAccountRestoreModal from '../components/CrossAccountRestoreModal'
@@ -64,6 +64,27 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       </span>
       <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
     </div>
+  )
+}
+
+function MobileCollapsibleSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className="md:contents">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="md:hidden w-full flex items-center justify-between gap-3 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 bg-white dark:bg-[hsl(260,15%,11%)] px-4 py-3 text-left shadow-sm"
+        aria-expanded={open}
+      >
+        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">{title}</span>
+        <span className="text-[11px] text-violet-500 dark:text-violet-400 font-semibold">{open ? t('common.collapse') : t('common.expand')}</span>
+      </button>
+      <div className={`${open ? 'block' : 'hidden'} md:block mt-3 md:mt-0`}>
+        {children}
+      </div>
+    </section>
   )
 }
 
@@ -201,8 +222,8 @@ export default function SettingsPage() {
       await downloadBackup(exportToken)
       toast.success(t('settings.backup.toast.success'))
       setBackupModalOpen(false) // Close modal on success
-    } catch (err: any) {
-      if (err?.response?.data?.message) {
+    } catch (err: unknown) {
+      if ((err as { response?: { data?: { message?: string } } })?.response?.data?.message) {
         throw err
       }
       toast.error(t('settings.backup.toast.error'))
@@ -225,7 +246,8 @@ export default function SettingsPage() {
     setRestoreFile(null)
     setRestoreConfirm(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
-    queryClient.invalidateQueries()
+    queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY(user?.id, mode) })
+    queryClient.invalidateQueries({ queryKey: ['accounts', user?.id, mode] })
     getBackupInfo().then(setBackupInfo).catch(() => { })
   })
 
@@ -542,8 +564,9 @@ export default function SettingsPage() {
         </div>
 
         {/* ── Change email ─────────────────────────────────────── col 1 ── */}
+        <MobileCollapsibleSection title={t('settings.sections.changeEmail')}>
         <div className="flex flex-col">
-          <SectionLabel>{t('settings.sections.changeEmail')}</SectionLabel>
+          <div className="hidden md:block"><SectionLabel>{t('settings.sections.changeEmail')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4 flex-1">
             <div className="space-y-0.5">
               <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('settings.changeEmail.currentEmail')}</p>
@@ -553,14 +576,26 @@ export default function SettingsPage() {
             {pendingEmail && !emailSent && (
               <Alert type="warning">
                 <p className="font-medium mb-0.5">{t('settings.changeEmail.pendingTitle')}</p>
-                <p dangerouslySetInnerHTML={{ __html: t('settings.changeEmail.pendingDesc', { email: pendingEmail }) }} />
+                <p>
+                  <Trans
+                    i18nKey="settings.changeEmail.pendingDesc"
+                    values={{ email: pendingEmail }}
+                    components={{ strong: <strong /> }}
+                  />
+                </p>
               </Alert>
             )}
 
             {emailSent ? (
               <Alert type="success">
                 <p className="font-medium mb-0.5">{t('settings.changeEmail.sentTitle')}</p>
-                <p dangerouslySetInnerHTML={{ __html: t('settings.changeEmail.sentDesc', { currentEmail, pendingEmail: profile?.pending_email }) }} />
+                <p>
+                  <Trans
+                    i18nKey="settings.changeEmail.sentDesc"
+                    values={{ currentEmail, pendingEmail: profile?.pending_email }}
+                    components={{ strong: <strong /> }}
+                  />
+                </p>
               </Alert>
             ) : (
               <form onSubmit={handleRequestEmailChange} className="space-y-3">
@@ -579,10 +614,12 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
+        </MobileCollapsibleSection>
 
         {/* ── Change password ──────────────────────────────────── col 2 ── */}
+        <MobileCollapsibleSection title={t('settings.sections.security')}>
         <div className="flex flex-col">
-          <SectionLabel>{t('settings.sections.security')}</SectionLabel>
+          <div className="hidden md:block"><SectionLabel>{t('settings.sections.security')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
             {pwSuccess && <div className="mb-4"><Alert type="success">{t('settings.password.toast.success')}</Alert></div>}
             <form onSubmit={handleChangePassword} className="space-y-4">
@@ -616,10 +653,12 @@ export default function SettingsPage() {
             </form>
           </div>
         </div>
+        </MobileCollapsibleSection>
 
         {/* ── Backup ───────────────────────────────────────────── col 1 ── */}
+        <MobileCollapsibleSection title={t('settings.sections.backup')}>
         <div className="flex flex-col">
-          <SectionLabel>{t('settings.sections.backup')}</SectionLabel>
+          <div className="hidden md:block"><SectionLabel>{t('settings.sections.backup')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('settings.backup.desc')}</p>
             {backupInfo && (
@@ -650,10 +689,12 @@ export default function SettingsPage() {
             />
           </div>
         </div>
+        </MobileCollapsibleSection>
 
         {/* ── Restore ──────────────────────────────────────────── col 2 ── */}
+        <MobileCollapsibleSection title={t('settings.sections.restore')}>
         <div className="flex flex-col">
-          <SectionLabel>{t('settings.sections.restore')}</SectionLabel>
+          <div className="hidden md:block"><SectionLabel>{t('settings.sections.restore')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-amber-100 dark:border-amber-500/30 p-5 flex-1">
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
               {t('settings.restore.desc')}
@@ -683,7 +724,9 @@ export default function SettingsPage() {
                     <p className="font-semibold">{restoreFile.name}</p>
                     <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums">({formatFileSize(restoreFile.size)})</span>
                   </div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-2" dangerouslySetInnerHTML={{ __html: t('settings.restore.warning') }} />
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                    <Trans i18nKey="settings.restore.warning" components={{ strong: <strong /> }} />
+                  </p>
                   <button type="button" onClick={() => setRestoreConfirm(true)}
                     className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
                     {t('settings.restore.confirmButton')}
@@ -706,6 +749,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+        </MobileCollapsibleSection>
 
         <CrossAccountRestoreModal
           isOpen={restoreFlow.verification.open}
@@ -719,23 +763,36 @@ export default function SettingsPage() {
         />
 
         {/* ── Danger zone ─────────────────────────────────────── full width ── */}
+        <MobileCollapsibleSection title={t('settings.sections.danger')}>
         <div className="md:col-span-2">
-          <SectionLabel>{t('settings.sections.danger')}</SectionLabel>
+          <div className="hidden md:block"><SectionLabel>{t('settings.sections.danger')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-rose-200 dark:border-rose-500/30 p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-1">{t('settings.danger.deleteAccount')}</h3>
-                <p className="text-xs text-gray-400 dark:text-gray-500" dangerouslySetInnerHTML={{ __html: t('settings.danger.deleteDesc') }} />
+                <p className="text-xs text-gray-400 dark:text-gray-500">{t('settings.danger.deleteDesc')}</p>
               </div>
               <div className="shrink-0">
                 {deleteStep === 'sent' ? (
                   <Alert type="success">
-                    <span dangerouslySetInnerHTML={{ __html: t('settings.danger.emailSent', { email: currentEmail }) }} />
+                    <span>
+                      <Trans
+                        i18nKey="settings.danger.emailSent"
+                        values={{ email: currentEmail }}
+                        components={{ strong: <strong /> }}
+                      />
+                    </span>
                   </Alert>
                 ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
                   <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl p-4 space-y-3 max-w-sm">
                     <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">{t('settings.danger.confirmTitle')}</p>
-                    <p className="text-xs text-rose-600 dark:text-rose-400" dangerouslySetInnerHTML={{ __html: t('settings.danger.confirmDesc', { email: currentEmail }) }} />
+                    <p className="text-xs text-rose-600 dark:text-rose-400">
+                      <Trans
+                        i18nKey="settings.danger.confirmDesc"
+                        values={{ email: currentEmail }}
+                        components={{ strong: <strong /> }}
+                      />
+                    </p>
                     {deleteError && <Alert type="error">{deleteError}</Alert>}
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
@@ -763,6 +820,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+        </MobileCollapsibleSection>
 
       </div>
     </div>

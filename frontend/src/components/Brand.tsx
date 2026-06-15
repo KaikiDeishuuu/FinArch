@@ -19,7 +19,7 @@
  */
 
 /** Brand colors — single source of truth */
-export const BRAND = {
+const BRAND = {
   bar1: '#818cf8',  // Indigo-400
   bar2: '#a78bfa',  // Violet-400
   bar3: '#34d399',  // Emerald-400

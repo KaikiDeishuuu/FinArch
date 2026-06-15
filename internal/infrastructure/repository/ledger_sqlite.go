@@ -99,7 +99,7 @@ func (r *SQLiteLedgerRepository) CreateJournalEntry(
 
 	// Compute deterministic hash over entry + lines + previous hash.
 	hashInput := struct {
-		Entry model.LedgerJournalEntry   `json:"entry"`
+		Entry model.LedgerJournalEntry  `json:"entry"`
 		Lines []model.LedgerJournalLine `json:"lines"`
 	}{
 		Entry: entry,
@@ -302,4 +302,3 @@ func (r *SQLiteLedgerRepository) ValidateIntegrity(ctx context.Context, userID s
 
 	return nil
 }
-

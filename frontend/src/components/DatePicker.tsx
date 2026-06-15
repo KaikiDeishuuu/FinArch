@@ -101,15 +101,6 @@ export default function DatePicker({ value, onChange, className = '', required, 
     })
   }, [])
 
-  // Sync view to value
-  useEffect(() => {
-    if (value) {
-      const p = parseDate(value)
-      setViewYear(p.year)
-      setViewMonth(p.month)
-    }
-  }, [value])
-
   useEffect(() => {
     if (!open) return
     updatePosition()
@@ -185,6 +176,11 @@ export default function DatePicker({ value, onChange, className = '', required, 
       nativeRef.current?.showPicker?.()
       nativeRef.current?.click()
     } else {
+      if (!open && value) {
+        const p = parseDate(value)
+        setViewYear(p.year)
+        setViewMonth(p.month)
+      }
       setOpen(o => !o)
     }
   }

@@ -16,15 +16,24 @@ COPY . .
 # Embed frontend dist into the binary via the static file server
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /finarch-server ./cmd/server
 
-# ── Stage 3: Runtime image ────────────────────────────────────────────────────
+# ── Stage 3: Litestream binary ────────────────────────────────────────────────
+FROM litestream/litestream:0.3.13 AS litestream
+
+# ── Stage 4: Runtime image ────────────────────────────────────────────────────
 FROM alpine:3.23
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata \
+  && addgroup -S -g 10001 finarch \
+  && adduser -S -D -H -u 10001 -G finarch finarch
 WORKDIR /app
-COPY --from=go-builder /finarch-server /app/finarch-server
-COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
-RUN mkdir -p /data
+COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
+COPY --from=go-builder --chown=finarch:finarch /finarch-server /app/finarch-server
+COPY --from=frontend-builder --chown=finarch:finarch /app/frontend/dist /app/frontend/dist
+COPY --chown=finarch:finarch litestream.yml /etc/litestream.yml
+RUN mkdir -p /data \
+  && chown -R finarch:finarch /data /app /etc/litestream.yml
 VOLUME ["/data"]
 ENV FINARCH_DB=/data/finarch.db
 ENV FINARCH_ADDR=0.0.0.0:8080
 EXPOSE 8080
+USER finarch
 ENTRYPOINT ["/app/finarch-server"]

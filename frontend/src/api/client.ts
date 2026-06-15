@@ -396,6 +396,78 @@ export async function getAccountBalanceHistory(
   return data.data
 }
 
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+
+export interface Budget {
+  id: string
+  mode: AppMode
+  period_month: string
+  category: string
+  amount_cents: number
+  amount_yuan: number
+  currency: string
+  base_currency: string
+  base_amount_cents: number
+  base_amount_yuan: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface BudgetProgress {
+  budget: Budget
+  actual_cents: number
+  actual_yuan: number
+  remaining_cents: number
+  remaining_yuan: number
+  usage_ratio: number
+  status: 'ok' | 'warning' | 'over'
+}
+
+export interface BudgetSummary {
+  mode: AppMode
+  period_month: string
+  total_actual_cents: number
+  total_actual_yuan: number
+  total_budget: BudgetProgress | null
+  category_budgets: BudgetProgress[]
+}
+
+export interface UpsertBudgetRequest {
+  mode?: AppMode
+  period_month?: string
+  category?: string
+  amount_cents?: number
+  amount_yuan?: number
+  currency?: string
+  base_currency?: string
+  base_amount_cents?: number
+}
+
+export async function listBudgets(mode: AppMode = 'work', period: string): Promise<Budget[]> {
+  const { data } = await client.get('/budgets', { params: { mode, period } })
+  return data.data
+}
+
+export async function createBudget(req: UpsertBudgetRequest & { mode: AppMode }): Promise<Budget> {
+  const { data } = await client.post('/budgets', req)
+  return data.data
+}
+
+export async function updateBudget(id: string, req: UpsertBudgetRequest): Promise<Budget> {
+  const { data } = await client.patch(`/budgets/${id}`, req)
+  return data.data
+}
+
+export async function deleteBudget(id: string): Promise<void> {
+  await client.delete(`/budgets/${id}`)
+}
+
+export async function getBudgetSummary(mode: AppMode = 'work', period: string): Promise<BudgetSummary> {
+  const { data } = await client.get('/budgets/summary', { params: { mode, period } })
+  return data.data
+}
+
 // ─── Backup & Restore ────────────────────────────────────────────────────────
 export interface BackupInfo {
   transactions: number
@@ -513,11 +585,16 @@ export interface DisasterSnapshot {
 }
 
 export async function listDisasterSnapshots(): Promise<DisasterSnapshot[]> {
-  const { data } = await axios.get('/api/v1/disaster-recovery/snapshots')
+  const { data } = await client.get('/disaster-recovery/snapshots')
   return data.data
 }
 
-export async function executeDisasterRecovery(snapshotId: string, allowMissingMetadata = false): Promise<{
+export async function authorizeDisasterRecovery(currentPassword: string): Promise<{ token: string; expires_in: number }> {
+  const { data } = await client.post('/disaster-recovery/authorize', { current_password: currentPassword })
+  return data.data
+}
+
+export async function executeDisasterRecovery(snapshotId: string, authorizationToken: string, allowMissingMetadata = false): Promise<{
   message: string
   recovery_id: string
   snapshot_id: string
@@ -526,10 +603,11 @@ export async function executeDisasterRecovery(snapshotId: string, allowMissingMe
   migration_applied: boolean
   duration_ms: number
 }> {
-  const { data } = await axios.post('/api/v1/disaster-recovery/restore', {
+  const { data } = await client.post('/disaster-recovery/restore', {
     snapshot_id: snapshotId,
     confirm: true,
     allow_missing_metadata: allowMissingMetadata,
+    authorization_token: authorizationToken,
   })
   return data.data
 }

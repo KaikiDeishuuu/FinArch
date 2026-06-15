@@ -1,19 +1,19 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { MatchResult, MatchResultItem, Account, Transaction } from '../api/client'
 import { formatAmount, toCNY } from '../utils/format'
-import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useExchangeRates } from '../hooks/useExchangeRates'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import Select from '../components/Select'
 import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
 import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
 import { categoryLabel } from '../utils/categoryLabel'
-import { useMode } from '../contexts/ModeContext'
-import { useAuth } from '../contexts/AuthContext'
+import { useMode } from '../hooks/useMode'
+import { useAuth } from '../hooks/useAuth'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 
 export default function MatchPage() {
@@ -224,7 +224,7 @@ export default function MatchPage() {
       }
     }
     return Array.from(index.values())
-  }, [results, reimbursedIds])
+  }, [results, reimbursedIds, mode])
 
   function handleExportPDF() {
     if (matchedTransactions.length === 0) return
@@ -318,7 +318,13 @@ export default function MatchPage() {
         <div className="bg-violet-50 dark:bg-violet-500/10 border-b border-violet-100 dark:border-violet-800 px-5 py-3 flex items-start gap-2.5">
           <svg className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
           <div>
-            <p className="text-sm text-violet-700 dark:text-violet-300" dangerouslySetInnerHTML={{ __html: isLifeMode ? t('match.life.info.uploadedOnly', { source: t(`match.sourceTabs.${sourceFilter}`) }) : t('match.info.uploadedOnly', { source: t(`match.sourceTabs.${sourceFilter}`) }) }} />
+            <p className="text-sm text-violet-700 dark:text-violet-300">
+              <Trans
+                i18nKey={isLifeMode ? 'match.life.info.uploadedOnly' : 'match.info.uploadedOnly'}
+                values={{ source: t(`match.sourceTabs.${sourceFilter}`) }}
+                components={{ strong: <strong /> }}
+              />
+            </p>
             <p className="text-xs text-violet-500/80 dark:text-violet-400/70 mt-1">{t('match.info.currencyNote')}</p>
           </div>
         </div>

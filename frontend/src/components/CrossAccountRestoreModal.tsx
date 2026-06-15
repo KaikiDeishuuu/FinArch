@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
 
 interface CrossAccountRestoreModalProps {
   isOpen: boolean
@@ -27,17 +28,21 @@ export default function CrossAccountRestoreModal({
   const emailRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (isOpen) {
-      setEmail('')
-      setCode('')
-      setError('')
-      setTimeout(() => emailRef.current?.focus(), 100)
-    }
+    if (!isOpen) return
+    const focusTimer = window.setTimeout(() => emailRef.current?.focus(), 100)
+    return () => window.clearTimeout(focusTimer)
   }, [isOpen])
 
   if (!isOpen) return null
 
-  async function handleSendCode(e: React.FormEvent) {
+  function handleClose() {
+    setEmail('')
+    setCode('')
+    setError('')
+    onClose()
+  }
+
+  async function handleSendCode(e: FormEvent) {
     e.preventDefault()
     if (!email) {
       setError(t('settings.restore.crossAccount.requiredEmail'))
@@ -46,8 +51,11 @@ export default function CrossAccountRestoreModal({
     setError('')
     try {
       await onSendCode(email)
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || t('settings.restore.crossAccount.failed'))
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        || (err as { message?: string })?.message
+        || t('settings.restore.crossAccount.failed')
+      setError(msg)
     }
   }
 
@@ -60,8 +68,11 @@ export default function CrossAccountRestoreModal({
     setError('')
     try {
       await onVerify(code)
-    } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || t('settings.restore.crossAccount.failed'))
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        || (err as { message?: string })?.message
+        || t('settings.restore.crossAccount.failed')
+      setError(msg)
     }
   }
 
@@ -109,7 +120,7 @@ export default function CrossAccountRestoreModal({
           {error && <p className="text-xs text-rose-500 mt-1.5">{error}</p>}
 
           <div className="flex items-center justify-end gap-3 mt-4">
-            <button type="button" onClick={onClose} disabled={isLoading} className="px-4 py-2 text-sm">{t('common.cancel')}</button>
+            <button type="button" onClick={handleClose} disabled={isLoading} className="px-4 py-2 text-sm">{t('common.cancel')}</button>
             <button type="submit" disabled={isLoading} className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-xl">
               {isLoading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
               {emailSent ? t('settings.restore.crossAccount.verify') : t('settings.restore.crossAccount.sendCode')}

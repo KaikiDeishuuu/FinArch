@@ -6,15 +6,15 @@ import { toggleReimbursed, toggleUploaded } from '../api/client'
 import type { Transaction, Account } from '../api/client'
 import { StaggerContainer, StaggerItem, CardSkeleton, RowSkeleton } from '../motion'
 import Select from '../components/Select'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { formatAmount, sumInCNY } from '../utils/format'
-import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useExchangeRates } from '../hooks/useExchangeRates'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { categoryLabel } from '../utils/categoryLabel'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 import { clampLifecycleTimestamp } from '../utils/timestamp'
 
@@ -51,7 +51,7 @@ function StatusBadge({
       onClick={onClick}
       disabled={disabled}
       title={locked ? lockedTitle : undefined}
-      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 ease-in-out transform active:scale-95 ${disabled && !loading ? 'opacity-40 cursor-not-allowed' : ''
+      className={`inline-flex min-h-8 items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 ease-in-out transform active:scale-95 ${disabled && !loading ? 'opacity-40 cursor-not-allowed' : ''
         } ${locked ? 'opacity-50 cursor-not-allowed ring-1 ring-gray-200 dark:ring-gray-600' : ''} ${active ? activeClass : inactiveClass}`}
     >
       {loading ? (
@@ -73,7 +73,7 @@ export default function TransactionsPage() {
   const { isWorkMode } = useMode()
   const { user } = useAuth()
   const { rates } = useExchangeRates()
-  const { data: txs = [], isLoading: loading } = useTransactions()
+  const { data: txs = [], isLoading: loading, isError, refetch, isFetching } = useTransactions()
   const { data: accounts = [] } = useAccounts()
   const refreshFinanceData = useRefreshFinanceData()
   const [filter, setFilter] = useState<FilterTab>('all')
@@ -135,18 +135,18 @@ export default function TransactionsPage() {
     return activeAccounts.filter((a: Account) => a.type === acctType)
   }, [activeAccounts, effectiveSourceFilter])
 
-  // Filtering (inline — no hooks; must be before useWindowVirtualizer)
-  // Rule: income transactions are never "pending" — they count as inherently "done".
-  const baseFiltered = txsView.filter((t) => {
-    if (filter === 'unreimbursed') return t.direction === 'expense' && !t.reimbursed
-    if (filter === 'reimbursed') return t.reimbursed || t.direction === 'income'
-    return true
-  })
-  const filtered = baseFiltered
+  const filtered = useMemo(() => txsView
+    .filter((t) => {
+      if (filter === 'unreimbursed') return t.direction === 'expense' && !t.reimbursed
+      if (filter === 'reimbursed') return t.reimbursed || t.direction === 'income'
+      return true
+    })
     .filter((t) => t.source === effectiveSourceFilter)
     .filter((t) => !filterCategory || t.category === filterCategory)
     .filter((t) => !filterProject || (t.project_id ?? '') === filterProject)
-    .filter((t) => !filterAccount || t.account_id === filterAccount)
+    .filter((t) => !filterAccount || t.account_id === filterAccount),
+    [txsView, filter, effectiveSourceFilter, filterCategory, filterProject, filterAccount]
+  )
 
   const allCategories = useMemo(
     () => Array.from(new Set(txsView.filter(t => t.source === effectiveSourceFilter).map(t => t.category).filter(Boolean))).sort() as string[],
@@ -165,8 +165,8 @@ export default function TransactionsPage() {
   )
   const mobileVirtualizer = useVirtualizer({
     count: filtered.length,
-    estimateSize: () => 112,
-    overscan: 5,
+    estimateSize: () => 156,
+    overscan: 8,
     getScrollElement,
     scrollMargin: mobileListRef.current?.offsetTop ?? 0,
   })
@@ -229,16 +229,47 @@ export default function TransactionsPage() {
     })
   }
 
+  const tabCounts = useMemo(() => ({
+    all: txsView.length,
+    unreimbursed: txsView.filter(t => t.direction === 'expense' && !t.reimbursed).length,
+    reimbursed: txsView.filter(t => t.reimbursed || t.direction === 'income').length,
+  }), [txsView])
   const tabs: { key: FilterTab; label: string; count?: number }[] = [
-    { key: 'all', label: tabLabelAll, count: txsView.length },
-    { key: 'unreimbursed', label: tabLabelPending, count: txsView.filter(t => t.direction === 'expense' && !t.reimbursed).length },
-    { key: 'reimbursed', label: tabLabelDone, count: txsView.filter(t => t.reimbursed || t.direction === 'income').length },
+    { key: 'all', label: tabLabelAll, count: tabCounts.all },
+    { key: 'unreimbursed', label: tabLabelPending, count: tabCounts.unreimbursed },
+    { key: 'reimbursed', label: tabLabelDone, count: tabCounts.reimbursed },
   ]
 
-  const incomeItems = filtered.filter(t => t.direction === 'income')
-  const expenseItems = filtered.filter(t => t.direction === 'expense')
-  const totalIncomeStr = formatAmount(sumInCNY(incomeItems, rates), 'CNY')
-  const totalExpenseStr = formatAmount(sumInCNY(expenseItems, rates), 'CNY')
+  const totals = useMemo(() => {
+    const incomeItems = filtered.filter(t => t.direction === 'income')
+    const expenseItems = filtered.filter(t => t.direction === 'expense')
+    return {
+      income: formatAmount(sumInCNY(incomeItems, rates), 'CNY'),
+      expense: formatAmount(sumInCNY(expenseItems, rates), 'CNY'),
+    }
+  }, [filtered, rates])
+  const totalIncomeStr = totals.income
+  const totalExpenseStr = totals.expense
+
+  if (isError) {
+    return (
+      <div className="transaction-table-container flex flex-col items-center justify-center py-16 gap-3 rounded-2xl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-12 h-12 text-rose-300 dark:text-rose-500/70"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></svg>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('transactions.error.title')}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('transactions.error.desc')}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+        >
+          {isFetching ? t('common.loading') : t('common.retry')}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -417,14 +448,14 @@ export default function TransactionsPage() {
                       }`}
                   >
                     {/* Row 1: category + amount */}
-                    <div className="flex items-start justify-between gap-2 mb-2.5">
-                      <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
+                    <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-1.5 min-w-0 pt-0.5 overflow-hidden">
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${tx.direction === 'income' ? 'bg-emerald-400' : 'bg-rose-400'
                           }`} />
-                        <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate">{categoryLabel(tx.category)}</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate min-w-0">{categoryLabel(tx.category)}</span>
                         {tx.project_id && (
-                          <span className="inline-flex items-center gap-1 text-xs font-mono bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 font-medium px-1.5 py-0.5 rounded shrink-0 border border-purple-100/50 dark:border-purple-500/30 shadow-sm">
-                            <FolderIcon /> {tx.project_id}
+                          <span className="inline-flex items-center gap-1 text-xs font-mono bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 font-medium px-1.5 py-0.5 rounded shrink-0 max-w-[96px] truncate border border-purple-100/50 dark:border-purple-500/30 shadow-sm" title={tx.project_id}>
+                            <FolderIcon /> <span className="truncate">{tx.project_id}</span>
                           </span>
                         )}
                       </div>
@@ -434,24 +465,24 @@ export default function TransactionsPage() {
                       </span>
                     </div>
                     {/* Row 2: date + source + account */}
-                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">{tx.occurred_at}</span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${tx.source === 'company' ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400' : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden mb-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums shrink-0">{splitTimestamp(tx.occurred_at).date}</span>
+                      <span className="text-[11px] text-gray-300 dark:text-gray-600 shrink-0">·</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums shrink-0">{splitTimestamp(tx.occurred_at).time}</span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${tx.source === 'company' ? 'bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400' : 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400'
                         }`}>
                         {tx.source === 'company' ? t('common.company') : t('common.personal')}
                       </span>
                       {tx.account_id && accountMap[tx.account_id] && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-medium px-1.5 py-0.5 rounded shrink-0 truncate max-w-[120px] border border-indigo-100/50 dark:border-indigo-500/30 shadow-sm" title={accountMap[tx.account_id]}>
-                          <BuildingIcon /> {accountMap[tx.account_id]}
+                        <span className="inline-flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-medium px-1.5 py-0.5 rounded min-w-0 truncate max-w-[108px] border border-indigo-100/50 dark:border-indigo-500/30 shadow-sm" title={accountMap[tx.account_id]}>
+                          <BuildingIcon /> <span className="truncate">{accountMap[tx.account_id]}</span>
                         </span>
                       )}
                     </div>
                     {/* Row 3: note */}
-                    {tx.note && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-2.5 truncate">{tx.note}</p>
-                    )}
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2.5 truncate min-h-4" title={tx.note || undefined}>{tx.note || ' '}</p>
                     {/* Row 4: action badges + copy ID */}
-                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                    <div className="flex items-center gap-2 flex-nowrap pt-1 overflow-hidden">
                       {tx.direction === 'expense' ? (
                         <>
                           <StatusBadge
@@ -478,11 +509,12 @@ export default function TransactionsPage() {
                           />
                         </>
                       ) : (
-                        <span className="text-xs text-gray-300 dark:text-gray-600 px-1">{incomeHint}</span>
+                        <span className="min-h-8 inline-flex items-center min-w-0 truncate text-xs text-gray-300 dark:text-gray-600 px-1">{incomeHint}</span>
                       )}
                       <button
                         onClick={() => copyId(tx.id)}
-                        className={`ml-auto font-mono text-xs rounded-lg px-2 py-1 transition-all ${copiedId === tx.id
+                        title={t('transactions.copyIdTooltip')}
+                        className={`ml-auto shrink-0 min-h-8 font-mono text-xs rounded-lg px-2.5 py-1 transition-all ${copiedId === tx.id
                           ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
                           }`}

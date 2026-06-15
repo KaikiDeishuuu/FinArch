@@ -106,4 +106,3 @@ func TestLedger_PostEntry_UnbalancedFails(t *testing.T) {
 		t.Fatalf("expected error for unbalanced entry, got nil")
 	}
 }
-

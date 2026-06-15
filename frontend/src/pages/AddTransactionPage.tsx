@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { createTransaction } from '../api/client'
@@ -8,7 +8,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
 import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from '../constants/currencies'
 
@@ -18,7 +18,7 @@ export default function AddTransactionPage() {
   const navigate = useNavigate()
   const refreshFinanceData = useRefreshFinanceData()
   const haptic = useHaptic()
-  const { data: accounts = [] } = useAccounts()
+  const { data: accounts = [], isLoading: accountsLoading, isError: accountsError, refetch: refetchAccounts, isFetching: accountsFetching } = useAccounts()
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -65,6 +65,11 @@ export default function AddTransactionPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
+    if (accountsUnavailable) {
+      haptic.error()
+      setError(accountsError ? t('addTransaction.accountLoad.error') : t('addTransaction.accountLoad.empty'))
+      return
+    }
     const amount = parseFloat(form.amount_yuan)
     if (isNaN(amount) || amount <= 0) {
       haptic.error()
@@ -103,6 +108,7 @@ export default function AddTransactionPage() {
 
   const isExpense = form.direction === 'expense'
   const isPersonal = form.source === 'personal'
+  const accountsUnavailable = accountsLoading || accountsError || sourceAccounts.length === 0 || !form.account_id
 
   return (
     <div className="max-w-3xl pb-8">
@@ -118,16 +124,16 @@ export default function AddTransactionPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-stretch">
 
         {/* Direction + Source */}
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-1">
           <div>
             <label className={labelClass}>{t('addTransaction.form.direction')}</label>
             <div className="grid grid-cols-2 gap-2">
               <button type="button"
                 onClick={() => set('direction', 'expense')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isExpense
                     ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400'
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-rose-200 dark:hover:border-rose-500/30 hover:text-rose-400'
@@ -138,7 +144,7 @@ export default function AddTransactionPage() {
               </button>
               <button type="button"
                 onClick={() => set('direction', 'income')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isExpense
                     ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-emerald-200 dark:hover:border-emerald-500/30 hover:text-emerald-400'
@@ -155,7 +161,7 @@ export default function AddTransactionPage() {
             <div className="grid grid-cols-2 gap-2">
               <button type="button"
                 onClick={() => isWorkMode ? null : set('source', 'personal')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isPersonal
                     ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400'
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-amber-200 dark:hover:border-amber-500/30 hover:text-amber-400'
@@ -166,7 +172,7 @@ export default function AddTransactionPage() {
               </button>
               <button type="button"
                 onClick={() => isWorkMode && set('source', 'company')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
+                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isPersonal
                     ? 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400'
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-sky-200 dark:hover:border-sky-500/30 hover:text-sky-400'
@@ -179,9 +185,25 @@ export default function AddTransactionPage() {
           </div>
 
           {/* Account picker */}
-          {sourceAccounts.length > 0 && (
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.account')}</label>
+          <div>
+            <label className={labelClass}>{t('addTransaction.form.account')}</label>
+            {accountsLoading ? (
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3.5 py-2.5 text-sm text-gray-400 dark:text-gray-500">
+                {t('addTransaction.accountLoad.loading')}
+              </div>
+            ) : accountsError ? (
+              <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3.5 py-3 text-sm text-rose-700 dark:text-rose-400 space-y-2">
+                <p>{t('addTransaction.accountLoad.error')}</p>
+                <button
+                  type="button"
+                  onClick={() => refetchAccounts()}
+                  disabled={accountsFetching}
+                  className="text-xs font-semibold underline underline-offset-2 disabled:opacity-50"
+                >
+                  {accountsFetching ? t('common.loading') : t('common.retry')}
+                </button>
+              </div>
+            ) : sourceAccounts.length > 0 ? (
               <Select
                 value={form.account_id}
                 onChange={(v) => set('account_id', v)}
@@ -191,12 +213,19 @@ export default function AddTransactionPage() {
                   label: `${a.name}（${t('common.balance')} ¥${a.balance_yuan.toFixed(2)}）`,
                 }))}
               />
-            </div>
-          )}
+            ) : (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-3 text-sm text-amber-700 dark:text-amber-400 space-y-2">
+                <p>{t('addTransaction.accountLoad.empty')}</p>
+                <Link to="/settings" className="inline-flex text-xs font-semibold underline underline-offset-2">
+                  {t('addTransaction.accountLoad.settingsLink')}
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Amount */}
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm flex flex-col justify-between order-2">
           <label className={labelClass}>{t('addTransaction.form.amount')}</label>
           <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 dark:border-rose-500/30 focus-within:border-red-400 dark:focus-within:border-rose-400' : 'border-green-200 dark:border-emerald-500/30 focus-within:border-green-400 dark:focus-within:border-emerald-400'}`}>
             <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -231,17 +260,17 @@ export default function AddTransactionPage() {
         </div>
 
         {/* Category */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
+        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm order-3">
           <label className={labelClass}>{t('addTransaction.form.category')}</label>
-          <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2">
+          <div className="grid grid-cols-2 min-[380px]:grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2.5">
             {CATEGORY_KEYS.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => { set('category', c); setCustomCat('') }}
-                className={`flex items-center justify-center py-2.5 px-1 rounded-xl text-xs font-semibold border-2 transition-all ${
+                className={`min-h-11 flex items-center justify-center py-2.5 px-2 rounded-xl text-xs font-semibold border-2 transition-all ${
                   form.category === c
-                    ? 'bg-violet-50 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/30 text-violet-700 dark:text-violet-400'
+                    ? 'bg-violet-50 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/30 text-violet-700 dark:text-violet-400 shadow-sm shadow-violet-100/70 dark:shadow-none ring-1 ring-violet-100 dark:ring-violet-500/20'
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-violet-200 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 hover:text-violet-700 dark:hover:text-violet-400'
                 }`}
               >
@@ -271,7 +300,7 @@ export default function AddTransactionPage() {
         </div>
 
         {/* Project + Note */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
+        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-4">
           <div>
             <label className={labelClass}>
               {t('addTransaction.form.project')} <span className="text-gray-300 dark:text-gray-600 font-normal normal-case tracking-normal">{t('addTransaction.form.optional')}</span>
@@ -299,18 +328,18 @@ export default function AddTransactionPage() {
         </div>
 
         {/* Error + Actions */}
-        <div className="md:col-span-2 space-y-3">
+        <div className="md:col-span-2 space-y-3 order-5">
           {error && (
             <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
               <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
               {error}
             </div>
           )}
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 rounded-2xl bg-white/80 dark:bg-[hsl(260,15%,11%)]/80 border border-gray-100/80 dark:border-gray-800/50 p-3 shadow-sm">
             <button
               type="submit"
-              disabled={loading || success}
-              className={`flex-1 font-semibold rounded-xl py-3 text-sm transition-all disabled:opacity-50 ${
+              disabled={loading || success || accountsUnavailable}
+              className={`flex-1 font-semibold rounded-xl py-3.5 text-sm transition-all disabled:opacity-50 ${
                 isExpense
                   ? 'bg-rose-500 hover:bg-rose-600 text-white'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -321,7 +350,7 @@ export default function AddTransactionPage() {
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="px-5 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 font-medium transition-all"
+              className="px-5 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 font-medium transition-all"
             >
               {t('common.cancel')}
             </button>

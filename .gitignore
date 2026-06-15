@@ -10,9 +10,11 @@
 /finarch
 *.exe
 
-# Frontend build & deps
+# Frontend build, deps & test artifacts
 frontend/node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 
 # Environment secrets
 .env

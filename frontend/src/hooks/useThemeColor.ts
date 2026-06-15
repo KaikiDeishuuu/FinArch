@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useTheme } from '../contexts/ThemeContext'
+import { useTheme } from '../hooks/useTheme'
 
 /**
  * Temporarily override the <meta name="theme-color"> value while the

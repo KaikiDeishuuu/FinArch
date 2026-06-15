@@ -1,9 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import { useTheme } from '../contexts/ThemeContext'
+import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import { useTranslation } from 'react-i18next'
 import { PageTransition } from '../motion'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 import { LogoMark, LogoBars, BrandDivider } from './Brand'
 import ModeSwitcher from './ModeSwitcher'
 import MobileModeMagneticFab from './MobileModeMagneticFab'
@@ -38,6 +38,14 @@ const IconChart = () => (
   </svg>
 )
 
+const IconBudget = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+    <path d="M4 19V5a2 2 0 012-2h12a2 2 0 012 2v14" />
+    <path d="M8 7h8M8 11h8M8 15h3" />
+    <path d="M16 15h4v4h-4z" />
+  </svg>
+)
+
 const IconExchange = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
     <path d="M4 7h13" />
@@ -67,6 +75,7 @@ const NAV_ITEMS = [
   { to: '/add', labelKey: 'nav.add', Icon: IconPlus, isPrimary: true },
   { to: '/match', labelKey: 'nav.match', Icon: IconMatch },
   { to: '/stats', labelKey: 'nav.stats', Icon: IconChart },
+  { to: '/budgets', labelKey: 'nav.budgets', Icon: IconBudget },
   { to: '/exchange', labelKey: 'nav.exchange', Icon: IconExchange },
   { to: '/settings', labelKey: 'nav.settings', Icon: IconSettings },
 ]
@@ -101,6 +110,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isDark = resolved === 'dark'
   const { isWorkMode } = useMode()
   const navItems = NAV_ITEMS
+  const mobileNavItems = NAV_ITEMS.filter((item) => !['/budgets', '/exchange', '/settings'].includes(item.to))
+  const mobileTopItems = NAV_ITEMS.filter((item) => ['/budgets', '/exchange', '/settings'].includes(item.to))
 
   return (
     <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>
@@ -196,6 +207,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
+              {mobileTopItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  title={t(item.labelKey)}
+                  aria-label={t(item.labelKey)}
+                  className={({ isActive }) =>
+                    `h-8 w-8 rounded-xl border flex items-center justify-center transition-colors ${isActive
+                      ? 'border-violet-200 dark:border-violet-500/40 bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-300'
+                      : 'border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-white/[0.03] text-gray-500 dark:text-gray-400'
+                    }`
+                  }
+                >
+                  <item.Icon />
+                </NavLink>
+              ))}
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
                 {initial}
               </div>
@@ -251,13 +278,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-t border-gray-100/80 dark:border-gray-800/60 flex items-end">
-        {navItems.map((item) => {
+        {mobileNavItems.map((item) => {
           if (item.isPrimary) {
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                className="flex-1 flex flex-col items-center pb-2 pt-1 -mt-5"
+                className="flex-1 flex flex-col items-center pb-2.5 pt-1 -mt-5"
               >
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-violet-400/40 dark:shadow-violet-900/40 active:scale-95 transition-transform">
                   <item.Icon />
@@ -272,7 +299,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
+                `flex-1 min-h-[4.25rem] flex flex-col items-center justify-center py-2.5 gap-1 transition-colors ${isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
                 }`
               }
             >
@@ -281,7 +308,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-violet-50 dark:bg-violet-500/15' : ''}`}>
                     <item.Icon />
                   </div>
-                  <span className={`text-[10px] font-medium ${isActive ? 'text-violet-600 dark:text-violet-400' : ''}`}>{t(item.labelKey)}</span>
+                  <span className={`text-[11px] font-semibold leading-none ${isActive ? 'text-violet-600 dark:text-violet-400' : ''}`}>{t(item.labelKey)}</span>
                 </>
               )}
             </NavLink>

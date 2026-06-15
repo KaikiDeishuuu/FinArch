@@ -36,9 +36,9 @@ export function useRestoreBackup(
       console.log("Restore response", result);
       await onRestoreSuccess(result);
       return { status: "restored" as const, result };
-    } catch (err: any) {
-      const code =
-        err?.response?.data?.error?.code ?? err?.response?.data?.code;
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: { error?: { code?: string }; code?: string } } })?.response?.data;
+      const code = data?.error?.code ?? data?.code;
       if (code === "RESTORE_VERIFICATION_REQUIRED") {
         setVerification({
           open: true,

@@ -246,7 +246,7 @@ func (s *AuthService) ConfirmOldEmailForChange(ctx context.Context, token string
 	if err != nil {
 		return err
 	}
-	if err := s.emailSvc.SendEmailChange(newEmail, u.Username, newToken); err != nil {		
+	if err := s.emailSvc.SendEmailChange(newEmail, u.Username, newToken); err != nil {
 		return fmt.Errorf("邮件发送失败，请稍后重试")
 	}
 	return nil
@@ -357,6 +357,62 @@ func (s *AuthService) ConsumeBackupExportToken(ctx context.Context, userID, toke
 		_ = s.users.CreateAuditEvent(txCtx, userID, "backup_export_downloaded", "", "")
 		return nil
 	})
+}
+
+func (s *AuthService) RequestDisasterRecovery(ctx context.Context, userID, currentPassword string) (string, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return "", ErrUserNotFound
+	}
+	if err := auth.CheckPassword(u.PasswordHash, currentPassword); err != nil {
+		return "", ErrInvalidPassword
+	}
+	token, _, err := s.createActionToken(ctx, u.ID, ActionDisasterRecovery, "", 5*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("操作失败，请稍后重试")
+	}
+	_ = s.users.CreateAuditEvent(ctx, u.ID, "disaster_recovery_authorized", "", "")
+	return token, nil
+}
+
+func (s *AuthService) VerifyDisasterRecoveryToken(ctx context.Context, userID, token string) (model.ActionRequest, error) {
+	req, err := s.verifyAndLoadAction(ctx, token, ActionDisasterRecovery)
+	if err != nil {
+		return model.ActionRequest{}, err
+	}
+	if req.UserID != userID {
+		return model.ActionRequest{}, ErrNotAuthorized
+	}
+	return req, nil
+}
+
+func (s *AuthService) CompleteDisasterRecoveryToken(ctx context.Context, req model.ActionRequest, strict bool) error {
+	if req.JTI == "" || req.UserID == "" || req.Action != ActionDisasterRecovery {
+		return ErrInvalidToken
+	}
+	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		if _, err := s.users.ConsumeActionRequest(txCtx, req.JTI, time.Now()); err != nil {
+			if strict {
+				if errors.Is(err, auth.ErrTokenAlreadyUsed) {
+					return ErrAlreadyUsed
+				}
+				return fmt.Errorf("操作失败，请稍后重试")
+			}
+			if !errors.Is(err, auth.ErrTokenAlreadyUsed) {
+				return fmt.Errorf("操作失败，请稍后重试")
+			}
+		}
+		_ = s.users.CreateAuditEvent(txCtx, req.UserID, "disaster_recovery_executed", "", "")
+		return nil
+	})
+}
+
+func (s *AuthService) ConsumeDisasterRecoveryToken(ctx context.Context, userID, token string) error {
+	req, err := s.VerifyDisasterRecoveryToken(ctx, userID, token)
+	if err != nil {
+		return err
+	}
+	return s.CompleteDisasterRecoveryToken(ctx, req, true)
 }
 
 // RequestAccountDeletion sends an account-deletion confirmation email.

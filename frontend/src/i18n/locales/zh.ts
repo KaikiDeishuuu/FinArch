@@ -16,6 +16,8 @@ const zh = {
       back: '返回',
       submit: '提交',
       retry: '重试',
+      expand: '展开',
+      collapse: '收起',
       success: '操作成功',
       error: '操作失败',
       all: '全部',
@@ -73,6 +75,7 @@ const zh = {
       match: '匹配',
       stats: '统计',
       exchange: '汇率',
+      budgets: '预算',
       settings: '设置',
       subtitle: '收支 · 报销 · 统计',
       logout: '退出登录',
@@ -258,6 +261,27 @@ const zh = {
         },
       },
       addButton: '+ 添加',
+      insights: {
+        title: '本月概览',
+        subtitle: '根据当前模式下的交易自动汇总',
+        income: '本月收入',
+        expense: '本月支出',
+        net: '本月净结余',
+        topCategory: '最高支出类别',
+        noCategory: '暂无支出分类',
+      },
+      budgetCard: {
+        title: '预算进度',
+        subtitle: '跟踪本月支出节奏，避免月底超支',
+        emptyTitle: '尚未设置本月预算',
+        emptyDesc: '添加月度预算后，首页会显示剩余额度和风险提示。',
+        action: '管理预算',
+      },
+      recurringCard: {
+        title: '周期交易预告',
+        subtitle: '房租、工资、订阅等固定事项将在后续版本自动提醒。',
+        desc: '当前版本先提供预算与现金流视图，自动生成交易会在完成幂等与时区校验后上线。',
+      },
       featureNavTitle: '功能导航',
       workflowTitle: '使用流程',
       life: {
@@ -287,6 +311,48 @@ const zh = {
         companyDesc2: '设置来源为「公共账户」',
         companyStep3: '完成归档',
         companyDesc3: '关联项目与类别，自动归档',
+      },
+    },
+
+    // ── Budgets ──
+    budgets: {
+      title: '预算管理',
+      subtitle: '为本月总支出或重点类别设置预算上限。',
+      totalBudget: '总预算',
+      categoryScoped: '分类预算',
+      monthScoped: '月度总额',
+      planned: '预算',
+      actual: '已用',
+      remaining: '剩余',
+      overBy: '超出',
+      status: {
+        ok: '节奏正常',
+        warning: '接近上限',
+        over: '已超支',
+      },
+      form: {
+        createTitle: '添加预算',
+        editTitle: '编辑预算',
+        subtitle: '留空类别代表本月总预算；选择类别后只统计该类别支出。',
+        scope: '预算范围',
+        amount: '预算金额',
+      },
+      overview: {
+        title: '预算概览',
+        subtitle: '{{period}} 的预算执行情况',
+      },
+      empty: {
+        title: '暂无预算',
+        desc: '先添加一个总预算，之后可以为餐饮、交通等类别增加单独预算。',
+      },
+      errors: {
+        invalidAmount: '请输入有效的预算金额',
+      },
+      toast: {
+        created: '预算已创建',
+        updated: '预算已更新',
+        deleted: '预算已删除',
+        failed: '预算操作失败，请稍后重试',
       },
     },
 
@@ -365,6 +431,10 @@ const zh = {
           cancelProcessFirst: '请先取消整理状态，再取消上传',
         },
       },
+      error: {
+        title: '交易加载失败',
+        desc: '请检查网络或稍后重试。',
+      },
       toast: {
         deleted: '交易已删除',
         deleteError: '删除失败',
@@ -402,6 +472,12 @@ const zh = {
         incomeHint: '本笔收入将计入资金池',
         submit: '保存',
         submitting: '提交中…',
+      },
+      accountLoad: {
+        loading: '账户加载中…',
+        error: '账户加载失败，请重试',
+        empty: '当前模式下没有可用账户，请先在设置中创建账户。',
+        settingsLink: '前往设置管理账户',
       },
       toast: {
         success: '交易已添加',
@@ -549,6 +625,10 @@ const zh = {
         noProject: '(无项目)',
       },
       noData: '暂无数据',
+      error: {
+        title: '统计加载失败',
+        desc: '请检查网络或稍后重试。',
+      },
       other: '其他',
       reimbursed: '已报销抵扣',
       transactionUnit: '{{count}} 笔',

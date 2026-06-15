@@ -16,6 +16,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      attestations: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -35,7 +37,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
-            type=sha,prefix=sha-
+            type=sha,prefix=sha-,format=long
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -46,6 +48,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-to: type=inline
+          sbom: true
+          provenance: true
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.5
@@ -57,6 +61,12 @@ jobs:
           script: |
             cd ~/FinArch
             git pull origin main
+            if grep -q '^FINARCH_IMAGE_TAG=' .env; then
+              sed -i 's/^FINARCH_IMAGE_TAG=.*/FINARCH_IMAGE_TAG=sha-${{ github.sha }}/' .env
+            else
+              printf '\nFINARCH_IMAGE_TAG=sha-${{ github.sha }}\n' >> .env
+            fi
             docker compose pull api
+            docker compose run --rm init-permissions
             docker compose up -d api
             echo "✅ Deploy finished at $(date)"

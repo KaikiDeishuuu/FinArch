@@ -13,6 +13,15 @@ function fmtTotal(n: number) {
   return formatAmount(n, 'CNY')
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function exportTransactionsPDF(
   filtered: Transaction[],
   filterLabel: string,
@@ -23,6 +32,7 @@ export function exportTransactionsPDF(
 ) {
   const now = new Date()
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const e = escapeHtml
 
   // ── 按来源分组统计 ──
   const personal = filtered.filter(t => t.source !== 'company')
@@ -87,16 +97,16 @@ export function exportTransactionsPDF(
     const reimbursedAt = clampLifecycleTimestamp(t.reimbursed_at, t.created_at) ?? '—'
     return [
       '<tr class="tx-row">',
-      `<td>${t.occurred_at}</td>`,
-      `<td><span class="${dotClass}"></span>${categoryLabel(t.category)}</td>`,
-      `<td>${src}</td>`,
-      `<td class="note">${acctName}</td>`,
-      `<td>${t.project_id ?? '—'}</td>`,
-      `<td class="note">${t.note || '—'}<div class="lifecycle"><span>${i18n.t('exportPdf.reportedAt')} ${reportedAt}</span><span>${i18n.t('exportPdf.reimbursedAt')} ${reimbursedAt}</span></div></td>`,
-      `<td style="color:${amtColor};font-weight:700;text-align:right">${amount}</td>`,
-      `<td style="color:${uploadedColor};text-align:center">${uploaded}</td>`,
-      `<td style="color:${reimbursedColor};text-align:center">${reimbursed}</td>`,
-      `<td style="text-align:center"><span class="wf-chip ${workflow.className}">${workflow.text}</span></td>`,
+      `<td>${e(t.occurred_at)}</td>`,
+      `<td><span class="${dotClass}"></span>${e(categoryLabel(t.category))}</td>`,
+      `<td>${e(src)}</td>`,
+      `<td class="note">${e(acctName)}</td>`,
+      `<td>${e(t.project_id ?? '—')}</td>`,
+      `<td class="note">${e(t.note || '—')}<div class="lifecycle"><span>${e(i18n.t('exportPdf.reportedAt'))} ${e(reportedAt)}</span><span>${e(i18n.t('exportPdf.reimbursedAt'))} ${e(reimbursedAt)}</span></div></td>`,
+      `<td style="color:${amtColor};font-weight:700;text-align:right">${e(amount)}</td>`,
+      `<td style="color:${uploadedColor};text-align:center">${e(uploaded)}</td>`,
+      `<td style="color:${reimbursedColor};text-align:center">${e(reimbursed)}</td>`,
+      `<td style="text-align:center"><span class="wf-chip ${workflow.className}">${e(workflow.text)}</span></td>`,
       '</tr>',
     ].join('')
   }).join('')
@@ -106,7 +116,7 @@ export function exportTransactionsPDF(
     `<html lang="${i18n.language === 'en' ? 'en' : 'zh-CN'}">`,
     '<head>',
     '<meta charset="UTF-8">',
-    `<title>${i18n.t('exportPdf.title')} ${dateStr}</title>`,
+    `<title>${e(i18n.t('exportPdf.title'))} ${e(dateStr)}</title>`,
     '<style>',
     '* { box-sizing: border-box; margin: 0; padding: 0; }',
     'body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 24px 32px; }',
@@ -176,12 +186,12 @@ export function exportTransactionsPDF(
   function summaryRow(label: string, cls: string, s: { count: number; inc: number; exp: number; reimb: number; net: number }) {
     return [
       `<tr class="${cls}">`,
-      `  <td>${label}</td>`,
-      `  <td class="count">${s.count} ${i18n.t('exportPdf.unit')}</td>`,
-      `  <td class="income">${fmtTotal(s.inc)}</td>`,
-      `  <td class="expense">${fmtTotal(s.exp)}</td>`,
-      `  <td class="reimb">+${fmtTotal(s.reimb)}</td>`,
-      `  <td style="color:${netStyle(s.net)}">${netFmt(s.net)}</td>`,
+      `  <td>${e(label)}</td>`,
+      `  <td class="count">${e(s.count)} ${e(i18n.t('exportPdf.unit'))}</td>`,
+      `  <td class="income">${e(fmtTotal(s.inc))}</td>`,
+      `  <td class="expense">${e(fmtTotal(s.exp))}</td>`,
+      `  <td class="reimb">+${e(fmtTotal(s.reimb))}</td>`,
+      `  <td style="color:${netStyle(s.net)}">${e(netFmt(s.net))}</td>`,
       '</tr>',
     ].join('')
   }
@@ -197,18 +207,18 @@ export function exportTransactionsPDF(
     '    <rect x="336" y="96"  width="112" height="320" rx="24" fill="#34d399"/>',
     '  </svg>',
     '  <div>',
-    `    <h1>${i18n.t('exportPdf.systemTitle')}</h1>`,
-    `    <p>${i18n.t('exportPdf.filter')}：${filterLabel} &nbsp;|&nbsp; ${i18n.t('exportPdf.exportDate')}：${dateStr}</p>`,
+    `    <h1>${e(i18n.t('exportPdf.systemTitle'))}</h1>`,
+    `    <p>${e(i18n.t('exportPdf.filter'))}：${e(filterLabel)} &nbsp;|&nbsp; ${e(i18n.t('exportPdf.exportDate'))}：${e(dateStr)}</p>`,
     '  </div>',
     '  </div>',
     '  <div class="header-right">',
-    `    <div class="user-name">${user?.username ?? '—'}</div>`,
-    `    <div class="user-detail">${user?.email ?? ''}</div>`,
+    `    <div class="user-name">${e(user?.username ?? '—')}</div>`,
+    `    <div class="user-detail">${e(user?.email ?? '')}</div>`,
     '  </div>',
     '</div>',
     '<div class="summary">',
     '  <table class="summary-table">',
-    `    <thead><tr><th></th><th>${i18n.t('exportPdf.recordCount')}</th><th>${i18n.t('exportPdf.incomeTotal')}</th><th>${i18n.t('exportPdf.expenseTotal')}</th><th>${reimbColHeader}</th><th>${i18n.t('exportPdf.netTotal')}</th></tr></thead>`,
+    `    <thead><tr><th></th><th>${e(i18n.t('exportPdf.recordCount'))}</th><th>${e(i18n.t('exportPdf.incomeTotal'))}</th><th>${e(i18n.t('exportPdf.expenseTotal'))}</th><th>${e(reimbColHeader)}</th><th>${e(i18n.t('exportPdf.netTotal'))}</th></tr></thead>`,
     '    <tbody>',
     summaryRow(i18n.t('exportPdf.allLabel'), 'row-all', allStats),
     summaryRow(i18n.t('exportPdf.personalLabel'), 'row-personal', pStats),
@@ -216,22 +226,22 @@ export function exportTransactionsPDF(
     '    </tbody>',
     '  </table>',
     '  <div class="status-note">',
-    `    <span class="status-pill pending">${i18n.t('exportPdf.workflowLegend.pending')}</span>`,
-    `    <span class="status-pill review">${i18n.t('exportPdf.workflowLegend.review')}</span>`,
-    `    <span class="status-pill done">${i18n.t('exportPdf.workflowLegend.done')}</span>`,
+    `    <span class="status-pill pending">${e(i18n.t('exportPdf.workflowLegend.pending'))}</span>`,
+    `    <span class="status-pill review">${e(i18n.t('exportPdf.workflowLegend.review'))}</span>`,
+    `    <span class="status-pill done">${e(i18n.t('exportPdf.workflowLegend.done'))}</span>`,
     '  </div>',
     '</div>',
     '<table>',
     '  <thead>',
     '    <tr>',
-    '      <th>' + i18n.t('exportPdf.thDate') + '</th><th>' + i18n.t('exportPdf.thCategory') + '</th><th>' + i18n.t('exportPdf.thSource') + '</th><th>' + i18n.t('exportPdf.thAccount') + '</th><th>' + i18n.t('exportPdf.thProject') + '</th><th>' + i18n.t('exportPdf.thNote') + '</th><th>' + i18n.t('exportPdf.thAmount') + '</th><th>' + i18n.t('exportPdf.thUploaded') + '</th><th>' + thReimb + '</th><th>' + i18n.t('exportPdf.thWorkflow') + '</th>',
+    '      <th>' + e(i18n.t('exportPdf.thDate')) + '</th><th>' + e(i18n.t('exportPdf.thCategory')) + '</th><th>' + e(i18n.t('exportPdf.thSource')) + '</th><th>' + e(i18n.t('exportPdf.thAccount')) + '</th><th>' + e(i18n.t('exportPdf.thProject')) + '</th><th>' + e(i18n.t('exportPdf.thNote')) + '</th><th>' + e(i18n.t('exportPdf.thAmount')) + '</th><th>' + e(i18n.t('exportPdf.thUploaded')) + '</th><th>' + e(thReimb) + '</th><th>' + e(i18n.t('exportPdf.thWorkflow')) + '</th>',
     '    </tr>',
     '  </thead>',
     `  <tbody>${rows}</tbody>`,
     '</table>',
     '<div class="footer">',
-    `  <span>${i18n.t('exportPdf.footer')} · ${now.toLocaleString(i18n.language === 'en' ? 'en-US' : 'zh-CN')}</span>`,
-    `  <span>${i18n.t('exportPdf.totalRecords', { count: allStats.count })}</span>`,
+    `  <span>${e(i18n.t('exportPdf.footer'))} · ${e(now.toLocaleString(i18n.language === 'en' ? 'en-US' : 'zh-CN'))}</span>`,
+    `  <span>${e(i18n.t('exportPdf.totalRecords', { count: allStats.count }))}</span>`,
     '</div>',
     '</body>',
     '</html>',

@@ -1,14 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-
-export type AppMode = 'work' | 'life'
-
-interface ModeContextValue {
-  mode: AppMode
-  setMode: (mode: AppMode) => void
-  isWorkMode: boolean
-}
-
-const ModeContext = createContext<ModeContextValue | undefined>(undefined)
+import { useEffect, useMemo, useState } from 'react'
+import { ModeContext } from './modeContextCore'
+import type { AppMode, ModeContextValue } from './modeContextCore'
 const STORAGE_KEY = 'finarch_mode'
 
 export function ModeProvider({ children }: { children: React.ReactNode }) {
@@ -29,10 +21,4 @@ export function ModeProvider({ children }: { children: React.ReactNode }) {
   }), [mode])
 
   return <ModeContext.Provider value={value}>{children}</ModeContext.Provider>
-}
-
-export function useMode() {
-  const ctx = useContext(ModeContext)
-  if (!ctx) throw new Error('useMode must be used inside ModeProvider')
-  return ctx
 }

@@ -5,14 +5,14 @@ import {
 } from 'recharts'
 import { formatAmountCompact, formatAmount, formatAmountExact, toCNY } from '../utils/format'
 import CompactAmount from '../components/CompactAmount'
-import { useExchangeRates } from '../contexts/ExchangeRateContext'
+import { useExchangeRates } from '../hooks/useExchangeRates'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import Select from '../components/Select'
 import type { Account } from '../api/client'
 import { StaggerContainer, StaggerItem } from '../motion'
 import { categoryLabel } from '../utils/categoryLabel'
-import { useMode } from '../contexts/ModeContext'
+import { useMode } from '../hooks/useMode'
 import ResponsivePieCard from '../components/ResponsivePieCard'
 import { calculateWorkModeAdjustments } from '../utils/workModeStats'
 import { getModeChartPalette } from '../utils/chartPalette'
@@ -180,7 +180,7 @@ function MonthlyBarChart({
 
 export default function StatsPage() {
   const year = new Date().getFullYear()
-  const { data: transactions = [], isLoading: loading } = useTransactions()
+  const { data: transactions = [], isLoading: loading, isError, refetch, isFetching } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { data: accounts = [] } = useAccounts()
   const { t } = useTranslation()
@@ -224,71 +224,57 @@ export default function StatsPage() {
   const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
   const fmtShort = (n: number) => formatAmountCompact(n, 'CNY')
 
-  // Compute monthly stats for current year
-  const monthly = useMemo(() => {
-    const map = new Map<number, { month: number; income: number; expense: number; reimbursed: number }>()
-    for (const t of filteredBySource) {
-      if (!t.occurred_at.startsWith(String(year))) continue
-      const month = parseInt(t.occurred_at.substring(5, 7))
-      if (!map.has(month)) map.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
-      const entry = map.get(month)!
-      const cny = toCNY(t.amount_yuan, t.currency || 'CNY', rates)
-      if (t.direction === 'income') {
-        entry.income += cny
-      } else {
-        entry.expense += cny
-        if (t.reimbursed) entry.reimbursed += cny
+  const statsData = useMemo(() => {
+    const otherLabel = t('stats.other')
+    const monthlyMap = new Map<number, { month: number; income: number; expense: number; reimbursed: number }>()
+    const expenseCategoryMap = new Map<string, { total: number; count: number }>()
+    const incomeCategoryMap = new Map<string, { total: number; count: number }>()
+    const projectMap = new Map<string, { project_name: string; income: number; expense: number }>()
+
+    for (const tx of filteredBySource) {
+      const cny = toCNY(tx.amount_yuan, tx.currency || 'CNY', rates)
+      if (tx.occurred_at.startsWith(String(year))) {
+        const month = parseInt(tx.occurred_at.substring(5, 7))
+        if (!monthlyMap.has(month)) monthlyMap.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
+        const entry = monthlyMap.get(month)!
+        if (tx.direction === 'income') {
+          entry.income += cny
+        } else {
+          entry.expense += cny
+          if (tx.reimbursed) entry.reimbursed += cny
+        }
+      }
+
+      const category = tx.category || otherLabel
+      const categoryMap = tx.direction === 'income' ? incomeCategoryMap : expenseCategoryMap
+      if (!categoryMap.has(category)) categoryMap.set(category, { total: 0, count: 0 })
+      const categoryEntry = categoryMap.get(category)!
+      categoryEntry.total += cny
+      categoryEntry.count++
+
+      if (tx.project_id) {
+        if (!projectMap.has(tx.project_id)) projectMap.set(tx.project_id, { project_name: tx.project_id, income: 0, expense: 0 })
+        const projectEntry = projectMap.get(tx.project_id)!
+        if (tx.direction === 'income') projectEntry.income += cny
+        else projectEntry.expense += cny
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.month - b.month)
-  }, [filteredBySource, rates, year])
 
-  // Compute category stats (all-time expense)
-  const categories = useMemo(() => {
-    const otherLabel = t('stats.other')
-    const map = new Map<string, { total: number; count: number }>()
-    for (const t of filteredBySource) {
-      if (t.direction !== 'expense') continue
-      const cat = t.category || otherLabel
-      if (!map.has(cat)) map.set(cat, { total: 0, count: 0 })
-      const entry = map.get(cat)!
-      entry.total += toCNY(t.amount_yuan, t.currency || 'CNY', rates)
-      entry.count++
-    }
-    return Array.from(map.entries())
-      .map(([category, v]) => ({ category: categoryLabel(category), total: v.total, count: v.count }))
+    const mapCategories = (map: Map<string, { total: number; count: number }>) => Array.from(map.entries())
+      .map(([category, value]) => ({ category: categoryLabel(category), total: value.total, count: value.count }))
       .sort((a, b) => b.total - a.total)
-  }, [filteredBySource, rates, t])
 
-  const incomeCategories = useMemo(() => {
-    const otherLabel = t('stats.other')
-    const map = new Map<string, { total: number; count: number }>()
-    for (const t of filteredBySource) {
-      if (t.direction !== 'income') continue
-      const cat = t.category || otherLabel
-      if (!map.has(cat)) map.set(cat, { total: 0, count: 0 })
-      const entry = map.get(cat)!
-      entry.total += toCNY(t.amount_yuan, t.currency || 'CNY', rates)
-      entry.count++
+    return {
+      monthly: Array.from(monthlyMap.values()).sort((a, b) => a.month - b.month),
+      categories: mapCategories(expenseCategoryMap),
+      incomeCategories: mapCategories(incomeCategoryMap),
+      projects: Array.from(projectMap.entries())
+        .map(([project_id, value]) => ({ project_id, project_name: value.project_name, income: value.income, expense: value.expense, net: value.income - value.expense }))
+        .sort((a, b) => a.project_id.localeCompare(b.project_id)),
     }
-    return Array.from(map.entries()).map(([category, v]) => ({ category: categoryLabel(category), total: v.total, count: v.count })).sort((a, b) => b.total - a.total)
-  }, [filteredBySource, rates, t])
+  }, [filteredBySource, rates, t, year])
 
-  // Compute project stats (all-time)
-  const projects = useMemo(() => {
-    const map = new Map<string, { project_name: string; income: number; expense: number }>()
-    for (const t of filteredBySource) {
-      if (!t.project_id) continue
-      if (!map.has(t.project_id)) map.set(t.project_id, { project_name: t.project_id, income: 0, expense: 0 })
-      const entry = map.get(t.project_id)!
-      const cny = toCNY(t.amount_yuan, t.currency || 'CNY', rates)
-      if (t.direction === 'income') entry.income += cny
-      else entry.expense += cny
-    }
-    return Array.from(map.entries())
-      .map(([project_id, v]) => ({ project_id, project_name: v.project_name, income: v.income, expense: v.expense, net: v.income - v.expense }))
-      .sort((a, b) => a.project_id.localeCompare(b.project_id))
-  }, [filteredBySource, rates])
+  const { monthly, categories, incomeCategories, projects } = statsData
 
   const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
   const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
@@ -306,22 +292,42 @@ export default function StatsPage() {
     )
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 rounded-2xl bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100 dark:border-gray-800/50">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-12 h-12 text-rose-300 dark:text-rose-500/70"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></svg>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('stats.error.title')}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('stats.error.desc')}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+        >
+          {isFetching ? t('common.loading') : t('common.retry')}
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+    <div className="space-y-5 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('stats.title')}</h1>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stats.subtitle', { year })}</p>
         </div>
         {!ratesLoading && (
           rateDate
-            ? <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium mt-1">{t('stats.rateLabel.live')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-            : <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium mt-1">{t('stats.rateLabel.fallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
+            ? <span className="w-fit max-w-full text-[10px] px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium sm:mt-1 truncate">{t('stats.rateLabel.live')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+            : <span className="w-fit max-w-full text-[10px] px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium sm:mt-1 truncate">{t('stats.rateLabel.fallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
         )}
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="rounded-2xl bg-white/70 dark:bg-[hsl(260,15%,11%)]/70 border border-gray-100/80 dark:border-gray-800/50 p-3 flex flex-wrap items-center gap-2 shadow-sm md:bg-transparent md:dark:bg-transparent md:border-0 md:p-0 md:shadow-none">
         {/* Source filter */}
         <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
           {isWorkMode ? t('common.company') : t('common.personal')}
@@ -329,7 +335,7 @@ export default function StatsPage() {
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
-          <div className="w-fit min-w-[6.5rem]">
+          <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
             <Select
               value={filterAccount}
               onChange={setFilterAccount}
@@ -346,7 +352,7 @@ export default function StatsPage() {
 
         {/* Category filter */}
         {allCategories.length > 0 && (
-          <div className="w-fit min-w-[6.5rem]">
+          <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
             <Select
               value={filterCategory}
               onChange={setFilterCategory}
@@ -363,7 +369,7 @@ export default function StatsPage() {
 
         {/* Project filter */}
         {allProjects.length > 0 && (
-          <div className="w-fit min-w-[6.5rem]">
+          <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
             <Select
               value={filterProject}
               onChange={setFilterProject}
@@ -390,7 +396,7 @@ export default function StatsPage() {
       </div>
 
       {/* Summary cards — Premium: flat, clean */}
-      <StaggerContainer className="grid grid-cols-3 gap-3">
+      <StaggerContainer className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2.5 md:gap-3">
         <StaggerItem>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
             <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
@@ -420,8 +426,8 @@ export default function StatsPage() {
       <AccountBalanceChart accounts={activeAccounts} />
 
       {/* Monthly bar chart — Premium */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-5">
           <div>
             <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.monthlyTitle', { year })}</h2>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('stats.chart.monthlySubtitle')}</p>
@@ -444,7 +450,7 @@ export default function StatsPage() {
 
       {/* Income vs expense overview pie */}
       {monthly.length > 0 && totalIncome + totalExpense > 0 && (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
           <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.pieTitle')}</h2>
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0">
@@ -509,14 +515,14 @@ export default function StatsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <ResponsivePieCard title={t('stats.chart.categoryTitle')} rows={categories} formatFn={fmt} />
-        <ResponsivePieCard title={t('stats.chart.incomeCategoryTitle')} rows={incomeCategories} formatFn={fmt} />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5">
+        <ResponsivePieCard title={t('stats.chart.categoryTitle')} rows={categories} formatFn={fmt} colors={palette.categories} />
+        <ResponsivePieCard title={t('stats.chart.incomeCategoryTitle')} rows={incomeCategories} formatFn={fmt} colors={palette.categories} />
       </div>
 
       {/* Project breakdown — Premium */}
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between">
+        <div className="px-4 md:px-5 py-4 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between gap-3">
           <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.projectTitle')}</h2>
           <span className="text-xs text-gray-400 dark:text-gray-500">{t('stats.projectCount', { count: projects.length })}</span>
         </div>
@@ -527,30 +533,30 @@ export default function StatsPage() {
             <table className="w-full text-sm min-w-[320px]">
               <thead>
                 <tr className="bg-gray-50/80 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100 dark:border-gray-800/50">
-                  <th className="px-5 py-3 text-left font-semibold">{t('stats.project.name')}</th>
-                  <th className="px-5 py-3 text-right font-semibold">{t('stats.project.income')}</th>
-                  <th className="px-5 py-3 text-right font-semibold">{t('stats.project.expense')}</th>
-                  <th className="px-5 py-3 text-right font-semibold">{t('stats.project.net')}</th>
+                  <th className="px-4 md:px-5 py-3 text-left font-semibold">{t('stats.project.name')}</th>
+                  <th className="px-4 md:px-5 py-3 text-right font-semibold">{t('stats.project.income')}</th>
+                  <th className="px-4 md:px-5 py-3 text-right font-semibold">{t('stats.project.expense')}</th>
+                  <th className="px-4 md:px-5 py-3 text-right font-semibold">{t('stats.project.net')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
                 {projects.map((p) => (
                   <tr key={p.project_id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="px-5 py-3.5">
+                    <td className="px-4 md:px-5 py-3.5">
                       <p className="font-medium text-gray-700 dark:text-gray-300">{p.project_id}</p>
                       {p.project_name && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.project_name}</p>}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 md:px-5 py-3.5 text-right">
                       <span className="text-indigo-600 font-medium tabular-nums whitespace-nowrap">
                         <CompactAmount compact={fmtShort(p.income)} exact={fmtExact(p.income)} />
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 md:px-5 py-3.5 text-right">
                       <span className="text-rose-500 font-medium tabular-nums whitespace-nowrap">
                         <CompactAmount compact={fmtShort(p.expense)} exact={fmtExact(p.expense)} />
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-4 md:px-5 py-3.5 text-right">
                       <span className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs ${p.net >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
                         }`}>
                         <CompactAmount compact={fmtShort(p.net)} exact={fmtExact(p.net)} prefix={p.net >= 0 ? '+' : ''} />

@@ -89,11 +89,14 @@ export default function PwaUpdatePrompt() {
 
   useEffect(() => {
     if (!needRefresh) return
-    maybeShowPrompt()
+    const id = window.setTimeout(maybeShowPrompt, 0)
+    return () => window.clearTimeout(id)
   }, [needRefresh, maybeShowPrompt])
 
   useEffect(() => {
-    if (registrationRef.current?.waiting) maybeShowPrompt()
+    if (!registrationRef.current?.waiting) return
+    const id = window.setTimeout(maybeShowPrompt, 0)
+    return () => window.clearTimeout(id)
   }, [maybeShowPrompt])
 
   const doUpdate = useCallback(() => {

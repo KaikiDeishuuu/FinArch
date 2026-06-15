@@ -16,6 +16,8 @@ const en = {
       back: 'Back',
       submit: 'Submit',
       retry: 'Retry',
+      expand: 'Expand',
+      collapse: 'Collapse',
       success: 'Success',
       error: 'Error',
       all: 'All',
@@ -73,6 +75,7 @@ const en = {
       match: 'Match',
       stats: 'Stats',
       exchange: 'Exchange',
+      budgets: 'Budgets',
       settings: 'Settings',
       subtitle: 'Finance · Reimburse · Stats',
       logout: 'Log out',
@@ -258,6 +261,27 @@ const en = {
         },
       },
       addButton: '+ Add',
+      insights: {
+        title: 'This Month',
+        subtitle: 'Auto-summarized from transactions in the current mode',
+        income: 'Monthly Income',
+        expense: 'Monthly Expense',
+        net: 'Monthly Net',
+        topCategory: 'Top Spend Category',
+        noCategory: 'No expense category yet',
+      },
+      budgetCard: {
+        title: 'Budget Progress',
+        subtitle: 'Track this month’s spending pace before month-end',
+        emptyTitle: 'No budget for this month',
+        emptyDesc: 'Add a monthly budget to see remaining allowance and risk hints here.',
+        action: 'Manage Budgets',
+      },
+      recurringCard: {
+        title: 'Recurring Preview',
+        subtitle: 'Rent, salary, subscriptions, and fixed items will get reminders in a future release.',
+        desc: 'This version ships budget and cash-flow visibility first; automatic transaction generation will land after idempotency and timezone checks.',
+      },
       featureNavTitle: 'Features',
       workflowTitle: 'Workflow',
       life: {
@@ -287,6 +311,48 @@ const en = {
         companyDesc2: 'Set source to "Public Account"',
         companyStep3: 'Archive',
         companyDesc3: 'Link project & category, auto-archive',
+      },
+    },
+
+    // ── Budgets ──
+    budgets: {
+      title: 'Budgets',
+      subtitle: 'Set monthly spending limits for total spend or key categories.',
+      totalBudget: 'Total Budget',
+      categoryScoped: 'Category budget',
+      monthScoped: 'Monthly total',
+      planned: 'Planned',
+      actual: 'Actual',
+      remaining: 'Remaining',
+      overBy: 'Over by',
+      status: {
+        ok: 'On Track',
+        warning: 'Near Limit',
+        over: 'Over Budget',
+      },
+      form: {
+        createTitle: 'Add Budget',
+        editTitle: 'Edit Budget',
+        subtitle: 'Leave category empty for a monthly total; choose a category to track only that spend.',
+        scope: 'Scope',
+        amount: 'Budget Amount',
+      },
+      overview: {
+        title: 'Budget Overview',
+        subtitle: 'Execution for {{period}}',
+      },
+      empty: {
+        title: 'No budgets yet',
+        desc: 'Start with a total budget, then add category budgets for dining, transport, and more.',
+      },
+      errors: {
+        invalidAmount: 'Enter a valid budget amount',
+      },
+      toast: {
+        created: 'Budget created',
+        updated: 'Budget updated',
+        deleted: 'Budget deleted',
+        failed: 'Budget operation failed. Please try again.',
       },
     },
 
@@ -365,6 +431,10 @@ const en = {
           cancelProcessFirst: 'Clear review status before canceling upload',
         },
       },
+      error: {
+        title: 'Failed to load transactions',
+        desc: 'Check your connection or retry later.',
+      },
       toast: {
         deleted: 'Transaction deleted',
         deleteError: 'Delete failed',
@@ -402,6 +472,12 @@ const en = {
         incomeHint: 'This income will be added to the fund pool',
         submit: 'Save',
         submitting: 'Submitting…',
+      },
+      accountLoad: {
+        loading: 'Loading accounts…',
+        error: 'Failed to load accounts. Please retry.',
+        empty: 'No account is available in this mode. Create one in Settings first.',
+        settingsLink: 'Manage accounts in Settings',
       },
       toast: {
         success: 'Transaction added',
@@ -549,6 +625,10 @@ const en = {
         noProject: '(No project)',
       },
       noData: 'No data',
+      error: {
+        title: 'Failed to load statistics',
+        desc: 'Check your connection or retry later.',
+      },
       other: 'Other',
       reimbursed: 'Reimbursed Offset',
       transactionUnit: '{{count}} txns',
