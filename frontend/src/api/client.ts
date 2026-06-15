@@ -165,6 +165,7 @@ export async function updateNickname(nickname: string): Promise<void> {
 
 export interface AppConfig {
   turnstile_site_key: string
+  captcha_enabled?: boolean
   email_verification_required: boolean
 }
 

@@ -10,6 +10,10 @@ export type ApiErrorCode =
   | 'user_not_found'
   | 'resource_conflict'
   | 'email_not_verified'
+  | 'invalid_captcha'
+  | 'invalid_credentials'
+  | 'account_locked'
+  | 'login_failed'
   | 'internal_error'
   | 'unknown_error'
 
@@ -23,6 +27,10 @@ export const API_ERROR_MESSAGES: Record<ApiErrorCode, string> = {
   user_not_found: 'User not found.',
   resource_conflict: 'The request conflicts with existing data.',
   email_not_verified: 'Please verify your email before logging in.',
+  invalid_captcha: 'Captcha verification failed. Please try again.',
+  invalid_credentials: 'Invalid email or password.',
+  account_locked: 'Too many failed login attempts. Please try again later.',
+  login_failed: 'Login failed. Please try again later.',
   internal_error: 'Something went wrong. Please try again.',
   unknown_error: 'Something went wrong. Please try again.',
 }

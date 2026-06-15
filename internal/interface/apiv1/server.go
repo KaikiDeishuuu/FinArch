@@ -621,6 +621,12 @@ func mapDomainError(err error) (int, apiErrorPayload) {
 		return http.StatusConflict, apiErrorPayload{Code: "already_used", Message: "This action was already completed."}
 	case errors.Is(err, service.ErrInvalidPassword):
 		return http.StatusForbidden, apiErrorPayload{Code: "invalid_password", Message: "Incorrect password. Please try again."}
+	case errors.Is(err, service.ErrInvalidCredentials):
+		return http.StatusUnauthorized, apiErrorPayload{Code: "invalid_credentials", Message: "Invalid email or password."}
+	case errors.Is(err, service.ErrAccountLocked):
+		return http.StatusTooManyRequests, apiErrorPayload{Code: "account_locked", Message: "Too many failed login attempts. Please try again later."}
+	case errors.Is(err, service.ErrLoginFailed):
+		return http.StatusInternalServerError, apiErrorPayload{Code: "login_failed", Message: "Login failed. Please try again later."}
 	case errors.Is(err, service.ErrNotAuthorized):
 		return http.StatusUnauthorized, apiErrorPayload{Code: "not_authorized", Message: "You are not authorized to perform this action."}
 	case errors.Is(err, service.ErrUserNotFound):
@@ -685,6 +691,7 @@ func (s *Server) handleHealth(c *gin.Context) {
 func (s *Server) handleConfig(c *gin.Context) {
 	ok(c, gin.H{
 		"turnstile_site_key":          s.turnstileSiteKey,
+		"captcha_enabled":             s.captchaVerifier.Enabled(),
 		"email_verification_required": s.authSvc.EmailVerificationRequired(),
 	})
 }
