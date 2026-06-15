@@ -7,13 +7,16 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
 	"finarch/internal/infrastructure/db"
 	"finarch/internal/infrastructure/email"
+	"finarch/internal/infrastructure/ocr"
 	sqliterepo "finarch/internal/infrastructure/repository"
+	filestorage "finarch/internal/infrastructure/storage"
 	"finarch/internal/interface/apiv1"
 )
 
@@ -79,6 +82,8 @@ func main() {
 	userRepo := sqliterepo.NewSQLiteUserRepository(database)
 	tagRepo := sqliterepo.NewSQLiteTagRepository(database)
 	budgetRepo := sqliterepo.NewSQLiteBudgetRepository(database)
+	recurringRepo := sqliterepo.NewSQLiteRecurringTransactionRepository(database)
+	attachmentRepo := sqliterepo.NewSQLiteAttachmentRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
 
 	txSvc := service.NewTransactionService(txRepo, acctRepo, service.NewHTTPExchangeRateService())
@@ -87,9 +92,15 @@ func main() {
 	authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL, tm)
 	statsSvc := service.NewStatsService(database)
 	budgetSvc := service.NewBudgetService(budgetRepo)
+	recurringSvc := service.NewRecurringTransactionService(recurringRepo, txRepo, txSvc, tm, acctRepo)
+	attachmentStorage, err := filestorage.NewLocalAttachmentStorage(os.Getenv("FINARCH_ATTACHMENTS_DIR"))
+	if err != nil {
+		log.Fatalf("attachment storage: %v", err)
+	}
+	attachmentSvc := service.NewAttachmentService(attachmentRepo, txRepo, attachmentStorage, buildOCRProvider(), int64(envInt("FINARCH_ATTACHMENT_MAX_BYTES", int(service.DefaultAttachmentMaxBytes))), tm)
 	acctSvc := service.NewAccountService(acctRepo, txRepo, tm)
 
-	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, tm, txSvc, reimSvc, matchSvc, authSvc, statsSvc, budgetSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
+	srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, tm, txSvc, reimSvc, matchSvc, authSvc, statsSvc, budgetSvc, recurringSvc, attachmentSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 
 	// Background goroutine: purge unverified accounts older than 24 hours.
 	go func() {
@@ -113,6 +124,8 @@ func main() {
 			srv.CleanupStaleDevices()
 		}
 	}()
+
+	startRecurringScheduler(recurringSvc)
 
 	log.Printf("FinArch API server listening on %s", addr)
 	log.Fatal(srv.Run())
@@ -160,4 +173,44 @@ func envDuration(name string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func buildOCRProvider() service.OCRProvider {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("FINARCH_OCR_PROVIDER")))
+	if provider == "" || provider == "none" {
+		return ocr.NoneProvider{}
+	}
+	if provider == "paddle" {
+		timeout := envDuration("FINARCH_OCR_TIMEOUT", 45*time.Second)
+		return ocr.NewPaddleProvider(os.Getenv("FINARCH_OCR_URL"), os.Getenv("FINARCH_OCR_LANG"), timeout)
+	}
+	log.Printf("unknown FINARCH_OCR_PROVIDER=%q, OCR disabled", provider)
+	return ocr.NoneProvider{}
+}
+
+func startRecurringScheduler(recurringSvc *service.RecurringTransactionService) {
+	if recurringSvc == nil || strings.EqualFold(os.Getenv("FINARCH_RECURRING_AUTORUN"), "false") {
+		return
+	}
+	dryRun := strings.EqualFold(os.Getenv("FINARCH_RECURRING_DRY_RUN"), "true")
+	interval := envDuration("FINARCH_RECURRING_INTERVAL", 15*time.Minute)
+	run := func() {
+		res, err := recurringSvc.GenerateDue(context.Background(), time.Now(), envInt("FINARCH_RECURRING_BATCH_LIMIT", 100), dryRun)
+		if err != nil {
+			log.Printf("[recurring] generation failed: %v", err)
+			return
+		}
+		if res.Generated > 0 || res.Skipped > 0 || res.Failed > 0 {
+			log.Printf("[recurring] generated=%d skipped=%d failed=%d", res.Generated, res.Skipped, res.Failed)
+		}
+	}
+	go func() {
+		time.Sleep(10 * time.Second)
+		run()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			run()
+		}
+	}()
 }

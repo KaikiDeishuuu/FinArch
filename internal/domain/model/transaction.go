@@ -98,13 +98,15 @@ type Transaction struct {
 	Project   *string // denormalized project name
 
 	// ── Misc ──────────────────────────────────────────────────────────────────
-	Mode            Mode // 'work' | 'life'
-	Note            string
-	AttachmentKey   *string
-	Uploaded        bool
-	IdempotencyKey  *string
-	TxnDate         string // legacy 'YYYY-MM-DD' (backward compatible)
-	TransactionTime int64  // unix seconds (UTC)
+	Mode                    Mode // 'work' | 'life'
+	Note                    string
+	AttachmentKey           *string
+	Uploaded                bool
+	IdempotencyKey          *string
+	RecurringRuleID         *string
+	RecurringOccurrenceDate *string
+	TxnDate                 string // legacy 'YYYY-MM-DD' (backward compatible)
+	TransactionTime         int64  // unix seconds (UTC)
 
 	// ── Backward-compat (derived during scan) ─────────────────────────────────
 	Direction  Direction // mirrors TxType: income→income, expense→expense

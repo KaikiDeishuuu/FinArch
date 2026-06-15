@@ -3,7 +3,8 @@ import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { createTransaction } from '../api/client'
+import { createTransaction, linkAttachment } from '../api/client'
+import type { Attachment, OCRSuggestion } from '../api/client'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
 import Select from '../components/Select'
@@ -11,7 +12,17 @@ import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../hooks/useMode'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from '../constants/currencies'
+import AttachmentUploader from '../components/AttachmentUploader'
+import OcrReviewModal from '../components/OcrReviewModal'
 
+function currentLocalDateTime() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+function apiDateTime(value: string) {
+  return value ? `${value.replace('T', ' ')}:00` : currentLocalDateTime().replace('T', ' ') + ':00'
+}
 
 export default function AddTransactionPage() {
   const { t } = useTranslation()
@@ -24,6 +35,9 @@ export default function AddTransactionPage() {
   const [loading, setLoading] = useState(false)
 
   const [customCat, setCustomCat] = useState('')
+  const [occurredAt, setOccurredAt] = useState(currentLocalDateTime())
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
+  const [ocrSuggestion, setOcrSuggestion] = useState<OCRSuggestion | null>(null)
 
   const { mode, isWorkMode } = useMode()
   const [form, setForm] = useState({
@@ -78,20 +92,22 @@ export default function AddTransactionPage() {
     }
     setLoading(true)
     try {
-      const now = new Date()
-      const occurredAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-      await createTransaction({
+      const created = await createTransaction({
         ...form,
-        occurred_at: occurredAt,
+        occurred_at: apiDateTime(occurredAt),
         account_id: form.account_id || undefined,
         project_id: form.project_id.trim() || undefined,
         amount_yuan: amount,
         mode,
       })
+      if (pendingAttachments.length > 0) {
+        await Promise.all(pendingAttachments.map((attachment) => linkAttachment(attachment.id, created.id)))
+      }
       haptic.success()
       refreshFinanceData()
       toast.success(t('addTransaction.toast.success'), { description: `${CURRENCY_SYMBOLS[form.currency] ?? form.currency}${amount.toFixed(2)}` })
       setSuccess(true)
+      setPendingAttachments([])
       setTimeout(() => navigate('/transactions'), 1200)
     } catch (err: unknown) {
       haptic.error()
@@ -109,6 +125,22 @@ export default function AddTransactionPage() {
   const isExpense = form.direction === 'expense'
   const isPersonal = form.source === 'personal'
   const accountsUnavailable = accountsLoading || accountsError || sourceAccounts.length === 0 || !form.account_id
+
+  function applyOcrSuggestion(suggestion: OCRSuggestion) {
+    if (suggestion.amount_yuan && suggestion.amount_yuan > 0) set('amount_yuan', String(suggestion.amount_yuan))
+    if (suggestion.currency) set('currency', suggestion.currency)
+    if (suggestion.category) {
+      set('category', suggestion.category)
+      if (!CATEGORY_KEYS.includes(suggestion.category as typeof CATEGORY_KEYS[number])) setCustomCat(suggestion.category)
+    }
+    const noteParts = [suggestion.merchant, suggestion.invoice_number ? `${t('attachments.ocr.invoiceNo')}: ${suggestion.invoice_number}` : '', suggestion.note].filter(Boolean)
+    if (noteParts.length > 0) set('note', noteParts.join(' · '))
+    if (suggestion.occurred_at) {
+      const normalized = suggestion.occurred_at.replace(' ', 'T').slice(0, 16)
+      setOccurredAt(normalized)
+    }
+    setOcrSuggestion(null)
+  }
 
   return (
     <div className="max-w-3xl pb-8">
@@ -299,8 +331,40 @@ export default function AddTransactionPage() {
           </div>
         </div>
 
+        {/* Date/time */}
+        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm order-4">
+          <label className={labelClass}>{t('addTransaction.form.occurredAt')}</label>
+          <input
+            type="datetime-local"
+            className={inputClass}
+            value={occurredAt}
+            onChange={(e) => setOccurredAt(e.target.value)}
+          />
+        </div>
+
+        {/* Attachment + OCR */}
+        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-3 order-5">
+          <div>
+            <label className={labelClass}>{t('attachments.title')}</label>
+            <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">{t('attachments.addHint')}</p>
+            <AttachmentUploader
+              onUploaded={(attachment) => setPendingAttachments((prev) => [...prev, attachment])}
+              onSuggestion={setOcrSuggestion}
+            />
+            {pendingAttachments.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {pendingAttachments.map((attachment) => (
+                  <p key={attachment.id} className="text-xs text-emerald-600 dark:text-emerald-300">
+                    {t('attachments.pendingLink', { name: attachment.original_filename })}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Project + Note */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-4">
+        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-6">
           <div>
             <label className={labelClass}>
               {t('addTransaction.form.project')} <span className="text-gray-300 dark:text-gray-600 font-normal normal-case tracking-normal">{t('addTransaction.form.optional')}</span>
@@ -328,7 +392,7 @@ export default function AddTransactionPage() {
         </div>
 
         {/* Error + Actions */}
-        <div className="md:col-span-2 space-y-3 order-5">
+        <div className="md:col-span-2 space-y-3 order-7">
           {error && (
             <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
               <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
@@ -358,6 +422,7 @@ export default function AddTransactionPage() {
         </div>
 
       </form>
+      <OcrReviewModal suggestion={ocrSuggestion} onApply={applyOcrSuggestion} onClose={() => setOcrSuggestion(null)} />
     </div>
   )
 }

@@ -700,7 +700,7 @@ export default function SettingsPage() {
               {t('settings.restore.desc')}
             </p>
             <div className="space-y-3">
-              <input ref={fileInputRef} type="file" accept=".db"
+              <input ref={fileInputRef} type="file" accept=".db,.zip"
                 onChange={(e) => {
                   const f = e.target.files?.[0] ?? null
                   setRestoreFile(f); setRestoreConfirm(false)

@@ -2,8 +2,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { toggleReimbursed, toggleUploaded } from '../api/client'
-import type { Transaction, Account } from '../api/client'
+import { downloadAttachment, toggleReimbursed, toggleUploaded } from '../api/client'
+import type { Attachment, Transaction, Account } from '../api/client'
 import { StaggerContainer, StaggerItem, CardSkeleton, RowSkeleton } from '../motion'
 import Select from '../components/Select'
 import { useAuth } from '../hooks/useAuth'
@@ -16,6 +16,8 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../hooks/useMode'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
+import { useAttachmentMutations, useTransactionAttachments } from '../hooks/useAttachments'
+import AttachmentUploader from '../components/AttachmentUploader'
 import { clampLifecycleTimestamp } from '../utils/timestamp'
 
 type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
@@ -37,6 +39,73 @@ const TagIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 const BuildingIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><path d="M3 21h18" /><path d="M5 21V7l7-3v17" /><path d="M19 21V11l-7-2" /></svg>
 const FolderIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
 const ClockIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
+const PaperclipIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 1 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.49" /></svg>
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function AttachmentPanel({ transactionId }: { transactionId: string }) {
+  const { t } = useTranslation()
+  const { data: attachments = [], isLoading } = useTransactionAttachments(transactionId)
+  const mutations = useAttachmentMutations(transactionId)
+
+  async function removeAttachment(attachment: Attachment) {
+    try {
+      await mutations.remove.mutateAsync(attachment.id)
+      toast.success(t('attachments.toast.deleted'))
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || t('attachments.toast.failed'))
+    }
+  }
+
+  async function runOCR(attachment: Attachment) {
+    try {
+      const updated = await mutations.runOCR.mutateAsync(attachment.id)
+      if (updated.ocr_status === 'done') toast.success(t('attachments.ocr.done'))
+      else if (updated.ocr_status === 'unavailable') toast.message(t('attachments.ocr.unavailable'))
+      else if (updated.ocr_status === 'failed') toast.error(updated.ocr_error || t('attachments.ocr.failed'))
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || t('attachments.ocr.failed'))
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-500/20 dark:bg-violet-500/10">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">{t('attachments.title')}</p>
+        <span className="text-[10px] font-semibold text-violet-400">{attachments.length}</span>
+      </div>
+      <AttachmentUploader transactionId={transactionId} compact />
+      <div className="mt-3 space-y-2">
+        {isLoading ? (
+          <div className="h-10 animate-pulse rounded-lg bg-white/70 dark:bg-gray-800/60" />
+        ) : attachments.length === 0 ? (
+          <p className="text-xs text-violet-400 dark:text-violet-300/70">{t('attachments.empty')}</p>
+        ) : attachments.map((attachment) => (
+          <div key={attachment.id} className="rounded-lg bg-white px-3 py-2 text-xs shadow-sm dark:bg-gray-900/45">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-gray-700 dark:text-gray-200" title={attachment.original_filename}>{attachment.original_filename}</p>
+                <p className="mt-0.5 text-gray-400 dark:text-gray-500">{formatFileSize(attachment.size_bytes)} · {t(`attachments.ocr.status.${attachment.ocr_status}`)}</p>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <button type="button" onClick={() => downloadAttachment(attachment.id, attachment.original_filename)} className="rounded-md px-2 py-1 font-semibold text-violet-600 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10">{t('common.download')}</button>
+                <button type="button" onClick={() => runOCR(attachment)} disabled={mutations.runOCR.isPending} className="rounded-md px-2 py-1 font-semibold text-cyan-600 hover:bg-cyan-50 disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-500/10">{t('attachments.ocr.run')}</button>
+                <button type="button" onClick={() => removeAttachment(attachment)} disabled={mutations.remove.isPending} className="rounded-md px-2 py-1 font-semibold text-rose-500 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10">{t('common.delete')}</button>
+              </div>
+            </div>
+            {attachment.ocr_error && <p className="mt-1 text-rose-500 dark:text-rose-300">{attachment.ocr_error}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function StatusBadge({
   active, activeLabel, inactiveLabel, activeClass, inactiveClass,
@@ -83,6 +152,7 @@ export default function TransactionsPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingAction, setTogglingAction] = useState<{ id: string; type: 'uploaded' | 'reimbursed' } | null>(null)
   const [optimisticState, setOptimisticState] = useState<Record<string, { uploaded: boolean; reimbursed: boolean }>>({})
+  const [attachmentPanelId, setAttachmentPanelId] = useState<string | null>(null)
   const effectiveSourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
 
   const tabLabelAll = t('transactions.reimbursementTabs.all')
@@ -165,7 +235,7 @@ export default function TransactionsPage() {
   )
   const mobileVirtualizer = useVirtualizer({
     count: filtered.length,
-    estimateSize: () => 156,
+    estimateSize: () => 176,
     overscan: 8,
     getScrollElement,
     scrollMargin: mobileListRef.current?.offsetTop ?? 0,
@@ -512,9 +582,21 @@ export default function TransactionsPage() {
                         <span className="min-h-8 inline-flex items-center min-w-0 truncate text-xs text-gray-300 dark:text-gray-600 px-1">{incomeHint}</span>
                       )}
                       <button
+                        type="button"
+                        onClick={() => setAttachmentPanelId(attachmentPanelId === tx.id ? null : tx.id)}
+                        className={`ml-auto shrink-0 min-h-8 inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${attachmentPanelId === tx.id || tx.has_attachment
+                          ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300'
+                          : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                          }`}
+                        title={t('attachments.title')}
+                      >
+                        <PaperclipIcon />
+                        <span>{t('attachments.short')}</span>
+                      </button>
+                      <button
                         onClick={() => copyId(tx.id)}
                         title={t('transactions.copyIdTooltip')}
-                        className={`ml-auto shrink-0 min-h-8 font-mono text-xs rounded-lg px-2.5 py-1 transition-all ${copiedId === tx.id
+                        className={`shrink-0 min-h-8 font-mono text-xs rounded-lg px-2.5 py-1 transition-all ${copiedId === tx.id
                           ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
                           }`}
@@ -522,6 +604,7 @@ export default function TransactionsPage() {
                         {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
                       </button>
                     </div>
+                    {attachmentPanelId === tx.id && <AttachmentPanel transactionId={tx.id} />}
                   </div>
                 </div>
               )
@@ -548,10 +631,10 @@ export default function TransactionsPage() {
               const done = isExpense && tx.reimbursed && tx.uploaded
               const urgent = isExpense && !tx.reimbursed && !tx.uploaded
               return (
-                <article
-                  key={tx.id}
-                  className={`transaction-feed-row group ${done ? 'opacity-55' : ''}`}
-                >
+                <div key={tx.id} className="space-y-2">
+                  <article
+                    className={`transaction-feed-row group ${done ? 'opacity-55' : ''}`}
+                  >
                   <div className="min-w-0 flex flex-1 items-center gap-3">
                     <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${tx.direction === 'income' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'}`}>
                       <span className="text-sm">{tx.direction === 'income' ? '↗' : '↙'}</span>
@@ -613,19 +696,35 @@ export default function TransactionsPage() {
                     ) : (
                       <span className="text-[12px] text-gray-400 dark:text-gray-500">{incomeHint}</span>
                     )}
-                    <button
-                      onClick={() => copyId(tx.id)}
-                      title={t('transactions.copyIdTooltip')}
-                      className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-all ${copiedId === tx.id
-                        ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
-                        : 'text-gray-300 dark:text-gray-600 hover:text-violet-400 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10'
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setAttachmentPanelId(attachmentPanelId === tx.id ? null : tx.id)}
+                        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-all ${attachmentPanelId === tx.id || tx.has_attachment
+                          ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300'
+                          : 'text-gray-300 hover:bg-violet-50 hover:text-violet-400 dark:text-gray-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-400'
                         }`}
-                    >
-                      {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
-                    </button>
+                        title={t('attachments.title')}
+                      >
+                        <PaperclipIcon />
+                        {t('attachments.short')}
+                      </button>
+                      <button
+                        onClick={() => copyId(tx.id)}
+                        title={t('transactions.copyIdTooltip')}
+                        className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-all ${copiedId === tx.id
+                          ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
+                          : 'text-gray-300 dark:text-gray-600 hover:text-violet-400 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10'
+                          }`}
+                      >
+                        {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}
+                      </button>
+                    </div>
                   </div>
-                  {urgent && <span className="absolute left-3 top-3 h-2 w-2 rounded-full bg-amber-400" />}
-                </article>
+                    {urgent && <span className="absolute left-3 top-3 h-2 w-2 rounded-full bg-amber-400" />}
+                  </article>
+                  {attachmentPanelId === tx.id && <AttachmentPanel transactionId={tx.id} />}
+                </div>
               )
             })}
           </div>

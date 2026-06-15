@@ -80,6 +80,9 @@ var migrationV22SQL string
 //go:embed migration_v23.sql
 var migrationV23SQL string
 
+//go:embed migration_v24.sql
+var migrationV24SQL string
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	dsn = normalizeSQLiteDSN(dsn)
@@ -169,6 +172,7 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		{21, migrationV21SQL},
 		{22, migrationV22SQL},
 		{23, migrationV23SQL},
+		{24, migrationV24SQL},
 	}
 
 	for _, m := range migrations {

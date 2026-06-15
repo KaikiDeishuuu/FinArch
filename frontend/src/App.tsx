@@ -24,6 +24,7 @@ const loadAddTransactionPage = () => import('./pages/AddTransactionPage')
 const loadMatchPage = () => import('./pages/MatchPage')
 const loadStatsPage = () => import('./pages/StatsPage')
 const loadBudgetsPage = () => import('./pages/BudgetsPage')
+const loadRecurringPage = () => import('./pages/RecurringPage')
 const loadSettingsPage = () => import('./pages/SettingsPage')
 const loadExchangeRatePage = () => import('./pages/ExchangeRatePage')
 
@@ -41,6 +42,7 @@ const AddTransactionPage = lazy(loadAddTransactionPage)
 const MatchPage = lazy(loadMatchPage)
 const StatsPage = lazy(loadStatsPage)
 const BudgetsPage = lazy(loadBudgetsPage)
+const RecurringPage = lazy(loadRecurringPage)
 const SettingsPage = lazy(loadSettingsPage)
 const ExchangeRatePage = lazy(loadExchangeRatePage)
 
@@ -53,6 +55,7 @@ function ProtectedRoutes() {
       void loadAddTransactionPage()
       void loadStatsPage()
       void loadBudgetsPage()
+      void loadRecurringPage()
       void loadSettingsPage()
     }
     const idleWindow = window as Window & {
@@ -76,6 +79,7 @@ function ProtectedRoutes() {
         <Route path="/match" element={<MatchPage />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/budgets" element={<BudgetsPage />} />
+        <Route path="/recurring" element={<RecurringPage />} />
         <Route path="/exchange" element={<ExchangeRatePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

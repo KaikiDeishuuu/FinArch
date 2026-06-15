@@ -55,6 +55,15 @@ const IconExchange = () => (
   </svg>
 )
 
+const IconRepeat = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+    <path d="M17 1l4 4-4 4" />
+    <path d="M3 11V9a4 4 0 014-4h14" />
+    <path d="M7 23l-4-4 4-4" />
+    <path d="M21 13v2a4 4 0 01-4 4H3" />
+  </svg>
+)
+
 const IconSettings = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
     <circle cx="12" cy="12" r="3" />
@@ -76,6 +85,7 @@ const NAV_ITEMS = [
   { to: '/match', labelKey: 'nav.match', Icon: IconMatch },
   { to: '/stats', labelKey: 'nav.stats', Icon: IconChart },
   { to: '/budgets', labelKey: 'nav.budgets', Icon: IconBudget },
+  { to: '/recurring', labelKey: 'nav.recurring', Icon: IconRepeat },
   { to: '/exchange', labelKey: 'nav.exchange', Icon: IconExchange },
   { to: '/settings', labelKey: 'nav.settings', Icon: IconSettings },
 ]
@@ -110,8 +120,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isDark = resolved === 'dark'
   const { isWorkMode } = useMode()
   const navItems = NAV_ITEMS
-  const mobileNavItems = NAV_ITEMS.filter((item) => !['/budgets', '/exchange', '/settings'].includes(item.to))
-  const mobileTopItems = NAV_ITEMS.filter((item) => ['/budgets', '/exchange', '/settings'].includes(item.to))
+  const mobileNavItems = NAV_ITEMS.filter((item) => !['/budgets', '/recurring', '/exchange', '/settings'].includes(item.to))
+  const mobileTopItems = NAV_ITEMS.filter((item) => ['/budgets', '/recurring', '/exchange', '/settings'].includes(item.to))
 
   return (
     <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>

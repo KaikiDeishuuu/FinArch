@@ -12,6 +12,14 @@ type TransactionRepository interface {
 	Create(ctx context.Context, transaction model.Transaction) error
 	// GetByIDs loads transactions by IDs.
 	GetByIDs(ctx context.Context, ids []string) ([]model.Transaction, error)
+	// GetByIDForUser loads one transaction by ID and owner.
+	GetByIDForUser(ctx context.Context, id, userID string) (model.Transaction, error)
+	// GetByIdempotencyKey loads one transaction for an idempotency key.
+	GetByIdempotencyKey(ctx context.Context, userID, key string) (model.Transaction, error)
+	// SetAttachmentKey links the primary attachment key to a transaction.
+	SetAttachmentKey(ctx context.Context, transactionID, userID, key string) error
+	// ClearAttachmentKey removes the primary attachment key when it still matches the deleted attachment.
+	ClearAttachmentKey(ctx context.Context, transactionID, userID, key string) error
 	// ListByUser returns all transactions for a given user ordered by occurred_at desc.
 	ListByUser(ctx context.Context, userID string, mode model.Mode) ([]model.Transaction, error)
 	// ListUnreimbursedPersonalExpenses lists unreimbursed personal expenses for a user.

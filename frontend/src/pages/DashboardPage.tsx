@@ -15,6 +15,7 @@ import { useOnlineDevices } from '../hooks/useOnlineDevices'
 import { StaggerContainer, StaggerItem, AnimatedCard, CardSkeleton } from '../motion'
 import { useMode } from '../hooks/useMode'
 import { useBudgetSummary, currentBudgetMonth } from '../hooks/useBudgets'
+import { useRecurringRules } from '../hooks/useRecurringRules'
 import { EmptyState, FinanceCard, ProgressBar, SectionHeader } from '../components/FinancePrimitives'
 import { categoryLabel } from '../utils/categoryLabel'
 
@@ -145,6 +146,7 @@ export default function DashboardPage() {
   const { data: accounts = [] } = useAccounts()
   const budgetMonth = currentBudgetMonth()
   const { data: budgetSummary } = useBudgetSummary(budgetMonth)
+  const { data: recurringRules = [] } = useRecurringRules()
   const sourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
   const error = txError
     ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.error'))
@@ -333,6 +335,9 @@ export default function DashboardPage() {
 
   const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
   const featureCards = FEATURES.filter((f) => isWorkMode || f.to !== '/match')
+  const nextRecurringRule = recurringRules
+    .filter(rule => rule.status === 'active')
+    .sort((a, b) => (a.next_run_at || 0) - (b.next_run_at || 0))[0]
 
   return (
     <div className="space-y-6">
@@ -499,10 +504,23 @@ export default function DashboardPage() {
           )}
         </FinanceCard>
         <FinanceCard interactive>
-          <SectionHeader title={t('dashboard.recurringCard.title')} subtitle={t('dashboard.recurringCard.subtitle')} />
-          <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm leading-relaxed text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-            {t('dashboard.recurringCard.desc')}
-          </div>
+          <SectionHeader
+            title={t('dashboard.recurringCard.title')}
+            subtitle={t('dashboard.recurringCard.subtitle')}
+            action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>}
+          />
+          {recurringRules.length > 0 ? (
+            <div className="space-y-3">
+              <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm leading-relaxed text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
+                {nextRecurringRule
+                  ? t('dashboard.recurringCard.next', { name: nextRecurringRule.name, time: nextRecurringRule.next_occurred_at })
+                  : t('dashboard.recurringCard.desc')}
+              </div>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('dashboard.recurringCard.activeCount', { count: recurringRules.filter(rule => rule.status === 'active').length })}</p>
+            </div>
+          ) : (
+            <EmptyState title={t('dashboard.recurringCard.emptyTitle')} description={t('dashboard.recurringCard.emptyDesc')} action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>} />
+          )}
         </FinanceCard>
       </div>
 

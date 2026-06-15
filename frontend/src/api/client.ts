@@ -202,6 +202,10 @@ export interface Transaction {
   project_id: string | null
   reimbursed: boolean
   uploaded: boolean
+  attachment_key?: string | null
+  has_attachment?: boolean
+  recurring_rule_id?: string | null
+  recurring_occurrence_date?: string | null
 }
 
 export interface CreateTransactionRequest {
@@ -466,6 +470,222 @@ export async function deleteBudget(id: string): Promise<void> {
 export async function getBudgetSummary(mode: AppMode = 'work', period: string): Promise<BudgetSummary> {
   const { data } = await client.get('/budgets/summary', { params: { mode, period } })
   return data.data
+}
+
+
+// ─── Recurring Transactions ───────────────────────────────────────────────────
+
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
+export type RecurringRuleStatus = 'active' | 'paused' | 'ended'
+export type MonthEndPolicy = 'clamp' | 'skip'
+
+export interface RecurringRule {
+  id: string
+  mode: AppMode
+  name: string
+  status: RecurringRuleStatus
+  account_id: string
+  type: 'income' | 'expense'
+  direction: 'income' | 'expense'
+  category: string
+  amount_cents: number
+  amount_yuan: number
+  currency: string
+  exchange_rate: number
+  note: string
+  project_id: string | null
+  frequency: RecurringFrequency
+  interval: number
+  start_date: string
+  end_date: string | null
+  time_of_day: string
+  timezone: string
+  day_of_week: number | null
+  day_of_month: number | null
+  month_end_policy: MonthEndPolicy
+  next_run_at: number
+  next_occurred_at: string
+  last_generated_for: string | null
+  catch_up_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface RecurringInstance {
+  id: string
+  rule_id: string
+  occurrence_date: string
+  scheduled_at: number
+  occurred_at: string
+  transaction_id: string | null
+  status: 'generating' | 'generated' | 'skipped' | 'failed'
+  error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RecurringOccurrencePreview {
+  occurrence_date: string
+  scheduled_at: number
+  occurred_at: string
+}
+
+export interface UpsertRecurringRuleRequest {
+  mode?: AppMode
+  name?: string
+  status?: RecurringRuleStatus
+  account_id?: string
+  type?: 'income' | 'expense'
+  direction?: 'income' | 'expense'
+  category?: string
+  amount_cents?: number
+  amount_yuan?: number
+  currency?: string
+  exchange_rate?: number
+  note?: string
+  project_id?: string
+  frequency?: RecurringFrequency
+  interval?: number
+  start_date?: string
+  end_date?: string | null
+  time_of_day?: string
+  timezone?: string
+  day_of_week?: number | null
+  day_of_month?: number | null
+  month_end_policy?: MonthEndPolicy
+  catch_up_enabled?: boolean
+}
+
+export async function listRecurringRules(mode: AppMode = 'work'): Promise<RecurringRule[]> {
+  const { data } = await client.get('/recurring-rules', { params: { mode } })
+  return data.data
+}
+
+export async function createRecurringRule(req: UpsertRecurringRuleRequest & { mode: AppMode }): Promise<RecurringRule> {
+  const { data } = await client.post('/recurring-rules', req)
+  return data.data
+}
+
+export async function updateRecurringRule(id: string, req: UpsertRecurringRuleRequest): Promise<RecurringRule> {
+  const { data } = await client.patch(`/recurring-rules/${id}`, req)
+  return data.data
+}
+
+export async function updateRecurringRuleStatus(id: string, status: RecurringRuleStatus): Promise<RecurringRule> {
+  const { data } = await client.patch(`/recurring-rules/${id}/status`, { status })
+  return data.data
+}
+
+export async function deleteRecurringRule(id: string): Promise<void> {
+  await client.delete(`/recurring-rules/${id}`)
+}
+
+export async function listRecurringInstances(id: string): Promise<RecurringInstance[]> {
+  const { data } = await client.get(`/recurring-rules/${id}/instances`)
+  return data.data
+}
+
+export async function generateRecurringNow(id: string): Promise<{ generated: number; skipped: number; failed: number; errors?: string[] }> {
+  const { data } = await client.post(`/recurring-rules/${id}/generate-now`)
+  return data.data
+}
+
+export async function previewRecurringOccurrences(req: UpsertRecurringRuleRequest & { mode: AppMode; count?: number }): Promise<RecurringOccurrencePreview[]> {
+  const { data } = await client.get('/recurring-rules/preview', { params: req })
+  return data.data
+}
+
+// ─── Attachments and OCR ──────────────────────────────────────────────────────
+
+export interface OCRSuggestion {
+  amount_cents?: number
+  amount_yuan?: number
+  currency?: string
+  occurred_at?: string
+  merchant?: string
+  invoice_number?: string
+  category?: string
+  note?: string
+  confidence?: number
+}
+
+export interface OCRResult {
+  provider: string
+  text: string
+  suggestion: OCRSuggestion
+  raw?: unknown
+}
+
+export interface Attachment {
+  id: string
+  transaction_id: string | null
+  storage_key: string
+  original_filename: string
+  content_type: string
+  size_bytes: number
+  sha256: string
+  kind: 'receipt' | 'invoice' | 'other'
+  ocr_status: 'not_requested' | 'pending' | 'processing' | 'done' | 'failed' | 'unavailable'
+  ocr_provider: string | null
+  ocr_text: string | null
+  ocr_json: string | null
+  ocr_result?: OCRResult
+  ocr_error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function uploadAttachment(file: File, opts: { transaction_id?: string; kind?: Attachment['kind']; run_ocr?: boolean } = {}): Promise<Attachment> {
+  const form = new FormData()
+  form.append('file', file)
+  if (opts.transaction_id) form.append('transaction_id', opts.transaction_id)
+  if (opts.kind) form.append('kind', opts.kind)
+  if (opts.run_ocr) form.append('run_ocr', 'true')
+  const { data } = await client.post('/attachments', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  return data.data
+}
+
+export async function uploadTransactionAttachment(transactionId: string, file: File, opts: { kind?: Attachment['kind']; run_ocr?: boolean } = {}): Promise<Attachment> {
+  const form = new FormData()
+  form.append('file', file)
+  if (opts.kind) form.append('kind', opts.kind)
+  if (opts.run_ocr) form.append('run_ocr', 'true')
+  const { data } = await client.post(`/transactions/${transactionId}/attachments`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  return data.data
+}
+
+export async function listTransactionAttachments(transactionId: string): Promise<Attachment[]> {
+  const { data } = await client.get(`/transactions/${transactionId}/attachments`)
+  return data.data
+}
+
+export async function getAttachment(id: string): Promise<Attachment> {
+  const { data } = await client.get(`/attachments/${id}`)
+  return data.data
+}
+
+export async function runAttachmentOCR(id: string): Promise<Attachment> {
+  const { data } = await client.post(`/attachments/${id}/ocr`)
+  return data.data
+}
+
+export async function linkAttachment(id: string, transactionId: string): Promise<Attachment> {
+  const { data } = await client.post(`/attachments/${id}/link`, { transaction_id: transactionId })
+  return data.data
+}
+
+export async function deleteAttachment(id: string): Promise<void> {
+  await client.delete(`/attachments/${id}`)
+}
+
+export async function downloadAttachment(id: string, filename: string): Promise<void> {
+  const resp = await client.get(`/attachments/${id}/download`, { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([resp.data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename || 'attachment'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ─── Backup & Restore ────────────────────────────────────────────────────────

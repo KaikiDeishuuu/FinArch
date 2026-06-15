@@ -21,6 +21,14 @@ func (f *fakeTxRepo) Create(_ context.Context, t model.Transaction) error { f.cr
 func (f *fakeTxRepo) GetByIDs(context.Context, []string) ([]model.Transaction, error) {
 	return nil, nil
 }
+func (f *fakeTxRepo) GetByIDForUser(context.Context, string, string) (model.Transaction, error) {
+	return model.Transaction{}, errors.New("not found")
+}
+func (f *fakeTxRepo) GetByIdempotencyKey(context.Context, string, string) (model.Transaction, error) {
+	return model.Transaction{}, errors.New("not found")
+}
+func (f *fakeTxRepo) SetAttachmentKey(context.Context, string, string, string) error   { return nil }
+func (f *fakeTxRepo) ClearAttachmentKey(context.Context, string, string, string) error { return nil }
 func (f *fakeTxRepo) ListByUser(context.Context, string, model.Mode) ([]model.Transaction, error) {
 	return nil, nil
 }
@@ -76,7 +84,7 @@ func (f fakeRateSvc) GetRate(context.Context, string, string, time.Time) (Exchan
 
 func TestCreateTransaction_ConvertsToAccountBaseCurrency(t *testing.T) {
 	txRepo := &fakeTxRepo{}
-	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", Type: model.AccountTypePublic, Currency: "CNY"}}
+	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY"}}
 	rate := big.NewRat(76123, 10000) // 7.6123
 	svc := NewTransactionService(txRepo, acctRepo, fakeRateSvc{result: ExchangeRateResult{Rate: rate, RateFloat: 7.6123, Source: "test", At: time.Unix(1700000000, 0)}})
 
@@ -94,7 +102,7 @@ func TestCreateTransaction_ConvertsToAccountBaseCurrency(t *testing.T) {
 
 func TestCreateTransaction_FallbackToStoredRate(t *testing.T) {
 	txRepo := &fakeTxRepo{recentRate: 8.0, recentAt: 1700000100, recentSource: "history"}
-	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", Type: model.AccountTypePublic, Currency: "CNY"}}
+	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY"}}
 	svc := NewTransactionService(txRepo, acctRepo, fakeRateSvc{err: errors.New("api down")})
 
 	_, err := svc.CreateTransaction(context.Background(), CreateTransactionRequest{UserID: "u1", AccountID: "a1", TxType: model.TxTypeExpense, Category: "meal", Currency: "EUR", AmountCents: 1568, OccurredAt: time.Unix(1700000000, 0)})

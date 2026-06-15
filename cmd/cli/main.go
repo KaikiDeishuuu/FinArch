@@ -16,7 +16,9 @@ import (
 	"finarch/internal/infrastructure/auth"
 	"finarch/internal/infrastructure/db"
 	"finarch/internal/infrastructure/email"
+	"finarch/internal/infrastructure/ocr"
 	sqliterepo "finarch/internal/infrastructure/repository"
+	filestorage "finarch/internal/infrastructure/storage"
 	"finarch/internal/interface/apiv1"
 )
 
@@ -127,7 +129,13 @@ func main() {
 		authSvc := service.NewAuthService(userRepo, jwtSvc, deletionTokenSvc, loginTracker, emailSvc, email.IsConfigured(), appBaseURL, tm)
 		statsSvc := service.NewStatsService(database)
 		budgetSvc := service.NewBudgetService(sqliterepo.NewSQLiteBudgetRepository(database))
-		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, tm, txSvc, reimSvc, matchSvc, authSvc, statsSvc, budgetSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
+		recurringSvc := service.NewRecurringTransactionService(sqliterepo.NewSQLiteRecurringTransactionRepository(database), txRepo, txSvc, tm, sqliterepo.NewSQLiteAccountRepository(database))
+		attachmentStorage, err := filestorage.NewLocalAttachmentStorage(os.Getenv("FINARCH_ATTACHMENTS_DIR"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		attachmentSvc := service.NewAttachmentService(sqliterepo.NewSQLiteAttachmentRepository(database), txRepo, attachmentStorage, ocr.NoneProvider{}, service.DefaultAttachmentMaxBytes, tm)
+		srv := apiv1.NewServer(addr, database, dsn, txRepo, tagRepo, tm, txSvc, reimSvc, matchSvc, authSvc, statsSvc, budgetSvc, recurringSvc, attachmentSvc, jwtSvc, authLimiter, captchaVerifier, turnstileSiteKey, acctSvc, emailSvc)
 		log.Printf("FinArch API v1: http://%s", addr)
 		log.Fatal(srv.Run())
 	default:

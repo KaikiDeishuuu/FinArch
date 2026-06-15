@@ -20,6 +20,16 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - FINARCH_DB=/data/finarch.db
       - FINARCH_ADDR=0.0.0.0:8080
+      - FINARCH_ATTACHMENTS_DIR=/data/attachments
+      - FINARCH_ATTACHMENT_MAX_BYTES=${FINARCH_ATTACHMENT_MAX_BYTES:-20971520}
+      - FINARCH_RECURRING_AUTORUN=${FINARCH_RECURRING_AUTORUN:-true}
+      - FINARCH_RECURRING_INTERVAL=${FINARCH_RECURRING_INTERVAL:-15m}
+      - FINARCH_RECURRING_BATCH_LIMIT=${FINARCH_RECURRING_BATCH_LIMIT:-100}
+      - FINARCH_RECURRING_DRY_RUN=${FINARCH_RECURRING_DRY_RUN:-false}
+      - FINARCH_OCR_PROVIDER=${FINARCH_OCR_PROVIDER:-none}
+      - FINARCH_OCR_URL=${FINARCH_OCR_URL:-http://ocr:8000/ocr}
+      - FINARCH_OCR_TIMEOUT=${FINARCH_OCR_TIMEOUT:-45s}
+      - FINARCH_OCR_LANG=${FINARCH_OCR_LANG:-ch}
       - GIN_MODE=release
       # Cloudflare Turnstile CAPTCHA (leave empty to disable for local dev)
       # Get keys at https://dash.cloudflare.com/?to=/:account/turnstile

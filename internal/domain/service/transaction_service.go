@@ -27,20 +27,24 @@ func NewTransactionService(transactions repository.TransactionRepository, accoun
 }
 
 type CreateTransactionRequest struct {
-	UserID       string
-	OccurredAt   time.Time
-	AccountID    string
-	TxType       model.TxType
-	Direction    model.Direction
-	Source       model.Source
-	Mode         model.Mode
-	Category     string
-	AmountYuan   model.Money
-	AmountCents  int64
-	Currency     string
-	ExchangeRate float64
-	Note         string
-	ProjectID    *string
+	UserID                  string
+	OccurredAt              time.Time
+	AccountID               string
+	TxType                  model.TxType
+	Direction               model.Direction
+	Source                  model.Source
+	Mode                    model.Mode
+	Category                string
+	AmountYuan              model.Money
+	AmountCents             int64
+	Currency                string
+	ExchangeRate            float64
+	Note                    string
+	ProjectID               *string
+	AttachmentKey           *string
+	IdempotencyKey          *string
+	RecurringRuleID         *string
+	RecurringOccurrenceDate *string
 }
 
 func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTransactionRequest) (model.Transaction, error) {
@@ -93,7 +97,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 		accountCurrency = strings.ToUpper(acct.Currency)
 	} else {
 		acct, err := s.accounts.GetByID(ctx, accountID)
-		if err != nil {
+		if err != nil || acct.UserID != req.UserID {
 			return model.Transaction{}, fmt.Errorf("所选账户不存在")
 		}
 		accountType = acct.Type
@@ -126,35 +130,39 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, req CreateTr
 
 	now := time.Now()
 	t := model.Transaction{
-		ID:                 uuid.NewString(),
-		UserID:             req.UserID,
-		GroupID:            "",
-		LedgerDir:          ledgerDir,
-		TxType:             txType,
-		AccountID:          accountID,
-		AccountType:        accountType,
-		AmountCents:        req.AmountCents,
-		AmountYuan:         model.Money(float64(req.AmountCents) / 100.0),
-		Currency:           req.Currency,
-		ExchangeRate:       rateValue,
-		ExchangeRateSource: rateSource,
-		ExchangeRateAt:     rateAt.Unix(),
-		BaseCurrency:       accountCurrency,
-		BaseAmountCents:    converted,
-		Category:           req.Category,
-		ReimbStatus:        reimb,
-		Mode:               req.Mode,
-		Note:               req.Note,
-		ProjectID:          req.ProjectID,
-		Uploaded:           false,
-		TxnDate:            occurredAt.Format("2006-01-02"),
-		TransactionTime:    occurredAt.Unix(),
-		OccurredAt:         occurredAt,
-		Direction:          model.Direction(txType),
-		Source:             sourceFromAccountType(accountType),
-		Reimbursed:         false,
-		CreatedAt:          now,
-		UpdatedAt:          now,
+		ID:                      uuid.NewString(),
+		UserID:                  req.UserID,
+		GroupID:                 "",
+		LedgerDir:               ledgerDir,
+		TxType:                  txType,
+		AccountID:               accountID,
+		AccountType:             accountType,
+		AmountCents:             req.AmountCents,
+		AmountYuan:              model.Money(float64(req.AmountCents) / 100.0),
+		Currency:                req.Currency,
+		ExchangeRate:            rateValue,
+		ExchangeRateSource:      rateSource,
+		ExchangeRateAt:          rateAt.Unix(),
+		BaseCurrency:            accountCurrency,
+		BaseAmountCents:         converted,
+		Category:                req.Category,
+		ReimbStatus:             reimb,
+		Mode:                    req.Mode,
+		Note:                    req.Note,
+		ProjectID:               req.ProjectID,
+		AttachmentKey:           req.AttachmentKey,
+		IdempotencyKey:          req.IdempotencyKey,
+		RecurringRuleID:         req.RecurringRuleID,
+		RecurringOccurrenceDate: req.RecurringOccurrenceDate,
+		Uploaded:                false,
+		TxnDate:                 occurredAt.Format("2006-01-02"),
+		TransactionTime:         occurredAt.Unix(),
+		OccurredAt:              occurredAt,
+		Direction:               model.Direction(txType),
+		Source:                  sourceFromAccountType(accountType),
+		Reimbursed:              false,
+		CreatedAt:               now,
+		UpdatedAt:               now,
 	}
 	if err := s.transactions.Create(ctx, t); err != nil {
 		return model.Transaction{}, fmt.Errorf("创建交易失败，请稍后重试: %w", err)

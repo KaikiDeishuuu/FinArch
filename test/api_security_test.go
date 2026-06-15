@@ -15,7 +15,9 @@ import (
 	"finarch/internal/domain/service"
 	"finarch/internal/infrastructure/auth"
 	"finarch/internal/infrastructure/email"
+	"finarch/internal/infrastructure/ocr"
 	sqliterepo "finarch/internal/infrastructure/repository"
+	filestorage "finarch/internal/infrastructure/storage"
 	"finarch/internal/interface/apiv1"
 )
 
@@ -28,6 +30,10 @@ func newTestServer(t *testing.T, database *sql.DB, jwtSvc *auth.JWTService) *api
 	userRepo := sqliterepo.NewSQLiteUserRepository(database)
 	tagRepo := sqliterepo.NewSQLiteTagRepository(database)
 	tm := sqliterepo.NewSQLiteTransactionManager(database)
+	attachmentStorage, err := filestorage.NewLocalAttachmentStorage(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	authSvc := service.NewAuthService(userRepo, jwtSvc, auth.NewActionTokenService("test-secret"), auth.NewLoginAttemptTracker(5, time.Minute), &email.NoopSender{}, false, "http://localhost", tm)
 	return apiv1.NewServer(":0", database, ":memory:", txRepo, tagRepo, tm,
 		service.NewTransactionService(txRepo, acctRepo, service.NewHTTPExchangeRateService()),
@@ -36,6 +42,8 @@ func newTestServer(t *testing.T, database *sql.DB, jwtSvc *auth.JWTService) *api
 		authSvc,
 		service.NewStatsService(database),
 		service.NewBudgetService(sqliterepo.NewSQLiteBudgetRepository(database)),
+		service.NewRecurringTransactionService(sqliterepo.NewSQLiteRecurringTransactionRepository(database), txRepo, service.NewTransactionService(txRepo, acctRepo, service.NewHTTPExchangeRateService()), tm, acctRepo),
+		service.NewAttachmentService(sqliterepo.NewSQLiteAttachmentRepository(database), txRepo, attachmentStorage, ocr.NoneProvider{}, service.DefaultAttachmentMaxBytes, tm),
 		jwtSvc,
 		auth.NewIPRateLimiter(10, time.Minute),
 		auth.NewTurnstileVerifier(""),
