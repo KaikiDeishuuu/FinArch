@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /finarch-server ./cmd/server
 
 # ── Stage 3: Litestream binary ────────────────────────────────────────────────
-FROM litestream/litestream:0.3.13 AS litestream
+FROM litestream/litestream:0.5.12 AS litestream
 
 # ── Stage 4: Runtime image ────────────────────────────────────────────────────
 FROM alpine:3.23
