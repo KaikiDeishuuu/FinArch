@@ -84,6 +84,19 @@ RESEND_API_KEY=
 RESEND_FROM_EMAIL=hello@yourdomain.com
 # Public-facing app URL (used in verification/reset email links)
 APP_BASE_URL=https://yourdomain.com
+
+# ── Attachment OCR (optional) ─────────────────────────
+# none: disabled; paddle: HTTP sidecar; paddle_aistudio: PaddleOCR AIStudio cloud API
+FINARCH_OCR_PROVIDER=none
+# Enable the following for PaddleOCR AIStudio. Keep the real token only in the server .env; never commit it.
+# FINARCH_OCR_PROVIDER=paddle_aistudio
+# FINARCH_OCR_AISTUDIO_TOKEN=
+# FINARCH_OCR_AISTUDIO_MODEL=PaddleOCR-VL-1.6
+# FINARCH_OCR_AISTUDIO_JOB_URL=https://paddleocr.aistudio-app.com/api/v2/ocr/jobs
+# FINARCH_OCR_AISTUDIO_OPTIONAL_PAYLOAD={"useDocOrientationClassify":false,"useDocUnwarping":false,"useChartRecognition":false}
+# FINARCH_OCR_AISTUDIO_POLL_INTERVAL=5s
+# FINARCH_OCR_AISTUDIO_MAX_RESULT_BYTES=10485760
+# FINARCH_OCR_TIMEOUT=2m
 ```
 
 ---

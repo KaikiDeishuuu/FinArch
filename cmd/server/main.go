@@ -180,9 +180,20 @@ func buildOCRProvider() service.OCRProvider {
 	if provider == "" || provider == "none" {
 		return ocr.NoneProvider{}
 	}
-	if provider == "paddle" {
-		timeout := envDuration("FINARCH_OCR_TIMEOUT", 45*time.Second)
+	timeout := envDuration("FINARCH_OCR_TIMEOUT", 45*time.Second)
+	switch provider {
+	case "paddle":
 		return ocr.NewPaddleProvider(os.Getenv("FINARCH_OCR_URL"), os.Getenv("FINARCH_OCR_LANG"), timeout)
+	case "paddle_aistudio", "paddleocr_aistudio", "aistudio":
+		return ocr.NewPaddleAIStudioProvider(ocr.PaddleAIStudioConfig{
+			JobURL:          os.Getenv("FINARCH_OCR_AISTUDIO_JOB_URL"),
+			Token:           os.Getenv("FINARCH_OCR_AISTUDIO_TOKEN"),
+			Model:           os.Getenv("FINARCH_OCR_AISTUDIO_MODEL"),
+			OptionalPayload: os.Getenv("FINARCH_OCR_AISTUDIO_OPTIONAL_PAYLOAD"),
+			Timeout:         timeout,
+			PollInterval:    envDuration("FINARCH_OCR_AISTUDIO_POLL_INTERVAL", ocr.DefaultPaddleAIStudioPollInterval),
+			MaxResultBytes:  int64(envInt("FINARCH_OCR_AISTUDIO_MAX_RESULT_BYTES", int(ocr.DefaultPaddleAIStudioMaxResult))),
+		})
 	}
 	log.Printf("unknown FINARCH_OCR_PROVIDER=%q, OCR disabled", provider)
 	return ocr.NoneProvider{}

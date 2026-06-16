@@ -99,6 +99,7 @@ docker compose up -d
 | `APP_BASE_URL` | 站点地址 | ✅ |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | 邮件服务 | 可选 |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | 人机验证 | 可选 |
+| `FINARCH_OCR_PROVIDER` / `FINARCH_OCR_AISTUDIO_*` | 附件 OCR，可选 PaddleOCR AIStudio | 可选 |
 | `LITESTREAM_*` | R2 备份 | 可选 |
 
 > 留空可选变量时，相关功能自动跳过。详细部署指南见 [DEPLOYMENT.md](DEPLOYMENT.md)（[English](DEPLOYMENT.en.md)）。

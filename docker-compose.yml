@@ -11,6 +11,7 @@ services:
       - ALL
     cap_add:
       - CHOWN
+      - DAC_OVERRIDE
 
   api:
     image: ghcr.io/kaikideishuuu/finarch:${FINARCH_IMAGE_TAG:?FINARCH_IMAGE_TAG is required}
@@ -30,6 +31,12 @@ services:
       - FINARCH_OCR_URL=${FINARCH_OCR_URL:-http://ocr:8000/ocr}
       - FINARCH_OCR_TIMEOUT=${FINARCH_OCR_TIMEOUT:-45s}
       - FINARCH_OCR_LANG=${FINARCH_OCR_LANG:-ch}
+      - FINARCH_OCR_AISTUDIO_TOKEN=${FINARCH_OCR_AISTUDIO_TOKEN:-}
+      - FINARCH_OCR_AISTUDIO_MODEL=${FINARCH_OCR_AISTUDIO_MODEL:-}
+      - FINARCH_OCR_AISTUDIO_JOB_URL=${FINARCH_OCR_AISTUDIO_JOB_URL:-https://paddleocr.aistudio-app.com/api/v2/ocr/jobs}
+      - FINARCH_OCR_AISTUDIO_OPTIONAL_PAYLOAD=${FINARCH_OCR_AISTUDIO_OPTIONAL_PAYLOAD:-}
+      - FINARCH_OCR_AISTUDIO_POLL_INTERVAL=${FINARCH_OCR_AISTUDIO_POLL_INTERVAL:-2s}
+      - FINARCH_OCR_AISTUDIO_MAX_RESULT_BYTES=${FINARCH_OCR_AISTUDIO_MAX_RESULT_BYTES:-10485760}
       - GIN_MODE=release
       # Cloudflare Turnstile CAPTCHA (leave empty to disable for local dev)
       # Get keys at https://dash.cloudflare.com/?to=/:account/turnstile

@@ -99,6 +99,7 @@ Key environment variables:
 | `APP_BASE_URL` | Public site URL | ✅ |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Email service | Optional |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | CAPTCHA | Optional |
+| `FINARCH_OCR_PROVIDER` / `FINARCH_OCR_AISTUDIO_*` | Attachment OCR, optionally PaddleOCR AIStudio | Optional |
 | `LITESTREAM_*` | R2 backup | Optional |
 
 > Optional variables left empty will gracefully disable the feature. See [DEPLOYMENT.en.md](DEPLOYMENT.en.md) for the full guide.
