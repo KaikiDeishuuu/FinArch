@@ -219,6 +219,9 @@ func (p *PaddleAIStudioProvider) pollJob(ctx context.Context, jobID string) (str
 		pollCount++
 		state, jsonURL, errMsg, err := p.fetchJobState(ctx, pollURL)
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return "", pollCount, fmt.Errorf("PaddleOCR AIStudio job timed out: %w", err)
+			}
 			return "", pollCount, err
 		}
 		switch state {
