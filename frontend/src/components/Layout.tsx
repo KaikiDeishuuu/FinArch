@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Drawer } from 'vaul'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
@@ -106,6 +108,13 @@ const IconLang = () => (
     <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
   </svg>
 )
+const IconMore = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+    <circle cx="5" cy="12" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+  </svg>
+)
 
 const controlBtnClass = 'flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-white/[0.03] text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-300 hover:border-violet-200 dark:hover:border-violet-500/40 hover:bg-violet-50/80 dark:hover:bg-violet-500/10 transition-all'
 
@@ -119,9 +128,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const toggleLang = () => i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh')
   const isDark = resolved === 'dark'
   const { isWorkMode } = useMode()
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
   const navItems = NAV_ITEMS
-  const mobileNavItems = NAV_ITEMS.filter((item) => !['/budgets', '/recurring', '/exchange', '/settings'].includes(item.to))
-  const mobileTopItems = NAV_ITEMS.filter((item) => ['/budgets', '/recurring', '/exchange', '/settings'].includes(item.to))
+  const mobileMoreRoutes = ['/budgets', '/recurring', '/exchange', '/settings']
+  const mobileNavItems = NAV_ITEMS.filter((item) => !mobileMoreRoutes.includes(item.to))
+  const mobileMoreItems = NAV_ITEMS.filter((item) => mobileMoreRoutes.includes(item.to))
 
   return (
     <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>
@@ -203,12 +214,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Mobile Top Header ── */}
-      <header
-        className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2.5"
-        style={{ paddingTop: 'max(0.55rem, env(safe-area-inset-top))' }}
-      >
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2 min-w-0 overflow-hidden">
+      <Drawer.Root open={isMoreOpen} onOpenChange={setIsMoreOpen} shouldScaleBackground>
+        <header
+          className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2.5"
+          style={{ paddingTop: 'max(0.55rem, env(safe-area-inset-top))' }}
+        >
+          <div className="flex min-h-11 items-center justify-between gap-3 min-w-0 overflow-hidden">
             <div className="flex items-center gap-2.5 min-w-0">
               <LogoMark size={30} className="rounded-lg shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30" />
               <div className="min-w-0">
@@ -216,52 +227,103 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span className="block text-[10px] text-violet-500/80 dark:text-violet-300/80 truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {mobileTopItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  title={t(item.labelKey)}
-                  aria-label={t(item.labelKey)}
-                  className={({ isActive }) =>
-                    `h-8 w-8 rounded-xl border flex items-center justify-center transition-colors ${isActive
-                      ? 'border-violet-200 dark:border-violet-500/40 bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-300'
-                      : 'border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-white/[0.03] text-gray-500 dark:text-gray-400'
-                    }`
-                  }
-                >
-                  <item.Icon />
-                </NavLink>
-              ))}
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
                 {initial}
               </div>
-              <button
-                onClick={logout}
-                title={t('nav.logout')}
-                className="h-8 px-2.5 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors flex items-center gap-1.5 text-[11px] font-semibold"
-              >
-                <IconLogout />
-                <span>{t('nav.logoutShort')}</span>
-              </button>
+              <Drawer.Trigger asChild>
+                <button
+                  type="button"
+                  title={t('nav.more')}
+                  aria-label={t('nav.more')}
+                  className="h-10 w-10 rounded-2xl border border-violet-100 dark:border-violet-500/30 bg-violet-50/80 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300 flex items-center justify-center active:scale-95 transition-transform"
+                >
+                  <IconMore />
+                </button>
+              </Drawer.Trigger>
             </div>
           </div>
+        </header>
 
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={toggleTheme} className={`${controlBtnClass} text-[11px] font-medium h-9`}>
-              {isDark ? <IconSun /> : <IconMoon />}
-              <span>{t('theme.toggle')}</span>
-            </button>
-            <button onClick={toggleLang} className={`${controlBtnClass} text-[11px] font-semibold h-9`}>
-              <IconLang />
-              {i18n.language === 'zh' ? 'EN' : '中'}
-            </button>
-          </div>
-        </div>
-      </header>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-[70] bg-slate-950/45 backdrop-blur-[2px]" />
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[80] max-h-[88dvh] rounded-t-[2rem] border border-gray-100/80 dark:border-white/10 bg-white dark:bg-[hsl(260,15%,11%)] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 shadow-2xl shadow-violet-950/20 outline-none">
+            <Drawer.Handle className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-gray-200 dark:bg-white/15" />
+            <div className="mx-auto max-w-md overflow-y-auto pb-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Drawer.Title className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                    {t('nav.moreTitle')}
+                  </Drawer.Title>
+                  <Drawer.Description className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {t('nav.moreDescription')}
+                  </Drawer.Description>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
+                  {initial}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                {mobileMoreItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setIsMoreOpen(false)}
+                    className={({ isActive }) =>
+                      `group min-h-[6rem] rounded-2xl border p-3.5 transition-all active:scale-[0.98] ${isActive
+                        ? 'border-violet-200 bg-violet-50 text-violet-700 shadow-sm shadow-violet-100/70 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-200 dark:shadow-none'
+                        : 'border-gray-100 bg-gray-50/80 text-gray-700 hover:border-violet-100 hover:bg-violet-50/60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:border-violet-500/30 dark:hover:bg-violet-500/10'
+                      }`
+                    }
+                  >
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-sm shadow-gray-200/80 group-hover:scale-105 dark:bg-white/10 dark:text-violet-300 dark:shadow-none transition-transform">
+                      <item.Icon />
+                    </div>
+                    <p className="text-sm font-bold leading-tight">{t(item.labelKey)}</p>
+                    <p className="mt-1 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{t(`nav.moreHints.${item.to}`)}</p>
+                  </NavLink>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{t('nav.preferences')}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={toggleTheme} className={`${controlBtnClass} h-11 text-[12px] font-semibold`}>
+                    {isDark ? <IconSun /> : <IconMoon />}
+                    <span>{t('theme.toggle')}</span>
+                  </button>
+                  <button onClick={toggleLang} className={`${controlBtnClass} h-11 text-[12px] font-semibold`}>
+                    <IconLang />
+                    <span>{i18n.language === 'zh' ? 'EN' : '中'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{t('nav.account')}</p>
+                <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3 py-2.5 dark:bg-white/[0.04]">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                    {initial}
+                  </div>
+                  <p className="flex-1 truncate text-[12px] font-medium text-gray-700 dark:text-gray-300">{displayName}</p>
+                </div>
+                <button
+                  onClick={logout}
+                  title={t('nav.logout')}
+                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-[12px] font-semibold"
+                >
+                  <IconLogout />
+                  <span>{t('nav.logout')}</span>
+                </button>
+              </div>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden pt-[5.25rem] md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
+      <main className="scroll-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden pt-[4rem] md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
         <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
           <PageTransition motionKey={location.pathname}>
             {children}
