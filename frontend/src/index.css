@@ -65,6 +65,7 @@
   --tooltip-bg: #fff;
   --tooltip-text: #374151;
   --tooltip-border: #e5e7eb;
+  --mobile-header-height: 4rem;
   --mobile-bottom-nav-height: 4.75rem;
   --mobile-fab-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 0.875rem);
 }
@@ -425,12 +426,12 @@ a,
     /* 固定 header：使用最小高度而不是固定高度，避免内部控件在 PWA 模式下溢出 */
     header.gpu-layer {
       padding-top: max(0.55rem, env(safe-area-inset-top));
-      min-height: calc(5.25rem + env(safe-area-inset-top));
+      min-height: calc(var(--mobile-header-height) + env(safe-area-inset-top));
     }
 
-    /* 主内容区：留出 header 高度(5.25rem) + 安全区域 */
+    /* 主内容区：留出 header 高度 + 安全区域 */
     .scroll-main {
-      padding-top: calc(5.25rem + env(safe-area-inset-top));
+      padding-top: calc(var(--mobile-header-height) + env(safe-area-inset-top));
     }
   }
 
