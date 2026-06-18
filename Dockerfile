@@ -20,7 +20,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /finarch-server ./cmd/
 FROM litestream/litestream:0.3.13 AS litestream
 
 # ── Stage 4: Runtime image ────────────────────────────────────────────────────
-FROM alpine:3.23
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata \
   && addgroup -S -g 10001 finarch \
   && adduser -S -D -H -u 10001 -G finarch finarch
