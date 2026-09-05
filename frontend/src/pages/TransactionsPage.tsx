@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { downloadAttachment, toggleReimbursed, toggleUploaded } from '../api/client'
@@ -19,8 +19,13 @@ import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 import { useAttachmentMutations, useTransactionAttachments } from '../hooks/useAttachments'
 import AttachmentUploader from '../components/AttachmentUploader'
 import { clampLifecycleTimestamp } from '../utils/timestamp'
-
-type FilterTab = 'all' | 'unreimbursed' | 'reimbursed'
+import { accountModeForTransactionSource, transactionSourceForMode } from '../utils/accountScope'
+import OcrTextDisclosure from '../components/OcrTextDisclosure'
+import {
+  isTransactionInWorkflowTab,
+  type TransactionWorkflowKind,
+  type TransactionWorkflowTab,
+} from '../utils/transactionWorkflow'
 
 function splitTimestamp(value: string) {
   const normalized = value.includes('T') ? value : value.replace(' ', 'T')
@@ -100,6 +105,7 @@ function AttachmentPanel({ transactionId }: { transactionId: string }) {
               </div>
             </div>
             {attachment.ocr_error && <p className="mt-1 text-rose-500 dark:text-rose-300">{attachment.ocr_error}</p>}
+            <OcrTextDisclosure attachment={attachment} />
           </div>
         ))}
       </div>
@@ -138,14 +144,44 @@ function StatusBadge({
 }
 
 export default function TransactionsPage() {
+  const { mode, isWorkMode } = useMode()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const effectiveSourceFilter = transactionSourceForMode(mode, searchParams.get('source'))
+
+  function selectSource(source: 'personal' | 'company') {
+    if (!isWorkMode || source === effectiveSourceFilter) return
+    const next = new URLSearchParams(searchParams)
+    next.set('source', source)
+    setSearchParams(next, { replace: true })
+  }
+
+  return (
+    <TransactionsLedger
+      key={`${mode}:${effectiveSourceFilter}`}
+      isWorkMode={isWorkMode}
+      effectiveSourceFilter={effectiveSourceFilter}
+      selectSource={selectSource}
+    />
+  )
+}
+
+function TransactionsLedger({
+  isWorkMode,
+  effectiveSourceFilter,
+  selectSource,
+}: {
+  isWorkMode: boolean
+  effectiveSourceFilter: 'personal' | 'company'
+  selectSource: (source: 'personal' | 'company') => void
+}) {
   const { t } = useTranslation()
-  const { isWorkMode } = useMode()
   const { user } = useAuth()
   const { rates } = useExchangeRates()
   const { data: txs = [], isLoading: loading, isError, refetch, isFetching } = useTransactions()
-  const { data: accounts = [] } = useAccounts()
+  const accountLookupMode = accountModeForTransactionSource(effectiveSourceFilter)
+  const { data: accounts = [] } = useAccounts(accountLookupMode)
   const refreshFinanceData = useRefreshFinanceData()
-  const [filter, setFilter] = useState<FilterTab>('all')
+  const [filter, setFilter] = useState<TransactionWorkflowTab>('all')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
@@ -153,13 +189,12 @@ export default function TransactionsPage() {
   const [togglingAction, setTogglingAction] = useState<{ id: string; type: 'uploaded' | 'reimbursed' } | null>(null)
   const [optimisticState, setOptimisticState] = useState<Record<string, { uploaded: boolean; reimbursed: boolean }>>({})
   const [attachmentPanelId, setAttachmentPanelId] = useState<string | null>(null)
-  const effectiveSourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
+  const isReimbursementView = isWorkMode && effectiveSourceFilter === 'personal'
+  const workflowKind: TransactionWorkflowKind = isReimbursementView ? 'reimbursement' : 'upload'
 
   const tabLabelAll = t('transactions.reimbursementTabs.all')
-  const tabLabelPending = isWorkMode ? t('transactions.reimbursementTabs.pending') : t('transactions.life.tabs.pending')
-  const tabLabelDone = isWorkMode ? t('transactions.reimbursementTabs.done') : t('transactions.life.tabs.done')
-  const processedLabel = isWorkMode ? t('transactions.badges.reimbursed') : t('transactions.life.badges.processed')
-  const lockTitle = isWorkMode ? t('transactions.lockTitle') : t('transactions.life.lockTitle')
+  const tabLabelPending = isReimbursementView ? t('transactions.reimbursementTabs.pending') : t('transactions.uploadTabs.pending')
+  const tabLabelDone = isReimbursementView ? t('transactions.reimbursementTabs.done') : t('transactions.uploadTabs.done')
   const incomeHint = isWorkMode ? t('transactions.incomeNoReimburse') : t('transactions.life.incomeNoProcess')
 
   const txsView = useMemo(() =>
@@ -206,16 +241,12 @@ export default function TransactionsPage() {
   }, [activeAccounts, effectiveSourceFilter])
 
   const filtered = useMemo(() => txsView
-    .filter((t) => {
-      if (filter === 'unreimbursed') return t.direction === 'expense' && !t.reimbursed
-      if (filter === 'reimbursed') return t.reimbursed || t.direction === 'income'
-      return true
-    })
+    .filter((t) => isTransactionInWorkflowTab(t, filter, workflowKind))
     .filter((t) => t.source === effectiveSourceFilter)
     .filter((t) => !filterCategory || t.category === filterCategory)
     .filter((t) => !filterProject || (t.project_id ?? '') === filterProject)
     .filter((t) => !filterAccount || t.account_id === filterAccount),
-    [txsView, filter, effectiveSourceFilter, filterCategory, filterProject, filterAccount]
+    [txsView, filter, workflowKind, effectiveSourceFilter, filterCategory, filterProject, filterAccount]
   )
 
   const allCategories = useMemo(
@@ -247,12 +278,12 @@ export default function TransactionsPage() {
     const parts: string[] = [{ all: tabLabelAll, unreimbursed: tabLabelPending, reimbursed: tabLabelDone }[filter]]
     if (filterCategory) parts.push(`${t('transactions.table.category')}: ${categoryLabel(filterCategory)}`)
     if (filterProject) parts.push(`${t('transactions.table.project')}: ${filterProject}`)
-    exportTransactionsPDF(filtered, parts.join(' · '), user, rates, isWorkMode, accountMap)
+    exportTransactionsPDF(filtered, parts.join(' · '), user, rates, workflowKind, accountMap)
   }
 
   async function handleToggle(id: string) {
     const tx = txsView.find((t) => t.id === id)
-    if (!tx) return
+    if (!tx || !isWorkMode || tx.source !== 'personal' || tx.direction !== 'expense') return
     const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed }
     const next = { uploaded: tx.uploaded, reimbursed: !tx.reimbursed }
     setOptimisticState((curr) => ({ ...curr, [id]: next }))
@@ -262,7 +293,7 @@ export default function TransactionsPage() {
       refreshFinanceData()
     } catch {
       setOptimisticState((curr) => ({ ...curr, [id]: prev }))
-      toast.error(isWorkMode ? t('transactions.toast.reimbursedError') : t('transactions.life.toast.processError'))
+      toast.error(t('transactions.toast.reimbursedError'))
     } finally {
       setTogglingAction(null)
     }
@@ -272,8 +303,8 @@ export default function TransactionsPage() {
     // Rollback protection: if uploaded AND reimbursed, must cancel reimburse first
     const tx = txsView.find(t => t.id === id)
     if (!tx) return
-    if (tx.uploaded && tx.reimbursed) {
-      toast.error(isWorkMode ? t('transactions.toast.cancelReimburseFirst') : t('transactions.life.toast.cancelProcessFirst'))
+    if (isReimbursementView && tx.uploaded && tx.reimbursed) {
+      toast.error(t('transactions.toast.cancelReimburseFirst'))
       return
     }
     const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed }
@@ -300,11 +331,11 @@ export default function TransactionsPage() {
   }
 
   const tabCounts = useMemo(() => ({
-    all: txsView.length,
-    unreimbursed: txsView.filter(t => t.direction === 'expense' && !t.reimbursed).length,
-    reimbursed: txsView.filter(t => t.reimbursed || t.direction === 'income').length,
-  }), [txsView])
-  const tabs: { key: FilterTab; label: string; count?: number }[] = [
+    all: txsView.filter(t => t.source === effectiveSourceFilter).length,
+    unreimbursed: txsView.filter(t => t.source === effectiveSourceFilter && isTransactionInWorkflowTab(t, 'unreimbursed', workflowKind)).length,
+    reimbursed: txsView.filter(t => t.source === effectiveSourceFilter && isTransactionInWorkflowTab(t, 'reimbursed', workflowKind)).length,
+  }), [txsView, effectiveSourceFilter, workflowKind])
+  const tabs: { key: TransactionWorkflowTab; label: string; count?: number }[] = [
     { key: 'all', label: tabLabelAll, count: tabCounts.all },
     { key: 'unreimbursed', label: tabLabelPending, count: tabCounts.unreimbursed },
     { key: 'reimbursed', label: tabLabelDone, count: tabCounts.reimbursed },
@@ -362,7 +393,7 @@ export default function TransactionsPage() {
             <span className="hidden sm:inline">{t('transactions.exportPdf')}</span>
           </button>
           <Link
-            to="/add"
+            to={`/add?source=${effectiveSourceFilter}`}
             className="shrink-0 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-violet-300/30 dark:shadow-violet-900/30"
           >
             {t('common.add')}
@@ -393,11 +424,12 @@ export default function TransactionsPage() {
       </StaggerContainer>
 
       {/* Tabs */}
-      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 gap-0.5 w-full sm:w-fit overflow-x-auto">
+      <div role="group" aria-label={t('transactions.workflowFilterLabel')} className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 gap-0.5 w-full sm:w-fit overflow-x-auto">
         {tabs.map((tb) => (
           <button
             key={tb.key}
             onClick={() => setFilter(tb.key)}
+            aria-pressed={filter === tb.key}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tb.key ? 'bg-white dark:bg-gray-700 shadow text-violet-600 dark:text-violet-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
           >
@@ -413,9 +445,30 @@ export default function TransactionsPage() {
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Source filter */}
-        <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
-          {isWorkMode ? t('common.company') : t('common.personal')}
-        </div>
+        {isWorkMode ? (
+          <div role="group" aria-label={t('transactions.sourceFilterLabel')} className="inline-flex h-8 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+            {(['company', 'personal'] as const).map((source) => (
+              <button
+                key={source}
+                type="button"
+                onClick={() => selectSource(source)}
+                aria-pressed={effectiveSourceFilter === source}
+                className={`h-7 rounded-md px-2.5 text-xs font-semibold transition-colors ${effectiveSourceFilter === source
+                  ? source === 'company'
+                    ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
+                    : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                {t(`transactions.sourceTabs.${source}`)}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
+            {t('common.personal')}
+          </div>
+        )}
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
@@ -498,7 +551,7 @@ export default function TransactionsPage() {
             {mobileVirtualizer.getVirtualItems().map((vItem) => {
               const tx = filtered[vItem.index]
               const isExpense = tx.direction === 'expense'
-              const done = isExpense && tx.reimbursed && tx.uploaded
+              const done = isExpense && (isReimbursementView ? tx.reimbursed && tx.uploaded : tx.uploaded)
               return (
                 <div
                   key={vItem.key}
@@ -562,21 +615,21 @@ export default function TransactionsPage() {
                             activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggleUpload(tx.id)}
-                            disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
+                            disabled={!!togglingAction || (isReimbursementView && tx.uploaded && tx.reimbursed)}
                             loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
-                            locked={tx.uploaded && tx.reimbursed}
-                            lockedTitle={lockTitle}
+                            locked={isReimbursementView && tx.uploaded && tx.reimbursed}
+                            lockedTitle={t('transactions.lockTitle')}
                           />
-                          <StatusBadge
+                          {isReimbursementView && <StatusBadge
                             active={tx.reimbursed}
-                            activeLabel={processedLabel}
+                            activeLabel={t('transactions.badges.reimbursed')}
                             inactiveLabel={t('transactions.badges.pending')}
                             activeClass="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggle(tx.id)}
                             disabled={!!togglingAction || !tx.uploaded}
                             loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
-                          />
+                          />}
                         </>
                       ) : (
                         <span className="min-h-8 inline-flex items-center min-w-0 truncate text-xs text-gray-300 dark:text-gray-600 px-1">{incomeHint}</span>
@@ -628,8 +681,8 @@ export default function TransactionsPage() {
           <div className="transaction-feed">
             {filtered.map((tx) => {
               const isExpense = tx.direction === 'expense'
-              const done = isExpense && tx.reimbursed && tx.uploaded
-              const urgent = isExpense && !tx.reimbursed && !tx.uploaded
+              const done = isExpense && (isReimbursementView ? tx.reimbursed && tx.uploaded : tx.uploaded)
+              const urgent = isExpense && !tx.uploaded
               return (
                 <div key={tx.id} className="space-y-2">
                   <article
@@ -671,21 +724,21 @@ export default function TransactionsPage() {
                             activeClass="bg-[#DBEAFE] text-[#1D4ED8]"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                             onClick={() => handleToggleUpload(tx.id)}
-                            disabled={!!togglingAction || (tx.uploaded && tx.reimbursed)}
+                            disabled={!!togglingAction || (isReimbursementView && tx.uploaded && tx.reimbursed)}
                             loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
-                            locked={tx.uploaded && tx.reimbursed}
-                            lockedTitle={lockTitle}
+                            locked={isReimbursementView && tx.uploaded && tx.reimbursed}
+                            lockedTitle={t('transactions.lockTitle')}
                           />
-                          <StatusBadge
+                          {isReimbursementView && <StatusBadge
                             active={tx.reimbursed}
-                            activeLabel={processedLabel}
+                            activeLabel={t('transactions.badges.reimbursed')}
                             inactiveLabel={t('transactions.badges.pending')}
                             activeClass="bg-[#DCFCE7] text-[#166534]"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                             onClick={() => handleToggle(tx.id)}
                             disabled={!!togglingAction || !tx.uploaded}
                             loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
-                          />
+                          />}
                         </div>
                         {(clampLifecycleTimestamp(tx.reimbursed_at, tx.created_at) || clampLifecycleTimestamp(tx.reported_at, tx.created_at)) && (
                           <span className="status-time text-[12px] text-gray-500 dark:text-gray-400 tabular-nums">

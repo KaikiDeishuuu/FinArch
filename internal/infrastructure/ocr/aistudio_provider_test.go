@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -207,6 +208,54 @@ func TestPaddleAIStudioProviderRejectsMalformedJSONL(t *testing.T) {
 	}
 }
 
+func TestPaddleAIStudioProviderRejectsInsecureRemoteJobURL(t *testing.T) {
+	provider := NewPaddleAIStudioProvider(PaddleAIStudioConfig{
+		JobURL: "http://example.com/jobs",
+		Token:  "test-token",
+		Model:  "PaddleOCR-VL-1.6",
+	})
+	if provider.Available(context.Background()) {
+		t.Fatal("plain HTTP must be rejected for non-loopback AIStudio endpoints")
+	}
+}
+
+func TestPaddleAIStudioProviderRejectsUnlistedResultHost(t *testing.T) {
+	var resultRequested atomic.Bool
+	resultServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resultRequested.Store(true)
+		_, _ = w.Write([]byte(`{"result":{"layoutParsingResults":[{"markdown":{"text":"secret"}}]}}`))
+	}))
+	defer resultServer.Close()
+
+	jobServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/jobs":
+			_, _ = w.Write([]byte(`{"data":{"jobId":"job-123"}}`))
+		case "/jobs/job-123":
+			_, _ = fmt.Fprintf(w, `{"data":{"state":"done","resultUrl":{"jsonUrl":%q}}}`, resultServer.URL+"/result.jsonl")
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer jobServer.Close()
+
+	provider := NewPaddleAIStudioProvider(PaddleAIStudioConfig{
+		JobURL:       jobServer.URL + "/jobs",
+		Token:        "test-token",
+		Model:        "PaddleOCR-VL-1.6",
+		Timeout:      time.Second,
+		PollInterval: time.Millisecond,
+		Client:       jobServer.Client(),
+	})
+	_, err := provider.Extract(context.Background(), model.Attachment{OriginalFilename: "receipt.png"}, strings.NewReader("fake-image"))
+	if err == nil || !strings.Contains(err.Error(), "ALLOWED_RESULT_HOSTS") {
+		t.Fatalf("expected result host allowlist error, got %v", err)
+	}
+	if resultRequested.Load() {
+		t.Fatal("provider requested an unlisted result host")
+	}
+}
+
 func TestPaddleProviderSidecarCompatibility(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/ocr" {
@@ -241,5 +290,53 @@ func TestPaddleProviderSidecarCompatibility(t *testing.T) {
 	}
 	if result.Suggestion.Currency != "CNY" {
 		t.Fatalf("currency = %q", result.Suggestion.Currency)
+	}
+}
+
+func TestPaddleProviderRejectsOversizedJSONResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"text":"` + strings.Repeat("x", int(DefaultOCRMaxJSONResponseBytes)) + `"}`))
+	}))
+	defer server.Close()
+
+	provider := NewPaddleProvider(server.URL, "", time.Second)
+	_, err := provider.Extract(context.Background(), model.Attachment{OriginalFilename: "receipt.png"}, strings.NewReader("fake-image"))
+	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized sidecar response error = %v", err)
+	}
+}
+
+func TestPaddleAIStudioProviderRejectsOversizedControlResponses(t *testing.T) {
+	tests := []struct {
+		name          string
+		oversizedPath string
+	}{
+		{name: "submit", oversizedPath: "/jobs"},
+		{name: "poll", oversizedPath: "/jobs/job-123"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == tt.oversizedPath {
+					_, _ = w.Write([]byte(`{"padding":"` + strings.Repeat("x", int(DefaultOCRMaxJSONResponseBytes)) + `"}`))
+					return
+				}
+				if r.URL.Path == "/jobs" {
+					_, _ = w.Write([]byte(`{"data":{"jobId":"job-123"}}`))
+					return
+				}
+				t.Fatalf("unexpected path %s", r.URL.Path)
+			}))
+			defer server.Close()
+
+			provider := NewPaddleAIStudioProvider(PaddleAIStudioConfig{
+				JobURL: server.URL + "/jobs", Token: "test-token", Model: "PaddleOCR-VL-1.6",
+				Timeout: time.Second, PollInterval: time.Millisecond, Client: server.Client(),
+			})
+			_, err := provider.Extract(context.Background(), model.Attachment{OriginalFilename: "receipt.png"}, strings.NewReader("fake-image"))
+			if err == nil || !strings.Contains(err.Error(), "exceeds") {
+				t.Fatalf("oversized %s response error = %v", tt.name, err)
+			}
+		})
 	}
 }

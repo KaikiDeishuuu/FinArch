@@ -35,6 +35,7 @@ type UserRepository interface {
 	CreateActionRequest(ctx context.Context, req model.ActionRequest) error
 	GetActionRequestByJTI(ctx context.Context, jti string) (model.ActionRequest, error)
 	ConsumeActionRequest(ctx context.Context, jti string, consumedAt time.Time) (model.ActionRequest, error)
+	ExpirePendingActionRequestsForUser(ctx context.Context, userID, action string) error
 	ExpireActionRequests(ctx context.Context, action string, now time.Time) error
 
 	// Security/audit trail.
@@ -50,7 +51,7 @@ type TagRepository interface {
 	Create(ctx context.Context, tag model.Tag) error
 	ListByOwner(ctx context.Context, ownerID string) ([]model.Tag, error)
 	Delete(ctx context.Context, id, ownerID string) error
-	AddToTransaction(ctx context.Context, transactionID, tagID string) error
-	RemoveFromTransaction(ctx context.Context, transactionID, tagID string) error
+	AddToTransaction(ctx context.Context, userID, transactionID, tagID string) error
+	RemoveFromTransaction(ctx context.Context, userID, transactionID, tagID string) error
 	ListByTransaction(ctx context.Context, transactionID string) ([]model.Tag, error)
 }

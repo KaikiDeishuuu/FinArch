@@ -1,14 +1,7 @@
 import { toCNYWithRates, FALLBACK_RATES } from './exchangeRates'
+import { transactionAmountToCNY } from './financeAmounts'
 import i18n from '../i18n'
-
-/** Mapping from currency code to display symbol. */
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  CNY: '¥',
-  USD: '$',
-  EUR: '€',
-  JPY: '¥',
-  GBP: '£',
-}
+import { CURRENCY_SYMBOLS } from '../constants/currencies'
 
 /**
  * Approximate exchange rates to CNY — used only as a last-resort fallback
@@ -83,6 +76,8 @@ function trimZeros(s: string): string {
 interface AmountWithCurrency {
   amount_yuan: number
   currency: string
+  base_amount_cents?: number
+  base_currency?: string
 }
 
 /**
@@ -103,7 +98,7 @@ export function sumByCurrency(items: AmountWithCurrency[]): Map<string, number> 
  * Pass live `rates` from ExchangeRateContext for accurate conversion.
  */
 export function sumInCNY(items: AmountWithCurrency[], rates?: Record<string, number>): number {
-  return items.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
+  return items.reduce((s, transaction) => s + transactionAmountToCNY(transaction, rates), 0)
 }
 
 /**

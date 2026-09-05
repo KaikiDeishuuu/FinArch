@@ -2,6 +2,9 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!-- Keep legacy query-based action tokens out of same-origin asset logs and
+         third-party font requests, including PWA navigation fallbacks. -->
+    <meta name="referrer" content="no-referrer" />
 
     <!-- PWA 基础 -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

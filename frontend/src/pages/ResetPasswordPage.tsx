@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { resetPassword } from '../api/client'
+import { useAuth } from '../hooks/useAuth'
 import { useThemeColor } from '../hooks/useThemeColor'
 import { LogoMark } from '../components/Brand'
+import { useActionToken } from '../hooks/useActionToken'
 
 export default function ResetPasswordPage() {
   useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token') ?? ''
+  const { clearSession } = useAuth()
+  const token = useActionToken()
 
   const [newPassword, setNewPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -41,6 +43,7 @@ export default function ResetPasswordPage() {
     setLoading(true)
     try {
       await resetPassword(token, newPassword)
+      clearSession()
       setSuccess(true)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message

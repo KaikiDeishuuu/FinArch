@@ -8,7 +8,9 @@
 
 const CACHE_KEY = 'finarch_exchange_rates_v1'
 const CACHE_TTL = 6 * 60 * 60 * 1000 // 6 hours
-const LIVE_SYMBOLS = ['USD', 'EUR', 'JPY', 'GBP'] as const
+const LIVE_SYMBOLS = [
+  'USD', 'EUR', 'JPY', 'GBP', 'HKD', 'CAD', 'AUD', 'SGD', 'KRW', 'CHF', 'INR', 'THB', 'MYR',
+] as const
 const REQUEST_TIMEOUT_MS = 6000
 
 export interface RateCache {
@@ -26,6 +28,15 @@ export const FALLBACK_RATES: Record<string, number> = {
   EUR: 7.84,
   JPY: 0.0475,
   GBP: 9.15,
+  HKD: 0.93,
+  CAD: 5.34,
+  AUD: 4.75,
+  SGD: 5.42,
+  KRW: 0.0053,
+  CHF: 8.25,
+  INR: 0.0875,
+  THB: 0.205,
+  MYR: 1.545,
 }
 
 function loadCache(): RateCache | null {
@@ -71,7 +82,8 @@ function buildRateCache(date: string, rates: Record<string, number>): RateCache 
 }
 
 async function fetchFromFrankfurter(): Promise<RateCache | null> {
-  const raw = await fetchJSON('https://api.frankfurter.app/latest?from=CNY&to=USD,EUR,JPY,GBP') as {
+  const symbols = LIVE_SYMBOLS.join(',')
+  const raw = await fetchJSON(`https://api.frankfurter.app/latest?from=CNY&to=${symbols}`) as {
     date?: string
     rates?: Record<string, number>
   }
@@ -140,4 +152,32 @@ export function toCNYWithRates(
   const code = (currency ?? 'CNY').toUpperCase()
   const rate = rates[code] ?? FALLBACK_RATES[code] ?? 1
   return amount * rate
+}
+
+/**
+ * Calculates a cross rate from a map expressed as `1 currency = N CNY`.
+ * For example EUR -> USD is rates.EUR / rates.USD.
+ */
+export function rateBetweenCurrencies(
+  fromCurrency: string,
+  toCurrency: string,
+  rates: Record<string, number> = FALLBACK_RATES,
+): number {
+  const from = fromCurrency.toUpperCase()
+  const to = toCurrency.toUpperCase()
+  if (from === to) return 1
+
+  const fromToCNY = rates[from]
+  const toToCNY = rates[to]
+  if (!Number.isFinite(fromToCNY) || fromToCNY <= 0 || !Number.isFinite(toToCNY) || toToCNY <= 0) {
+    return 1
+  }
+  return fromToCNY / toToCNY
+}
+
+/** Builds a complete quote table for a selected base currency. */
+export function fallbackRatesForBase(baseCurrency: string, currencies: readonly string[]): Record<string, number> {
+  return Object.fromEntries(
+    currencies.map((currency) => [currency, rateBetweenCurrencies(baseCurrency, currency, FALLBACK_RATES)]),
+  )
 }

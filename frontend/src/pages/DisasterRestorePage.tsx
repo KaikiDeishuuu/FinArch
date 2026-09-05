@@ -1,153 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { authorizeDisasterRecovery, executeDisasterRecovery, listDisasterSnapshots, type DisasterSnapshot } from '../api/client'
-
-type Step = 'select' | 'confirm' | 'done'
+import { useTranslation } from 'react-i18next'
+import { useConfig } from '../hooks/useConfig'
 
 export default function DisasterRestorePage() {
-  const [snapshots, setSnapshots] = useState<DisasterSnapshot[]>([])
-  const [selected, setSelected] = useState<DisasterSnapshot | null>(null)
-  const [step, setStep] = useState<Step>('select')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [allowMissingMetadata, setAllowMissingMetadata] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [result, setResult] = useState<{ recovery_id: string; schema_after: number; duration_ms: number } | null>(null)
-
-  useEffect(() => {
-    setLoading(true)
-    listDisasterSnapshots()
-      .then((items) => {
-        setSnapshots(items)
-        if (items.length > 0) setSelected(items[0])
-      })
-      .catch((err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        setError(msg || 'Failed to load snapshots')
-      })
-      .finally(() => setLoading(false))
-  }, [])
-
-  const selectedLabel = useMemo(() => {
-    if (!selected) return ''
-    return `${selected.snapshot_id} · schema v${selected.schema_version} · ${(selected.db_size / 1024 / 1024).toFixed(1)}MB`
-  }, [selected])
-
-  async function startRestore() {
-    if (!selected) return
-    setLoading(true)
-    setError('')
-    try {
-      const auth = await authorizeDisasterRecovery(currentPassword)
-      const res = await executeDisasterRecovery(selected.snapshot_id, auth.token, allowMissingMetadata)
-      setResult({ recovery_id: res.recovery_id, schema_after: res.schema_after, duration_ms: res.duration_ms })
-      setStep('done')
-      setCurrentPassword('')
-      toast.success('Disaster recovery completed')
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string; error?: { message?: string } } } })?.response?.data
-      setError(msg?.message || msg?.error?.message || 'Restore failed')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { t } = useTranslation()
+  const { systemOperationsEnabled } = useConfig()
+  const title = systemOperationsEnabled
+    ? t('disasterRestore.browserRestrictedTitle')
+    : t('disasterRestore.operationsDisabledTitle')
+  const description = systemOperationsEnabled
+    ? t('disasterRestore.browserRestrictedDesc')
+    : t('disasterRestore.operationsDisabledDesc')
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-6 space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Disaster Recovery</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Restore database snapshot from Litestream/R2 with metadata validation.</p>
+      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-6 text-center space-y-3">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <rect x="3" y="11" width="18" height="10" rx="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
         </div>
-
-        {step === 'select' && (
-          <>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-wider text-gray-500">Available snapshots</label>
-              <select
-                className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-                value={selected?.snapshot_id ?? ''}
-                onChange={(e) => setSelected(snapshots.find((s) => s.snapshot_id === e.target.value) ?? null)}
-                disabled={loading || snapshots.length === 0}
-              >
-                {snapshots.map((s) => (
-                  <option key={s.snapshot_id} value={s.snapshot_id}>
-                    {s.snapshot_id} | schema v{s.schema_version} | {(s.db_size / 1024 / 1024).toFixed(1)}MB
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selected && (
-              <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-4 text-sm space-y-1">
-                <div><b>Snapshot:</b> {selected.snapshot_id}</div>
-                <div><b>Created:</b> {selected.created_at}</div>
-                <div><b>Schema:</b> v{selected.schema_version}</div>
-                <div><b>App:</b> {selected.app_version || '-'}</div>
-                <div><b>Environment:</b> {selected.environment || '-'}</div>
-                <div><b>Size:</b> {(selected.db_size / 1024 / 1024).toFixed(1)} MB</div>
-                {!selected.has_metadata && <div className="text-rose-600">Metadata missing. Manual override required.</div>}
-              </div>
-            )}
-
-            <button
-              disabled={!selected || loading}
-              onClick={() => setStep('confirm')}
-              className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5"
-            >
-              Continue
-            </button>
-          </>
-        )}
-
-        {step === 'confirm' && selected && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">You are about to restore <b>{selectedLabel}</b>. This will replace the live database.</p>
-            {!selected.has_metadata && (
-              <label className="flex gap-2 items-start text-sm">
-                <input type="checkbox" checked={allowMissingMetadata} onChange={(e) => setAllowMissingMetadata(e.target.checked)} />
-                I understand metadata is missing and still want to continue.
-              </label>
-            )}
-            <label className="block text-sm text-gray-600 dark:text-gray-300">
-              Current password
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                autoComplete="current-password"
-                className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2"
-                placeholder="Required to authorize disaster recovery"
-              />
-            </label>
-            <div className="flex gap-2">
-              <button className="flex-1 rounded-xl border border-gray-300 py-2" onClick={() => setStep('select')}>Back</button>
-              <button
-                className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl py-2"
-                disabled={loading || !currentPassword || (!selected.has_metadata && !allowMissingMetadata)}
-                onClick={startRestore}
-              >
-                {loading ? 'Restoring...' : 'Confirm Restore'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 'done' && result && (
-          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 p-4 text-sm space-y-1">
-            <div className="font-semibold text-emerald-700 dark:text-emerald-300">Recovery complete</div>
-            <div>Recovery ID: {result.recovery_id}</div>
-            <div>Schema after: v{result.schema_after}</div>
-            <div>Duration: {(result.duration_ms / 1000).toFixed(2)}s</div>
-          </div>
-        )}
-
-        {error && <div className="text-sm text-rose-600">{error}</div>}
-
-        <div className="text-sm text-center pt-2">
-          <Link className="text-violet-600 hover:underline" to="/">Back to dashboard</Link>
-        </div>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{title}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+        <Link className="inline-block pt-2 text-sm font-medium text-violet-600 hover:underline dark:text-violet-400" to="/">
+          {t('disasterRestore.backToDashboard')}
+        </Link>
       </div>
     </div>
   )

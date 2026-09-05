@@ -66,6 +66,7 @@ type RecurringTransactionRule struct {
 	NextRunAt        int64
 	LastGeneratedFor *string
 	CatchUpEnabled   bool
+	Version          int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }

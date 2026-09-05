@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 
-	"finarch/internal/domain/model"
+	"finarch/internal/domain/service"
+	"finarch/internal/infrastructure/auth"
 	findb "finarch/internal/infrastructure/db"
 	sqliterepo "finarch/internal/infrastructure/repository"
 
@@ -18,57 +18,58 @@ import (
 
 // ─── Refresh Token Rotation ───────────────────────────────────────────────────
 
-// TestConcurrentRefreshRotation verifies that under 10 concurrent goroutines
-// trying to rotate the same refresh token, exactly 1 succeeds.
+// TestConcurrentRefreshRotation verifies that concurrent retries converge on
+// the same committed successor during the response-recovery grace window.
 func TestConcurrentRefreshRotation(t *testing.T) {
-	db := setupDB(t)
-	repo := sqliterepo.NewSQLiteRefreshTokenRepository(db)
+	database := setupDB(t)
+	defer database.Close()
 	ctx := context.Background()
-
-	rawToken := uuid.NewString()
-	oldToken := model.RefreshToken{
-		ID:        uuid.NewString(),
-		UserID:    testUserID,
-		TokenHash: rawToken, // using raw as hash for test simplicity
-		ExpiresAt: time.Now().Add(24 * time.Hour),
-		CreatedAt: time.Now(),
+	jwt := auth.NewJWTService("test-secret")
+	sessions := newTestSessionService(t, database, jwt, "test-secret")
+	user, err := sqliterepo.NewSQLiteUserRepository(database).GetByID(ctx, testUserID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := repo.Issue(ctx, oldToken); err != nil {
-		t.Fatalf("issue token: %v", err)
+	initial, err := sessions.CreateSession(ctx, user)
+	if err != nil {
+		t.Fatal(err)
 	}
-
 	const numGoroutines = 10
-	errCh := make(chan error, numGoroutines)
+	type result struct {
+		tokens service.SessionTokens
+		err    error
+	}
+	resultCh := make(chan result, numGoroutines)
 	var wg sync.WaitGroup
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			newToken := model.RefreshToken{
-				ID:        uuid.NewString(),
-				UserID:    testUserID,
-				TokenHash: uuid.NewString(),
-				ExpiresAt: time.Now().Add(24 * time.Hour),
-				CreatedAt: time.Now(),
-			}
-			_, err := repo.Rotate(ctx, rawToken, newToken)
-			errCh <- err
+			tokens, err := sessions.RotateSession(ctx, initial.RefreshToken)
+			resultCh <- result{tokens: tokens, err: err}
 		}()
 	}
 
 	wg.Wait()
-	close(errCh)
-
-	successCount := 0
-	for err := range errCh {
-		if err == nil {
-			successCount++
+	close(resultCh)
+	var successor string
+	for result := range resultCh {
+		if result.err != nil {
+			t.Fatalf("concurrent rotation: %v", result.err)
+		}
+		if successor == "" {
+			successor = result.tokens.RefreshToken
+		} else if result.tokens.RefreshToken != successor {
+			t.Fatal("concurrent rotations returned different successors")
 		}
 	}
-
-	if successCount != 1 {
-		t.Fatalf("expected exactly 1 successful rotation, got %d", successCount)
+	var generations int
+	if err := database.QueryRowContext(ctx, `SELECT COUNT(*) FROM refresh_tokens`).Scan(&generations); err != nil {
+		t.Fatal(err)
+	}
+	if generations != 2 {
+		t.Fatalf("refresh generations = %d, want initial + one successor", generations)
 	}
 }
 

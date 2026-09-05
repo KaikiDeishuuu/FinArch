@@ -6,22 +6,28 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version-file: go.mod
+          go-version: 1.26.6
           cache: true
 
       - name: Check Go formatting
         run: test -z "$(gofmt -l cmd internal test)"
+
+      - name: Run Go vet
+        run: go vet ./...
 
       - name: Run Go tests
         run: go test ./cmd/... ./internal/... ./test
@@ -31,12 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 22
+          node-version: 22.23.2
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -51,6 +57,10 @@ jobs:
       - name: Run lint
         working-directory: frontend
         run: npm run lint
+
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm test
 
       - name: Build frontend
         working-directory: frontend
@@ -69,10 +79,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Validate Docker Compose config
         env:
           FINARCH_IMAGE_TAG: sha-test
           JWT_SECRET: 0123456789abcdef0123456789abcdef
+          FINARCH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32
         run: docker compose config

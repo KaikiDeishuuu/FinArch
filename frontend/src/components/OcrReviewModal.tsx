@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { OCRSuggestion } from '../api/client'
+import { hasOCRSuggestion } from '../utils/ocr'
 
 export default function OcrReviewModal({
   suggestion,
@@ -11,7 +12,7 @@ export default function OcrReviewModal({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  if (!suggestion) return null
+  if (!hasOCRSuggestion(suggestion)) return null
   const rows = [
     ['amount', suggestion.amount_yuan ? String(suggestion.amount_yuan) : ''],
     ['date', suggestion.occurred_at || ''],

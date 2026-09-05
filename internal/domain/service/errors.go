@@ -20,13 +20,16 @@ var (
 	ErrInternal               = &DomainError{Code: "internal_error"}
 	ErrConcurrentModification = &DomainError{Code: "concurrent_modification"}
 	ErrInvalidOrUsedToken     = &DomainError{Code: "invalid_or_used_token"}
+	ErrRefreshTokenReuse      = &DomainError{Code: "refresh_token_reuse"}
+	ErrSessionInvalid         = &DomainError{Code: "session_invalid"}
 	ErrSystemUnavailable      = &DomainError{Code: "system_unavailable"}
 	ErrInvalidPassword        = &DomainError{Code: "invalid_password"}
 	ErrInvalidCredentials     = &DomainError{Code: "invalid_credentials"}
 	ErrAccountLocked          = &DomainError{Code: "account_locked"}
 	ErrLoginFailed            = &DomainError{Code: "login_failed"}
 
-	ErrEmailNotVerified = errors.New("email_not_verified")
+	ErrEmailNotVerified             = errors.New("email_not_verified")
+	ErrResolvedRateEvidenceMismatch = errors.New("resolved_rate_evidence_mismatch")
 )
 
 const (

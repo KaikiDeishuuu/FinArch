@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { createTransaction, linkAttachment } from '../api/client'
+import { createTransaction, deleteAttachment, linkAttachment } from '../api/client'
 import type { Attachment, OCRSuggestion } from '../api/client'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
@@ -14,6 +14,9 @@ import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
 import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from '../constants/currencies'
 import AttachmentUploader from '../components/AttachmentUploader'
 import OcrReviewModal from '../components/OcrReviewModal'
+import { formatAmount } from '../utils/format'
+import { shouldRotateIdempotencyKey } from '../utils/idempotency'
+import { accountModeForTransactionSource, transactionSourceForMode } from '../utils/accountScope'
 
 function currentLocalDateTime() {
   const now = new Date()
@@ -25,11 +28,33 @@ function apiDateTime(value: string) {
 }
 
 export default function AddTransactionPage() {
+  const { mode, isWorkMode } = useMode()
+  const [searchParams] = useSearchParams()
+  const initialSource = transactionSourceForMode(mode, searchParams.get('source'))
+
+  return (
+    <AddTransactionForm
+      key={`${mode}:${initialSource}`}
+      mode={mode}
+      isWorkMode={isWorkMode}
+      initialSource={initialSource}
+    />
+  )
+}
+
+function AddTransactionForm({
+  mode,
+  isWorkMode,
+  initialSource,
+}: {
+  mode: 'work' | 'life'
+  isWorkMode: boolean
+  initialSource: 'personal' | 'company'
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const refreshFinanceData = useRefreshFinanceData()
   const haptic = useHaptic()
-  const { data: accounts = [], isLoading: accountsLoading, isError: accountsError, refetch: refetchAccounts, isFetching: accountsFetching } = useAccounts()
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -38,11 +63,14 @@ export default function AddTransactionPage() {
   const [occurredAt, setOccurredAt] = useState(currentLocalDateTime())
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [ocrSuggestion, setOcrSuggestion] = useState<OCRSuggestion | null>(null)
+  const [createdTransactionId, setCreatedTransactionId] = useState<string | null>(null)
+  const pendingAttachmentsRef = useRef<Attachment[]>([])
+  const submissionInFlightRef = useRef(false)
+  const createIdempotencyKeyRef = useRef<string | null>(null)
 
-  const { mode, isWorkMode } = useMode()
   const [form, setForm] = useState({
     direction: 'expense',
-    source: isWorkMode ? 'company' : 'personal',
+    source: initialSource,
     account_id: '',
     category: CATEGORY_KEYS[0],
     amount_yuan: '',
@@ -50,6 +78,8 @@ export default function AddTransactionPage() {
     note: '',
     project_id: '',
   })
+  const accountLookupMode = accountModeForTransactionSource(form.source as 'personal' | 'company')
+  const { data: accounts = [], isLoading: accountsLoading, isError: accountsError, refetch: refetchAccounts, isFetching: accountsFetching } = useAccounts(accountLookupMode)
 
   // Auto-select first account matching current source type
   useEffect(() => {
@@ -64,10 +94,6 @@ export default function AddTransactionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.source, accounts, isWorkMode])
 
-  useEffect(() => {
-    setForm((prev) => ({ ...prev, source: isWorkMode ? "company" : "personal" }))
-  }, [isWorkMode])
-
   function set(key: string, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
@@ -76,46 +102,128 @@ export default function AddTransactionPage() {
     a.is_active && a.type === (form.source === 'personal' ? 'personal' : 'public')
   )
 
+  function replacePendingAttachments(next: Attachment[]) {
+    pendingAttachmentsRef.current = next
+    setPendingAttachments(next)
+  }
+
+  function addPendingAttachment(attachment: Attachment) {
+    setPendingAttachments((previous) => {
+      const next = [...previous, attachment]
+      pendingAttachmentsRef.current = next
+      return next
+    })
+  }
+
+  async function discardPendingAttachments() {
+    const pending = pendingAttachmentsRef.current
+    replacePendingAttachments([])
+    await Promise.allSettled(pending.map((attachment) => deleteAttachment(attachment.id)))
+  }
+
+  useEffect(() => {
+    return () => {
+      const pending = pendingAttachmentsRef.current
+      pendingAttachmentsRef.current = []
+      pending.forEach((attachment) => {
+        void deleteAttachment(attachment.id).catch(() => undefined)
+      })
+    }
+  }, [])
+
+  async function linkPendingAttachments(transactionId: string, attachments: Attachment[]) {
+    const settled = await Promise.allSettled(
+      attachments.map((attachment) => linkAttachment(attachment.id, transactionId)),
+    )
+    return attachments.filter((_, index) => settled[index].status === 'rejected')
+  }
+
+  function finishCreatedTransaction(amount: number) {
+    replacePendingAttachments([])
+    createIdempotencyKeyRef.current = null
+    haptic.success()
+    refreshFinanceData()
+    toast.success(t('addTransaction.toast.success'), {
+      description: `${CURRENCY_SYMBOLS[form.currency] ?? form.currency}${amount.toFixed(2)}`,
+    })
+    setSuccess(true)
+    window.setTimeout(() => navigate(`/transactions?source=${form.source}`), 1200)
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
-    if (accountsUnavailable) {
+    if (submissionInFlightRef.current || success) return
+    if (!createdTransactionId && accountsUnavailable) {
       haptic.error()
       setError(accountsError ? t('addTransaction.accountLoad.error') : t('addTransaction.accountLoad.empty'))
       return
     }
     const amount = parseFloat(form.amount_yuan)
-    if (isNaN(amount) || amount <= 0) {
+    if (!createdTransactionId && (isNaN(amount) || amount <= 0)) {
       haptic.error()
       setError(t('addTransaction.toast.invalidAmount'))
       return
     }
+    submissionInFlightRef.current = true
     setLoading(true)
     try {
-      const created = await createTransaction({
-        ...form,
-        occurred_at: apiDateTime(occurredAt),
-        account_id: form.account_id || undefined,
-        project_id: form.project_id.trim() || undefined,
-        amount_yuan: amount,
-        mode,
-      })
-      if (pendingAttachments.length > 0) {
-        await Promise.all(pendingAttachments.map((attachment) => linkAttachment(attachment.id, created.id)))
+      let transactionId = createdTransactionId
+      if (!transactionId) {
+        const idempotencyKey = createIdempotencyKeyRef.current ?? crypto.randomUUID()
+        createIdempotencyKeyRef.current = idempotencyKey
+        const created = await createTransaction({
+          ...form,
+          occurred_at: apiDateTime(occurredAt),
+          account_id: form.account_id || undefined,
+          project_id: form.project_id.trim() || undefined,
+          amount_yuan: amount,
+          mode,
+        }, idempotencyKey)
+        transactionId = created.id
+        setCreatedTransactionId(transactionId)
+        // The financial write succeeded even if a later attachment link fails.
+        refreshFinanceData()
       }
-      haptic.success()
-      refreshFinanceData()
-      toast.success(t('addTransaction.toast.success'), { description: `${CURRENCY_SYMBOLS[form.currency] ?? form.currency}${amount.toFixed(2)}` })
-      setSuccess(true)
-      setPendingAttachments([])
-      setTimeout(() => navigate('/transactions'), 1200)
+
+      const attachments = pendingAttachmentsRef.current
+      const failed = await linkPendingAttachments(transactionId, attachments)
+      if (failed.length > 0) {
+        replacePendingAttachments(failed)
+        haptic.error()
+        toast.warning(t('addTransaction.toast.createdAttachmentWarning', { count: failed.length }))
+        return
+      }
+
+      finishCreatedTransaction(amount)
     } catch (err: unknown) {
+      if (shouldRotateIdempotencyKey(err)) {
+        // A definitive server rejection did not create a transaction; a
+        // corrected form submission is a new idempotent operation.
+        createIdempotencyKeyRef.current = null
+      }
       haptic.error()
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setError(msg || t('addTransaction.toast.error'))
       toast.error(msg || t('addTransaction.toast.error'))
     } finally {
+      submissionInFlightRef.current = false
       setLoading(false)
+    }
+  }
+
+  async function handleCancel() {
+    if (submissionInFlightRef.current) return
+    submissionInFlightRef.current = true
+    setLoading(true)
+    await discardPendingAttachments()
+    createIdempotencyKeyRef.current = null
+    submissionInFlightRef.current = false
+    setLoading(false)
+    if (createdTransactionId) {
+      navigate(`/transactions?source=${form.source}`)
+    } else {
+      navigate(-1)
     }
   }
 
@@ -157,14 +265,16 @@ export default function AddTransactionPage() {
       )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-stretch">
+        <fieldset disabled={Boolean(createdTransactionId)} className="contents">
 
         {/* Direction + Source */}
         <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-1">
           <div>
-            <label className={labelClass}>{t('addTransaction.form.direction')}</label>
-            <div className="grid grid-cols-2 gap-2">
+            <p id="transaction-direction-label" className={labelClass}>{t('addTransaction.form.direction')}</p>
+            <div role="group" aria-labelledby="transaction-direction-label" className="grid grid-cols-2 gap-2">
               <button type="button"
                 onClick={() => set('direction', 'expense')}
+                aria-pressed={isExpense}
                 className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isExpense
                     ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400'
@@ -176,6 +286,7 @@ export default function AddTransactionPage() {
               </button>
               <button type="button"
                 onClick={() => set('direction', 'income')}
+                aria-pressed={!isExpense}
                 className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isExpense
                     ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -189,10 +300,11 @@ export default function AddTransactionPage() {
           </div>
 
           <div>
-            <label className={labelClass}>{t('addTransaction.form.source')}</label>
-            <div className="grid grid-cols-2 gap-2">
+            <p id="transaction-source-label" className={labelClass}>{t('addTransaction.form.source')}</p>
+            <div role="group" aria-labelledby="transaction-source-label" className="grid grid-cols-2 gap-2">
               <button type="button"
-                onClick={() => isWorkMode ? null : set('source', 'personal')}
+                onClick={() => set('source', 'personal')}
+                aria-pressed={isPersonal}
                 className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   isPersonal
                     ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400'
@@ -204,11 +316,13 @@ export default function AddTransactionPage() {
               </button>
               <button type="button"
                 onClick={() => isWorkMode && set('source', 'company')}
+                disabled={!isWorkMode}
+                aria-pressed={!isPersonal}
                 className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
                   !isPersonal
                     ? 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400'
                     : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-sky-200 dark:hover:border-sky-500/30 hover:text-sky-400'
-                }`}
+                } ${!isWorkMode ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 {t('addTransaction.form.publicAccount')}
@@ -242,7 +356,7 @@ export default function AddTransactionPage() {
                 size="lg"
                 options={sourceAccounts.map(a => ({
                   value: a.id,
-                  label: `${a.name}（${t('common.balance')} ¥${a.balance_yuan.toFixed(2)}）`,
+                  label: `${a.name}（${t('common.balance')} ${formatAmount(a.balance_yuan, a.currency)}）`,
                 }))}
               />
             ) : (
@@ -348,7 +462,7 @@ export default function AddTransactionPage() {
             <label className={labelClass}>{t('attachments.title')}</label>
             <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">{t('attachments.addHint')}</p>
             <AttachmentUploader
-              onUploaded={(attachment) => setPendingAttachments((prev) => [...prev, attachment])}
+              onUploaded={addPendingAttachment}
               onSuggestion={setOcrSuggestion}
             />
             {pendingAttachments.length > 0 && (
@@ -390,9 +504,16 @@ export default function AddTransactionPage() {
             />
           </div>
         </div>
+        </fieldset>
 
         {/* Error + Actions */}
         <div className="md:col-span-2 space-y-3 order-7">
+          {createdTransactionId && !success && pendingAttachments.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              <p className="font-semibold">{t('addTransaction.attachmentRecovery.title')}</p>
+              <p className="mt-1 text-xs leading-5">{t('addTransaction.attachmentRecovery.description', { count: pendingAttachments.length })}</p>
+            </div>
+          )}
           {error && (
             <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
               <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
@@ -402,21 +523,26 @@ export default function AddTransactionPage() {
           <div className="flex flex-col-reverse sm:flex-row gap-3 rounded-2xl bg-white/80 dark:bg-[hsl(260,15%,11%)]/80 border border-gray-100/80 dark:border-gray-800/50 p-3 shadow-sm">
             <button
               type="submit"
-              disabled={loading || success || accountsUnavailable}
+              disabled={loading || success || (!createdTransactionId && accountsUnavailable)}
               className={`flex-1 font-semibold rounded-xl py-3.5 text-sm transition-all disabled:opacity-50 ${
                 isExpense
                   ? 'bg-rose-500 hover:bg-rose-600 text-white'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white'
               }`}
             >
-              {loading ? t('addTransaction.form.submitting') : t('addTransaction.form.submit')}
+              {loading
+                ? t('addTransaction.form.submitting')
+                : createdTransactionId
+                  ? t('addTransaction.form.retryAttachments')
+                  : t('addTransaction.form.submit')}
             </button>
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => { void handleCancel() }}
+              disabled={loading || success}
               className="px-5 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 font-medium transition-all"
             >
-              {t('common.cancel')}
+              {createdTransactionId ? t('addTransaction.form.continueWithoutAttachments') : t('common.cancel')}
             </button>
           </div>
         </div>

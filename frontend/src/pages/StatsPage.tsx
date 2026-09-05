@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { formatAmountCompact, formatAmount, formatAmountExact, toCNY } from '../utils/format'
+import { formatAmountCompact, formatAmount, formatAmountExact } from '../utils/format'
+import { transactionAmountToCNY } from '../utils/financeAmounts'
 import CompactAmount from '../components/CompactAmount'
 import { useExchangeRates } from '../hooks/useExchangeRates'
 import { useTransactions } from '../hooks/useTransactions'
@@ -16,6 +17,7 @@ import { useMode } from '../hooks/useMode'
 import ResponsivePieCard from '../components/ResponsivePieCard'
 import { calculateWorkModeAdjustments } from '../utils/workModeStats'
 import { getModeChartPalette } from '../utils/chartPalette'
+import { accountModeForTransactionSource } from '../utils/accountScope'
 import AccountBalanceChart from '../components/AccountBalanceChart'
 
 
@@ -182,14 +184,24 @@ export default function StatsPage() {
   const year = new Date().getFullYear()
   const { data: transactions = [], isLoading: loading, isError, refetch, isFetching } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
-  const { data: accounts = [] } = useAccounts()
   const { t } = useTranslation()
   const { isWorkMode, mode } = useMode()
   const palette = getModeChartPalette(mode)
-  const sourceFilter: 'personal' | 'company' = isWorkMode ? 'company' : 'personal'
+  const [workSourceFilter, setWorkSourceFilter] = useState<'personal' | 'company'>('company')
+  const sourceFilter: 'personal' | 'company' = isWorkMode ? workSourceFilter : 'personal'
+  const accountLookupMode = accountModeForTransactionSource(sourceFilter)
+  const { data: accounts = [] } = useAccounts(accountLookupMode)
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
+
+  function selectSource(source: 'personal' | 'company') {
+    if (!isWorkMode || source === sourceFilter) return
+    setWorkSourceFilter(source)
+    setFilterCategory('')
+    setFilterProject('')
+    setFilterAccount('')
+  }
 
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
@@ -212,12 +224,19 @@ export default function StatsPage() {
     [transactions, sourceFilter]
   )
 
+  // A global mode change can replace the visible source without going through
+  // selectSource. Ignore stale selections that do not belong to that source so
+  // hidden filters cannot make the new view appear empty.
+  const effectiveFilterCategory = allCategories.includes(filterCategory) ? filterCategory : ''
+  const effectiveFilterProject = allProjects.includes(filterProject) ? filterProject : ''
+  const effectiveFilterAccount = filteredAccounts.some(account => account.id === filterAccount) ? filterAccount : ''
+
   const filteredBySource = useMemo(() =>
     transactions.filter(t => t.source === sourceFilter)
-      .filter(t => !filterCategory || t.category === filterCategory)
-      .filter(t => !filterProject || (t.project_id ?? '') === filterProject)
-      .filter(t => !filterAccount || t.account_id === filterAccount),
-    [transactions, sourceFilter, filterCategory, filterProject, filterAccount]
+      .filter(t => !effectiveFilterCategory || t.category === effectiveFilterCategory)
+      .filter(t => !effectiveFilterProject || (t.project_id ?? '') === effectiveFilterProject)
+      .filter(t => !effectiveFilterAccount || t.account_id === effectiveFilterAccount),
+    [transactions, sourceFilter, effectiveFilterCategory, effectiveFilterProject, effectiveFilterAccount]
   )
 
   const fmt = (n: number) => formatAmount(n, 'CNY')
@@ -232,7 +251,7 @@ export default function StatsPage() {
     const projectMap = new Map<string, { project_name: string; income: number; expense: number }>()
 
     for (const tx of filteredBySource) {
-      const cny = toCNY(tx.amount_yuan, tx.currency || 'CNY', rates)
+      const cny = transactionAmountToCNY(tx, rates)
       if (tx.occurred_at.startsWith(String(year))) {
         const month = parseInt(tx.occurred_at.substring(5, 7))
         if (!monthlyMap.has(month)) monthlyMap.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
@@ -280,7 +299,7 @@ export default function StatsPage() {
   const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
 
   // Reimbursement adjustments — WORK mode only
-  const { totalReimbursed, adjustedNet: totalNet } = isWorkMode
+  const { totalReimbursed, adjustedNet: totalNet } = isWorkMode && sourceFilter === 'personal'
     ? calculateWorkModeAdjustments(monthly, totalIncome, totalExpense)
     : { totalReimbursed: 0, adjustedNet: totalIncome - totalExpense }
 
@@ -329,15 +348,36 @@ export default function StatsPage() {
       {/* Filter bar */}
       <div className="rounded-2xl bg-white/70 dark:bg-[hsl(260,15%,11%)]/70 border border-gray-100/80 dark:border-gray-800/50 p-3 flex flex-wrap items-center gap-2 shadow-sm md:bg-transparent md:dark:bg-transparent md:border-0 md:p-0 md:shadow-none">
         {/* Source filter */}
-        <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
-          {isWorkMode ? t('common.company') : t('common.personal')}
-        </div>
+        {isWorkMode ? (
+          <div className="inline-flex h-8 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+            {(['company', 'personal'] as const).map((source) => (
+              <button
+                key={source}
+                type="button"
+                onClick={() => selectSource(source)}
+                aria-pressed={sourceFilter === source}
+                className={`h-7 rounded-md px-2.5 text-xs font-semibold transition-colors ${sourceFilter === source
+                  ? source === 'company'
+                    ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
+                    : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                {t(`transactions.sourceTabs.${source}`)}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
+            {t('common.personal')}
+          </div>
+        )}
 
         {/* Account filter */}
         {filteredAccounts.length > 1 && (
           <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
             <Select
-              value={filterAccount}
+              value={effectiveFilterAccount}
               onChange={setFilterAccount}
               placeholder={t('stats.filter.allAccounts')}
               size="sm"
@@ -354,7 +394,7 @@ export default function StatsPage() {
         {allCategories.length > 0 && (
           <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
             <Select
-              value={filterCategory}
+              value={effectiveFilterCategory}
               onChange={setFilterCategory}
               placeholder={t('stats.filter.allCategories')}
               size="sm"
@@ -371,7 +411,7 @@ export default function StatsPage() {
         {allProjects.length > 0 && (
           <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
             <Select
-              value={filterProject}
+              value={effectiveFilterProject}
               onChange={setFilterProject}
               placeholder={t('stats.filter.allProjects')}
               size="sm"
@@ -385,7 +425,7 @@ export default function StatsPage() {
         )}
 
         {/* Clear filters */}
-        {(filterCategory || filterProject || filterAccount) && (
+        {(effectiveFilterCategory || effectiveFilterProject || effectiveFilterAccount) && (
           <button
             onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterAccount('') }}
             className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs transition-all"
@@ -423,7 +463,7 @@ export default function StatsPage() {
         </StaggerItem>
       </StaggerContainer>
 
-      <AccountBalanceChart accounts={activeAccounts} />
+      <AccountBalanceChart accounts={filteredAccounts} />
 
       {/* Monthly bar chart — Premium */}
       <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
@@ -502,7 +542,7 @@ export default function StatsPage() {
                   <div className="h-full rounded-full" style={{ background: palette.expense, width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
                 </div>
               </div>
-              {isWorkMode && totalReimbursed > 0 && (
+              {isWorkMode && sourceFilter === 'personal' && totalReimbursed > 0 && (
                 <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
                   <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 gap-2">
                     <span className="truncate">{t('stats.reimbursed')}</span>

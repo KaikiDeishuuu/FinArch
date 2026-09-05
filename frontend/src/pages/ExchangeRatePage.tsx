@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import AnimatedNumber from '../motion/AnimatedNumber'
 import Skeleton from '../motion/Skeleton'
 import { SUPPORTED_CURRENCIES } from '../constants/currencies'
+import { fallbackRatesForBase } from '../utils/exchangeRates'
 
 const ExchangeTrendChart = lazy(() => import('../components/ExchangeTrendChart'))
 
@@ -224,16 +225,7 @@ export default function ExchangeRatePage() {
       })
       .catch(() => {
         if (!alive) return
-        const fallback: Record<string, number> = {}
-        for (const c of CURRENCIES) fallback[c.code] = 1
-        fallback.EUR = 0.92
-        fallback.JPY = 156
-        fallback.GBP = 0.79
-        fallback.HKD = 7.8
-        fallback.CAD = 1.36
-        fallback.AUD = 1.53
-        fallback.SGD = 1.34
-        fallback.KRW = 1370
+        const fallback = fallbackRatesForBase(from, CURRENCIES.map((currency) => currency.code))
         setRates(fallback)
         setError(t('exchange.fallback'))
         setAgeSec(0)

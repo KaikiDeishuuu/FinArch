@@ -8,6 +8,7 @@ import (
 
 	"finarch/internal/domain/model"
 	"finarch/internal/domain/service"
+	"finarch/internal/infrastructure/auth"
 	"finarch/internal/infrastructure/db"
 	sqliterepo "finarch/internal/infrastructure/repository"
 
@@ -48,6 +49,15 @@ func setupDB(t *testing.T) *sql.DB {
 	return database
 }
 
+func newTestSessionService(t *testing.T, database *sql.DB, jwt *auth.JWTService, secret string) *service.SessionService {
+	t.Helper()
+	sessions, err := service.NewSessionService(sqliterepo.NewSQLiteRefreshTokenRepository(database), jwt, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sessions
+}
+
 // TestReimburse_RejectDuplicateTxIDs verifies duplicate IDs are rejected before transaction.
 func TestReimburse_RejectDuplicateTxIDs(t *testing.T) {
 	database := setupDB(t)
@@ -75,6 +85,7 @@ func TestReimburse_RejectDuplicateTxIDs(t *testing.T) {
 	}
 
 	_, err = reimSvc.CreateReimbursement(ctx, service.CreateReimbursementRequest{
+		UserID:         testUserID,
 		Applicant:      "alice",
 		TransactionIDs: []string{tx.ID, tx.ID},
 		RequestNo:      "REIM-" + uuid.NewString(),
@@ -111,6 +122,7 @@ func TestReimburse_AtomicAndSingleUse(t *testing.T) {
 	}
 
 	_, err = reimSvc.CreateReimbursement(ctx, service.CreateReimbursementRequest{
+		UserID:         testUserID,
 		Applicant:      "alice",
 		TransactionIDs: []string{tx.ID},
 		RequestNo:      "REIM-1-" + uuid.NewString(),
@@ -120,11 +132,82 @@ func TestReimburse_AtomicAndSingleUse(t *testing.T) {
 	}
 
 	_, err = reimSvc.CreateReimbursement(ctx, service.CreateReimbursementRequest{
+		UserID:         testUserID,
 		Applicant:      "alice",
 		TransactionIDs: []string{tx.ID},
 		RequestNo:      "REIM-2-" + uuid.NewString(),
 	})
 	if err == nil {
 		t.Fatal("expected second reimbursement failure")
+	}
+}
+
+func TestToggleReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
+	database := setupDB(t)
+	defer database.Close()
+	ctx := context.Background()
+	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
+	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, nil)
+
+	personal, err := acctRepo.GetByUserAndType(ctx, testUserID, model.AccountTypePersonal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := acctRepo.GetByUserAndType(ctx, testUserID, model.AccountTypePublic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	create := func(accountID string, txType model.TxType, source model.Source) model.Transaction {
+		t.Helper()
+		tx, err := txSvc.CreateTransaction(ctx, service.CreateTransactionRequest{
+			UserID: testUserID, OccurredAt: time.Now(), AccountID: accountID,
+			TxType: txType, Source: source, Category: "lifecycle", AmountCents: 100, Currency: "CNY",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tx
+	}
+
+	companyExpense := create(public.ID, model.TxTypeExpense, model.SourceCompany)
+	personalIncome := create(personal.ID, model.TxTypeIncome, model.SourcePersonal)
+	for _, transaction := range []model.Transaction{companyExpense, personalIncome} {
+		if _, err := database.Exec(`UPDATE transactions SET reported_at = ? WHERE id = ?`, time.Now().Unix(), transaction.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := txRepo.ToggleReimbursed(ctx, transaction.ID, testUserID); err == nil {
+			t.Fatalf("ineligible transaction %s was marked reimbursed", transaction.ID)
+		}
+	}
+
+	personalExpense := create(personal.ID, model.TxTypeExpense, model.SourcePersonal)
+	if _, err := txRepo.ToggleReimbursed(ctx, personalExpense.ID, testUserID); err == nil {
+		t.Fatal("unreported personal expense was marked reimbursed")
+	}
+	if _, err := database.Exec(`UPDATE transactions SET reported_at = ? WHERE id = ?`, time.Now().Unix(), personalExpense.ID); err != nil {
+		t.Fatal(err)
+	}
+	marked, err := txRepo.ToggleReimbursed(ctx, personalExpense.ID, testUserID)
+	if err != nil || !marked {
+		t.Fatalf("mark personal expense reimbursed = %t, %v", marked, err)
+	}
+	var reimbursedAt sql.NullInt64
+	if err := database.QueryRow(`SELECT reimbursed_at FROM transactions WHERE id = ?`, personalExpense.ID).Scan(&reimbursedAt); err != nil {
+		t.Fatal(err)
+	}
+	if !reimbursedAt.Valid {
+		t.Fatal("reimbursed transaction is missing reimbursed_at")
+	}
+	marked, err = txRepo.ToggleReimbursed(ctx, personalExpense.ID, testUserID)
+	if err != nil || marked {
+		t.Fatalf("return personal expense to pending = %t, %v", marked, err)
+	}
+	var status string
+	if err := database.QueryRow(`SELECT reimb_status, reimbursed_at FROM transactions WHERE id = ?`, personalExpense.ID).Scan(&status, &reimbursedAt); err != nil {
+		t.Fatal(err)
+	}
+	if status != string(model.ReimbStatusPending) || reimbursedAt.Valid {
+		t.Fatalf("pending lifecycle = status:%q reimbursed_at:%v", status, reimbursedAt)
 	}
 }

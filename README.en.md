@@ -8,7 +8,7 @@
 
 A lightweight, multi-user financial management system
 
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
+[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -54,10 +54,10 @@ One-click export of filtered results to a professionally formatted PDF with bran
 ### More
 
 - **👥 Multi-User Isolation** — Each account's data is completely isolated
-- **🔐 Enterprise Security** — Email-verified registration · Password reset · Dual email-change verification · Password change instantly revokes all sessions
+- **🔐 Session Security** — 15-minute access tokens · Rotating HttpOnly refresh cookie · Password changes revoke every session
 - **📱 PWA Support** — Installable to desktop/home screen with native-like experience
 - **☁️ Auto Backup** — Optional Litestream real-time streaming backup to Cloudflare R2
-- **🛡️ Disaster Recovery** — Email-verified public restore flow, works even when JWT auth is unavailable
+- **🛡️ Controlled Recovery** — Litestream R2 restore plus a disabled-by-default, maintenance-window physical-operations API
 - **📡 Online Device Monitoring** — Dashboard shows real-time online device count (heartbeat mechanism, 2-min interval)
 - **🤖 Bot Protection** — Optional Cloudflare Turnstile CAPTCHA
 - **🧹 Auto Cleanup** — Unverified accounts purged after 24h; stale device heartbeats recycled after 10min
@@ -68,7 +68,7 @@ One-click export of filtered results to a professionally formatted PDF with bran
 
 ### Local Development
 
-> Prerequisites: Go 1.24+, Node.js 20+
+> Prerequisites: Go 1.26.6+, Node.js 22+
 
 ```bash
 git clone https://github.com/KaikiDeishuuu/FinArch.git
@@ -81,7 +81,10 @@ go run ./cmd/cli serve
 cd frontend && npm install && npm run dev
 ```
 
-The frontend is pre-configured with a `/api` proxy — works out of the box. No email or other env vars needed for local dev.
+The frontend is pre-configured with a `/api` proxy — works out of the box. No
+email or other env vars are needed for local development. The CLI development
+server uses a non-`Secure` cookie and therefore must remain loopback-only; never
+expose it to a LAN or the public internet.
 
 ### Production Deployment
 
@@ -96,18 +99,20 @@ Key environment variables:
 | Variable | Description | Required |
 |----------|-------------|:--------:|
 | `JWT_SECRET` | Token signing secret | ✅ |
-| `APP_BASE_URL` | Public site URL | ✅ |
+| `FINARCH_IMAGE_TAG` | Immutable image tag to deploy; use `sha-<commit sha>` in production | ✅ |
+| `FINARCH_TRUSTED_PROXY_CIDRS` | Exact IP/CIDR of the direct proxy and every controlled proxy in the trusted XFF suffix; Compose refuses to start without it | ✅ |
+| `APP_BASE_URL` | Public URL used in email links; the server default is used when empty | Optional |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Email service | Optional |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | CAPTCHA | Optional |
 | `FINARCH_OCR_PROVIDER` / `FINARCH_OCR_AISTUDIO_*` | Attachment OCR, optionally PaddleOCR AIStudio | Optional |
 | `LITESTREAM_*` | R2 backup | Optional |
 
-> Optional variables left empty will gracefully disable the feature. See [DEPLOYMENT.en.md](DEPLOYMENT.en.md) for the full guide.
+> Compose always enables proxy mode. Configure the complete, exact, controlled proxy chain. `0.0.0.0/0` and `::/0` are rejected, and all private networks must never be trusted as a convenient default. A directly run server ignores forwarding headers by default. Other optional variables gracefully disable their features when empty. See [DEPLOYMENT.en.md](DEPLOYMENT.en.md) for the full guide.
 
 ### CI/CD
 
 ```
-git push → GitHub Actions builds image → GHCR → VPS pulls & restarts
+push main → CI passes and commit is still main tip → build SHA image → GHCR → serialized VPS deploy
 ```
 
 ---
@@ -155,12 +160,12 @@ FinArch/
 
 | | |
 |---|---|
-| **Backend** | Go 1.24 · Gin · SQLite (WAL) |
+| **Backend** | Go 1.26.6 · Gin · SQLite (WAL) |
 | **Frontend** | React 19 · Vite 7 · Tailwind CSS v4 · Framer Motion · Recharts |
 | **Deployment** | Docker multi-stage build · GitHub Actions → GHCR → SSH Deploy |
-| **Security** | JWT (HMAC HS256) · Cloudflare Turnstile · IP rate limiting · Account lockout |
-| **Email** | Resend (verification · reset · disaster recovery) |
-| **Backup** | Litestream → Cloudflare R2 · In-app download/restore · Disaster recovery |
+| **Security** | JWT (HMAC HS256) · HttpOnly refresh sessions · Cloudflare Turnstile · IP rate limiting · Account lockout |
+| **Email** | Resend (verification · reset · email change) |
+| **Backup** | Litestream → Cloudflare R2 · Maintenance-window physical backup/restore |
 | **PWA** | Workbox Service Worker · Offline caching · Home screen install |
 
 ---

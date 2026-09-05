@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { confirmDeleteAccount } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
+import { useActionToken } from '../hooks/useActionToken'
 
 
 async function clearPWAState() {
@@ -27,35 +28,42 @@ async function clearPWAState() {
 export default function ConfirmDeleteAccountPage() {
   useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token') ?? ''
+  const token = useActionToken()
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { clearSession } = useAuth()
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<'ready' | 'loading' | 'success' | 'error'>(token ? 'ready' : 'error')
   const [errorMsg, setErrorMsg] = useState('')
+  const submittingRef = useRef(false)
+  const redirectTimerRef = useRef<number | null>(null)
+  const visibleErrorMsg = token ? errorMsg : t('confirmDeleteAccount.invalidLink')
 
-  useEffect(() => {
-    if (!token) {
+  async function handleDelete() {
+    if (!token || submittingRef.current) return
+    submittingRef.current = true
+    setStatus('loading')
+    setErrorMsg('')
+    try {
+      await confirmDeleteAccount(token)
+      setStatus('success')
+      await clearPWAState()
+      clearSession()
+      redirectTimerRef.current = window.setTimeout(
+        () => navigate('/login?deleted=1', { replace: true }),
+        3000,
+      )
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setErrorMsg(msg || t('confirmDeleteAccount.errorDefault'))
       setStatus('error')
-      setErrorMsg(t('confirmDeleteAccount.invalidLink'))
-      return
+    } finally {
+      submittingRef.current = false
     }
-    confirmDeleteAccount(token)
-      .then(async () => {
-        setStatus('success')
-        await clearPWAState()
-        logout()
-        // Redirect to login after a short delay
-        setTimeout(() => navigate('/login?deleted=1', { replace: true }), 3000)
-      })
-      .catch((err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        setErrorMsg(msg || t('confirmDeleteAccount.errorDefault'))
-        setStatus('error')
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }
+
+  useEffect(() => () => {
+    if (redirectTimerRef.current !== null) window.clearTimeout(redirectTimerRef.current)
+  }, [])
 
   return (
     <div className="min-h-dvh flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-4 md:py-6">
@@ -67,6 +75,34 @@ export default function ConfirmDeleteAccountPage() {
           <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">FinArch</h1>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('login.subtitle')}</p>
         </div>
+
+        {status === 'ready' && (
+          <div className="space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-7 h-7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.052 3.38c.865-1.5 3.03-1.5 3.896 0l7.355 12.746zM12 16.5h.008v.008H12V16.5z" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('confirmDeleteAccount.readyTitle')}</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{t('confirmDeleteAccount.readyDesc')}</p>
+            </div>
+            <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-4 py-3 text-left">
+              <p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-400">{t('confirmDeleteAccount.warningTitle')}</p>
+              <p className="mt-1 text-sm leading-relaxed text-rose-700/90 dark:text-rose-300">{t('confirmDeleteAccount.warningDesc')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="w-full bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-all shadow-lg shadow-rose-500/20 hover:shadow-rose-500/30 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2"
+            >
+              {t('confirmDeleteAccount.confirmButton')}
+            </button>
+            <Link to="/login" className="inline-block text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors">
+              {t('confirmDeleteAccount.cancelButton')}
+            </Link>
+          </div>
+        )}
 
         {status === 'loading' && (
           <div className="space-y-3">
@@ -104,7 +140,7 @@ export default function ConfirmDeleteAccountPage() {
               </svg>
             </div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('confirmDeleteAccount.errorTitle')}</h2>
-            <p className="text-rose-600 dark:text-rose-400 text-sm">{errorMsg}</p>
+            <p className="text-rose-600 dark:text-rose-400 text-sm">{visibleErrorMsg}</p>
             <div className="flex flex-col gap-2">
               <Link
                 to="/settings"

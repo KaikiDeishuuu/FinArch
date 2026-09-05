@@ -3,6 +3,7 @@ package apiv1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -112,29 +113,29 @@ func recurringInstanceToDTO(inst model.RecurringTransactionInstance) recurringIn
 }
 
 type recurringRuleJSONRequest struct {
-	Mode           string  `json:"mode"`
-	Name           string  `json:"name"`
-	Status         string  `json:"status"`
-	AccountID      string  `json:"account_id"`
-	Type           string  `json:"type"`
-	Direction      string  `json:"direction"`
-	Category       string  `json:"category"`
-	AmountCents    int64   `json:"amount_cents"`
-	AmountYuan     float64 `json:"amount_yuan"`
-	Currency       string  `json:"currency"`
-	ExchangeRate   float64 `json:"exchange_rate"`
-	Note           string  `json:"note"`
-	ProjectID      *string `json:"project_id"`
-	Frequency      string  `json:"frequency"`
-	Interval       int     `json:"interval"`
-	StartDate      string  `json:"start_date"`
-	EndDate        *string `json:"end_date"`
-	TimeOfDay      string  `json:"time_of_day"`
-	Timezone       string  `json:"timezone"`
-	DayOfWeek      *int    `json:"day_of_week"`
-	DayOfMonth     *int    `json:"day_of_month"`
-	MonthEndPolicy string  `json:"month_end_policy"`
-	CatchUpEnabled *bool   `json:"catch_up_enabled"`
+	Mode           string   `json:"mode"`
+	Name           string   `json:"name"`
+	Status         string   `json:"status"`
+	AccountID      string   `json:"account_id"`
+	Type           string   `json:"type"`
+	Direction      string   `json:"direction"`
+	Category       string   `json:"category"`
+	AmountCents    *int64   `json:"amount_cents"`
+	AmountYuan     *float64 `json:"amount_yuan"`
+	Currency       string   `json:"currency"`
+	ExchangeRate   float64  `json:"exchange_rate"`
+	Note           string   `json:"note"`
+	ProjectID      *string  `json:"project_id"`
+	Frequency      string   `json:"frequency"`
+	Interval       int      `json:"interval"`
+	StartDate      string   `json:"start_date"`
+	EndDate        *string  `json:"end_date"`
+	TimeOfDay      string   `json:"time_of_day"`
+	Timezone       string   `json:"timezone"`
+	DayOfWeek      *int     `json:"day_of_week"`
+	DayOfMonth     *int     `json:"day_of_month"`
+	MonthEndPolicy string   `json:"month_end_policy"`
+	CatchUpEnabled *bool    `json:"catch_up_enabled"`
 }
 
 func recurringRequestFromJSON(uid, id string, req recurringRuleJSONRequest) (service.UpsertRecurringRuleRequest, error) {
@@ -148,6 +149,14 @@ func recurringRequestFromJSON(uid, id string, req recurringRuleJSONRequest) (ser
 		}
 		mode = parsedMode
 	}
+	var amountCents int64
+	if req.AmountCents != nil {
+		amountCents = *req.AmountCents
+	}
+	var amountYuan model.Money
+	if req.AmountYuan != nil {
+		amountYuan = model.Money(*req.AmountYuan)
+	}
 	return service.UpsertRecurringRuleRequest{
 		ID:             id,
 		UserID:         uid,
@@ -158,8 +167,9 @@ func recurringRequestFromJSON(uid, id string, req recurringRuleJSONRequest) (ser
 		TxType:         model.TxType(req.Type),
 		Direction:      model.Direction(req.Direction),
 		Category:       req.Category,
-		AmountCents:    req.AmountCents,
-		AmountYuan:     model.Money(req.AmountYuan),
+		AmountCents:    amountCents,
+		AmountYuan:     amountYuan,
+		AmountProvided: req.AmountCents != nil || req.AmountYuan != nil,
 		Currency:       req.Currency,
 		ExchangeRate:   req.ExchangeRate,
 		Note:           req.Note,
@@ -247,6 +257,10 @@ func (s *Server) handleUpdateRecurringRule(c *gin.Context) {
 	}
 	rule, err := s.recurringSvc.UpdateRule(c.Request.Context(), upsert)
 	if err != nil {
+		if errors.Is(err, service.ErrConcurrentModification) {
+			failDomain(c, err)
+			return
+		}
 		fail(c, 422, 40001, err.Error())
 		return
 	}
@@ -267,6 +281,10 @@ func (s *Server) handleUpdateRecurringRuleStatus(c *gin.Context) {
 	}
 	rule, err := s.recurringSvc.SetStatus(c.Request.Context(), userID(c), c.Param("id"), model.RecurringRuleStatus(req.Status))
 	if err != nil {
+		if errors.Is(err, service.ErrConcurrentModification) {
+			failDomain(c, err)
+			return
+		}
 		fail(c, 422, 40001, err.Error())
 		return
 	}
@@ -310,6 +328,10 @@ func (s *Server) handleGenerateRecurringRuleNow(c *gin.Context) {
 	}
 	res, err := s.recurringSvc.GenerateRuleNow(c.Request.Context(), userID(c), c.Param("id"), false)
 	if err != nil {
+		if errors.Is(err, service.ErrConcurrentModification) {
+			failDomain(c, err)
+			return
+		}
 		fail(c, 422, 40001, err.Error())
 		return
 	}
@@ -432,6 +454,12 @@ func (s *Server) uploadAttachment(c *gin.Context, forcedTransactionID *string) {
 		fail(c, 503, "ATTACHMENTS_UNAVAILABLE", "附件服务不可用")
 		return
 	}
+	uploadUserID := userID(c)
+	if !s.attachmentSvc.AllowUpload(uploadUserID) {
+		c.Header("Retry-After", "60")
+		fail(c, http.StatusTooManyRequests, "ATTACHMENT_UPLOAD_RATE_LIMITED", "附件上传过于频繁，请稍后再试")
+		return
+	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, s.attachmentSvc.MaxBytes()+1<<20)
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -450,8 +478,12 @@ func (s *Server) uploadAttachment(c *gin.Context, forcedTransactionID *string) {
 		return
 	}
 	defer file.Close()
-	attachment, err := s.attachmentSvc.Upload(c.Request.Context(), service.UploadAttachmentRequest{UserID: userID(c), TransactionID: txID, OriginalFilename: fh.Filename, ContentType: fh.Header.Get("Content-Type"), Kind: kind, Reader: file, RunOCR: runOCR})
+	attachment, err := s.attachmentSvc.Upload(c.Request.Context(), service.UploadAttachmentRequest{UserID: uploadUserID, TransactionID: txID, OriginalFilename: fh.Filename, ContentType: fh.Header.Get("Content-Type"), SizeBytesHint: fh.Size, Kind: kind, Reader: file, RunOCR: runOCR})
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentQuotaExceeded) {
+			fail(c, http.StatusRequestEntityTooLarge, "ATTACHMENT_QUOTA_EXCEEDED", err.Error())
+			return
+		}
 		fail(c, 422, 40001, err.Error())
 		return
 	}
@@ -545,6 +577,10 @@ func (s *Server) handleRunAttachmentOCR(c *gin.Context) {
 	}
 	attachment, err := s.attachmentSvc.RunOCR(c.Request.Context(), userID(c), c.Param("id"))
 	if err != nil {
+		if errors.Is(err, service.ErrOCRBusy) || errors.Is(err, service.ErrOCRRateLimited) {
+			fail(c, http.StatusTooManyRequests, "OCR_RATE_LIMITED", err.Error())
+			return
+		}
 		fail(c, 422, 40001, err.Error())
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"finarch/internal/domain/model"
+	"finarch/internal/domain/repository"
 )
 
 // StatsService provides aggregated financial statistics (V9 schema).
@@ -58,6 +59,26 @@ type BalanceHistoryPoint struct {
 // Reads from accounts.balance_cents (O(1)) and the pending-reimb partial index.
 func (s *StatsService) Summary(ctx context.Context, userID string) (PoolBalance, error) {
 	var b PoolBalance
+	if err := s.requireCNYTransactionBase(ctx, userID, " AND reimb_status = 'pending'"); err != nil {
+		return PoolBalance{}, err
+	}
+	var foreignAccountCurrency string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT currency FROM accounts
+		WHERE user_id = ? AND type = 'public' AND is_active = 1
+		  AND (
+		    balance_cents != 0 OR EXISTS(
+		      SELECT 1 FROM transactions tx WHERE tx.account_id = accounts.id
+		    )
+		  )
+		  AND COALESCE(NULLIF(UPPER(TRIM(currency)), ''), 'CNY') != 'CNY'
+		LIMIT 1`, userID).Scan(&foreignAccountCurrency)
+	if err != nil && err != sql.ErrNoRows {
+		return PoolBalance{}, fmt.Errorf("check account currencies: %w", err)
+	}
+	if err == nil {
+		return PoolBalance{}, fmt.Errorf("%w: 统计暂不支持非 CNY 本位币账户（%s）", repository.ErrMultiCurrencyReportingUnavailable, foreignAccountCurrency)
+	}
 
 	// Public accounts: read cached balance (trigger-maintained)
 	if err := s.db.QueryRowContext(ctx, `
@@ -84,6 +105,13 @@ func (s *StatsService) Summary(ctx context.Context, userID string) (PoolBalance,
 
 // Monthly returns income/expense grouped by month for a given year for a user.
 func (s *StatsService) Monthly(ctx context.Context, userID string, year int) ([]MonthlyStat, error) {
+	if err := s.requireCNYTransactionBase(
+		ctx, userID,
+		" AND substr(txn_date, 1, 4) = ? AND type IN ('income', 'expense')",
+		fmt.Sprintf("%04d", year),
+	); err != nil {
+		return nil, err
+	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT
 		  CAST(substr(txn_date, 1, 4) AS INTEGER)  AS yr,
@@ -132,6 +160,19 @@ func (s *StatsService) ByCategory(ctx context.Context, userID string, dateFrom, 
 		q += " AND txn_date <= ?"
 		args = append(args, dateTo)
 	}
+	currencyClause := " AND type = 'expense'"
+	currencyArgs := []any{}
+	if dateFrom != "" {
+		currencyClause += " AND txn_date >= ?"
+		currencyArgs = append(currencyArgs, dateFrom)
+	}
+	if dateTo != "" {
+		currencyClause += " AND txn_date <= ?"
+		currencyArgs = append(currencyArgs, dateTo)
+	}
+	if err := s.requireCNYTransactionBase(ctx, userID, currencyClause, currencyArgs...); err != nil {
+		return nil, err
+	}
 	q += " GROUP BY category ORDER BY total DESC"
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
@@ -152,6 +193,12 @@ func (s *StatsService) ByCategory(ctx context.Context, userID string, dateFrom, 
 
 // ByProject returns income/expense totals per project for a user.
 func (s *StatsService) ByProject(ctx context.Context, userID string) ([]ProjectStat, error) {
+	if err := s.requireCNYTransactionBase(
+		ctx, userID,
+		" AND project_id IS NOT NULL AND project_id != '' AND type IN ('income', 'expense')",
+	); err != nil {
+		return nil, err
+	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT
 		  COALESCE(project_id, ''),
@@ -226,6 +273,22 @@ func (s *StatsService) AccountBalanceHistory(
 	w, err := resolveWindow()
 	if err != nil {
 		return nil, err
+	}
+
+	// A selected account is homogeneous: base_amount_cents is denominated in
+	// the immutable currency of that account. Only an aggregate query spanning
+	// accounts must reject non-CNY bases, because summing USD/EUR/CNY directly
+	// would be financially meaningless.
+	if accountID == "" {
+		currencyClause := " AND mode = ?"
+		currencyArgs := []any{string(mode)}
+		if !w.all {
+			currencyClause += " AND txn_date <= ?"
+			currencyArgs = append(currencyArgs, w.end.Format("2006-01-02"))
+		}
+		if err := s.requireCNYTransactionBase(ctx, userID, currencyClause, currencyArgs...); err != nil {
+			return nil, err
+		}
 	}
 
 	if w.all {
@@ -310,4 +373,24 @@ func (s *StatsService) AccountBalanceHistory(
 	}
 
 	return points, nil
+}
+
+func (s *StatsService) requireCNYTransactionBase(ctx context.Context, userID, clause string, args ...any) error {
+	var currency string
+	queryArgs := make([]any, 0, len(args)+1)
+	queryArgs = append(queryArgs, userID)
+	queryArgs = append(queryArgs, args...)
+	err := s.db.QueryRowContext(ctx, `
+		SELECT base_currency FROM transactions
+		WHERE user_id = ?
+		  AND COALESCE(NULLIF(UPPER(TRIM(base_currency)), ''), 'CNY') != 'CNY'
+		`+clause+`
+		LIMIT 1`, queryArgs...).Scan(&currency)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check transaction currencies: %w", err)
+	}
+	return fmt.Errorf("%w: 统计暂不支持混合本位币（发现 %s）", repository.ErrMultiCurrencyReportingUnavailable, currency)
 }

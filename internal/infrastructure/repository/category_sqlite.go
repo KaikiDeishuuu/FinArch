@@ -21,10 +21,15 @@ func NewSQLiteCategoryRepository(db *sql.DB) *SQLiteCategoryRepository {
 
 // Create inserts one category.
 func (r *SQLiteCategoryRepository) Create(ctx context.Context, c model.Category) error {
+	createdAt := c.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
 	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
-		`INSERT INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, version)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+		`INSERT INTO categories (id, user_id, name, type, parent_id, sort_order, is_active, version, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
 		c.ID, c.UserID, c.Name, c.Type, c.ParentID, c.SortOrder, boolToInt(c.IsActive),
+		createdAt.UTC().Format(time.RFC3339),
 	)
 	if err != nil {
 		return fmt.Errorf("create category: %w", err)
@@ -35,7 +40,7 @@ func (r *SQLiteCategoryRepository) Create(ctx context.Context, c model.Category)
 // ListByUser returns all active categories for a user.
 func (r *SQLiteCategoryRepository) ListByUser(ctx context.Context, userID string) ([]model.Category, error) {
 	rows, err := getExecutor(ctx, r.db).QueryContext(ctx,
-		`SELECT id, user_id, name, type, parent_id, sort_order, is_active, version
+		`SELECT id, user_id, name, type, parent_id, sort_order, is_active, version, created_at
 		 FROM categories WHERE user_id = ? AND is_active = 1
 		 ORDER BY type, sort_order, name`, userID)
 	if err != nil {
@@ -56,7 +61,7 @@ func (r *SQLiteCategoryRepository) ListByUser(ctx context.Context, userID string
 // GetByID loads one category.
 func (r *SQLiteCategoryRepository) GetByID(ctx context.Context, id string) (model.Category, error) {
 	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
-		`SELECT id, user_id, name, type, parent_id, sort_order, is_active, version FROM categories WHERE id = ?`, id)
+		`SELECT id, user_id, name, type, parent_id, sort_order, is_active, version, created_at FROM categories WHERE id = ?`, id)
 	return scanCategory(row)
 }
 
@@ -92,8 +97,9 @@ func scanCategory(s catScanner) (model.Category, error) {
 	var c model.Category
 	var parentID sql.NullString
 	var isActive int
+	var createdAt string
 	if err := s.Scan(
-		&c.ID, &c.UserID, &c.Name, &c.Type, &parentID, &c.SortOrder, &isActive, &c.Version,
+		&c.ID, &c.UserID, &c.Name, &c.Type, &parentID, &c.SortOrder, &isActive, &c.Version, &createdAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return model.Category{}, fmt.Errorf("category not found")
@@ -105,6 +111,8 @@ func scanCategory(s catScanner) (model.Category, error) {
 		v := parentID.String
 		c.ParentID = &v
 	}
-	c.CreatedAt = time.Time{} // not stored in current schema; zero value
+	if parsed, err := time.Parse(time.RFC3339, createdAt); err == nil {
+		c.CreatedAt = parsed
+	}
 	return c, nil
 }
