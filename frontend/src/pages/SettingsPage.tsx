@@ -49,17 +49,17 @@ function PasswordStrength({ password, t }: { password: string; t: (key: string) 
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
-const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
-const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition bg-white dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder-gray-500'
+const labelCls = 'mb-1.5 block text-sm font-medium text-[hsl(var(--foreground))]'
+const inputCls = 'fin-input w-full px-3 py-2.5 text-sm'
 
 // ─── Section header ───────────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 mb-3">
-      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide shrink-0">
+    <div className="mb-3 flex items-center gap-3">
+      <h2 className="page-kicker shrink-0">
         {children}
-      </span>
-      <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+      </h2>
+      <div className="h-px flex-1 bg-[hsl(var(--border))]" />
     </div>
   )
 }
@@ -72,11 +72,11 @@ function MobileCollapsibleSection({ title, defaultOpen = false, children }: { ti
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="md:hidden w-full flex items-center justify-between gap-3 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 bg-white dark:bg-[hsl(260,15%,11%)] px-4 py-3 text-left shadow-sm"
+        className="ledger-panel flex w-full items-center justify-between gap-3 px-4 py-3 text-left md:hidden"
         aria-expanded={open}
       >
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">{title}</span>
-        <span className="text-[11px] text-violet-500 dark:text-violet-400 font-semibold">{open ? t('common.collapse') : t('common.expand')}</span>
+        <span className="page-kicker">{title}</span>
+        <span className="text-[11px] font-semibold text-[hsl(var(--mode-accent-strong))]">{open ? t('common.collapse') : t('common.expand')}</span>
       </button>
       <div className={`${open ? 'block' : 'hidden'} md:block mt-3 md:mt-0`}>
         {children}
@@ -90,7 +90,7 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
   const cls = {
     success: 'bg-emerald-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
     error: 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400',
-    info: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400',
+    info: 'bg-[hsl(var(--mode-accent-wash))] border-[hsl(var(--mode-accent))]/35 text-[hsl(var(--mode-accent-strong))]',
     warning: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-400',
   }[type]
   return (
@@ -100,13 +100,13 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
 
 function OperationsNotice({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-dashed border-violet-200 bg-violet-50/60 px-4 py-3 dark:border-violet-500/30 dark:bg-violet-500/10">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-violet-500 shadow-sm dark:bg-violet-950/60 dark:text-violet-300" aria-hidden="true">
+    <div className="flex items-start gap-3 rounded-[8px] border border-dashed border-[hsl(var(--mode-accent))]/40 bg-[hsl(var(--mode-accent-wash))] px-4 py-3">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--mode-accent-strong))]" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
       </div>
       <div>
-        <p className="text-sm font-semibold text-violet-800 dark:text-violet-200">{title}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-violet-700/75 dark:text-violet-300/75">{description}</p>
+        <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-[hsl(var(--muted-foreground))]">{description}</p>
       </div>
     </div>
   )
@@ -317,20 +317,20 @@ export default function SettingsPage() {
   return (
     <div className="pb-8 max-w-4xl">
       {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('settings.title')}</h1>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('settings.subtitle')}</p>
+      <div className="ledger-rail mb-6 pl-5">
+        <h1 className="font-display text-2xl font-semibold tracking-[-0.025em] text-[hsl(var(--foreground))] md:text-[1.75rem]">{t('settings.title')}</h1>
+        <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{t('settings.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* ── Fund Accounts ───────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>{t('settings.sections.accounts')}</SectionLabel>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
+          <div className="ledger-panel space-y-4 p-5">
             {/* Account list */}
             {acctLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
-                <span className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-violet-500 rounded-full animate-spin" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[hsl(var(--border))] border-t-[hsl(var(--mode-accent))]" />
                 {t('common.loading')}
               </div>
             ) : accounts.length === 0 ? (
@@ -354,10 +354,10 @@ export default function SettingsPage() {
                             autoFocus
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            className="flex-1 border border-violet-300 dark:border-violet-600 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 dark:bg-gray-800/50 dark:text-gray-200"
+                            className="fin-input flex-1 px-2.5 py-1 text-sm"
                           />
                           <button type="submit" disabled={renameLoading}
-                            className="text-xs bg-violet-600 text-white px-3 py-1 rounded-lg disabled:opacity-50">
+                            className="rounded-[6px] bg-[hsl(var(--primary))] px-3 py-1 text-xs text-[hsl(var(--primary-foreground))] disabled:opacity-50">
                             {renameLoading ? t('common.saving') : t('common.save')}
                           </button>
                           <button type="button" onClick={() => setRenamingId(null)}
@@ -373,7 +373,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => { setRenamingId(a.id); setRenameValue(a.name) }}
-                            className="text-xs text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors shrink-0"
+                            className="shrink-0 rounded-[6px] px-2 py-1 text-xs text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--mode-accent-wash))] hover:text-[hsl(var(--mode-accent-strong))]"
                           >{t('settings.accounts.rename')}</button>
                           {canDelete(a) && (
                             deletingId === a.id ? (
@@ -382,7 +382,7 @@ export default function SettingsPage() {
                                   type="button"
                                   disabled={deleteAcctLoading}
                                   onClick={() => handleDeleteAccount(a.id)}
-                                  className="text-xs text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 px-2.5 py-1 rounded-lg transition-colors"
+                                  className="rounded-[6px] bg-[hsl(var(--expense))] px-2.5 py-1 text-xs text-[hsl(var(--primary-foreground))] transition-[filter] hover:brightness-90 disabled:opacity-50"
                                 >{deleteAcctLoading ? t('settings.accounts.deleting') : t('settings.accounts.confirmDelete')}</button>
                                 <button
                                   type="button"
@@ -441,7 +441,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <button type="submit" disabled={newAcctLoading}
-                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+                  className="rounded-[7px] bg-[hsl(var(--primary))] px-4 py-2 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50">
                   {newAcctLoading ? t('settings.accounts.creating') : t('settings.accounts.create')}
                 </button>
               </form>
@@ -453,9 +453,9 @@ export default function SettingsPage() {
         {/* ── Profile ─────────────────────────────────────────── full width ── */}
         <div className="md:col-span-2">
           <SectionLabel>{t('settings.sections.profile')}</SectionLabel>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
+          <div className="ledger-panel p-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-400 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[10px] border border-[hsl(var(--mode-accent))]/35 bg-[hsl(var(--mode-accent-wash))] font-data text-xl font-bold text-[hsl(var(--mode-accent-strong))]">
                 {(displayName[0] ?? '?').toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
@@ -464,11 +464,11 @@ export default function SettingsPage() {
                   {editingNickname ? (
                     <div className="flex items-center gap-2 flex-wrap">
                       <input type="text" value={nicknameInput} onChange={e => setNicknameInput(e.target.value)}
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent w-36 dark:bg-gray-800/50"
+                        className="w-36 rounded-[7px] border border-[hsl(var(--border))] bg-[hsl(var(--control))] px-2.5 py-1 text-sm font-semibold text-[hsl(var(--foreground))] transition-colors focus:border-[hsl(var(--ring))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]/15"
                         maxLength={20} autoFocus
                         onKeyDown={e => { if (e.key === 'Enter') handleSaveNickname(); if (e.key === 'Escape') setEditingNickname(false) }} />
                       <button onClick={handleSaveNickname} disabled={nicknameLoading}
-                        className="text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg transition-colors font-medium">
+                        className="rounded-[6px] bg-[hsl(var(--primary))] px-2.5 py-1 text-xs font-medium text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50">
                         {nicknameLoading ? t('common.saving') : t('common.save')}
                       </button>
                       <button onClick={() => setEditingNickname(false)}
@@ -478,7 +478,7 @@ export default function SettingsPage() {
                     <>
                       <p className="font-semibold text-gray-900 dark:text-gray-100 text-base">{displayName}</p>
                       <button onClick={startEditNickname}
-                        className="text-[10px] font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-500 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/20 px-2 py-0.5 rounded-full transition-colors cursor-pointer">
+                        className="cursor-pointer rounded px-2 py-0.5 text-[10px] font-medium text-[hsl(var(--mode-accent-strong))] transition-colors hover:bg-[hsl(var(--mode-accent-wash))]">
                         {t('settings.profile.nicknameTip')}
                       </button>
                       {nicknameSuccess && <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">{t('settings.profile.toast.updated')}</span>}
@@ -508,7 +508,7 @@ export default function SettingsPage() {
         <MobileCollapsibleSection title={t('settings.sections.changeEmail')}>
         <div className="flex flex-col">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.changeEmail')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4 flex-1">
+          <div className="ledger-panel flex-1 space-y-4 p-5">
             <div className="space-y-0.5">
               <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('settings.changeEmail.currentEmail')}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{currentEmail}</p>
@@ -548,7 +548,7 @@ export default function SettingsPage() {
                 </div>
                 {emailError && <Alert type="error">{emailError}</Alert>}
                 <button type="submit" disabled={emailLoading}
-                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
+                  className="rounded-[7px] bg-[hsl(var(--primary))] px-5 py-2.5 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50">
                   {emailLoading ? t('settings.changeEmail.sending') : t('settings.changeEmail.submit')}
                 </button>
               </form>
@@ -561,7 +561,7 @@ export default function SettingsPage() {
         <MobileCollapsibleSection title={t('settings.sections.security')}>
         <div className="flex flex-col">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.security')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
+          <div className="ledger-panel flex-1 p-5">
             {pwSuccess && <div className="mb-4"><Alert type="success">{t('settings.password.toast.success')}</Alert></div>}
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
@@ -588,7 +588,7 @@ export default function SettingsPage() {
               </div>
               {pwError && <Alert type="error">{pwError}</Alert>}
               <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
-                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
+                className="w-full rounded-[7px] bg-[hsl(var(--primary))] py-2.5 text-sm font-medium text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50">
                 {pwLoading ? t('settings.password.submitting') : t('settings.password.submit')}
               </button>
             </form>
@@ -600,7 +600,7 @@ export default function SettingsPage() {
         <MobileCollapsibleSection title={t('settings.sections.backup')}>
         <div className="flex flex-col">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.backup')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
+          <div className="ledger-panel flex-1 p-5">
             <OperationsNotice
               title={t(systemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')}
               description={t(systemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')}
@@ -613,7 +613,7 @@ export default function SettingsPage() {
         <MobileCollapsibleSection title={t('settings.sections.restore')}>
         <div className="flex flex-col">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.restore')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-amber-100 dark:border-amber-500/30 p-5 flex-1">
+          <div className="ledger-panel flex-1 border-amber-500/30 p-5">
             <OperationsNotice
               title={t(systemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')}
               description={t(systemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')}
@@ -626,7 +626,7 @@ export default function SettingsPage() {
         <MobileCollapsibleSection title={t('settings.sections.danger')}>
         <div className="md:col-span-2">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.danger')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-rose-200 dark:border-rose-500/30 p-5">
+          <div className="ledger-panel border-[hsl(var(--expense))]/35 p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-1">{t('settings.danger.deleteAccount')}</h3>
@@ -656,7 +656,7 @@ export default function SettingsPage() {
                     {deleteError && <Alert type="error">{deleteError}</Alert>}
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
-                        className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                        className="rounded-[7px] bg-[hsl(var(--expense))] px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-[filter] hover:brightness-90 disabled:opacity-50">
                         {deleteStep === 'loading' ? t('settings.danger.sending') : t('settings.danger.sendConfirm')}
                       </button>
                       <button type="button" onClick={() => { setDeleteStep('idle'); setDeleteError('') }}

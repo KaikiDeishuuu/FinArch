@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { MotionConfig } from 'framer-motion'
 import { Toaster } from 'sonner'
 import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider } from './contexts/AuthContext'
@@ -113,6 +114,15 @@ function ProtectedDisasterRestorePage() {
 
 function ThemedToaster() {
   const { resolved } = useTheme()
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      meta?.setAttribute('content', resolved === 'dark' ? '#111815' : '#F3F6F2')
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [resolved])
+
   return (
     <Toaster
       position="bottom-right"
@@ -123,7 +133,7 @@ function ThemedToaster() {
 }
 
 function PageFallback() {
-  return <div className="min-h-screen bg-stone-50 dark:bg-[#0f0d18]" />
+  return <div className="min-h-screen bg-[hsl(var(--background))]" />
 }
 
 function SessionRecoveryFallback() {
@@ -131,21 +141,21 @@ function SessionRecoveryFallback() {
   const { t } = useTranslation()
 
   return (
-    <main className="min-h-screen bg-stone-50 dark:bg-[#0f0d18] flex items-center justify-center p-6">
+    <main className="ledger-workspace flex min-h-screen items-center justify-center p-6">
       <section
         role="alert"
-        className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm dark:border-amber-900/60 dark:bg-[#191624]"
+        className="ledger-panel w-full max-w-md p-6 text-center"
       >
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
+        <h1 className="text-xl font-semibold">
           {t('login.sessionRecoveryTitle')}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+        <p className="mt-2 text-sm leading-6 text-[hsl(var(--muted-foreground))]">
           {t('login.sessionRecoveryDescription')}
         </p>
         <button
           type="button"
           onClick={retrySession}
-          className="mt-5 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white"
+          className="fin-button mt-5"
         >
           {t('login.sessionRecoveryRetry')}
         </button>
@@ -176,33 +186,35 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider>
-    <BrowserRouter>
-      <ExchangeRateProvider>
-      <ConfigProvider>
-        <ModeProvider>
-        <AuthProvider>
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
-              <Route path="/login" element={<LoginRouteWrapper />} />
-              <Route path="/verify-email" element={<VerifyEmailPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
-              <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
-              <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
-              <Route path="/disaster-restore" element={<ProtectedDisasterRestorePage />} />
-              <Route path="/*" element={<ProtectedRoutes />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
-        </ModeProvider>
-      </ConfigProvider>
-      </ExchangeRateProvider>
-      <PwaUpdatePrompt />
-      <ThemedToaster />
-    </BrowserRouter>
-    </ThemeProvider>
+    <MotionConfig reducedMotion="user">
+      <ThemeProvider>
+        <BrowserRouter>
+          <ExchangeRateProvider>
+            <ConfigProvider>
+              <ModeProvider>
+                <AuthProvider>
+                  <Suspense fallback={<PageFallback />}>
+                    <Routes>
+                      <Route path="/login" element={<LoginRouteWrapper />} />
+                      <Route path="/verify-email" element={<VerifyEmailPage />} />
+                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
+                      <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
+                      <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
+                      <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
+                      <Route path="/disaster-restore" element={<ProtectedDisasterRestorePage />} />
+                      <Route path="/*" element={<ProtectedRoutes />} />
+                    </Routes>
+                  </Suspense>
+                </AuthProvider>
+              </ModeProvider>
+            </ConfigProvider>
+          </ExchangeRateProvider>
+          <PwaUpdatePrompt />
+          <ThemedToaster />
+        </BrowserRouter>
+      </ThemeProvider>
+    </MotionConfig>
   )
 }
 

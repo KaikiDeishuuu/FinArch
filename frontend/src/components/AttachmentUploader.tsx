@@ -69,7 +69,7 @@ export default function AttachmentUploader({
   }
 
   return (
-    <div className={compact ? 'space-y-2' : 'rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 p-4 dark:border-violet-500/30 dark:bg-violet-500/5'}>
+    <div className={compact ? 'space-y-2' : 'ledger-panel space-y-1 border-dashed p-4'}>
       <input
         ref={inputRef}
         type="file"
@@ -81,18 +81,18 @@ export default function AttachmentUploader({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 dark:border-violet-500/30 dark:bg-white/[0.03] dark:text-violet-300 dark:hover:bg-violet-500/10"
+          className="fin-button fin-button--secondary px-3 py-2 text-xs"
         >
           {t('attachments.choose')}
         </button>
         {file && (
-          <span className="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
+          <span className="font-data min-w-0 truncate text-xs text-[hsl(var(--muted-foreground))]">
             {file.name} · {formatFileSize(file.size)}
           </span>
         )}
       </div>
-      <label className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <input type="checkbox" checked={runOCR} onChange={(e) => setRunOCR(e.target.checked)} className="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+      <label className="mt-2 flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]">
+        <input type="checkbox" checked={runOCR} onChange={(e) => setRunOCR(e.target.checked)} className="h-4 w-4 rounded-[3px] border-[hsl(var(--border))] accent-[hsl(var(--mode-accent))]" />
         {t('attachments.runOcr')}
       </label>
       {file && (
@@ -100,7 +100,7 @@ export default function AttachmentUploader({
           type="button"
           onClick={upload}
           disabled={mutations.upload.isPending}
-          className="mt-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+          className="fin-button mt-2 px-4 py-2 text-xs"
         >
           {mutations.upload.isPending ? t('common.loading') : t('attachments.upload')}
         </button>

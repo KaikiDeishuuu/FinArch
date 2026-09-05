@@ -1,16 +1,6 @@
 /**
- * DatePicker — Apple-style date picker with calendar popup
- * ─────────────────────────────────────────────────────────────────────────────
- * Custom-styled date input matching the premium UI system.
- * On mobile, delegates to native date picker for best UX.
- * On desktop, shows a custom calendar grid with month navigation.
- *
- * Features:
- * - Custom calendar dropdown (desktop)
- * - Native date input fallback (mobile)
- * - Framer Motion entrance animation
- * - Keyboard accessible
- * - Portal-rendered dropdown
+ * FinArch Ledger date picker. Mobile keeps the native picker while desktop
+ * uses a compact, ruled calendar keyed to the active WORK/LIFE mode.
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
@@ -205,21 +195,19 @@ export default function DatePicker({ value, onChange, className = '', required, 
         type="button"
         onClick={handleTriggerClick}
         className={`
-          w-full flex items-center gap-3 border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-left
-          text-sm bg-gray-50 dark:bg-gray-800 transition-all hover:bg-white dark:hover:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600
-          focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent
-          ${open ? 'ring-2 ring-violet-500 border-transparent bg-white dark:bg-gray-900' : ''}
+          fin-input flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm outline-none
+          ${open ? 'border-[hsl(var(--mode-accent))] bg-[hsl(var(--control-hover))] ring-2 ring-[hsl(var(--ring))]/15' : ''}
         `}
       >
         {/* Calendar icon */}
-        <svg className="w-[18px] h-[18px] text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <svg className="h-[18px] w-[18px] shrink-0 text-[hsl(var(--mode-accent-strong))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <span className={display ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-400 dark:text-gray-500'}>
+        <span className={display ? 'font-medium text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]/75'}>
           {display || resolvedPlaceholder}
         </span>
         {/* Chevron */}
-        <svg className={`w-4 h-4 text-gray-400 dark:text-gray-500 ml-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={`ml-auto h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] transition-transform ${open ? 'rotate-180 text-[hsl(var(--mode-accent-strong))]' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -235,33 +223,33 @@ export default function DatePicker({ value, onChange, className = '', required, 
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
               style={{ position: 'absolute', top: pos.top, left: pos.left, width: pos.width, zIndex: 50 }}
-              className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-xl shadow-gray-200/60 dark:shadow-black/30 p-4 select-none"
+              className="ledger-panel select-none p-4"
             >
               {/* Month nav header */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={prevMonth}
-                  className="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-[4px] text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                <span className="font-data text-sm font-semibold tabular-nums text-[hsl(var(--foreground))]">
                   {t('datePicker.yearMonth', { year: viewYear, month: MONTH_NAMES[viewMonth] })}
                 </span>
                 <button
                   type="button"
                   onClick={nextMonth}
-                  className="w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-[4px] text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
 
               {/* Weekday headers */}
-              <div className="grid grid-cols-7 gap-0.5 mb-1">
+              <div className="mb-1 grid grid-cols-7 gap-0.5 border-y border-[hsl(var(--border))] py-1">
                 {WEEKDAYS.map(w => (
-                  <div key={w} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase py-1">{w}</div>
+                  <div key={w} className="font-data py-1 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{w}</div>
                 ))}
               </div>
 
@@ -276,12 +264,12 @@ export default function DatePicker({ value, onChange, className = '', required, 
                       key={day}
                       type="button"
                       onClick={() => selectDate(day)}
-                      className={`h-8 rounded-lg text-[13px] font-medium transition-all ${
+                      className={`font-data h-8 rounded-[4px] text-xs font-medium tabular-nums transition-colors ${
                         selected
-                          ? 'bg-violet-600 text-white shadow-sm shadow-violet-300/40'
+                          ? 'bg-[hsl(var(--mode-accent))] text-[hsl(var(--primary-foreground))]'
                           : today
-                            ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-bold ring-1 ring-violet-200 dark:ring-violet-700'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            ? 'bg-[hsl(var(--mode-accent-wash))] font-bold text-[hsl(var(--mode-accent-strong))] ring-1 ring-inset ring-[hsl(var(--mode-accent))]/35'
+                            : 'text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]'
                       }`}
                     >
                       {day}
@@ -291,15 +279,15 @@ export default function DatePicker({ value, onChange, className = '', required, 
               </div>
 
               {/* Footer: today button */}
-              <div className="mt-3 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
+              <div className="mt-3 flex items-center justify-between border-t border-[hsl(var(--border))] pt-3">
                 <button
                   type="button"
                   onClick={goToday}
-                  className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30 px-3 py-1.5 rounded-lg transition-colors"
+                  className="rounded-[4px] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--mode-accent-strong))] transition-colors hover:bg-[hsl(var(--mode-accent-wash))]"
                 >
                   {t('datePicker.today')}
                 </button>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
+                <span className="font-data text-[10px] tabular-nums text-[hsl(var(--muted-foreground))]">
                   {value || t('datePicker.notSelected')}
                 </span>
               </div>

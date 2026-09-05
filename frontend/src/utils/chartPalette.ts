@@ -12,15 +12,15 @@ export interface ChartPalette {
 }
 
 const WORK_CATEGORIES = [
-  '#2563eb', '#ef4444', '#6366f1', '#06b6d4', '#8b5cf6',
-  '#f59e0b', '#10b981', '#ec4899', '#84cc16', '#14b8a6',
-  '#f97316', '#a855f7', '#0ea5e9',
+  '#2d6687', '#b95642', '#487a68', '#a87839', '#668596',
+  '#805e52', '#74947e', '#a96a58', '#456575', '#92804d',
+  '#5f756b', '#8c655e', '#6a7d91',
 ]
 
 const LIFE_CATEGORIES = [
-  '#10b981', '#f59e0b', '#14b8a6', '#f97316', '#84cc16',
-  '#06b6d4', '#ec4899', '#8b5cf6', '#eab308', '#22c55e',
-  '#0ea5e9', '#ef4444', '#a855f7',
+  '#28745b', '#a87839', '#537d68', '#b95642', '#668596',
+  '#7e7250', '#3f6b5a', '#a96a58', '#6f8d79', '#456575',
+  '#92804d', '#805e52', '#6a7d91',
 ]
 
 /**
@@ -30,24 +30,24 @@ const LIFE_CATEGORIES = [
 export function getModeChartPalette(mode: AppMode): ChartPalette {
   if (mode === 'life') {
     return {
-      income: '#10b981',
-      expense: '#f59e0b',
-      net: '#14b8a6',
-      pending: '#f97316',
-      budget: '#8b5cf6',
-      recurring: '#06b6d4',
-      secondary: '#14b8a6',
+      income: '#28745b',
+      expense: '#b95642',
+      net: '#28745b',
+      pending: '#a87839',
+      budget: '#28745b',
+      recurring: '#537d68',
+      secondary: '#668596',
       categories: LIFE_CATEGORIES,
     }
   }
   return {
-    income: '#3b82f6',
-    expense: '#ef4444',
-    net: '#6366f1',
-    pending: '#f59e0b',
-    budget: '#8b5cf6',
-    recurring: '#06b6d4',
-    secondary: '#6366f1',
+    income: '#28745b',
+    expense: '#b95642',
+    net: '#2d6687',
+    pending: '#a87839',
+    budget: '#2d6687',
+    recurring: '#487a68',
+    secondary: '#668596',
     categories: WORK_CATEGORIES,
   }
 }

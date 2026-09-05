@@ -1,31 +1,8 @@
 /**
- * FinArch — Apple-Style Select Component
- * ─────────────────────────────────────────────────────────────────────────────
- * 企业级财务管理系统统一下拉菜单组件
+ * FinArch Ledger select.
  *
- * 设计原则：
- * - 圆角统一体系：trigger 10px / dropdown 12px / option 8px
- * - 阴影层级：dropdown 使用 lg 级别 (0 10px 25px -5px)
- * - 动效存在感 < 30%：仅 opacity + 4px y-offset，220ms, cubic-bezier(0.4,0,0.2,1)
- * - 支持：单选 / 占位符 / 键盘导航 / 禁用 / 错误态
- * - Portal 挂载：避免 overflow:hidden 裁切
- * - z-index: 50 (与 tooltip 同级)
- *
- * 状态设计：
- * - default:    bg-gray-50, border-gray-200, 安静不干扰
- * - hover:      border-gray-300, 轻微暗示可交互
- * - focus:      ring-2 ring-violet-500/20, border-violet-400, 明确焦点
- * - open:       同 focus + dropdown 展开
- * - selected:   text-gray-900 (替代 placeholder 灰色)
- * - disabled:   opacity-50, cursor-not-allowed
- * - error:      ring-2 ring-rose-500/20, border-rose-400
- *
- * Token:
- * - 颜色: bg-gray-50(default) → bg-white(hover) → violet-400(focus border)
- * - 圆角: trigger 10px, dropdown 12px, option 8px
- * - 阴影: dropdown shadow-lg
- * - 间距: sm(h-8 px-2.5) / md(h-9 px-3) / lg(h-10 px-3.5)
- * ─────────────────────────────────────────────────────────────────────────────
+ * The control follows the active WORK/LIFE instrument color while the popup
+ * uses the same ruled surface as the rest of the financial workspace.
  */
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
@@ -238,18 +215,18 @@ export default function Select({
   const isActive = activeHighlight && hasValue
 
   const triggerCls = [
-    'relative w-full rounded-[10px] border outline-none transition-all cursor-pointer text-left',
-    'focus:ring-2',
+    'relative w-full cursor-pointer rounded-[var(--radius-btn)] border border-[hsl(var(--border))] bg-[hsl(var(--control))] text-left text-[hsl(var(--foreground))] outline-none',
+    'transition-[border-color,background-color,box-shadow] focus-visible:border-[hsl(var(--ring))] focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]/15',
     SIZE_MAP[size],
     disabled
-      ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500'
+      ? 'cursor-not-allowed bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] opacity-50'
       : error
-        ? 'bg-white dark:bg-gray-900 border-rose-400 ring-2 ring-rose-500/20 text-gray-700 dark:text-gray-300'
+        ? 'border-[hsl(var(--expense))] bg-[hsl(var(--control))] text-[hsl(var(--foreground))] ring-2 ring-[hsl(var(--expense))]/15'
         : isActive
-          ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold focus:ring-violet-500/20'
+          ? 'border-[hsl(var(--mode-accent))]/55 bg-[hsl(var(--mode-accent-wash))] font-semibold text-[hsl(var(--mode-accent-strong))]'
           : open
-            ? 'bg-white dark:bg-gray-900 border-violet-400 ring-2 ring-violet-500/20 text-gray-700 dark:text-gray-300'
-            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-violet-500/20 focus:border-violet-400',
+            ? 'border-[hsl(var(--mode-accent))] bg-[hsl(var(--control-hover))] text-[hsl(var(--foreground))] ring-2 ring-[hsl(var(--ring))]/15'
+            : 'text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--muted-foreground))]/55 hover:bg-[hsl(var(--control-hover))]',
     className,
   ].join(' ')
 
@@ -279,13 +256,13 @@ export default function Select({
         onClick={() => open ? closeDropdown() : openDropdown()}
         onKeyDown={handleKeyDown}
       >
-        <span className={`block truncate ${hasValue ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+        <span className={`block truncate ${hasValue ? '' : 'text-[hsl(var(--muted-foreground))]/75'}`}>
           {selected?.label ?? resolvedPlaceholder}
         </span>
 
         {/* Chevron */}
         <svg
-          className={`absolute top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 dark:text-gray-500 transition-transform duration-200 ${CHEVRON_SIZE[size]} ${open ? 'rotate-180' : ''}`}
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] transition-transform duration-200 ${CHEVRON_SIZE[size]} ${open ? 'rotate-180 text-[hsl(var(--mode-accent-strong))]' : ''}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -308,7 +285,7 @@ export default function Select({
               exit="exit"
               transition={dropdownTransition}
               style={dropdownStyle}
-              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-lg py-1 max-h-60 overflow-y-auto overscroll-contain"
+              className="ledger-panel max-h-60 overflow-y-auto overscroll-contain p-1"
             >
               {options.map((opt, idx) => {
                 const isSelected = opt.value === value
@@ -321,12 +298,12 @@ export default function Select({
                     aria-selected={isSelected}
                     data-index={idx}
                     className={[
-                      'flex items-center justify-between gap-2 px-3 py-2 mx-1 rounded-lg text-sm cursor-pointer transition-colors duration-150 select-none',
+                      'mx-1 flex cursor-pointer select-none items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150',
                       opt.disabled
-                        ? 'opacity-40 cursor-not-allowed text-gray-400 dark:text-gray-500'
+                        ? 'cursor-not-allowed text-[hsl(var(--muted-foreground))] opacity-40'
                         : isHighlighted
-                          ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
+                          ? 'bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]'
+                          : 'text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]',
                     ].join(' ')}
                     onClick={() => selectOption(opt)}
                     onMouseEnter={() => !opt.disabled && setHighlightIndex(idx)}
@@ -335,7 +312,7 @@ export default function Select({
                       {opt.label}
                     </span>
                     {isSelected && (
-                      <svg className="w-4 h-4 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="h-4 w-4 shrink-0 text-[hsl(var(--mode-accent-strong))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     )}
