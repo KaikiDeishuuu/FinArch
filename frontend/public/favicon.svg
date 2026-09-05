@@ -1,9 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="FinArch">
-  <rect width="64" height="64" rx="6" fill="#17201d"/>
-  <path d="M12 11v42h42" fill="none" stroke="#cbd5ce" stroke-width="1.5" opacity=".75"/>
-  <path d="M12 20h4M12 28h3M12 36h4M12 44h3" stroke="#cbd5ce" stroke-width="1" opacity=".8"/>
-  <rect x="19" y="36" width="8" height="17" rx="1" fill="#2d6687"/>
-  <rect x="32" y="26" width="8" height="27" rx="1" fill="#28745b"/>
-  <rect x="45" y="16" width="8" height="37" rx="1" fill="#b95642"/>
-  <path d="M19 33h8M32 23h8M45 13h8" stroke="#f3f6f2" stroke-width="1" opacity=".9"/>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d0b14"/>
+      <stop offset="100%" stop-color="#170f26"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="13" ry="13" fill="url(#bg)"/>
+
+  <!-- 3根递增柱：indigo→violet→emerald -->
+  <rect x="8"  y="34" width="14" height="18" rx="3" fill="#818cf8"/>
+  <rect x="25" y="24" width="14" height="28" rx="3" fill="#a78bfa"/>
+  <rect x="42" y="12" width="14" height="40" rx="3" fill="#34d399"/>
 </svg>

@@ -8,6 +8,7 @@ import { accountBalanceToCNY, transactionAmountToCNY } from '../utils/financeAmo
 import { formatGreeting, normalizeGreetingLocale } from '../utils/greeting'
 import { secureRandomInt } from '../utils/secureRandom'
 import CompactAmount from '../components/CompactAmount'
+import { BrandWatermark } from '../components/Brand'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHeartbeat } from '../hooks/useHeartbeat'
@@ -74,6 +75,8 @@ const FEATURES = [
     descKey: 'dashboard.features.smartAccounting.desc',
     lifeTitleKey: 'dashboard.features.smartAccounting.title',
     lifeDescKey: 'dashboard.features.smartAccounting.desc',
+    color: 'bg-violet-50 dark:bg-violet-500/10 border-violet-100 dark:border-violet-500/20',
+    iconBg: 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400',
   },
   {
     to: '/add',
@@ -82,6 +85,8 @@ const FEATURES = [
     descKey: 'dashboard.features.reimbursement.desc',
     lifeTitleKey: 'dashboard.features.lifeEntry.title',
     lifeDescKey: 'dashboard.features.lifeEntry.desc',
+    color: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20',
+    iconBg: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400',
   },
   {
     to: '/match',
@@ -90,6 +95,8 @@ const FEATURES = [
     descKey: 'dashboard.features.smartMatch.desc',
     lifeTitleKey: 'dashboard.features.lifeMatch.title',
     lifeDescKey: 'dashboard.features.lifeMatch.desc',
+    color: 'bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20',
+    iconBg: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400',
   },
   {
     to: '/stats',
@@ -98,6 +105,8 @@ const FEATURES = [
     descKey: 'dashboard.features.dataVisualization.desc',
     lifeTitleKey: 'dashboard.features.dataVisualization.title',
     lifeDescKey: 'dashboard.features.dataVisualization.desc',
+    color: 'bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20',
+    iconBg: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400',
   },
 ]
 
@@ -312,34 +321,36 @@ export default function DashboardPage() {
     .sort((a, b) => (a.next_run_at || 0) - (b.next_run_at || 0))[0]
 
   return (
-    <div className="space-y-7 md:space-y-8">
-      {/* Ledger header */}
-      <div className="ledger-rail relative border-y border-[hsl(var(--border))] bg-[hsl(var(--card))]/45 py-5 pl-5 pr-3 sm:py-6 sm:pl-7 sm:pr-5">
-        <div className="flex items-start justify-between gap-3">
+    <div className="space-y-6">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20 dark:shadow-violet-900/30">
+        <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+        <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-fuchsia-400/20 rounded-full blur-2xl" />
+        <BrandWatermark className="absolute -bottom-2 right-4 opacity-[0.08]" opacity={0.12} />
+        <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="page-kicker mb-2">FINARCH / OVERVIEW</p>
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              <p className="font-data text-xs font-medium text-[hsl(var(--muted-foreground))]">{new Date().toLocaleDateString(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-white/70 text-xs font-medium">{new Date().toLocaleDateString(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
               {onlineDeviceCount != null && (
-                <span className="inline-flex items-center gap-1.5 border-l border-[hsl(var(--border))] pl-2 font-data text-[10px] font-medium text-[hsl(var(--muted-foreground))]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 backdrop-blur-sm inline-flex items-center gap-1">
+                  <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300"></span></span>
                   {t('common.devices', { count: onlineDeviceCount })}
                 </span>
               )}
             </div>
-            <h1 className="font-display text-2xl font-semibold tracking-[-0.025em] text-[hsl(var(--foreground))] md:text-3xl">{greetingText}</h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greetingText}</h1>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               {ratesLoading
-                ? <span className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/70 px-2 py-1 font-data text-[10px] text-[hsl(var(--muted-foreground))]">{t('dashboard.hero.exRateLoading')}</span>
+                ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">{t('dashboard.hero.exRateLoading')}</span>
                 : rateDate
-                  ? <span className="inline-flex items-center gap-1 border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/70 px-2 py-1 font-data text-[10px] font-medium text-[hsl(var(--muted-foreground))]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3 w-3 text-[hsl(var(--mode-accent))]"><path d="M4 7h16M4 17h16M10 4c-2 2-2 14 0 16M14 4c2 2 2 14 0 16" /></svg> $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-                  : <span className="border border-amber-300/60 bg-amber-50 px-2 py-1 font-data text-[10px] font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">{t('dashboard.hero.exRateFallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
+                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3 h-3"><path d="M4 7h16M4 17h16M10 4c-2 2-2 14 0 16M14 4c2 2 2 14 0 16" /></svg> $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
+                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">{t('dashboard.hero.exRateFallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
               }
             </div>
           </div>
           <Link
             to="/add"
-            className="shrink-0 rounded-[3px] bg-[hsl(var(--mode-accent))] px-3.5 py-2.5 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 sm:px-4"
+            className="shrink-0 bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all border border-white/20"
           >
             {t('dashboard.addButton')}
           </Link>
@@ -348,63 +359,65 @@ export default function DashboardPage() {
 
       {/* Balance cards */}
       {isWorkMode ? (
-        <StaggerContainer className="grid grid-cols-2 gap-px overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--border))]">
+        <StaggerContainer className="grid grid-cols-2 gap-2 sm:gap-3">
           <StaggerItem>
-            <div className="h-full bg-[hsl(var(--card))] p-3 sm:p-5">
-              <div className="mb-2 flex items-center gap-2 sm:mb-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center border border-[hsl(var(--border))] text-[hsl(var(--mode-accent))] sm:h-8 sm:w-8">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-4 0v2" /><line x1="12" y1="12" x2="12" y2="16" /><line x1="10" y1="14" x2="14" y2="14" /></svg>
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-4 0v2" /><line x1="12" y1="12" x2="12" y2="16" /><line x1="10" y1="14" x2="14" y2="14" /></svg>
                 </div>
-                <p className="truncate text-xs font-semibold tracking-wide text-[hsl(var(--muted-foreground))]">{t('dashboard.balance.public')}</p>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.public')}</p>
               </div>
-              <p className="font-data truncate whitespace-nowrap text-lg font-semibold leading-tight tabular-nums text-[hsl(var(--foreground))] sm:text-xl md:text-2xl">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
                 <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
               </p>
-              <p className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] sm:mt-1.5 sm:text-[11px]">{t('dashboard.balance.balanceLabel')}</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
             </div>
           </StaggerItem>
           <StaggerItem>
-            <div className="h-full bg-[hsl(var(--card))] p-3 sm:p-5">
-              <div className="mb-2 flex items-center gap-2 sm:mb-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center border border-[hsl(var(--border))] text-amber-600 dark:text-amber-400 sm:h-8 sm:w-8">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" /></svg>
+            <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" /></svg>
                 </div>
-                <p className="truncate text-xs font-semibold tracking-wide text-[hsl(var(--muted-foreground))]">{t('dashboard.balance.personalPending')}</p>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalPending')}</p>
               </div>
-              <p className="font-data truncate whitespace-nowrap text-lg font-semibold leading-tight tabular-nums text-[hsl(var(--foreground))] sm:text-xl md:text-2xl">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
                 <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
               </p>
-              <p className="mt-1 text-[10px] text-[hsl(var(--muted-foreground))] sm:mt-1.5 sm:text-[11px]">{t('dashboard.balance.pendingLabel')}</p>
+              <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
             </div>
           </StaggerItem>
         </StaggerContainer>
       ) : (
-        <StaggerContainer className="grid grid-cols-1 gap-px overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--border))] sm:grid-cols-2">
+        <StaggerContainer className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <StaggerItem>
-            <div className="h-full bg-[hsl(var(--card))] p-4 sm:p-5">
-              <div>
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="absolute -top-6 -right-6 w-20 h-20 bg-emerald-300/20 rounded-full blur-2xl" />
+              <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-flex h-8 w-8 items-center justify-center border border-[hsl(var(--border))] text-[hsl(var(--mode-accent))]"><IconSparkles /></span>
-                  <p className="text-xs font-semibold tracking-wide text-[hsl(var(--muted-foreground))]">{t('dashboard.balance.personalAdvance')}</p>
+                  <span className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 inline-flex items-center justify-center"><IconSparkles /></span>
+                  <p className="text-xs font-semibold text-emerald-700/80 dark:text-emerald-300/80 tracking-wide">{t('dashboard.balance.personalAdvance')}</p>
                 </div>
-                <p className="font-data mt-1 text-xl font-semibold tabular-nums text-[hsl(var(--foreground))] md:text-2xl">
+                <p className="mt-1 text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-200 tabular-nums">
                   <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
                 </p>
-                <p className="mt-1.5 text-[11px] text-[hsl(var(--muted-foreground))]">{t('dashboard.balance.balanceLabel')}</p>
+                <p className="text-[11px] text-emerald-700/60 dark:text-emerald-300/70 mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
               </div>
             </div>
           </StaggerItem>
           <StaggerItem>
-            <div className="h-full bg-[hsl(var(--card))] p-4 sm:p-5">
-              <div>
+            <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
+              <div className="absolute -bottom-7 -left-6 w-24 h-24 bg-rose-300/20 rounded-full blur-2xl" />
+              <div className="relative">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-flex h-8 w-8 items-center justify-center border border-[hsl(var(--border))] text-rose-600 dark:text-rose-400"><IconChart /></span>
-                  <p className="text-xs font-semibold tracking-wide text-[hsl(var(--muted-foreground))]">{t('transactions.summary.expense')}</p>
+                  <span className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 inline-flex items-center justify-center"><IconChart /></span>
+                  <p className="text-xs font-semibold text-rose-700/80 dark:text-rose-300/80 tracking-wide">{t('transactions.summary.expense')}</p>
                 </div>
-                <p className="font-data mt-1 text-xl font-semibold tabular-nums text-rose-600 dark:text-rose-400 md:text-2xl">
+                <p className="mt-1 text-xl md:text-2xl font-bold text-rose-600 dark:text-rose-300 tabular-nums">
                   <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
                 </p>
-                <p className="mt-1.5 text-[11px] text-[hsl(var(--muted-foreground))]">{t('dashboard.balance.lifeExpenseLabel')}</p>
+                <p className="text-[11px] text-rose-700/60 dark:text-rose-300/70 mt-1.5">{t('dashboard.balance.lifeExpenseLabel')}</p>
               </div>
             </div>
           </StaggerItem>
@@ -412,30 +425,30 @@ export default function DashboardPage() {
       )}
 
       {/* Monthly insights */}
-      <FinanceCard className="rounded-[3px] border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-none [&_h2]:font-display [&_h2]:text-base [&_h2]:text-[hsl(var(--foreground))]">
+      <FinanceCard>
         <SectionHeader title={t('dashboard.insights.title')} subtitle={t('dashboard.insights.subtitle')} />
-        <div className="grid grid-cols-2 gap-px overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--border))] lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
             { label: t('dashboard.insights.income'), value: monthInsights.income, tone: 'text-emerald-600 dark:text-emerald-300' },
             { label: t('dashboard.insights.expense'), value: monthInsights.expense, tone: 'text-rose-500 dark:text-rose-300' },
-            { label: t('dashboard.insights.net'), value: monthInsights.net, tone: monthInsights.net >= 0 ? 'text-[hsl(var(--mode-accent))]' : 'text-orange-500 dark:text-orange-300' },
+            { label: t('dashboard.insights.net'), value: monthInsights.net, tone: monthInsights.net >= 0 ? 'text-violet-600 dark:text-violet-300' : 'text-orange-500 dark:text-orange-300' },
           ].map(item => (
-            <div key={item.label} className="bg-[hsl(var(--card))] p-3 sm:p-4">
-              <p className="font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{item.label}</p>
-              <p className={`font-data mt-1.5 text-lg font-semibold tabular-nums ${item.tone}`}>
+            <div key={item.label} className="rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{item.label}</p>
+              <p className={`mt-1 text-lg font-bold tabular-nums ${item.tone}`}>
                 <CompactAmount compact={fmtCompact(item.value)} exact={fmtExact(item.value)} prefix={item.label === t('dashboard.insights.net') && item.value >= 0 ? '+' : ''} />
               </p>
             </div>
           ))}
-          <div className="bg-[hsl(var(--card))] p-3 sm:p-4">
-            <p className="font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{t('dashboard.insights.topCategory')}</p>
+          <div className="rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('dashboard.insights.topCategory')}</p>
             {monthInsights.topCategory ? (
               <>
-                <p className="mt-1.5 truncate text-sm font-semibold text-[hsl(var(--foreground))]">{categoryLabel(monthInsights.topCategory.category)}</p>
-                <p className="font-data text-xs font-semibold tabular-nums text-[hsl(var(--muted-foreground))]">{fmtCompact(monthInsights.topCategory.amount)}</p>
+                <p className="mt-1 truncate text-sm font-bold text-gray-800 dark:text-gray-100">{categoryLabel(monthInsights.topCategory.category)}</p>
+                <p className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">{fmtCompact(monthInsights.topCategory.amount)}</p>
               </>
             ) : (
-              <p className="mt-2 text-xs text-[hsl(var(--muted-foreground))]">{t('dashboard.insights.noCategory')}</p>
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('dashboard.insights.noCategory')}</p>
             )}
           </div>
         </div>
@@ -443,26 +456,26 @@ export default function DashboardPage() {
 
       {/* Budget and recurring preview */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <FinanceCard className="rounded-[3px] border-[hsl(var(--border))] border-t-2 border-t-[hsl(var(--mode-accent))] bg-[hsl(var(--card))] shadow-none [&_h2]:font-display [&_h2]:text-base [&_h2]:text-[hsl(var(--foreground))]">
+        <FinanceCard interactive>
           <SectionHeader
             title={t('dashboard.budgetCard.title')}
             subtitle={t('dashboard.budgetCard.subtitle')}
-            action={<Link to="/budgets" className="border-b border-[hsl(var(--mode-accent))] px-1 py-1 text-xs font-semibold text-[hsl(var(--mode-accent))] transition-opacity hover:opacity-70">{t('dashboard.budgetCard.action')}</Link>}
+            action={<Link to="/budgets" className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25">{t('dashboard.budgetCard.action')}</Link>}
           />
           {budgetSummary?.total_budget ? (
             <div className="space-y-3">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{t('budgets.actual')}</p>
-                  <p className="font-data mt-1 text-xl font-semibold tabular-nums text-[hsl(var(--foreground))]">{fmtCompact(budgetSummary.total_budget.actual_yuan)}</p>
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('budgets.actual')}</p>
+                  <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{fmtCompact(budgetSummary.total_budget.actual_yuan)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{t('budgets.planned')}</p>
-                  <p className="font-data mt-1 text-sm font-semibold tabular-nums text-[hsl(var(--muted-foreground))]">{fmtCompact(budgetSummary.total_budget.budget.base_amount_yuan)}</p>
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('budgets.planned')}</p>
+                  <p className="text-sm font-semibold tabular-nums text-gray-600 dark:text-gray-300">{fmtCompact(budgetSummary.total_budget.budget.base_amount_yuan)}</p>
                 </div>
               </div>
               <ProgressBar value={budgetSummary.total_budget.usage_ratio} tone={budgetSummary.total_budget.status === 'over' ? 'danger' : budgetSummary.total_budget.status === 'warning' ? 'warning' : 'success'} />
-              <div className="font-data flex justify-between text-xs text-[hsl(var(--muted-foreground))]">
+              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
                 <span>{Math.round(budgetSummary.total_budget.usage_ratio * 100)}%</span>
                 <span>{budgetSummary.total_budget.remaining_yuan < 0 ? t('budgets.overBy') : t('budgets.remaining')}: {fmtCompact(Math.abs(budgetSummary.total_budget.remaining_yuan))}</span>
               </div>
@@ -471,69 +484,69 @@ export default function DashboardPage() {
             <EmptyState title={t('dashboard.budgetCard.emptyTitle')} description={t('dashboard.budgetCard.emptyDesc')} />
           )}
         </FinanceCard>
-        <FinanceCard className="rounded-[3px] border-[hsl(var(--border))] border-t-2 border-t-[hsl(var(--mode-accent))] bg-[hsl(var(--card))] shadow-none [&_h2]:font-display [&_h2]:text-base [&_h2]:text-[hsl(var(--foreground))]">
+        <FinanceCard interactive>
           <SectionHeader
             title={t('dashboard.recurringCard.title')}
             subtitle={t('dashboard.recurringCard.subtitle')}
-            action={<Link to="/recurring" className="border-b border-[hsl(var(--mode-accent))] px-1 py-1 text-xs font-semibold text-[hsl(var(--mode-accent))] transition-opacity hover:opacity-70">{t('dashboard.recurringCard.action')}</Link>}
+            action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>}
           />
           {recurringRules.length > 0 ? (
             <div className="space-y-3">
-              <div className="border-l-2 border-l-[hsl(var(--mode-accent))] bg-[hsl(var(--muted))]/60 p-4 text-sm leading-relaxed text-[hsl(var(--foreground))]">
+              <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm leading-relaxed text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
                 {nextRecurringRule
                   ? t('dashboard.recurringCard.next', { name: nextRecurringRule.name, time: nextRecurringRule.next_occurred_at })
                   : t('dashboard.recurringCard.desc')}
               </div>
-              <p className="font-data text-xs font-semibold text-[hsl(var(--muted-foreground))]">{t('dashboard.recurringCard.activeCount', { count: recurringRules.filter(rule => rule.status === 'active').length })}</p>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('dashboard.recurringCard.activeCount', { count: recurringRules.filter(rule => rule.status === 'active').length })}</p>
             </div>
           ) : (
-            <EmptyState title={t('dashboard.recurringCard.emptyTitle')} description={t('dashboard.recurringCard.emptyDesc')} action={<Link to="/recurring" className="border-b border-[hsl(var(--mode-accent))] px-1 py-1 text-xs font-semibold text-[hsl(var(--mode-accent))]">{t('dashboard.recurringCard.action')}</Link>} />
+            <EmptyState title={t('dashboard.recurringCard.emptyTitle')} description={t('dashboard.recurringCard.emptyDesc')} action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>} />
           )}
         </FinanceCard>
       </div>
 
       {/* Pending action hints */}
       {hasPending && (
-        <div className="border border-[hsl(var(--border))] border-l-2 border-l-amber-500 bg-[hsl(var(--card))] p-5">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="page-kicker">{t('dashboard.pending.title')}</h2>
+            <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.pending.title')}</h2>
             {pendingAnalysis.headerHint && (
-              <span className="font-data text-[10px] font-medium text-[hsl(var(--muted-foreground))]">{pendingAnalysis.headerHint}</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{pendingAnalysis.headerHint}</span>
             )}
           </div>
-          <div className="divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+          <div className="space-y-2">
             {notUploaded.length > 0 && (
-              <Link to="/transactions?source=personal" className="flex items-center gap-3 px-1 py-3 transition-colors hover:bg-amber-50/60 dark:hover:bg-amber-500/5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-amber-300/60 text-amber-600 dark:border-amber-500/30 dark:text-amber-400"><IconUpload /></span>
+              <Link to="/transactions?source=personal" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-400/40 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[hsl(var(--foreground))]">{notUploaded.length} {t('transactions.badges.notUploaded')}</p>
-                  <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">{pendingAnalysis.notUploadedSub}</p>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{notUploaded.length} {t('transactions.badges.notUploaded')}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400/70 mt-0.5">{pendingAnalysis.notUploadedSub}</p>
                 </div>
                 <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
             {uploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 px-1 py-3 transition-colors hover:bg-[hsl(var(--mode-accent-wash))]">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-[hsl(var(--mode-accent))]/40 text-[hsl(var(--mode-accent))]"><IconSearch /></span>
+              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-100 dark:border-violet-500/20 hover:border-violet-300 dark:hover:border-violet-400/40 transition-colors">
+                <span className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0"><IconSearch /></span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[hsl(var(--foreground))]">{uploadedNotReimbursed.length} {t('transactions.badges.pending')}</p>
-                  <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">{pendingAnalysis.uploadedNotReimbursedSub}</p>
+                  <p className="text-sm font-medium text-violet-800 dark:text-violet-300">{uploadedNotReimbursed.length} {t('transactions.badges.pending')}</p>
+                  <p className="text-xs text-violet-600 dark:text-violet-400/70 mt-0.5">{pendingAnalysis.uploadedNotReimbursedSub}</p>
                 </div>
-                <svg className="h-4 w-4 shrink-0 text-[hsl(var(--mode-accent))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
           </div>
         </div>
       )}
       {allClear && (
-        <div className="border border-[hsl(var(--border))] border-l-2 border-l-emerald-500 bg-[hsl(var(--card))] p-5">
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-emerald-300/60 text-emerald-600 dark:border-emerald-500/30 dark:text-emerald-400"><IconCheck /></span>
+            <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconCheck /></span>
             <div>
-              <p className="text-sm font-medium text-[hsl(var(--foreground))]">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 {t('dashboard.pending.noPending')}
               </p>
-              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {t('dashboard.pending.tip')}
               </p>
             </div>
@@ -542,24 +555,24 @@ export default function DashboardPage() {
       )}
 
       {/* Feature guide */}
-      <div className="border-y border-[hsl(var(--border))] bg-[hsl(var(--card))]/40 py-5">
-        <h2 className="page-kicker mb-4 px-1">{t('dashboard.featureNavTitle')}</h2>
-        <div className="grid grid-cols-1 gap-px overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--border))] sm:grid-cols-2">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4 tracking-wide">{t('dashboard.featureNavTitle')}</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {featureCards.map((f) => (
             <AnimatedCard
               key={f.to}
-              className="bg-[hsl(var(--card))]"
+              className="rounded-2xl"
             >
               <Link
                 to={f.to}
-                className="group flex min-h-full items-start gap-3 bg-[hsl(var(--card))] p-4 transition-colors hover:bg-[hsl(var(--muted))]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[hsl(var(--ring))]"
+                className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 transition-all hover:border-violet-200 dark:hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-100/30 dark:hover:shadow-violet-900/20 group bg-white dark:bg-transparent"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-[hsl(var(--border))] text-[hsl(var(--mode-accent))] transition-transform group-hover:-translate-y-0.5">
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
                   <f.Icon />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{t(f.titleKey)}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[hsl(var(--muted-foreground))]">{t(f.descKey)}</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(f.titleKey)}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(f.descKey)}</p>
                 </div>
               </Link>
             </AnimatedCard>
@@ -568,20 +581,22 @@ export default function DashboardPage() {
       </div>
 
       {/* Workflow guide — timeline style with tabs */}
-      <div className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
-          <h2 className="page-kicker">{t('dashboard.workflowTitle')}</h2>
+          <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.workflowTitle')}</h2>
           {isWorkMode && (
-            <div role="group" aria-label={t('dashboard.workflowTitle')} className="inline-flex border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/60 p-0.5">
+            <div className="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800/60">
               {(['company', 'personal'] as const).map((source) => (
                 <button
                   key={source}
                   type="button"
                   onClick={() => setWorkWorkflowTab(source)}
                   aria-pressed={workflowTab === source}
-                  className={`px-2.5 py-1 font-data text-[10px] font-bold transition-colors ${workflowTab === source
-                    ? 'bg-[hsl(var(--card))] text-[hsl(var(--mode-accent))] outline outline-1 outline-[hsl(var(--border))]'
-                    : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-colors ${workflowTab === source
+                    ? source === 'company'
+                      ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
+                      : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
                   {source === 'company' ? t('dashboard.workflow.companyTitle') : t('dashboard.workflow.personalTitle')}
@@ -595,26 +610,26 @@ export default function DashboardPage() {
         {workflowTab === 'personal' && (
           <div className="space-y-0">
             {([
-              { step: '1', Icon: IconPen, titleKey: isWorkMode ? 'dashboard.workflow.personalStep1' : 'dashboard.workflow.personalLifeStep1', descKey: isWorkMode ? 'dashboard.workflow.personalDesc1' : 'dashboard.workflow.personalLifeDesc1' },
-              { step: '2', Icon: IconUpload, titleKey: isWorkMode ? 'dashboard.workflow.personalStep2' : 'dashboard.workflow.personalLifeStep2', descKey: isWorkMode ? 'dashboard.workflow.personalDesc2' : 'dashboard.workflow.personalLifeDesc2' },
-              { step: '3', Icon: IconSearch, titleKey: isWorkMode ? 'dashboard.workflow.personalStep3' : 'dashboard.workflow.personalLifeStep3', descKey: isWorkMode ? 'dashboard.workflow.personalDesc3' : 'dashboard.workflow.personalLifeDesc3' },
-              { step: '4', Icon: IconCheck, titleKey: isWorkMode ? 'dashboard.workflow.personalStep4' : 'dashboard.workflow.personalLifeStep4', descKey: isWorkMode ? 'dashboard.workflow.personalDesc4' : 'dashboard.workflow.personalLifeDesc4' },
+              { step: '1', Icon: IconPen, titleKey: isWorkMode ? 'dashboard.workflow.personalStep1' : 'dashboard.workflow.personalLifeStep1', descKey: isWorkMode ? 'dashboard.workflow.personalDesc1' : 'dashboard.workflow.personalLifeDesc1', color: 'amber' },
+              { step: '2', Icon: IconUpload, titleKey: isWorkMode ? 'dashboard.workflow.personalStep2' : 'dashboard.workflow.personalLifeStep2', descKey: isWorkMode ? 'dashboard.workflow.personalDesc2' : 'dashboard.workflow.personalLifeDesc2', color: 'amber' },
+              { step: '3', Icon: IconSearch, titleKey: isWorkMode ? 'dashboard.workflow.personalStep3' : 'dashboard.workflow.personalLifeStep3', descKey: isWorkMode ? 'dashboard.workflow.personalDesc3' : 'dashboard.workflow.personalLifeDesc3', color: 'amber' },
+              { step: '4', Icon: IconCheck, titleKey: isWorkMode ? 'dashboard.workflow.personalStep4' : 'dashboard.workflow.personalLifeStep4', descKey: isWorkMode ? 'dashboard.workflow.personalDesc4' : 'dashboard.workflow.personalLifeDesc4', color: 'amber' },
             ] as const).map((s, i, arr) => (
               <div key={s.step} className="flex gap-3">
                 {/* Timeline spine */}
                 <div className="flex flex-col items-center">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-[hsl(var(--mode-accent))]/40 text-[hsl(var(--mode-accent))]">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                     <s.Icon />
                   </div>
-                  {i < arr.length - 1 && <div className="my-1 w-px flex-1 bg-[hsl(var(--border))]" />}
+                  {i < arr.length - 1 && <div className="w-px flex-1 bg-amber-200/60 dark:bg-amber-500/20 my-1" />}
                 </div>
                 {/* Content */}
                 <div className={`pb-4 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
                   <div className="flex items-center gap-2">
-                    <span className="font-data text-[10px] font-bold text-[hsl(var(--mode-accent))]">STEP {s.step}</span>
-                    <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{t(s.titleKey)}</p>
+                    <span className="text-[10px] font-bold text-amber-500/60 dark:text-amber-400/50">STEP {s.step}</span>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t(s.titleKey)}</p>
                   </div>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[hsl(var(--muted-foreground))]">{t(s.descKey)}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(s.descKey)}</p>
                 </div>
               </div>
             ))}
@@ -625,25 +640,25 @@ export default function DashboardPage() {
         {isWorkMode && workflowTab === 'company' && (
           <div className="space-y-0">
             {([
-              { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1', descKey: 'dashboard.workflow.companyDesc1' },
-              { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.companyStep2', descKey: 'dashboard.workflow.companyDesc2' },
-              { step: '3', Icon: IconCheck, titleKey: 'dashboard.workflow.companyStep3', descKey: 'dashboard.workflow.companyDesc3' },
+              { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1', descKey: 'dashboard.workflow.companyDesc1', color: 'sky' },
+              { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.companyStep2', descKey: 'dashboard.workflow.companyDesc2', color: 'sky' },
+              { step: '3', Icon: IconCheck, titleKey: 'dashboard.workflow.companyStep3', descKey: 'dashboard.workflow.companyDesc3', color: 'sky' },
             ] as const).map((s, i, arr) => (
               <div key={s.step} className="flex gap-3">
                 {/* Timeline spine */}
                 <div className="flex flex-col items-center">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-[hsl(var(--mode-accent))]/40 text-[hsl(var(--mode-accent))]">
+                  <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
                     <s.Icon />
                   </div>
-                  {i < arr.length - 1 && <div className="my-1 w-px flex-1 bg-[hsl(var(--border))]" />}
+                  {i < arr.length - 1 && <div className="w-px flex-1 bg-sky-200/60 dark:bg-sky-500/20 my-1" />}
                 </div>
                 {/* Content */}
                 <div className={`pb-4 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
                   <div className="flex items-center gap-2">
-                    <span className="font-data text-[10px] font-bold text-[hsl(var(--mode-accent))]">STEP {s.step}</span>
-                    <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{t(s.titleKey)}</p>
+                    <span className="text-[10px] font-bold text-sky-500/60 dark:text-sky-400/50">STEP {s.step}</span>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t(s.titleKey)}</p>
                   </div>
-                  <p className="mt-0.5 text-xs leading-relaxed text-[hsl(var(--muted-foreground))]">{t(s.descKey)}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(s.descKey)}</p>
                 </div>
               </div>
             ))}

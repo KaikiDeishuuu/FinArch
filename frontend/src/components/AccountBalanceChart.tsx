@@ -5,6 +5,8 @@ import type { Account } from '../api/client'
 import Select from './Select'
 import { useAccountBalanceHistories, useAccountBalanceHistory, type BalanceRange } from '../hooks/useAccountBalanceHistory'
 import { formatAmount, formatAmountCompact } from '../utils/format'
+import { useMode } from '../hooks/useMode'
+import { getModeChartPalette } from '../utils/chartPalette'
 import { useExchangeRates } from '../hooks/useExchangeRates'
 import { aggregateAccountBalanceHistories } from '../utils/financeAmounts'
 
@@ -22,7 +24,9 @@ const RANGE_OPTIONS: Array<{ value: BalanceRange; label: string }> = [
 
 export default function AccountBalanceChart({ accounts }: Props) {
   const { t } = useTranslation()
+  const { mode } = useMode()
   const { rates } = useExchangeRates()
+  const palette = getModeChartPalette(mode)
 
   const [range, setRange] = useState<BalanceRange>('30d')
   const [accountId, setAccountId] = useState('')
@@ -69,28 +73,27 @@ export default function AccountBalanceChart({ accounts }: Props) {
   })), [data, range])
 
   return (
-    <div className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-5">
+    <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div>
-          <p className="page-kicker mb-1">BALANCE LEDGER</p>
-          <h2 className="font-display font-semibold text-[hsl(var(--foreground))]">{t('stats.chart.balanceTitle')}</h2>
-          <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.balanceTitle')}</h2>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
             {t('stats.chart.balanceSubtitle')} · {selectedAccount ? chartCurrency : t('stats.chart.cnyEquivalent')}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label={t('stats.chart.rangeLabel')} className="flex items-center gap-px border border-[hsl(var(--border))] bg-[hsl(var(--border))] p-px">
+          <div role="group" aria-label={t('stats.chart.rangeLabel')} className="flex items-center gap-1 p-1 rounded-lg bg-gray-100/80 dark:bg-gray-800/60">
             {RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => setRange(opt.value)}
                 aria-pressed={range === opt.value}
-                className={`bg-[hsl(var(--card))] px-2 py-1 font-data text-[11px] font-semibold transition-colors ${
+                className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors ${
                   range === opt.value
-                    ? 'text-[hsl(var(--mode-accent))] underline decoration-2 underline-offset-4'
-                    : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'
+                    ? 'bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-300 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                 }`}
               >
                 {opt.label}
@@ -117,7 +120,7 @@ export default function AccountBalanceChart({ accounts }: Props) {
 
       {isLoading ? (
         <div className="h-64 flex items-center justify-center">
-          <div className="h-7 w-7 animate-spin rounded-full border-4 border-[hsl(var(--mode-accent))] border-t-transparent" />
+          <div className="w-7 h-7 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : isError ? (
         <div className="h-64 flex flex-col items-center justify-center gap-2 text-sm text-rose-500">
@@ -127,28 +130,28 @@ export default function AccountBalanceChart({ accounts }: Props) {
           </button>
         </div>
       ) : chartData.length === 0 ? (
-        <p className="py-12 text-center text-sm text-[hsl(var(--muted-foreground))]">{t('stats.chart.balanceNoData')}</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-12">{t('stats.chart.balanceNoData')}</p>
       ) : (
-        <div className="h-64 w-full" role="img" aria-label={t('stats.chart.balanceTitle')}>
+        <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 4 }}>
-              <CartesianGrid strokeDasharray="2 5" stroke="hsl(var(--border))" />
-              <XAxis dataKey="shortDate" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))', fontFamily: 'var(--font-data)' }} minTickGap={18} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.20)" />
+              <XAxis dataKey="shortDate" tick={{ fontSize: 11, fill: '#94a3b8' }} minTickGap={18} />
               <YAxis
-                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))', fontFamily: 'var(--font-data)' }}
+                tick={{ fontSize: 11, fill: '#94a3b8' }}
                 width={62}
                 tickFormatter={(v) => formatAmountCompact(Number(v), chartCurrency)}
               />
               <Tooltip
                 formatter={(value) => formatAmount(Number(value), chartCurrency)}
                 labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''}
-                contentStyle={{ borderRadius: '3px', border: '1px solid var(--tooltip-border)', background: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', fontSize: '12px', fontFamily: 'var(--font-data)' }}
+                contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '12px' }}
               />
               <Line
                 type="monotone"
                 dataKey="balance"
-                stroke="hsl(var(--mode-accent))"
-                strokeWidth={2.25}
+                stroke={palette.secondary}
+                strokeWidth={2.5}
                 dot={chartData.length === 1}
                 activeDot={{ r: 4 }}
                 animationDuration={320}

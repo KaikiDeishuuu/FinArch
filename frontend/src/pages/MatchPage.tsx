@@ -287,23 +287,23 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
-  const inputClass = 'fin-input w-full px-3.5 py-2.5 font-data text-sm tabular-nums'
-  const labelClass = 'page-kicker mb-2 block'
+  const inputClass = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 dark:bg-gray-800/50 dark:text-gray-200 transition-all hover:bg-white dark:hover:bg-[hsl(260,15%,11%)] tabular-nums'
+  const labelClass = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider'
 
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
-      <div className="ledger-rail pl-5">
-        <h1 className="font-display text-2xl font-semibold tracking-[-0.025em] text-[hsl(var(--foreground))] md:text-[1.75rem]">{t('match.title')}</h1>
-        <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{isLifeMode ? t('match.life.subtitle') : t('match.subtitle')}</p>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('match.title')}</h1>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{isLifeMode ? t('match.life.subtitle') : t('match.subtitle')}</p>
       </div>
 
       {/* Form card — Premium */}
-      <div className="ledger-panel overflow-hidden">
-        <div className="border-b border-[hsl(var(--border))] px-5 pb-0 pt-4">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
+        <div className="border-b border-gray-100 dark:border-gray-800 px-5 pt-4 pb-0">
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {/* Source filter tabs */}
-            <div className="flex w-fit gap-1 rounded-[7px] border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-1">
+            <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
               {([enforcedSource] as const).map((key) => (
                 <button
                   key={key}
@@ -312,10 +312,9 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                     resetSearch()
                     setFilterAccount('')
                   }}
-                  aria-pressed={sourceFilter === key}
-                  className={`rounded-[5px] px-3 py-1 text-xs font-medium transition-colors ${sourceFilter === key
-                      ? 'bg-[hsl(var(--card))] text-[hsl(var(--mode-accent-strong))] shadow-sm'
-                      : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${sourceFilter === key
+                      ? 'bg-white dark:bg-[hsl(260,15%,11%)] text-violet-700 dark:text-violet-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                 >
                   {t(`match.sourceTabs.${key}`)}
@@ -381,17 +380,17 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
         </div>
 
         {/* Info bar */}
-        <div className="flex items-start gap-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--mode-accent-wash))] px-5 py-3">
-          <svg className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--mode-accent-strong))]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+        <div className="bg-violet-50 dark:bg-violet-500/10 border-b border-violet-100 dark:border-violet-800 px-5 py-3 flex items-start gap-2.5">
+          <svg className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
           <div>
-            <p className="text-sm text-[hsl(var(--mode-accent-strong))]">
+            <p className="text-sm text-violet-700 dark:text-violet-300">
               <Trans
                 i18nKey={isLifeMode ? 'match.life.info.uploadedOnly' : 'match.info.uploadedOnly'}
                 values={{ source: t(`match.sourceTabs.${sourceFilter}`) }}
                 components={{ strong: <strong /> }}
               />
             </p>
-            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{t('match.info.currencyNote')}</p>
+            <p className="text-xs text-violet-500/80 dark:text-violet-400/70 mt-1">{t('match.info.currencyNote')}</p>
           </div>
         </div>
 
@@ -453,7 +452,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-[7px] bg-[hsl(var(--primary))] py-2.5 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50"
+            className="mt-5 w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -471,7 +470,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
             type="button"
             onClick={handleExportPDF}
             disabled={matchedTransactions.length === 0}
-            className="fin-control mt-2 w-full py-2.5 text-sm font-semibold text-[hsl(var(--foreground))] disabled:opacity-50"
+            className="mt-2 w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 disabled:opacity-50 rounded-xl py-2.5 text-sm font-semibold transition-all"
           >
             {isLifeMode ? t('match.life.exportPdf') : t('transactions.exportPdf')}
           </button>
@@ -510,27 +509,28 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
               <div className="flex items-center gap-2">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('match.results.foundBefore')}<span className="font-data text-base font-bold text-[hsl(var(--mode-accent-strong))]">{results.length}</span>{t('match.results.foundAfter')}
+                  {t('match.results.foundBefore')}<span className="text-violet-600 dark:text-violet-400 font-bold text-base">{results.length}</span>{t('match.results.foundAfter')}
                 </span>
               </div>
             )}
           </div>
 
           {results.map((r, i) => {
-            const rankBg = i === 0
-              ? 'bg-[hsl(var(--mode-accent))] text-[hsl(var(--primary-foreground))]'
-              : 'border border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+            const rankColors = [
+              'bg-yellow-500',  // gold
+              'bg-gray-400',    // silver
+              'bg-amber-700',   // bronze
+            ]
+            const rankBg = i < 3 ? rankColors[i] : 'bg-violet-600'
             return (
-              <div key={i} className={`ledger-panel overflow-hidden ${i === 0 ? 'border-l-2 border-l-[hsl(var(--mode-accent))]' : ''}`}>
+              <div key={i} className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
                 {/* Card header (clickable) */}
                 <button
                   className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
                   onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
-                  aria-expanded={expandedIdx === i}
-                  aria-controls={`match-result-${i}`}
                 >
                   <div className="flex items-center gap-4 text-left">
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] font-data text-xs font-bold ${rankBg}`}>
+                    <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0`}>
                       {i + 1}
                     </span>
                     <div>
@@ -540,7 +540,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                           <span className="text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.exactMatch')}</span>
                         )}
                         {r.score != null && (
-                          <span className="rounded bg-[hsl(var(--mode-accent-wash))] px-2 py-0.5 font-data text-xs font-medium tabular-nums text-[hsl(var(--mode-accent-strong))]">
+                          <span className="text-xs bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full font-medium tabular-nums">
                             Score {r.score.toFixed(3)}
                           </span>
                         )}
@@ -555,14 +555,14 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                       </p>
                     </div>
                   </div>
-                  <div className={`flex h-7 w-7 items-center justify-center rounded-[6px] transition-transform ${expandedIdx === i ? 'rotate-180 bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 rotate-180' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </div>
                 </button>
 
                 {/* Expanded detail */}
                 {expandedIdx === i && (
-                  <div id={`match-result-${i}`} className="border-t border-[hsl(var(--border))]">
+                  <div className="border-t border-gray-100 dark:border-gray-800">
                     {r.items && r.items.length > 0 ? (
                       <>
                         {/* Mobile: card list */}
@@ -603,7 +603,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                                   </div>
                                 ) : (
                                   <button onClick={() => setConfirmId(item.id)}
-                                    className="text-xs font-medium text-[hsl(var(--mode-accent-strong))] transition-colors hover:text-[hsl(var(--foreground))]">
+                                    className="text-xs text-violet-500 hover:text-violet-700 font-medium">
                                     {t('match.reimburse.markButton')}
                                   </button>
                                 ))}
@@ -665,7 +665,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                                       </div>
                                     ) : (
                                       <button onClick={() => setConfirmId(item.id)}
-                                        className="whitespace-nowrap text-xs font-medium text-[hsl(var(--mode-accent-strong))] transition-colors hover:text-[hsl(var(--foreground))]">
+                                        className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
                                         {t('match.reimburse.markShort')}
                                       </button>
                                     )}

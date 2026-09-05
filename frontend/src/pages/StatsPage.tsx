@@ -150,7 +150,7 @@ function MonthlyBarChart({
       {/* Floating tooltip */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-10 rounded-[3px] border border-[var(--tooltip-border)] bg-[var(--tooltip-bg)] px-3 py-2.5 font-data text-xs text-[var(--tooltip-text)] shadow-[0_8px_20px_rgba(15,31,23,0.10)]"
+          className="pointer-events-none absolute z-10 bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100 dark:border-gray-800/50 rounded-xl shadow-lg px-3 py-2.5 text-xs"
           style={{
             left: tooltip.x,
             top: Math.max(4, tooltip.y - 72),
@@ -158,18 +158,18 @@ function MonthlyBarChart({
             minWidth: 130,
           }}
         >
-          <p className="mb-1.5 border-b border-[var(--tooltip-border)] pb-1 font-semibold text-[var(--tooltip-text)]">{tooltip.label}</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1.5 border-b border-gray-50 dark:border-gray-800 pb-1">{tooltip.label}</p>
           <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))]">
+            <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
               <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: incomeColor }} />{t('stats.pie.incomeLabel')}
             </span>
-            <span className="font-data font-semibold tabular-nums" style={{ color: incomeColor }}>{fmt(tooltip.income)}</span>
+            <span className="font-bold tabular-nums" style={{ color: incomeColor }}>{fmt(tooltip.income)}</span>
           </div>
           <div className="flex items-center justify-between gap-3 mt-1">
-            <span className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))]">
+            <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
               <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: expenseColor }} />{t('stats.pie.expenseLabel')}
             </span>
-            <span className="font-data font-semibold tabular-nums" style={{ color: expenseColor }}>{fmt(tooltip.expense)}</span>
+            <span className="font-bold tabular-nums" style={{ color: expenseColor }}>{fmt(tooltip.expense)}</span>
           </div>
         </div>
       )}
@@ -306,14 +306,14 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[hsl(var(--border))] border-t-[hsl(var(--primary))]" />
+        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   if (isError) {
     return (
-      <div className="ledger-panel flex h-64 flex-col items-center justify-center gap-3" role="alert">
+      <div className="flex flex-col items-center justify-center h-64 gap-3 rounded-2xl bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100 dark:border-gray-800/50">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-12 h-12 text-rose-300 dark:text-rose-500/70"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></svg>
         <div className="text-center">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('stats.error.title')}</p>
@@ -323,7 +323,7 @@ export default function StatsPage() {
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="rounded-[7px] bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50"
+          className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
         >
           {isFetching ? t('common.loading') : t('common.retry')}
         </button>
@@ -333,10 +333,10 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <div className="ledger-rail flex flex-col gap-3 pl-5 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-[-0.025em] text-[hsl(var(--foreground))] md:text-[1.75rem]">{t('stats.title')}</h1>
-          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{t('stats.subtitle', { year })}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('stats.title')}</h1>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stats.subtitle', { year })}</p>
         </div>
         {!ratesLoading && (
           rateDate
@@ -346,21 +346,21 @@ export default function StatsPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="ledger-panel flex flex-wrap items-center gap-2 p-3 md:w-fit">
+      <div className="rounded-2xl bg-white/70 dark:bg-[hsl(260,15%,11%)]/70 border border-gray-100/80 dark:border-gray-800/50 p-3 flex flex-wrap items-center gap-2 shadow-sm md:bg-transparent md:dark:bg-transparent md:border-0 md:p-0 md:shadow-none">
         {/* Source filter */}
         {isWorkMode ? (
-          <div role="group" aria-label={t('transactions.sourceFilterLabel')} className="inline-flex h-8 items-center gap-0.5 rounded-[7px] border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-0.5">
+          <div className="inline-flex h-8 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800">
             {(['company', 'personal'] as const).map((source) => (
               <button
                 key={source}
                 type="button"
                 onClick={() => selectSource(source)}
                 aria-pressed={sourceFilter === source}
-                className={`h-7 rounded-[5px] px-2.5 text-xs font-semibold transition-colors ${sourceFilter === source
+                className={`h-7 rounded-md px-2.5 text-xs font-semibold transition-colors ${sourceFilter === source
                   ? source === 'company'
-                    ? 'bg-[hsl(var(--card))] text-[#2d6687] shadow-sm dark:text-[#72a9c8]'
-                    : 'bg-[hsl(var(--card))] text-amber-700 shadow-sm dark:text-amber-300'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
+                    ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
+                    : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 {t(`transactions.sourceTabs.${source}`)}
@@ -438,25 +438,25 @@ export default function StatsPage() {
       {/* Summary cards — Premium: flat, clean */}
       <StaggerContainer className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2.5 md:gap-3">
         <StaggerItem>
-          <div className="ledger-panel overflow-hidden border-t-2 border-t-[hsl(var(--income))] p-3 md:p-5">
-            <p className="page-kicker truncate">{t('stats.yearlyIncome')}</p>
-            <p className="mt-1.5 truncate font-data text-base font-semibold tabular-nums text-[hsl(var(--income))] md:text-2xl">
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
+            <p className="text-base md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 truncate tabular-nums mt-1.5">
               <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
             </p>
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className="ledger-panel overflow-hidden border-t-2 border-t-[hsl(var(--expense))] p-3 md:p-5">
-            <p className="page-kicker truncate">{t('stats.yearlyExpense')}</p>
-            <p className="mt-1.5 truncate font-data text-base font-semibold tabular-nums text-[hsl(var(--expense))] md:text-2xl">
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyExpense')}</p>
+            <p className="text-base md:text-2xl font-bold text-rose-500 dark:text-rose-400 truncate tabular-nums mt-1.5">
               <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
             </p>
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className="ledger-panel overflow-hidden border-t-2 border-t-[hsl(var(--mode-accent))] p-3 md:p-5">
-            <p className="page-kicker truncate">{t('stats.yearlyNet')}</p>
-            <p className={`mt-1.5 truncate font-data text-base font-semibold tabular-nums md:text-2xl ${totalNet >= 0 ? 'text-[hsl(var(--mode-accent-strong))]' : 'text-[hsl(var(--expense))]'}`}>
+          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
+            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyNet')}</p>
+            <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-orange-500 dark:text-orange-400'}`}>
               <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
             </p>
           </div>
@@ -466,11 +466,11 @@ export default function StatsPage() {
       <AccountBalanceChart accounts={filteredAccounts} />
 
       {/* Monthly bar chart — Premium */}
-      <div className="ledger-panel p-4 md:p-5">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-5">
           <div>
-            <h2 className="font-display font-semibold text-[hsl(var(--foreground))]">{t('stats.chart.monthlyTitle', { year })}</h2>
-            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">{t('stats.chart.monthlySubtitle')}</p>
+            <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.monthlyTitle', { year })}</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('stats.chart.monthlySubtitle')}</p>
           </div>
           <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <span className="flex items-center gap-1.5">
@@ -490,8 +490,8 @@ export default function StatsPage() {
 
       {/* Income vs expense overview pie */}
       {monthly.length > 0 && totalIncome + totalExpense > 0 && (
-        <div className="ledger-panel p-4 md:p-5">
-          <h2 className="font-display mb-4 font-semibold text-[hsl(var(--foreground))]">{t('stats.chart.pieTitle')}</h2>
+        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.pieTitle')}</h2>
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
             <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -512,9 +512,9 @@ export default function StatsPage() {
                     <Cell fill={palette.expense} />
                   </Pie>
                   <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '3px', border: '1px solid var(--tooltip-border)', boxShadow: '0 8px 20px rgba(15,31,23,0.10)', fontSize: '12px', fontFamily: 'var(--font-data)', background: 'var(--tooltip-bg)', color: 'var(--tooltip-text)' }}
-                    itemStyle={{ color: 'var(--tooltip-text)' }}
-                    labelStyle={{ color: 'var(--tooltip-text)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
+                    itemStyle={{ color: 'var(--tooltip-text, #374151)' }}
+                    labelStyle={{ color: 'var(--tooltip-text, #374151)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -546,7 +546,7 @@ export default function StatsPage() {
                 <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
                   <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 gap-2">
                     <span className="truncate">{t('stats.reimbursed')}</span>
-                    <span className="whitespace-nowrap font-data font-semibold tabular-nums text-[hsl(var(--mode-accent-strong))]">+{fmt(totalReimbursed)}</span>
+                    <span className="font-semibold text-violet-500 tabular-nums whitespace-nowrap">+{fmt(totalReimbursed)}</span>
                   </div>
                 </div>
               )}
@@ -561,9 +561,9 @@ export default function StatsPage() {
       </div>
 
       {/* Project breakdown — Premium */}
-      <div className="ledger-panel overflow-hidden">
+      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
         <div className="px-4 md:px-5 py-4 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between gap-3">
-          <h2 className="font-display font-semibold text-[hsl(var(--foreground))]">{t('stats.chart.projectTitle')}</h2>
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.projectTitle')}</h2>
           <span className="text-xs text-gray-400 dark:text-gray-500">{t('stats.projectCount', { count: projects.length })}</span>
         </div>
         {projects.length === 0 ? (
@@ -587,17 +587,17 @@ export default function StatsPage() {
                       {p.project_name && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.project_name}</p>}
                     </td>
                     <td className="px-4 md:px-5 py-3.5 text-right">
-                      <span className="whitespace-nowrap font-data font-medium tabular-nums text-[hsl(var(--income))]">
+                      <span className="text-indigo-600 font-medium tabular-nums whitespace-nowrap">
                         <CompactAmount compact={fmtShort(p.income)} exact={fmtExact(p.income)} />
                       </span>
                     </td>
                     <td className="px-4 md:px-5 py-3.5 text-right">
-                      <span className="whitespace-nowrap font-data font-medium tabular-nums text-[hsl(var(--expense))]">
+                      <span className="text-rose-500 font-medium tabular-nums whitespace-nowrap">
                         <CompactAmount compact={fmtShort(p.expense)} exact={fmtExact(p.expense)} />
                       </span>
                     </td>
                     <td className="px-4 md:px-5 py-3.5 text-right">
-                      <span className={`rounded px-2 py-0.5 font-data text-xs font-semibold tabular-nums whitespace-nowrap ${p.net >= 0 ? 'bg-[hsl(var(--income))]/10 text-[hsl(var(--income))]' : 'bg-[hsl(var(--expense))]/10 text-[hsl(var(--expense))]'
+                      <span className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs ${p.net >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
                         }`}>
                         <CompactAmount compact={fmtShort(p.net)} exact={fmtExact(p.net)} prefix={p.net >= 0 ? '+' : ''} />
                       </span>

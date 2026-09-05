@@ -14,8 +14,7 @@ function resolve(theme: Theme, systemTheme: 'light' | 'dark'): 'light' | 'dark' 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system'
-    const stored = localStorage.getItem('finarch-theme')
-    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+    return (localStorage.getItem('finarch-theme') as Theme) || 'system'
   })
 
   const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(getSystemTheme)
@@ -41,7 +40,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Update meta theme-color
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) {
-      meta.setAttribute('content', resolved === 'dark' ? '#111815' : '#F3F6F2')
+      meta.setAttribute('content', resolved === 'dark' ? '#0f0d18' : '#FAFAF9')
     }
   }, [resolved])
 

@@ -14,8 +14,8 @@ export function useThemeColor(lightColor: string, darkColor?: string) {
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) return
-    const original = meta.getAttribute('content') || '#F3F6F2'
-    const color = resolvedTheme === 'dark' ? (darkColor ?? '#111815') : lightColor
+    const original = meta.getAttribute('content') || '#FAFAF9'
+    const color = resolvedTheme === 'dark' ? (darkColor ?? '#1a1a2e') : lightColor
     meta.setAttribute('content', color)
     return () => { meta.setAttribute('content', original) }
   }, [lightColor, darkColor, resolvedTheme])

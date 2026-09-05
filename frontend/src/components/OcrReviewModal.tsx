@@ -1,4 +1,3 @@
-import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import type { OCRSuggestion } from '../api/client'
 import { hasOCRSuggestion } from '../utils/ocr'
@@ -22,40 +21,29 @@ export default function OcrReviewModal({
     ['note', suggestion.note || ''],
   ].filter(([, value]) => value)
   return (
-    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose() }}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-[#101815]/60 backdrop-blur-[2px]" />
-        <Dialog.Content className="ledger-panel fixed left-1/2 top-1/2 z-[81] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto outline-none">
-          <div className="border-b border-[hsl(var(--border))] px-5 py-4">
-            <Dialog.Title className="font-display text-lg font-bold text-[hsl(var(--foreground))]">
-              {t('attachments.ocr.reviewTitle')}
-            </Dialog.Title>
-            <Dialog.Description className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">
-              {t('attachments.ocr.reviewDesc')}
-            </Dialog.Description>
-          </div>
-          <div className="divide-y divide-[hsl(var(--border))] bg-[hsl(var(--muted))]/45 px-5">
-            {rows.length === 0 ? (
-              <p className="py-4 text-sm text-[hsl(var(--muted-foreground))]">{t('attachments.ocr.noSuggestion')}</p>
-            ) : rows.map(([key, value]) => (
-              <div key={key} className="grid grid-cols-[minmax(5.5rem,0.7fr)_minmax(0,1.3fr)] gap-3 py-3 text-sm">
-                <span className="font-data text-[11px] font-semibold uppercase tracking-[0.08em] text-[hsl(var(--muted-foreground))]">{t(`attachments.ocr.fields.${key}`)}</span>
-                <span className="break-words text-right font-semibold text-[hsl(var(--foreground))]">{value}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2 border-t border-[hsl(var(--border))] px-5 py-4">
-            <Dialog.Close asChild>
-              <button type="button" className="fin-button fin-button--secondary px-4 py-2 text-sm">
-                {t('common.cancel')}
-              </button>
-            </Dialog.Close>
-            <button type="button" onClick={() => onApply(suggestion)} className="fin-button px-4 py-2 text-sm">
-              {t('attachments.ocr.apply')}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl dark:border-gray-800 dark:bg-[hsl(260,15%,11%)]">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('attachments.ocr.reviewTitle')}</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('attachments.ocr.reviewDesc')}</p>
+        <div className="mt-4 space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-800/60">
+          {rows.length === 0 ? (
+            <p className="text-sm text-gray-400">{t('attachments.ocr.noSuggestion')}</p>
+          ) : rows.map(([key, value]) => (
+            <div key={key} className="flex justify-between gap-3 text-sm">
+              <span className="text-gray-400">{t(`attachments.ocr.fields.${key}`)}</span>
+              <span className="text-right font-semibold text-gray-700 dark:text-gray-200">{value}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">
+            {t('common.cancel')}
+          </button>
+          <button type="button" onClick={() => onApply(suggestion)} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700">
+            {t('attachments.ocr.apply')}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

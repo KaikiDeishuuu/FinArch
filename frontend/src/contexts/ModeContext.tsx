@@ -6,9 +6,7 @@ const STORAGE_KEY = 'finarch_mode'
 export function ModeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<AppMode>(() => {
     const raw = localStorage.getItem(STORAGE_KEY)
-    const initialMode = raw === 'life' ? 'life' : 'work'
-    document.documentElement.setAttribute('data-mode', initialMode)
-    return initialMode
+    return raw === 'life' ? 'life' : 'work'
   })
 
   useEffect(() => {

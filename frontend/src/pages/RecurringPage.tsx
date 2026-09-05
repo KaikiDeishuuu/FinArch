@@ -143,25 +143,25 @@ function HistoryPanel({ ruleId }: { ruleId: string }) {
   const { t } = useTranslation()
   const { data: instances = [], isLoading } = useRecurringInstances(ruleId)
   return (
-    <div className="mt-3 border-l-2 border-l-[hsl(var(--mode-accent))] bg-[hsl(var(--muted))]/55 p-3">
-      <p className="mb-2 font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{t('recurring.history')}</p>
+    <div className="mt-3 rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/45">
+      <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400">{t('recurring.history')}</p>
       {isLoading ? (
-        <div className="h-10 animate-pulse bg-[hsl(var(--border))]/70" />
+        <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
       ) : instances.length === 0 ? (
-        <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('recurring.noHistory')}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{t('recurring.noHistory')}</p>
       ) : (
-        <div className="divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+        <div className="space-y-2">
           {instances.slice(0, 5).map((item) => (
-            <div key={item.id} className="flex items-start justify-between gap-3 bg-[hsl(var(--card))]/70 px-3 py-2 text-xs">
+            <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg bg-white px-3 py-2 text-xs dark:bg-gray-900/40">
               <div>
-                <p className="font-data font-semibold text-[hsl(var(--foreground))]">{item.occurrence_date}</p>
+                <p className="font-semibold text-gray-700 dark:text-gray-200">{item.occurrence_date}</p>
                 {item.error && <p className="mt-0.5 text-rose-500 dark:text-rose-300">{item.error}</p>}
               </div>
               <span className={`rounded-full px-2 py-0.5 font-bold ${item.status === 'generated'
                 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300'
                 : item.status === 'failed'
                   ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
-                  : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+                  : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
               }`}>{t(`recurring.instanceStatus.${item.status}`)}</span>
             </div>
           ))}
@@ -261,30 +261,29 @@ export default function RecurringPage() {
     }
   }
 
-  const inputClass = 'w-full rounded-[3px] border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3.5 py-2.5 text-sm text-[hsl(var(--foreground))] outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))]/70 hover:bg-[hsl(var(--card))] focus:border-[hsl(var(--mode-accent))] focus:ring-2 focus:ring-[hsl(var(--ring))]/20 disabled:cursor-not-allowed disabled:opacity-50'
-  const labelClass = 'mb-1.5 block font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]'
+  const inputClass = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-500/15 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-100 dark:placeholder:text-gray-500'
+  const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-500 dark:text-gray-400'
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <div className="ledger-rail flex flex-col gap-4 border-y border-[hsl(var(--border))] py-5 pl-5 pr-2 sm:flex-row sm:items-end sm:justify-between sm:pl-7">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="page-kicker mb-2">FINARCH / SCHEDULE</p>
-          <h1 className="font-display text-2xl font-semibold tracking-[-0.025em] text-[hsl(var(--foreground))]">{t('recurring.title')}</h1>
-          <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{t('recurring.subtitle')}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('recurring.title')}</h1>
+          <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">{t('recurring.subtitle')}</p>
         </div>
-        <div className="grid grid-cols-2 gap-px overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--border))] sm:min-w-[18rem]">
-          <div className="bg-[hsl(var(--card))] px-3 py-2.5">
-            <p className="font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{t('recurring.summary.active')}</p>
-            <p className="font-data mt-1 text-xl font-semibold text-[hsl(var(--mode-accent))]">{rules.filter(r => r.status === 'active').length}</p>
+        <div className="grid grid-cols-2 gap-2 sm:min-w-[18rem]">
+          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800/50 dark:bg-[hsl(260,15%,11%)]">
+            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">{t('recurring.summary.active')}</p>
+            <p className="mt-1 text-xl font-bold text-violet-600 dark:text-violet-300">{rules.filter(r => r.status === 'active').length}</p>
           </div>
-          <div className="bg-[hsl(var(--card))] px-3 py-2.5">
-            <p className="font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">{t('recurring.summary.failed')}</p>
-            <p className="font-data mt-1 text-xl font-semibold text-rose-500 dark:text-rose-300">{failedCount}</p>
+          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800/50 dark:bg-[hsl(260,15%,11%)]">
+            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">{t('recurring.summary.failed')}</p>
+            <p className="mt-1 text-xl font-bold text-rose-500 dark:text-rose-300">{failedCount}</p>
           </div>
         </div>
       </div>
 
-      <FinanceCard className="rounded-[3px] border-[hsl(var(--border))] border-t-2 border-t-[hsl(var(--mode-accent))] bg-[hsl(var(--card))] shadow-none [&_h2]:font-display [&_h2]:text-base [&_h2]:text-[hsl(var(--foreground))]">
+      <FinanceCard>
         <SectionHeader title={form.id ? t('recurring.form.editTitle') : t('recurring.form.createTitle')} subtitle={t('recurring.form.subtitle')} />
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
@@ -316,9 +315,9 @@ export default function RecurringPage() {
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr]">
             <div>
               <label className={labelClass}>{t('addTransaction.form.amount')}</label>
-              <div className="flex items-center gap-2 rounded-[3px] border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-3 py-1 transition-colors focus-within:border-[hsl(var(--mode-accent))] focus-within:ring-2 focus-within:ring-[hsl(var(--ring))]/20">
-                <span className="font-data text-sm font-bold text-[hsl(var(--muted-foreground))]">{CURRENCY_SYMBOLS[form.currency] ?? form.currency}</span>
-                <input type="number" min="0.01" step="0.01" className="font-data min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-[hsl(var(--foreground))] outline-none" value={form.amount_yuan} onChange={(e) => update('amount_yuan', e.target.value)} placeholder="0.00" />
+              <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1 dark:border-gray-700 dark:bg-gray-800/80">
+                <span className="text-sm font-bold text-gray-400">{CURRENCY_SYMBOLS[form.currency] ?? form.currency}</span>
+                <input type="number" min="0.01" step="0.01" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-gray-800 outline-none dark:text-gray-100" value={form.amount_yuan} onChange={(e) => update('amount_yuan', e.target.value)} placeholder="0.00" />
                 <div className="w-20 shrink-0">
                   <Select value={form.currency} onChange={(v) => update('currency', v)} size="sm" options={SUPPORTED_CURRENCIES.map(c => ({ value: c.code, label: c.code }))} />
                 </div>
@@ -378,74 +377,74 @@ export default function RecurringPage() {
               <Select value={form.month_end_policy} onChange={(v) => update('month_end_policy', v as MonthEndPolicy)} size="lg" options={[{ value: 'clamp', label: t('recurring.monthEndPolicy.clamp') }, { value: 'skip', label: t('recurring.monthEndPolicy.skip') }]} />
             </div>
             <div>
-              <label className={labelClass}>{t('addTransaction.form.project')} <span className="font-normal text-[hsl(var(--muted-foreground))]/60">{t('addTransaction.form.optional')}</span></label>
+              <label className={labelClass}>{t('addTransaction.form.project')} <span className="font-normal text-gray-300">{t('addTransaction.form.optional')}</span></label>
               <input className={inputClass} value={form.project_id} onChange={(e) => update('project_id', e.target.value)} placeholder={t('addTransaction.form.projectPlaceholder')} />
             </div>
             <div>
-              <label className={labelClass}>{t('addTransaction.form.note')} <span className="font-normal text-[hsl(var(--muted-foreground))]/60">{t('addTransaction.form.optional')}</span></label>
+              <label className={labelClass}>{t('addTransaction.form.note')} <span className="font-normal text-gray-300">{t('addTransaction.form.optional')}</span></label>
               <input className={inputClass} value={form.note} onChange={(e) => update('note', e.target.value)} placeholder={t('addTransaction.form.notePlaceholder')} />
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
-            <input type="checkbox" checked={form.catch_up_enabled} onChange={(e) => update('catch_up_enabled', e.target.checked)} className="rounded-[2px] border-[hsl(var(--border))] accent-[hsl(var(--mode-accent))] focus:ring-[hsl(var(--ring))]" />
+          <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <input type="checkbox" checked={form.catch_up_enabled} onChange={(e) => update('catch_up_enabled', e.target.checked)} className="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
             {t('recurring.form.catchUp')}
           </label>
 
-          <div className="border border-[hsl(var(--border))] border-l-2 border-l-[hsl(var(--mode-accent))] bg-[hsl(var(--muted))]/45 p-3">
-            <p className="mb-2 font-data text-[10px] font-semibold uppercase tracking-[0.12em] text-[hsl(var(--mode-accent))]">{t('recurring.previewTitle')}</p>
+          <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3 dark:border-violet-500/30 dark:bg-violet-500/10">
+            <p className="mb-2 text-xs font-semibold text-violet-700 dark:text-violet-300">{t('recurring.previewTitle')}</p>
             {preview.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {preview.map((item) => <span key={item.occurrence_date} className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2.5 py-1 font-data text-xs font-semibold text-[hsl(var(--mode-accent))]">{item.occurred_at}</span>)}
+                {preview.map((item) => <span key={item.occurrence_date} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-violet-600 shadow-sm dark:bg-gray-900/50 dark:text-violet-300">{item.occurred_at}</span>)}
               </div>
             ) : (
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('recurring.previewEmpty')}</p>
+              <p className="text-xs text-violet-500/70 dark:text-violet-300/70">{t('recurring.previewEmpty')}</p>
             )}
           </div>
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {form.id && <button type="button" onClick={resetForm} className="rounded-[3px] border border-[hsl(var(--border))] px-4 py-2 text-sm font-semibold text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))]">{t('common.cancel')}</button>}
-            <button type="submit" disabled={mutations.create.isPending || mutations.update.isPending || activeAccounts.length === 0} className="rounded-[3px] bg-[hsl(var(--mode-accent))] px-5 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2">
+            {form.id && <button type="button" onClick={resetForm} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">{t('common.cancel')}</button>}
+            <button type="submit" disabled={mutations.create.isPending || mutations.update.isPending || activeAccounts.length === 0} className="rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition-all hover:from-violet-700 hover:to-purple-700 disabled:opacity-50">
               {mutations.create.isPending || mutations.update.isPending ? t('common.saving') : form.id ? t('common.save') : t('common.add')}
             </button>
           </div>
         </form>
       </FinanceCard>
 
-      <FinanceCard className="rounded-[3px] border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-none [&_h2]:font-display [&_h2]:text-base [&_h2]:text-[hsl(var(--foreground))]">
+      <FinanceCard>
         <SectionHeader
           title={t('recurring.listTitle')}
           subtitle={nextRule ? t('recurring.nextDue', { name: nextRule.name, time: nextRule.next_occurred_at }) : t('recurring.noNextDue')}
         />
         {isLoading ? (
-          <div className="h-24 animate-pulse rounded-[2px] bg-[hsl(var(--muted))]" />
+          <div className="h-24 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
         ) : rules.length === 0 ? (
           <EmptyState title={t('recurring.empty.title')} description={t('recurring.empty.desc')} />
         ) : (
-          <div className="grid gap-px overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--border))] lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {rules.map(rule => (
-              <div key={rule.id} className="bg-[hsl(var(--card))] p-4">
+              <div key={rule.id} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-800/60 dark:bg-gray-800/30">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="truncate text-sm font-semibold text-[hsl(var(--foreground))]">{rule.name}</h3>
-                      <span className={`border px-2 py-0.5 font-data text-[10px] font-bold ${rule.status === 'active' ? 'border-emerald-300/60 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>{t(`recurring.status.${rule.status}`)}</span>
+                      <h3 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100">{rule.name}</h3>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${rule.status === 'active' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>{t(`recurring.status.${rule.status}`)}</span>
                     </div>
-                    <p className="font-data mt-1 text-xs text-[hsl(var(--muted-foreground))]">{formatSchedule(rule, t)} · {rule.next_occurred_at}</p>
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{formatSchedule(rule, t)} · {rule.next_occurred_at}</p>
                   </div>
-                  <p className={`font-data shrink-0 text-base font-semibold tabular-nums ${rule.direction === 'income' ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-500 dark:text-rose-300'}`}>{rule.direction === 'income' ? '+' : '−'}{formatAmount(rule.amount_yuan, rule.currency)}</p>
+                  <p className={`shrink-0 text-base font-bold ${rule.direction === 'income' ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-500 dark:text-rose-300'}`}>{rule.direction === 'income' ? '+' : '−'}{formatAmount(rule.amount_yuan, rule.currency)}</p>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/60 px-2 py-1 font-semibold text-[hsl(var(--foreground))]">{categoryLabel(rule.category)}</span>
-                  {rule.project_id && <span className="border border-[hsl(var(--border))] bg-[hsl(var(--mode-accent-wash))] px-2 py-1 font-data font-semibold text-[hsl(var(--mode-accent))]">{rule.project_id}</span>}
-                  {rule.note && <span className="min-w-0 truncate border border-[hsl(var(--border))] px-2 py-1 text-[hsl(var(--muted-foreground))]">{rule.note}</span>}
+                  <span className="rounded-lg bg-white px-2 py-1 font-semibold text-gray-600 dark:bg-gray-900/45 dark:text-gray-300">{categoryLabel(rule.category)}</span>
+                  {rule.project_id && <span className="rounded-lg bg-purple-50 px-2 py-1 font-semibold text-purple-600 dark:bg-purple-500/15 dark:text-purple-300">{rule.project_id}</span>}
+                  {rule.note && <span className="min-w-0 truncate rounded-lg bg-white px-2 py-1 text-gray-400 dark:bg-gray-900/45 dark:text-gray-500">{rule.note}</span>}
                 </div>
-                <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-[hsl(var(--border))] pt-3">
-                  <button type="button" aria-expanded={expandedRuleId === rule.id} onClick={() => setExpandedRuleId(expandedRuleId === rule.id ? null : rule.id)} className="rounded-[2px] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]">{expandedRuleId === rule.id ? t('common.collapse') : t('recurring.history')}</button>
-                  <button type="button" onClick={() => generateNow(rule)} disabled={mutations.generateNow.isPending} className="rounded-[2px] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--mode-accent))] transition-colors hover:bg-[hsl(var(--mode-accent-wash))] disabled:opacity-50">{t('recurring.generateNow')}</button>
-                  <button type="button" onClick={() => toggleStatus(rule)} disabled={mutations.setStatus.isPending || rule.status === 'ended'} className="rounded-[2px] px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:text-amber-300 dark:hover:bg-amber-500/10">{rule.status === 'active' ? t('recurring.pause') : t('recurring.resume')}</button>
-                  <button type="button" onClick={() => startEdit(rule)} className="rounded-[2px] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--mode-accent))] transition-colors hover:bg-[hsl(var(--mode-accent-wash))]">{t('common.edit')}</button>
-                  <button type="button" onClick={() => removeRule(rule)} disabled={mutations.remove.isPending} className="rounded-[2px] px-3 py-1.5 text-xs font-semibold text-rose-500 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10">{t('common.delete')}</button>
+                <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800/60">
+                  <button type="button" onClick={() => setExpandedRuleId(expandedRuleId === rule.id ? null : rule.id)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-white dark:text-gray-300 dark:hover:bg-gray-800">{expandedRuleId === rule.id ? t('common.collapse') : t('recurring.history')}</button>
+                  <button type="button" onClick={() => generateNow(rule)} disabled={mutations.generateNow.isPending} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-50 disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-500/10">{t('recurring.generateNow')}</button>
+                  <button type="button" onClick={() => toggleStatus(rule)} disabled={mutations.setStatus.isPending || rule.status === 'ended'} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:text-amber-300 dark:hover:bg-amber-500/10">{rule.status === 'active' ? t('recurring.pause') : t('recurring.resume')}</button>
+                  <button type="button" onClick={() => startEdit(rule)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10">{t('common.edit')}</button>
+                  <button type="button" onClick={() => removeRule(rule)} disabled={mutations.remove.isPending} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-500 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10">{t('common.delete')}</button>
                 </div>
                 {expandedRuleId === rule.id && <HistoryPanel ruleId={rule.id} />}
               </div>
