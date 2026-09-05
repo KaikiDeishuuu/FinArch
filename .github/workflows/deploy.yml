@@ -88,7 +88,9 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
+            set -eu
             cd ~/FinArch
+            test -f .env
             git fetch origin main
             git switch main
             git merge --ff-only ${{ env.COMMIT_SHA }}
@@ -98,9 +100,47 @@ jobs:
             else
               printf '\nFINARCH_IMAGE_TAG=sha-${{ env.COMMIT_SHA }}\n' >> .env
             fi
+
+            # One-time migration for hosts deployed before trusted-proxy
+            # validation became mandatory. The host reverse proxy reaches the
+            # published loopback port through this container network gateway,
+            # so trust only that exact address. Explicit operator config wins.
+            if ! grep -Eq '^FINARCH_TRUSTED_PROXY_CIDRS=.+$' .env; then
+              if ! docker inspect finarch-api >/dev/null 2>&1; then
+                echo "FINARCH_TRUSTED_PROXY_CIDRS is missing and no existing container is available for safe discovery" >&2
+                exit 1
+              fi
+              proxy_gateways="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{.IPv6Gateway}} {{end}}' finarch-api)"
+              set -- $proxy_gateways
+              if [ "$#" -ne 1 ]; then
+                echo "Expected exactly one existing FinArch container network gateway; configure FINARCH_TRUSTED_PROXY_CIDRS explicitly" >&2
+                exit 1
+              fi
+              proxy_gateway="$1"
+              case "$proxy_gateway" in
+                *:*) trusted_proxy_cidr="${proxy_gateway}/128" ;;
+                *.*) trusted_proxy_cidr="${proxy_gateway}/32" ;;
+                *)
+                  echo "Could not derive a valid trusted proxy address from the existing container" >&2
+                  exit 1
+                  ;;
+              esac
+              if grep -q '^FINARCH_TRUSTED_PROXY_CIDRS=' .env; then
+                sed -i "s|^FINARCH_TRUSTED_PROXY_CIDRS=.*|FINARCH_TRUSTED_PROXY_CIDRS=${trusted_proxy_cidr}|" .env
+              else
+                printf '\nFINARCH_TRUSTED_PROXY_CIDRS=%s\n' "$trusted_proxy_cidr" >> .env
+              fi
+            fi
+
+            docker compose config --quiet
             docker compose pull api
             docker compose run --rm init-permissions
             docker compose up -d --wait --wait-timeout 180 api
+
+            expected_image="ghcr.io/kaikideishuuu/finarch:sha-${{ env.COMMIT_SHA }}"
+            actual_image="$(docker inspect --format '{{.Config.Image}}' finarch-api)"
+            test "$actual_image" = "$expected_image"
+            test "$(docker inspect --format '{{.State.Health.Status}}' finarch-api)" = "healthy"
             echo "✅ Deploy finished at $(date)"
 
       - name: Confirm deployed commit is still current
