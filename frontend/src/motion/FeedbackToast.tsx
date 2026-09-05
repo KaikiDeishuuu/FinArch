@@ -36,7 +36,7 @@ interface Props {
 const typeStyles: Record<FeedbackType, string> = {
   success: 'bg-emerald-50 border-emerald-200 text-emerald-700',
   error: 'bg-rose-50 border-rose-200 text-rose-700',
-  info: 'bg-[hsl(var(--mode-accent-wash))] border-[hsl(var(--mode-accent))]/35 text-[hsl(var(--mode-accent-strong))]',
+  info: 'bg-violet-50 border-violet-200 text-violet-700',
 }
 
 const typeIcons: Record<FeedbackType, string> = {
@@ -55,7 +55,7 @@ export default function FeedbackToast({
     <AnimatePresence>
       {show && (
         <motion.div
-          className={`flex items-center gap-2.5 rounded-[8px] border px-4 py-2.5 text-sm font-medium ${typeStyles[type]} ${className}`}
+          className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-medium ${typeStyles[type]} ${className}`}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
