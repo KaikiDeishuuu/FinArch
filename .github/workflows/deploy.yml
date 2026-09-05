@@ -90,6 +90,7 @@ jobs:
           script: |
             set -eu
             cd ~/FinArch
+            test -f .env
             git fetch origin main
             git switch main
             git merge --ff-only ${{ env.COMMIT_SHA }}
@@ -109,7 +110,7 @@ jobs:
                 echo "FINARCH_TRUSTED_PROXY_CIDRS is missing and no existing container is available for safe discovery" >&2
                 exit 1
               fi
-              proxy_gateways="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' finarch-api)"
+              proxy_gateways="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{.IPv6Gateway}} {{end}}' finarch-api)"
               set -- $proxy_gateways
               if [ "$#" -ne 1 ]; then
                 echo "Expected exactly one existing FinArch container network gateway; configure FINARCH_TRUSTED_PROXY_CIDRS explicitly" >&2
