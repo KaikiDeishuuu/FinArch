@@ -1,19 +1,50 @@
 import axios from 'axios'
+import { isDefinitiveSessionInvalid, isRefreshableAccessFailure } from '../utils/sessionRecovery'
+import {
+  parseAuthSessionPayload,
+  SessionCookieLockUnavailableError,
+  SESSION_REQUEST_TIMEOUT_MS,
+  withAbortableSessionLock,
+  withAbortDeadline,
+  withStorageSessionLock,
+} from '../utils/sessionLifecycle'
+import type { AuthSessionPayload } from '../utils/sessionLifecycle'
 
 // Axios instance with base URL and auth header injection
 const client = axios.create({
   baseURL: '/api/v1',
+  // Refresh credentials are HttpOnly cookies and are useful only on the
+  // same-origin session endpoints. The API intentionally does not support
+  // credentialed cross-origin browser sessions.
+  withCredentials: true,
 })
 
-// Token stored in memory (not localStorage for XSS protection)
+// Access tokens live only in this JavaScript process. Reload recovery uses the
+// opaque HttpOnly refresh cookie, never localStorage.
 let _token: string | null = null
+let _sessionListener: ((session: AuthResponse | null) => void) | null = null
+let _refreshPromise: Promise<AuthResponse> | null = null
+let _refreshController: AbortController | null = null
+let _logoutPromise: Promise<void> | null = null
+let _sessionGeneration = 0
+const SESSION_COOKIE_LOCK = 'finarch-session-cookie'
 
 export function setToken(token: string | null) {
+  // Clearing a session is also a cancellation fence. A refresh response that
+  // was requested before logout must never restore an access token in memory.
+  if (token === null) {
+    _sessionGeneration += 1
+    _refreshController?.abort()
+  }
   _token = token
 }
 
 export function getToken(): string | null {
   return _token
+}
+
+export function setSessionListener(listener: ((session: AuthResponse | null) => void) | null) {
+  _sessionListener = listener
 }
 
 client.interceptors.request.use((config) => {
@@ -23,25 +54,64 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-let _redirectingToLogin = false
+function isSessionLifecycleRequest(url: string | undefined): boolean {
+  if (!url) return false
+  const path = url.split('?', 1)[0].replace(/\/$/, '')
+  return ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout']
+    .some((endpoint) => path.endsWith(endpoint))
+}
+
+async function withSessionCookieLock<T>(operation: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  signal.throwIfAborted()
+  if (typeof navigator !== 'undefined' && navigator.locks) {
+    return withAbortableSessionLock(navigator.locks, SESSION_COOKIE_LOCK, signal, operation)
+  }
+  if (typeof window === 'undefined') {
+    return operation()
+  }
+  let storage: Storage
+  try {
+    storage = window.localStorage
+  } catch {
+    throw new SessionCookieLockUnavailableError()
+  }
+  return withStorageSessionLock(storage, SESSION_COOKIE_LOCK, signal, operation)
+}
 
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const envelopeMessage = error.response?.data?.error?.message
     if (envelopeMessage && error.response?.data && !error.response.data.message) {
       error.response.data.message = envelopeMessage
     }
 
-    const errCode = error.response?.data?.error?.code ?? error.response?.data?.code
-    const isAuthFailure = errCode === 'AUTH_SESSION_EXPIRED' || errCode === 'AUTH_INVALID_TOKEN' ||
-      (error.response?.status === 401 && _token)
+    const original = error.config as (typeof error.config & { _finarchRetried?: boolean }) | undefined
+    const shouldRefresh = isRefreshableAccessFailure(error) &&
+      !!_token &&
+      !!original &&
+      !original._finarchRetried &&
+      !isSessionLifecycleRequest(original.url)
 
-    if (isAuthFailure && !_redirectingToLogin) {
-      _redirectingToLogin = true
-      _token = null
-      localStorage.removeItem('finarch_session')
-      window.location.href = '/login'
+    if (shouldRefresh) {
+      original._finarchRetried = true
+      try {
+        await refreshSession()
+        return client.request(original)
+      } catch (refreshError) {
+        if (isDefinitiveSessionInvalid(refreshError)) {
+          setToken(null)
+          _sessionListener?.(null)
+        }
+        return Promise.reject(refreshError)
+      }
+    }
+
+    // A retried request must never start another refresh loop. If the server
+    // still explicitly rejects its session, clear the local access state.
+    if (original?._finarchRetried && !!_token && isDefinitiveSessionInvalid(error)) {
+      setToken(null)
+      _sessionListener?.(null)
     }
 
     return Promise.reject(error)
@@ -64,24 +134,110 @@ export interface RegisterRequest {
   captcha_token?: string
 }
 
-export interface AuthResponse {
-  token: string
-  expires_at: string
-  user_id: string
-  email: string
-  username: string
-  nickname: string
-  role: string
+export type AuthResponse = AuthSessionPayload
+
+function parseAuthResponse(payload: unknown): AuthResponse {
+  return parseAuthSessionPayload(payload)
 }
 
 export async function login(req: LoginRequest): Promise<AuthResponse> {
-  const { data } = await client.post('/auth/login', req)
-  return data.data
+  return withAbortDeadline(async (signal) => {
+    const { data } = await withSessionCookieLock(
+      () => client.post('/auth/login', req, { signal, timeout: SESSION_REQUEST_TIMEOUT_MS }),
+      signal,
+    )
+    return parseAuthResponse(data.data)
+  }, SESSION_REQUEST_TIMEOUT_MS)
 }
 
-export async function refreshToken(): Promise<AuthResponse> {
-  const { data } = await client.post('/auth/refresh', {})
-  return data.data
+class SessionRefreshSupersededError extends Error {
+  constructor() {
+    super('Session refresh was superseded')
+    this.name = 'SessionRefreshSupersededError'
+  }
+}
+
+export function isSessionRefreshSuperseded(error: unknown): boolean {
+  return error instanceof SessionRefreshSupersededError
+}
+
+function assertCurrentSessionGeneration(generation: number) {
+  if (generation !== _sessionGeneration) throw new SessionRefreshSupersededError()
+}
+
+async function rotateSession(generation: number, signal: AbortSignal): Promise<AuthResponse> {
+  assertCurrentSessionGeneration(generation)
+  let data: unknown
+  try {
+    const response = await client.post('/auth/refresh', undefined, {
+      signal,
+      timeout: SESSION_REQUEST_TIMEOUT_MS,
+    })
+    data = response.data
+  } catch (error) {
+    // If logout won the race, surface cancellation rather than a refresh
+    // failure that could clear the logout-pending fence in AuthContext.
+    assertCurrentSessionGeneration(generation)
+    throw error
+  }
+  assertCurrentSessionGeneration(generation)
+  const session = parseAuthResponse((data as { data?: unknown } | null)?.data)
+  setToken(session.token)
+  _sessionListener?.(session)
+  return session
+}
+
+/**
+ * Rotates the HttpOnly refresh cookie and obtains a short-lived access token.
+ * One promise protects this tab; Web Locks or the storage bakery fallback
+ * serialise cookie mutations across tabs.
+ */
+export function refreshSession(): Promise<AuthResponse> {
+  if (_refreshPromise) return _refreshPromise
+
+  const generation = _sessionGeneration
+  const controller = new AbortController()
+  _refreshController = controller
+  const run = async () => {
+    try {
+      return await withAbortDeadline(
+        (signal) => withSessionCookieLock(() => rotateSession(generation, signal), signal),
+        SESSION_REQUEST_TIMEOUT_MS,
+        controller.signal,
+      )
+    } catch (error) {
+      assertCurrentSessionGeneration(generation)
+      throw error
+    }
+  }
+  _refreshPromise = run().finally(() => {
+    if (_refreshController === controller) _refreshController = null
+    _refreshPromise = null
+  })
+  return _refreshPromise
+}
+
+export async function logoutSession(): Promise<void> {
+  if (_logoutPromise) return _logoutPromise
+  _logoutPromise = withAbortDeadline(async (signal) => {
+    // Abort and settle this tab's refresh before queuing logout so this context
+    // cannot deadlock on its own cookie lock or apply an older response last.
+    const refresh = _refreshPromise
+    _refreshController?.abort()
+    if (refresh) await refresh.catch(() => undefined)
+    signal.throwIfAborted()
+    await withSessionCookieLock(
+      () => client.post('/auth/logout', undefined, {
+        signal,
+        timeout: SESSION_REQUEST_TIMEOUT_MS,
+      }).then(() => undefined),
+      signal,
+    )
+  }, SESSION_REQUEST_TIMEOUT_MS)
+    .finally(() => {
+      _logoutPromise = null
+    })
+  return _logoutPromise
 }
 
 export interface RegisterResponse {
@@ -98,8 +254,15 @@ export interface RegisterResponse {
 }
 
 export async function register(req: RegisterRequest): Promise<RegisterResponse> {
-  const resp = await client.post('/auth/register', req)
-  return resp.data.data ?? resp.data
+  return withAbortDeadline(async (signal) => {
+    const resp = await withSessionCookieLock(
+      () => client.post('/auth/register', req, { signal, timeout: SESSION_REQUEST_TIMEOUT_MS }),
+      signal,
+    )
+    const payload = resp.data.data ?? resp.data
+    if (payload && typeof payload.token === 'string') return parseAuthResponse(payload)
+    return payload as RegisterResponse
+  }, SESSION_REQUEST_TIMEOUT_MS)
 }
 
 export async function forgotPassword(email: string): Promise<void> {
@@ -167,6 +330,7 @@ export interface AppConfig {
   turnstile_site_key: string
   captcha_enabled?: boolean
   email_verification_required: boolean
+  system_operations_enabled?: boolean
 }
 
 export async function getAppConfig(): Promise<AppConfig> {
@@ -226,8 +390,13 @@ export async function listTransactions(mode: AppMode = "work"): Promise<Transact
   return data.data
 }
 
-export async function createTransaction(req: CreateTransactionRequest & { mode?: AppMode }): Promise<Transaction> {
-  const { data } = await client.post('/transactions', req)
+export async function createTransaction(
+  req: CreateTransactionRequest & { mode?: AppMode },
+  idempotencyKey?: string,
+): Promise<Transaction> {
+  const { data } = await client.post('/transactions', req, {
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  })
   return data.data
 }
 
@@ -613,7 +782,7 @@ export interface OCRSuggestion {
 export interface OCRResult {
   provider: string
   text: string
-  suggestion: OCRSuggestion
+  suggestion?: OCRSuggestion | null
   raw?: unknown
 }
 
@@ -687,150 +856,6 @@ export async function downloadAttachment(id: string, filename: string): Promise<
   a.download = filename || 'attachment'
   a.click()
   URL.revokeObjectURL(url)
-}
-
-// ─── Backup & Restore ────────────────────────────────────────────────────────
-export interface BackupInfo {
-  transactions: number
-  accounts: number
-  schema_version: number
-  db_size_bytes: number
-  journal_mode: string
-}
-
-export async function getBackupInfo(): Promise<BackupInfo> {
-  const { data } = await client.get('/backup/info')
-  return data.data
-}
-
-export async function requestBackupExportToken(currentPassword: string): Promise<string> {
-  const { data } = await client.post('/backup/export-request', { current_password: currentPassword })
-  const payload = data.data ?? data
-  return payload.token as string
-}
-
-export async function downloadBackup(exportToken: string): Promise<void> {
-  const resp = await client.get('/backup/download', { params: { export_token: exportToken }, responseType: 'blob' })
-  const cd = resp.headers['content-disposition'] ?? ''
-  const match = cd.match(/filename="([^"]+)"/)
-  const filename = match ? match[1] : `finarch_backup_${new Date().toISOString().slice(0, 10)}.db`
-  const url = URL.createObjectURL(new Blob([resp.data]))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-export async function restoreBackup(
-  file: File,
-): Promise<{ code?: string; message: string; restored_version: number; migrated_to: number }> {
-  const form = new FormData()
-  form.append('file', file)
-  const { data } = await client.post('/backup/restore', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return data.data
-}
-
-export interface RestoreVerificationResponse {
-  restore_id: string
-  masked_email: string
-  expires_in: number
-  message: string
-}
-
-export async function sendRestoreVerification(file: File, originalEmail: string): Promise<RestoreVerificationResponse> {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('original_email', originalEmail)
-  const { data } = await client.post('/backup/restore/send-verification', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return data.data
-}
-
-export async function verifyRestoreCode(restoreId: string, code: string): Promise<{ restore_token: string; message: string }> {
-  const { data } = await client.post('/backup/restore/verify', {
-    restore_id: restoreId,
-    code,
-  })
-  return data.data
-}
-
-export async function executeRestore(restoreToken: string): Promise<{ code?: string; message: string; restored_version: number; migrated_to: number }> {
-  const { data } = await client.post('/backup/restore/execute', {
-    restore_token: restoreToken,
-  })
-  return data.data
-}
-
-// ─── Disaster Recovery (public, no auth required) ────────────────────────────
-
-export interface RestoreRequestResponse {
-  restore_id: string
-  masked_email: string
-  expires_in: number
-}
-
-/** Step 1: Upload backup file → receive masked email + restore_id */
-export async function disasterRestoreRequest(file: File): Promise<RestoreRequestResponse> {
-  const form = new FormData()
-  form.append('file', file)
-  const { data } = await axios.post('/api/v1/backup/restore-request', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return data.data
-}
-
-/** Step 2: Submit verification code → restore completes */
-export async function disasterRestoreConfirm(
-  restoreId: string,
-  code: string,
-): Promise<{ message: string; restored_version: number; migrated_to: number }> {
-  const { data } = await axios.post('/api/v1/backup/restore-confirm', {
-    restore_id: restoreId,
-    code,
-  })
-  return data.data
-}
-
-export interface DisasterSnapshot {
-  snapshot_id: string
-  created_at: string
-  schema_version: number
-  app_version: string
-  environment: string
-  db_size: number
-  has_metadata: boolean
-}
-
-export async function listDisasterSnapshots(): Promise<DisasterSnapshot[]> {
-  const { data } = await client.get('/disaster-recovery/snapshots')
-  return data.data
-}
-
-export async function authorizeDisasterRecovery(currentPassword: string): Promise<{ token: string; expires_in: number }> {
-  const { data } = await client.post('/disaster-recovery/authorize', { current_password: currentPassword })
-  return data.data
-}
-
-export async function executeDisasterRecovery(snapshotId: string, authorizationToken: string, allowMissingMetadata = false): Promise<{
-  message: string
-  recovery_id: string
-  snapshot_id: string
-  schema_before: number
-  schema_after: number
-  migration_applied: boolean
-  duration_ms: number
-}> {
-  const { data } = await client.post('/disaster-recovery/restore', {
-    snapshot_id: snapshotId,
-    confirm: true,
-    allow_missing_metadata: allowMissingMetadata,
-    authorization_token: authorizationToken,
-  })
-  return data.data
 }
 
 // ─── Device Heartbeat & Online Count ──────────────────────────────────────────

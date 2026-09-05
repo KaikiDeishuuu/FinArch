@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { useExchangeRates } from '../hooks/useExchangeRates'
-import { toCNY, formatAmountCompact, formatAmountExact } from '../utils/format'
+import { formatAmountCompact, formatAmountExact } from '../utils/format'
+import { accountBalanceToCNY, transactionAmountToCNY } from '../utils/financeAmounts'
 import { formatGreeting, normalizeGreetingLocale } from '../utils/greeting'
 import { secureRandomInt } from '../utils/secureRandom'
 import CompactAmount from '../components/CompactAmount'
@@ -72,6 +73,8 @@ const FEATURES = [
     Icon: IconList,
     titleKey: 'dashboard.features.smartAccounting.title',
     descKey: 'dashboard.features.smartAccounting.desc',
+    lifeTitleKey: 'dashboard.features.smartAccounting.title',
+    lifeDescKey: 'dashboard.features.smartAccounting.desc',
     color: 'bg-violet-50 dark:bg-violet-500/10 border-violet-100 dark:border-violet-500/20',
     iconBg: 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400',
   },
@@ -80,6 +83,8 @@ const FEATURES = [
     Icon: IconPlus,
     titleKey: 'dashboard.features.reimbursement.title',
     descKey: 'dashboard.features.reimbursement.desc',
+    lifeTitleKey: 'dashboard.features.lifeEntry.title',
+    lifeDescKey: 'dashboard.features.lifeEntry.desc',
     color: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20',
     iconBg: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400',
   },
@@ -88,6 +93,8 @@ const FEATURES = [
     Icon: IconSearch,
     titleKey: 'dashboard.features.smartMatch.title',
     descKey: 'dashboard.features.smartMatch.desc',
+    lifeTitleKey: 'dashboard.features.lifeMatch.title',
+    lifeDescKey: 'dashboard.features.lifeMatch.desc',
     color: 'bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20',
     iconBg: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400',
   },
@@ -96,6 +103,8 @@ const FEATURES = [
     Icon: IconChart,
     titleKey: 'dashboard.features.dataVisualization.title',
     descKey: 'dashboard.features.dataVisualization.desc',
+    lifeTitleKey: 'dashboard.features.dataVisualization.title',
+    lifeDescKey: 'dashboard.features.dataVisualization.desc',
     color: 'bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20',
     iconBg: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400',
   },
@@ -119,7 +128,8 @@ export default function DashboardPage() {
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { t, i18n } = useTranslation()
   const { isWorkMode } = useMode()
-  const workflowTab = isWorkMode ? 'company' : 'personal'
+  const [workWorkflowTab, setWorkWorkflowTab] = useState<'company' | 'personal'>('company')
+  const workflowTab = isWorkMode ? workWorkflowTab : 'personal'
   const [analysisNow] = useState(Date.now)
 
   // Device heartbeat — keeps this device marked as online
@@ -156,29 +166,29 @@ export default function DashboardPage() {
   const companyBalance = useMemo(() =>
     accounts
       .filter(a => a.type === 'public' && a.is_active)
-      .reduce((s, a) => s + a.balance_yuan, 0),
-    [accounts]
+      .reduce((sum, account) => sum + accountBalanceToCNY(account, rates), 0),
+    [accounts, rates]
   )
 
   const personalBalance = useMemo(() =>
     accounts
       .filter(a => a.type === 'personal' && a.is_active)
-      .reduce((s, a) => s + a.balance_yuan, 0),
-    [accounts]
+      .reduce((sum, account) => sum + accountBalanceToCNY(account, rates), 0),
+    [accounts, rates]
   )
 
   const personalTotalExpense = useMemo(() =>
     transactions
       .filter(t => t.source === 'personal' && t.direction === 'expense')
-      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
+      .reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0),
     [transactions, rates]
   )
 
 
-  const companyOutstanding = useMemo(() =>
+  const personalOutstanding = useMemo(() =>
     transactions
-      .filter(t => t.source === 'company' && t.direction === 'expense' && !t.reimbursed)
-      .reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0),
+      .filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
+      .reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0),
     [transactions, rates]
   )
 
@@ -192,7 +202,7 @@ export default function DashboardPage() {
     let income = 0
     let expense = 0
     for (const tx of monthly) {
-      const amount = toCNY(tx.amount_yuan, tx.currency || 'CNY', rates)
+      const amount = transactionAmountToCNY(tx, rates)
       if (tx.direction === 'income') {
         income += amount
       } else {
@@ -211,33 +221,24 @@ export default function DashboardPage() {
   }, [budgetMonth, rates, sourceFilter, t, transactions])
 
   const pendingTxs = useMemo(
-    () => isWorkMode ? [] : transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed),
+    () => isWorkMode
+      ? transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
+      : [],
     [isWorkMode, transactions]
   )
   const notUploaded = useMemo(() => pendingTxs.filter((t) => !t.uploaded), [pendingTxs])
   const uploadedNotReimbursed = useMemo(() => pendingTxs.filter((t) => t.uploaded && !t.reimbursed), [pendingTxs])
-  const companyNotUploaded = useMemo(
-    () => isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.uploaded) : [],
-    [isWorkMode, transactions]
-  )
-  const companyUploadedNotReimbursed = useMemo(
-    () => isWorkMode ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && t.uploaded && !t.reimbursed) : [],
-    [isWorkMode, transactions]
-  )
 
   // ─── Smart pending item analysis ───────────────────────────────────────────
-  const hasPending = isWorkMode && (companyNotUploaded.length > 0 || companyUploadedNotReimbursed.length > 0)
-  const allClear = !loading && !hasPending && transactions.length > 0
+  const hasPending = isWorkMode && pendingTxs.length > 0
+  const allClear = isWorkMode && !loading && !hasPending && transactions.length > 0
 
   const pendingAnalysis = useMemo(() => {
     const now = analysisNow
     const DAY = 86400000
 
-    const notUploadedAmount = notUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
-    const uploadedNotReimbursedAmount = uploadedNotReimbursed.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
-    const companyNotUploadedAmount = companyNotUploaded.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
-    const companyUploadedAmount = companyUploadedNotReimbursed.reduce((s, t) => s + toCNY(t.amount_yuan, t.currency || 'CNY', rates), 0)
-
+    const notUploadedAmount = notUploaded.reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
+    const uploadedNotReimbursedAmount = uploadedNotReimbursed.reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
     const oldestDate = (txs: typeof transactions) => {
       if (txs.length === 0) return null
       const dates = txs.map(t => new Date(t.occurred_at).getTime()).filter(d => !isNaN(d))
@@ -246,9 +247,6 @@ export default function DashboardPage() {
 
     const oldestNotUploaded = oldestDate(notUploaded)
     const oldestUploaded = oldestDate(uploadedNotReimbursed)
-    const oldestCompanyNotUploaded = oldestDate(companyNotUploaded)
-    const oldestCompanyUploaded = oldestDate(companyUploadedNotReimbursed)
-
     const daysSince = (ts: number | null) => ts ? Math.floor((now - ts) / DAY) : 0
 
     // Smart sub-messages: notUploaded
@@ -276,31 +274,10 @@ export default function DashboardPage() {
       return t('dashboard.pending.uploadedPending.default', { amt })
     })()
 
-    // Smart sub-messages: companyNotUploaded
-    const companyNotUploadedSub = (() => {
-      if (companyNotUploaded.length === 0) return ''
-      const days = daysSince(oldestCompanyNotUploaded)
-      const amt = fmtExact(companyNotUploadedAmount)
-      if (days > 30) return t('dashboard.pending.companyNotUploaded.over30d', { amt, days })
-      if (days > 7) return t('dashboard.pending.companyNotUploaded.over7d', { amt })
-      if (companyNotUploaded.length >= 5) return t('dashboard.pending.companyNotUploaded.manyItems', { amt, count: companyNotUploaded.length })
-      return t('dashboard.pending.companyNotUploaded.default', { amt })
-    })()
-
-    // Smart sub-messages: companyUploadedNotReimbursed
-    const companyUploadedSub = (() => {
-      if (companyUploadedNotReimbursed.length === 0) return ''
-      const days = daysSince(oldestCompanyUploaded)
-      const amt = fmtExact(companyUploadedAmount)
-      if (days > 30) return t('dashboard.pending.companyUploaded.over30d', { amt })
-      if (days > 14) return t('dashboard.pending.companyUploaded.over14d', { amt })
-      return t('dashboard.pending.companyUploaded.default', { amt })
-    })()
-
     // Urgency header
-    const maxDays = Math.max(daysSince(oldestNotUploaded), daysSince(oldestUploaded), daysSince(oldestCompanyNotUploaded), daysSince(oldestCompanyUploaded))
-    const totalPending = notUploaded.length + uploadedNotReimbursed.length + companyNotUploaded.length + companyUploadedNotReimbursed.length
-    const totalAmount = notUploadedAmount + uploadedNotReimbursedAmount + companyNotUploadedAmount + companyUploadedAmount
+    const maxDays = Math.max(daysSince(oldestNotUploaded), daysSince(oldestUploaded))
+    const totalPending = notUploaded.length + uploadedNotReimbursed.length
+    const totalAmount = notUploadedAmount + uploadedNotReimbursedAmount
 
     let headerHint = ''
     if (maxDays > 30) headerHint = t('dashboard.pending.header.overdue', { days: maxDays })
@@ -308,8 +285,8 @@ export default function DashboardPage() {
     else if (totalPending >= 8) headerHint = t('dashboard.pending.header.manyItems', { count: totalPending })
     else if (totalPending > 0) headerHint = t('dashboard.pending.header.default', { count: totalPending })
 
-    return { notUploadedSub, uploadedNotReimbursedSub, companyNotUploadedSub, companyUploadedSub, headerHint }
-  }, [analysisNow, notUploaded, uploadedNotReimbursed, companyNotUploaded, companyUploadedNotReimbursed, rates, t])
+    return { notUploadedSub, uploadedNotReimbursedSub, headerHint }
+  }, [analysisNow, notUploaded, uploadedNotReimbursed, rates, t])
 
   if (loading) {
     return (
@@ -334,7 +311,11 @@ export default function DashboardPage() {
   }
 
   const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
-  const featureCards = FEATURES.filter((f) => isWorkMode || f.to !== '/match')
+  const featureCards = FEATURES.map((feature) => ({
+    ...feature,
+    titleKey: isWorkMode ? feature.titleKey : feature.lifeTitleKey,
+    descKey: isWorkMode ? feature.descKey : feature.lifeDescKey,
+  }))
   const nextRecurringRule = recurringRules
     .filter(rule => rule.status === 'active')
     .sort((a, b) => (a.next_run_at || 0) - (b.next_run_at || 0))[0]
@@ -399,10 +380,10 @@ export default function DashboardPage() {
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" /></svg>
                 </div>
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.publicPending')}</p>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalPending')}</p>
               </div>
               <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-                <CompactAmount compact={fmtCompact(companyOutstanding)} exact={fmtExact(companyOutstanding)} />
+                <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
               </p>
               <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
             </div>
@@ -436,7 +417,7 @@ export default function DashboardPage() {
                 <p className="mt-1 text-xl md:text-2xl font-bold text-rose-600 dark:text-rose-300 tabular-nums">
                   <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
                 </p>
-                <p className="text-[11px] text-rose-700/60 dark:text-rose-300/70 mt-1.5">{t('dashboard.balance.advanceLabel')}</p>
+                <p className="text-[11px] text-rose-700/60 dark:text-rose-300/70 mt-1.5">{t('dashboard.balance.lifeExpenseLabel')}</p>
               </div>
             </div>
           </StaggerItem>
@@ -535,7 +516,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-2">
             {notUploaded.length > 0 && (
-              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-400/40 transition-colors">
+              <Link to="/transactions?source=personal" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-400/40 transition-colors">
                 <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><IconUpload /></span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{notUploaded.length} {t('transactions.badges.notUploaded')}</p>
@@ -554,26 +535,6 @@ export default function DashboardPage() {
                 <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             )}
-            {companyNotUploaded.length > 0 && (
-              <Link to="/transactions" className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-500/10 border border-slate-200 dark:border-slate-500/20 hover:border-violet-300 dark:hover:border-violet-400/40 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 flex items-center justify-center shrink-0"><IconUpload /></span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{companyNotUploaded.length} {t('common.company')} {t('transactions.badges.notUploaded')}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400/70 mt-0.5">{pendingAnalysis.companyNotUploadedSub}</p>
-                </div>
-                <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </Link>
-            )}
-            {companyUploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 hover:border-emerald-300 dark:hover:border-emerald-400/40 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconSearch /></span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">{companyUploadedNotReimbursed.length} {t('common.company')} {t('transactions.badges.pending')}</p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400/70 mt-0.5">{pendingAnalysis.companyUploadedSub}</p>
-                </div>
-                <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </Link>
-            )}
           </div>
         </div>
       )}
@@ -583,16 +544,11 @@ export default function DashboardPage() {
             <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconCheck /></span>
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {isWorkMode ? t('dashboard.pending.noPending') : t('dashboard.life.noPending')}
+                {t('dashboard.pending.noPending')}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                {isWorkMode ? t('dashboard.pending.tip') : t('dashboard.life.tip')}
+                {t('dashboard.pending.tip')}
               </p>
-              {!isWorkMode && (
-                <p className="text-xs text-emerald-500 dark:text-emerald-400 mt-1 font-medium">
-                  {t('dashboard.life.allClear')}
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -629,20 +585,33 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
           <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.workflowTitle')}</h2>
           {isWorkMode && (
-            <div className="inline-flex bg-gray-100 dark:bg-gray-800/60 rounded-lg p-0.5">
-              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-sm inline-flex items-center gap-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3 h-3"><path d="M3 10h18" /><path d="M5 10v8M9 10v8M15 10v8M19 10v8" /><path d="M2 18h20" /><path d="m12 4 10 4H2z" /></svg>{t('dashboard.workflow.companyTitle')}
-              </span>
+            <div className="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800/60">
+              {(['company', 'personal'] as const).map((source) => (
+                <button
+                  key={source}
+                  type="button"
+                  onClick={() => setWorkWorkflowTab(source)}
+                  aria-pressed={workflowTab === source}
+                  className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-colors ${workflowTab === source
+                    ? source === 'company'
+                      ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
+                      : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {source === 'company' ? t('dashboard.workflow.companyTitle') : t('dashboard.workflow.personalTitle')}
+                </button>
+              ))}
             </div>
           )}
         </div>
 
         {/* Personal flow */}
-        {workflowTab === 'personal' && !isWorkMode && (
+        {workflowTab === 'personal' && (
           <div className="space-y-0">
             {([
-              { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.personalStep1', descKey: 'dashboard.workflow.personalDesc1', color: 'amber' },
-              { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.personalStep2', descKey: 'dashboard.workflow.personalDesc2', color: 'amber' },
+              { step: '1', Icon: IconPen, titleKey: isWorkMode ? 'dashboard.workflow.personalStep1' : 'dashboard.workflow.personalLifeStep1', descKey: isWorkMode ? 'dashboard.workflow.personalDesc1' : 'dashboard.workflow.personalLifeDesc1', color: 'amber' },
+              { step: '2', Icon: IconUpload, titleKey: isWorkMode ? 'dashboard.workflow.personalStep2' : 'dashboard.workflow.personalLifeStep2', descKey: isWorkMode ? 'dashboard.workflow.personalDesc2' : 'dashboard.workflow.personalLifeDesc2', color: 'amber' },
               { step: '3', Icon: IconSearch, titleKey: isWorkMode ? 'dashboard.workflow.personalStep3' : 'dashboard.workflow.personalLifeStep3', descKey: isWorkMode ? 'dashboard.workflow.personalDesc3' : 'dashboard.workflow.personalLifeDesc3', color: 'amber' },
               { step: '4', Icon: IconCheck, titleKey: isWorkMode ? 'dashboard.workflow.personalStep4' : 'dashboard.workflow.personalLifeStep4', descKey: isWorkMode ? 'dashboard.workflow.personalDesc4' : 'dashboard.workflow.personalLifeDesc4', color: 'amber' },
             ] as const).map((s, i, arr) => (

@@ -113,9 +113,19 @@ func (r *SQLiteAccountRepository) UpdateName(ctx context.Context, id, userID, ne
 
 // Delete soft-deletes an account by setting is_active = 0.
 func (r *SQLiteAccountRepository) Delete(ctx context.Context, id, userID string) error {
-	res, err := getExecutor(ctx, r.db).ExecContext(ctx,
+	exec := getExecutor(ctx, r.db)
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := exec.ExecContext(ctx, `
+		UPDATE recurring_transaction_rules
+		SET status = 'ended', updated_at = ?, version = version + 1
+		WHERE account_id = ? AND user_id = ?`,
+		now, id, userID,
+	); err != nil {
+		return fmt.Errorf("end account recurring rules: %w", err)
+	}
+	res, err := exec.ExecContext(ctx,
 		`UPDATE accounts SET is_active = 0, updated_at = ? WHERE id = ? AND user_id = ? AND is_active = 1`,
-		time.Now().UTC().Format(time.RFC3339), id, userID,
+		now, id, userID,
 	)
 	if err != nil {
 		return fmt.Errorf("delete account: %w", err)

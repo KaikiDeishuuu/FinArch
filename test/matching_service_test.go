@@ -11,10 +11,14 @@ import (
 // makeItem is a test helper that creates a Transaction with both
 // AmountYuan (legacy) and AmountCents (V9) populated.
 func makeItem(id string, yuan float64, daysAgo int, projectID ...string) model.Transaction {
+	amountCents, err := model.Money(yuan).Cents()
+	if err != nil {
+		panic(err)
+	}
 	t := model.Transaction{
 		ID:          id,
 		AmountYuan:  model.Money(yuan),
-		AmountCents: int64(yuan * 100),
+		AmountCents: amountCents,
 		OccurredAt:  time.Now().AddDate(0, 0, -daysAgo),
 	}
 	if len(projectID) > 0 {

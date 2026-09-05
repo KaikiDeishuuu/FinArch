@@ -112,7 +112,10 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
+        // Preserve localhost:5173 so the backend's exact Origin/Host CSRF
+        // check sees the same browser origin. Rewriting Host to :8080 would
+        // make every login/refresh request through the dev proxy fail closed.
+        changeOrigin: false,
       },
     },
   },

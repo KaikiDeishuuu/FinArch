@@ -3,11 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"finarch/internal/domain/model"
+	domainrepo "finarch/internal/domain/repository"
 )
 
 // SQLiteTransactionRepository stores transactions in SQLite (V9 schema).
@@ -80,11 +82,25 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 	}
 	amountCents := t.AmountCents
 	if amountCents == 0 && t.AmountYuan != 0 {
-		amountCents = int64(t.AmountYuan * 100)
+		var err error
+		amountCents, err = t.AmountYuan.Cents()
+		if err != nil {
+			return fmt.Errorf("invalid amount_yuan: %w", err)
+		}
+	}
+	if err := model.ValidateTransactionAmountCents(amountCents); err != nil {
+		return fmt.Errorf("invalid amount_cents: %w", err)
 	}
 	baseAmountCents := t.BaseAmountCents
 	if baseAmountCents == 0 {
-		baseAmountCents = int64(float64(amountCents) * exchangeRate)
+		var err error
+		baseAmountCents, err = model.ConvertCentsByRate(amountCents, exchangeRate)
+		if err != nil {
+			return fmt.Errorf("invalid base amount conversion: %w", err)
+		}
+	}
+	if err := model.ValidateTransactionAmountCents(baseAmountCents); err != nil {
+		return fmt.Errorf("invalid base_amount_cents: %w", err)
 	}
 	reimb := t.ReimbStatus
 	if t.Mode == "" {
@@ -98,7 +114,7 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 		}
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := exec.ExecContext(ctx, `
+	res, err := exec.ExecContext(ctx, `
 		INSERT INTO transactions (
 			id, user_id, group_id, direction, account_id,
 			amount_cents, currency, exchange_rate, exchange_rate_source, exchange_rate_at, base_currency, base_amount_cents,
@@ -107,7 +123,7 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 			project_id, project,
 			mode, note, attachment_key, uploaded, idempotency_key, recurring_rule_id, recurring_occurrence_date,
 			txn_date, transaction_time, created_at, updated_at
-		) VALUES (
+		) SELECT
 			?,?,?,?,?,
 			?,?,?,?,?,?,?,
 			?,?,?,
@@ -115,6 +131,9 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 			?,?,
 			?,?,?,?,?,?,?,
 			?,?,?,?
+		WHERE EXISTS (
+			SELECT 1 FROM accounts
+			WHERE id = ? AND user_id = ? AND is_active = 1
 		)`,
 		t.ID, t.UserID, t.GroupID, string(ledgerDir), t.AccountID,
 		amountCents, t.Currency, exchangeRate, t.ExchangeRateSource, t.ExchangeRateAt, t.BaseCurrency, baseAmountCents,
@@ -123,9 +142,17 @@ func (r *SQLiteTransactionRepository) Create(ctx context.Context, t model.Transa
 		t.ProjectID, t.Project,
 		string(t.Mode), t.Note, t.AttachmentKey, boolToInt(t.Uploaded), t.IdempotencyKey, t.RecurringRuleID, t.RecurringOccurrenceDate,
 		t.TxnDate, t.TransactionTime, now, now,
+		t.AccountID, t.UserID,
 	)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read inserted transaction count: %w", err)
+	}
+	if affected != 1 {
+		return fmt.Errorf("insert transaction: account is inactive or unavailable")
 	}
 	return nil
 }
@@ -142,19 +169,20 @@ func (r *SQLiteTransactionRepository) ListByUser(ctx context.Context, userID str
 	return collectTransactions(rows)
 }
 
-// GetByIDs loads transactions by IDs.
-func (r *SQLiteTransactionRepository) GetByIDs(ctx context.Context, ids []string) ([]model.Transaction, error) {
+// GetByIDs loads transactions by IDs owned by userID.
+func (r *SQLiteTransactionRepository) GetByIDs(ctx context.Context, userID string, ids []string) ([]model.Transaction, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	exec := getExecutor(ctx, r.db)
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
-	args := make([]any, 0, len(ids))
+	args := make([]any, 0, len(ids)+1)
+	args = append(args, userID)
 	for _, id := range ids {
 		args = append(args, id)
 	}
 	rows, err := exec.QueryContext(ctx,
-		txnSelectSQL+` WHERE t.id IN (`+placeholders+`)`, args...)
+		txnSelectSQL+` WHERE t.user_id = ? AND t.id IN (`+placeholders+`)`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query transactions by ids: %w", err)
 	}
@@ -173,7 +201,50 @@ func (r *SQLiteTransactionRepository) GetByIDForUser(ctx context.Context, id, us
 func (r *SQLiteTransactionRepository) GetByIdempotencyKey(ctx context.Context, userID, key string) (model.Transaction, error) {
 	row := getExecutor(ctx, r.db).QueryRowContext(ctx,
 		txnSelectSQL+` WHERE t.user_id = ? AND t.idempotency_key = ?`, userID, key)
-	return scanTransaction(row)
+	t, err := scanTransaction(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Transaction{}, domainrepo.ErrTransactionNotFound
+	}
+	return t, err
+}
+
+// ClaimIdempotencyKey atomically reserves key for a canonical request. The
+// idempotency_keys row and the transaction that references it are committed in
+// the same database transaction by the API handler, so a failed create leaves
+// no stale reservation behind.
+func (r *SQLiteTransactionRepository) ClaimIdempotencyKey(
+	ctx context.Context,
+	userID, endpoint, key, requestHash string,
+) (string, bool, error) {
+	exec := getExecutor(ctx, r.db)
+	res, err := exec.ExecContext(ctx, `
+		INSERT INTO idempotency_keys(id, user_id, endpoint, response_hash, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO NOTHING`,
+		key, userID, endpoint, requestHash, time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return "", false, fmt.Errorf("reserve idempotency key: %w", err)
+	}
+	if affected, err := res.RowsAffected(); err != nil {
+		return "", false, fmt.Errorf("read idempotency reservation result: %w", err)
+	} else if affected == 1 {
+		return requestHash, true, nil
+	}
+
+	var storedUserID, storedEndpoint string
+	var storedRequestHash sql.NullString
+	if err := exec.QueryRowContext(ctx, `
+		SELECT user_id, endpoint, response_hash
+		FROM idempotency_keys
+		WHERE id = ?`, key,
+	).Scan(&storedUserID, &storedEndpoint, &storedRequestHash); err != nil {
+		return "", false, fmt.Errorf("read idempotency reservation: %w", err)
+	}
+	if storedUserID != userID || storedEndpoint != endpoint {
+		return "", false, fmt.Errorf("idempotency key scope collision")
+	}
+	return storedRequestHash.String, false, nil
 }
 
 // SetAttachmentKey links the primary attachment key to a transaction.
@@ -229,14 +300,14 @@ func (r *SQLiteTransactionRepository) ListUnreimbursedPersonalExpenses(ctx conte
 	return collectTransactions(rows)
 }
 
-// MarkReimbursed sets reimb_status='reimbursed' for the given transaction IDs.
-func (r *SQLiteTransactionRepository) MarkReimbursed(ctx context.Context, transactionIDs []string, reimbursementID string) error {
+// MarkReimbursed sets reimb_status='reimbursed' for the given transaction IDs owned by userID.
+func (r *SQLiteTransactionRepository) MarkReimbursed(ctx context.Context, userID string, transactionIDs []string, reimbursementID string) error {
 	if len(transactionIDs) == 0 {
 		return nil
 	}
 	exec := getExecutor(ctx, r.db)
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(transactionIDs)), ",")
-	args := []any{reimbursementID}
+	args := []any{reimbursementID, userID}
 	for _, id := range transactionIDs {
 		args = append(args, id)
 	}
@@ -244,36 +315,53 @@ func (r *SQLiteTransactionRepository) MarkReimbursed(ctx context.Context, transa
 		SET reimb_status = 'reimbursed', reimbursement_id = ?,
 		    reimbursed_at = CAST(strftime('%s','now') AS INTEGER),
 		    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-		WHERE reimb_status = 'pending' AND id IN (` + placeholders + `)`
+		WHERE user_id = ? AND reimb_status = 'pending' AND id IN (` + placeholders + `)`
 	res, err := exec.ExecContext(ctx, q, args...)
 	if err != nil {
 		return fmt.Errorf("mark reimbursed: %w", err)
 	}
-	if n, _ := res.RowsAffected(); int(n) != len(transactionIDs) {
-		return fmt.Errorf("expected %d rows marked reimbursed, got %d", len(transactionIDs), n)
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read marked reimbursement count: %w", err)
+	}
+	if n != int64(len(transactionIDs)) {
+		return fmt.Errorf("%w: expected %d rows marked reimbursed, got %d", domainrepo.ErrConcurrentModification, len(transactionIDs), n)
 	}
 	return nil
 }
 
-// ToggleReimbursed flips reimb_status between 'pending' and 'reimbursed'.
+// ToggleReimbursed flips an individually managed personal expense between
+// pending and reimbursed. Transactions linked to a formal reimbursement are
+// immutable here because changing one item would corrupt that reimbursement's
+// item/total audit trail.
 func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id string, userID string) (bool, error) {
 	exec := getExecutor(ctx, r.db)
-	var cur string
-	var ownerID string
+	var cur, transactionType string
 	var reportedAt sql.NullInt64
+	var reimbursementID sql.NullString
+	var accountType sql.NullString
 	if err := exec.QueryRowContext(ctx,
-		`SELECT reimb_status, user_id, reported_at FROM transactions WHERE id = ?`, id,
-	).Scan(&cur, &ownerID, &reportedAt); err != nil {
+		`SELECT t.reimb_status, t.reported_at, t.type, t.reimbursement_id, a.type
+		 FROM transactions t
+		 LEFT JOIN accounts a ON a.id = t.account_id AND a.user_id = t.user_id
+		 WHERE t.id = ? AND t.user_id = ?`, id, userID,
+	).Scan(&cur, &reportedAt, &transactionType, &reimbursementID, &accountType); err != nil {
 		if err == sql.ErrNoRows {
-			return false, fmt.Errorf("交易记录不存在")
+			return false, domainrepo.ErrTransactionNotFound
 		}
 		return false, fmt.Errorf("read reimb_status: %w", err)
 	}
-	if ownerID != userID {
-		return false, fmt.Errorf("无权操作该交易")
+	if transactionType != string(model.TxTypeExpense) || !accountType.Valid || accountType.String != string(model.AccountTypePersonal) {
+		return false, fmt.Errorf("只有个人账户支出可以标记报销")
+	}
+	if cur != string(model.ReimbStatusPending) && cur != string(model.ReimbStatusReimbursed) {
+		return false, fmt.Errorf("当前交易不处于可报销状态")
+	}
+	if reimbursementID.Valid && strings.TrimSpace(reimbursementID.String) != "" {
+		return false, fmt.Errorf("交易已关联正式报销单，不能单独修改")
 	}
 	var newStatus string
-	if !reportedAt.Valid && cur != string(model.ReimbStatusReimbursed) {
+	if !reportedAt.Valid && cur == string(model.ReimbStatusPending) {
 		return false, fmt.Errorf("请先上报再报销")
 	}
 	if cur == string(model.ReimbStatusReimbursed) {
@@ -282,18 +370,26 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 		newStatus = string(model.ReimbStatusReimbursed)
 	}
 	nowStr := time.Now().UTC().Format(time.RFC3339)
-	if _, err := exec.ExecContext(ctx,
+	res, err := exec.ExecContext(ctx,
 		`UPDATE transactions SET reimb_status = ?,
 		  reimbursement_id = CASE WHEN ? = 'pending' THEN NULL ELSE reimbursement_id END,
-		  reimbursed_at = CASE WHEN ? = 'reimbursed' THEN CAST(strftime('%s','now') AS INTEGER) ELSE reimbursed_at END,
+		  reimbursed_at = CASE WHEN ? = 'reimbursed' THEN CAST(strftime('%s','now') AS INTEGER) ELSE NULL END,
 		  updated_at = ?
-		 WHERE id = ?`,
-		newStatus, newStatus, newStatus, nowStr, id,
-	); err != nil {
+		 WHERE id = ? AND user_id = ? AND type = 'expense' AND reimb_status = ?
+		   AND reimbursement_id IS NULL
+		   AND EXISTS (
+		     SELECT 1 FROM accounts a
+		     WHERE a.id = transactions.account_id
+		       AND a.user_id = transactions.user_id
+		       AND a.type = 'personal'
+		   )`,
+		newStatus, newStatus, newStatus, nowStr, id, userID, cur,
+	)
+	if err != nil {
 		return false, fmt.Errorf("toggle reimbursed: %w", err)
 	}
-	if newStatus == string(model.ReimbStatusReimbursed) {
-		fmt.Printf("Transaction %s reimbursed at %s\n", id, nowStr)
+	if affected, _ := res.RowsAffected(); affected != 1 {
+		return false, domainrepo.ErrConcurrentModification
 	}
 	return newStatus == string(model.ReimbStatusReimbursed), nil
 }
@@ -302,32 +398,29 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id string, userID string) (bool, error) {
 	exec := getExecutor(ctx, r.db)
 	var cur int
-	var ownerID string
 	if err := exec.QueryRowContext(ctx,
-		`SELECT uploaded, user_id FROM transactions WHERE id = ?`, id,
-	).Scan(&cur, &ownerID); err != nil {
+		`SELECT uploaded FROM transactions WHERE id = ? AND user_id = ?`, id, userID,
+	).Scan(&cur); err != nil {
 		if err == sql.ErrNoRows {
 			return false, fmt.Errorf("交易记录不存在")
 		}
 		return false, fmt.Errorf("read uploaded: %w", err)
 	}
-	if ownerID != userID {
-		return false, fmt.Errorf("无权操作该交易")
-	}
 	newVal := 1 - cur
 	nowStr := time.Now().UTC().Format(time.RFC3339)
-	if _, err := exec.ExecContext(ctx,
+	res, err := exec.ExecContext(ctx,
 		`UPDATE transactions
 		 SET uploaded = ?,
 		     reported_at = CASE WHEN ? = 1 AND reported_at IS NULL THEN CAST(strftime('%s','now') AS INTEGER) ELSE reported_at END,
 		     updated_at = ?
-		 WHERE id = ?`,
-		newVal, newVal, nowStr, id,
-	); err != nil {
+		 WHERE id = ? AND user_id = ? AND uploaded = ?`,
+		newVal, newVal, nowStr, id, userID, cur,
+	)
+	if err != nil {
 		return false, fmt.Errorf("toggle uploaded: %w", err)
 	}
-	if newVal == 1 {
-		fmt.Printf("Transaction %s reported at %s\n", id, nowStr)
+	if affected, _ := res.RowsAffected(); affected != 1 {
+		return false, fmt.Errorf("concurrent_modification")
 	}
 	return newVal == 1, nil
 }
@@ -336,6 +429,27 @@ func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id str
 // Uses cached balance in accounts table (O(1) reads).
 func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID string, mode model.Mode) (model.Money, model.Money, error) {
 	exec := getExecutor(ctx, r.db)
+	var incompatible int
+	if err := exec.QueryRowContext(ctx, `
+		SELECT EXISTS(
+		  SELECT 1 FROM accounts
+		  WHERE user_id = ? AND type = 'public' AND is_active = 1
+		    AND (
+		      balance_cents != 0 OR EXISTS(
+		        SELECT 1 FROM transactions tx WHERE tx.account_id = accounts.id
+		      )
+		    )
+		    AND COALESCE(NULLIF(UPPER(TRIM(currency)), ''), 'CNY') != 'CNY'
+		) OR EXISTS(
+		  SELECT 1 FROM transactions
+		  WHERE user_id = ? AND mode = ? AND reimb_status = 'pending'
+		    AND COALESCE(NULLIF(UPPER(TRIM(base_currency)), ''), 'CNY') != 'CNY'
+		)`, userID, userID, string(mode)).Scan(&incompatible); err != nil {
+		return 0, 0, fmt.Errorf("check balance currencies: %w", err)
+	}
+	if incompatible != 0 {
+		return 0, 0, fmt.Errorf("%w: 余额汇总仅支持 CNY 本位币，请按币种分别查看", domainrepo.ErrMultiCurrencyReportingUnavailable)
+	}
 
 	var publicCents int64
 	if err := exec.QueryRowContext(ctx,
@@ -356,22 +470,23 @@ func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID
 		nil
 }
 
-// HasUnreimbursedByAccount returns true when the given account has at least one
-// expense transaction that has not yet been reimbursed (reimb_status='pending').
-// This is used to guard sub-account deletion so no pending expense is orphaned.
-func (r *SQLiteTransactionRepository) HasUnreimbursedByAccount(ctx context.Context, accountID, userID string) (bool, error) {
+// HasTransactionsByAccount returns true when the given account has any
+// transaction history. Historical accounts cannot be soft-deleted because
+// active-account views would otherwise hide their balances and statements.
+func (r *SQLiteTransactionRepository) HasTransactionsByAccount(ctx context.Context, accountID, userID string) (bool, error) {
 	exec := getExecutor(ctx, r.db)
-	var count int
+	var exists int
 	err := exec.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM transactions
-		 WHERE account_id = ? AND user_id = ?
-		   AND type = 'expense' AND reimb_status = 'pending'`,
+		`SELECT EXISTS(
+		   SELECT 1 FROM transactions
+		   WHERE account_id = ? AND user_id = ?
+		 )`,
 		accountID, userID,
-	).Scan(&count)
+	).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("check unreimbursed by account: %w", err)
+		return false, fmt.Errorf("check transactions by account: %w", err)
 	}
-	return count > 0, nil
+	return exists != 0, nil
 }
 
 // GetRecentRate returns the latest stored exchange rate for a pair.

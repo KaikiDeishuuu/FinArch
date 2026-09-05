@@ -205,9 +205,17 @@ const zh = {
           title: '报销管理',
           desc: '垫付追踪 · 上传凭证 · 一键报销',
         },
+        lifeEntry: {
+          title: '日常记账',
+          desc: '个人收支 · 票据附件 · 备注整理',
+        },
         smartMatch: {
           title: '智能匹配',
           desc: '金额匹配 · 快速对账 · 批量报销',
+        },
+        lifeMatch: {
+          title: '智能匹配',
+          desc: '只读组合 · 金额核对 · 导出结果',
         },
         dataVisualization: {
           title: '数据可视化',
@@ -225,6 +233,7 @@ const zh = {
         publicPending: '公共待报销',
         balanceLabel: '结余',
         advanceLabel: '垫付',
+        lifeExpenseLabel: '累计已记录的个人支出',
         pendingLabel: '待报销',
       },
       pending: {
@@ -317,10 +326,14 @@ const zh = {
         personalDesc3: '上传发票或收据作为报销依据',
         personalStep4: '批量报销',
         personalDesc4: '使用匹配工具自动匹配并完成报销',
+        personalLifeStep1: '记录日常收支',
+        personalLifeDesc1: '记录一笔个人收入或支出，并填写金额与时间',
+        personalLifeStep2: '补充明细',
+        personalLifeDesc2: '选择账户与类别，可按需填写项目和备注',
         personalLifeStep3: '补充记录',
         personalLifeDesc3: '可添加小票、照片或备注，方便后续整理',
-        personalLifeStep4: '完成整理',
-        personalLifeDesc4: '使用智能匹配快速归并记录并标记完成',
+        personalLifeStep4: '核对并导出',
+        personalLifeDesc4: '使用智能匹配查看并导出组合，且不会改变任何交易状态',
         companyTitle: '公共账户',
         companyStep1: '记录交易',
         companyDesc1: '使用公共资金后在系统中记录',
@@ -381,6 +394,8 @@ const zh = {
         personal: '个人账户',
         company: '公共账户',
       },
+      workflowFilterLabel: '交易流程状态',
+      sourceFilterLabel: '交易来源',
       filterPlaceholders: {
         source: '全部来源',
         account: '全部账户',
@@ -391,6 +406,10 @@ const zh = {
         all: '全部',
         pending: '待报销',
         done: '已报销',
+      },
+      uploadTabs: {
+        pending: '未上传',
+        done: '已上传',
       },
       summary: {
         filtered: '筛选结果',
@@ -475,7 +494,7 @@ const zh = {
         personalAdvance: '个人账户',
         publicAccount: '公共账户',
         account: '所属账户',
-        amount: '金额（元）',
+        amount: '金额',
         category: '费用类别',
         custom: '自定义',
         customPlaceholder: '输入自定义类别名称…',
@@ -490,6 +509,8 @@ const zh = {
         incomeHint: '本笔收入将计入资金池',
         submit: '保存',
         submitting: '提交中…',
+        retryAttachments: '重试关联附件',
+        continueWithoutAttachments: '不带附件继续',
       },
       accountLoad: {
         loading: '账户加载中…',
@@ -502,6 +523,11 @@ const zh = {
         successRedirect: '添加成功，即将跳转…',
         error: '添加失败，请重试',
         invalidAmount: '请输入有效金额',
+        createdAttachmentWarning: '交易已保存，但仍有 {{count}} 个附件关联失败',
+      },
+      attachmentRecovery: {
+        title: '交易已经保存，不会重复记账',
+        description: '仍有 {{count}} 个附件未关联。可重试，或放弃这些临时附件后前往交易列表。',
       },
     },
 
@@ -616,6 +642,8 @@ const zh = {
         reviewTitle: '确认 OCR 建议',
         reviewDesc: 'OCR 结果仅作参考，确认后才会写入表单。',
         noSuggestion: '未识别到结构化建议',
+        textReady: 'OCR 原文已提取，可展开查看',
+        viewText: '查看 OCR 原文',
         invoiceNo: '发票号',
         fields: {
           amount: '金额',
@@ -670,6 +698,7 @@ const zh = {
         noResults: '未找到匹配组合',
         tryAdjust: '尝试调大误差范围或增加笔数限制',
         timePruned: '候选项较多，已自动限制为最近 90 天数据以加速搜索',
+        truncated: '候选交易较多，搜索已在安全上限处停止，结果可能不完整。请缩小账户或类别范围，或降低最多交易笔数后重试。',
         foundBefore: '共找到 ',
         foundAfter: ' 个匹配方案',
         noResultsHint: '未找到匹配方案，尝试调大误差范围',
@@ -697,22 +726,13 @@ const zh = {
         exportPdf: '导出匹配 PDF',
         exportLabel: '生活模式匹配 · {{source}}',
         info: {
-          uploadedOnly: '在<strong>已上传、待处理</strong>的{{source}}支出中，查找与目标金额最接近的组合',
-        },
-        table: {
-          process: '处理状态',
-        },
-        process: {
-          markShort: '标记完成',
-          done: '已处理',
-          success: '已标记为完成',
-          confirmPrompt: '确认标记为已处理？',
+          uploadedOnly: '在<strong>已上传</strong>的{{source}}支出中，查找与目标金额最接近的组合；结果仅用于查看与导出。',
         },
       },
       info: {
         description: '选择一组组合后，可一次性标记为已报销',
         uploadedOnly: '在<strong>已上传、未报销</strong>的{{source}}记录中，找出金额之和与目标最接近的组合',
-        currencyNote: '注意：匹配算法基于登记金额（原币对应数字）进行匹配；如项目包含多币种交易，请手动按当前汇率换算后输入目标金额。',
+        currencyNote: '所有候选金额会优先使用入账基准金额，并统一折算为人民币后匹配。',
       },
       table: {
         rank: '排名',
@@ -754,6 +774,8 @@ const zh = {
         balanceTitle: '余额趋势',
         balanceSubtitle: '当前模式下的日累计余额',
         allAccounts: '全部账户',
+        rangeLabel: '余额历史时间范围',
+        cnyEquivalent: '全部账户按人民币折算',
         balanceNoData: '当前区间暂无余额历史数据',
         pieTitle: '收支比例',
         categoryTitle: '支出类别分布',
@@ -892,6 +914,14 @@ const zh = {
           error: '备份下载失败，请重试',
         },
       },
+      operationsDisabled: {
+        title: '仅限运维环境',
+        desc: '服务器未明确启用系统运维功能，备份下载与数据恢复当前不可用。',
+      },
+      operationsRestricted: {
+        title: '请使用受控运维客户端',
+        desc: '系统运维能力已启用，但浏览器不会读取或保存运维密钥。请仅通过获准的 CLI 或运维主机执行备份与恢复。',
+      },
       restore: {
         upload: '上传备份文件',
         selectFile: '选择文件',
@@ -970,6 +1000,9 @@ const zh = {
       captchaLoadError: '人机验证加载失败，请刷新页面重试',
       configLoading: '安全验证加载中，请稍后重试',
       configLoadError: '安全验证暂不可用，请刷新页面重试',
+      sessionRecoveryTitle: '暂时无法验证会话',
+      sessionRecoveryDescription: '你可能仍处于登录状态。请检查网络后重试；只有服务器确认会话已结束，FinArch 才会返回登录页。',
+      sessionRecoveryRetry: '重新验证会话',
       operationFailed: '操作失败，请重试',
       processing: '处理中...',
       sending: '发送中...',
@@ -990,6 +1023,7 @@ const zh = {
         verified: '邮箱验证成功，请登录',
         deleted: '账户已注销，感谢您使用 FinArch。',
         emailChanged: '邮箱已更新，请使用新邮箱登录。',
+        passwordChanged: '密码已更新，请重新登录。',
         tokenError: '验证链接无效或已过期，请重新发送验证邮件',
       },
       toast: {
@@ -1040,6 +1074,9 @@ const zh = {
 
     // ── Verify Email ──
     verifyEmail: {
+      readyTitle: '确认验证这个邮箱？',
+      readyDesc: '仅当这是您本人发起的 FinArch 账户验证时继续。',
+      confirmButton: '确认验证邮箱',
       verifying: '正在验证邮箱…',
       success: '邮箱验证成功！',
       successDesc: '您的邮箱已通过验证，现在可以登录了。',
@@ -1055,6 +1092,12 @@ const zh = {
 
     // ── Confirm Delete Account ──
     confirmDeleteAccount: {
+      readyTitle: '永久注销这个账户？',
+      readyDesc: '此链接将授权注销提出申请的 FinArch 账户。',
+      warningTitle: '操作不可撤销',
+      warningDesc: '全部交易、设置、登录会话和已存附件都会被永久删除，且无法恢复。',
+      confirmButton: '永久注销账户',
+      cancelButton: '保留我的账户',
       processing: '正在处理注销请求…',
       success: '账户已注销',
       successDesc: '您的账户及所有数据已被永久删除。感谢您使用 FinArch！',
@@ -1070,6 +1113,10 @@ const zh = {
 
     // ── Confirm Email Change ──
     confirmEmailChange: {
+      readyTitle: '确认使用新的登录邮箱？',
+      readyDesc: '仅当这是您本人发起的邮箱更换时确认。完成后需使用新邮箱重新登录。',
+      confirmButton: '确认新邮箱',
+      cancelButton: '不更换邮箱',
       processing: '正在确认邮箱变更…',
       success: '邮箱变更成功！',
       successDesc: '您的登录邮箱已成功更新，请使用新邮箱重新登录。',
@@ -1085,6 +1132,10 @@ const zh = {
 
     // ── Confirm Old Email Change ──
     confirmOldEmailChange: {
+      readyTitle: '授权这次邮箱更换？',
+      readyDesc: '确认后代表您仍可控制当前邮箱，FinArch 随后会向新邮箱发送第二封验证邮件。',
+      confirmButton: '授权更换邮箱',
+      cancelButton: '不授权更换',
       processing: '正在确认授权…',
       success: '授权成功！',
       successDesc: '已向您的新邮箱发送验证链接，请前往新邮箱收件箱，点击链接完成邮箱更换。',
@@ -1101,6 +1152,11 @@ const zh = {
     disasterRestore: {
       title: '灾难恢复',
       subtitle: '在数据完全丢失时，通过备份文件和邮箱验证恢复数据',
+      operationsDisabledTitle: '灾难恢复当前不可用',
+      operationsDisabledDesc: '此服务器未启用受保护的系统运维功能。',
+      browserRestrictedTitle: '请使用受控运维客户端',
+      browserRestrictedDesc: '服务器已启用灾难恢复，但网页端按设计不持有独立运维凭据。请使用获准的 CLI 或运维主机执行操作。',
+      backToDashboard: '返回概览',
       step1: {
         title: '上传备份文件',
         desc: '选择 FinArch 备份文件（.db 或 .zip），系统将提取数据持有人邮箱并发送验证码',
@@ -1204,6 +1260,10 @@ const zh = {
       },
       workflow: {
         incomeNoFlow: '收入 · 无需处理',
+        pendingUpload: '待上传凭证',
+        pendingReimbursement: '待报销',
+        reimbursed: '已报销',
+        uploaded: '已上传',
         company: {
           pendingUpload: '待上传',
           pendingReimburse: '待报销',

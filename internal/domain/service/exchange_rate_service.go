@@ -24,6 +24,11 @@ type ExchangeRateService interface {
 	GetRate(ctx context.Context, from, to string, at time.Time) (ExchangeRateResult, error)
 }
 
+const (
+	exchangeRateResponseMaxBytes  int64 = 64 << 10
+	exchangeRateErrorPreviewBytes       = 1 << 10
+)
+
 type httpExchangeRateService struct {
 	client *http.Client
 	base   string
@@ -94,14 +99,18 @@ func (s *httpExchangeRateService) fetchRate(ctx context.Context, path, from, to 
 			lastErr = err
 			continue
 		}
-		body, readErr := io.ReadAll(resp.Body)
+		body, tooLarge, readErr := readExchangeRateBody(resp.Body)
 		_ = resp.Body.Close()
 		if readErr != nil {
 			lastErr = readErr
 			continue
 		}
 		if resp.StatusCode >= 300 {
-			lastErr = fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
+			lastErr = exchangeRateStatusError(resp.StatusCode, body, tooLarge)
+			continue
+		}
+		if tooLarge {
+			lastErr = fmt.Errorf("exchange-rate response exceeds %d bytes", exchangeRateResponseMaxBytes)
 			continue
 		}
 		var payload struct {
@@ -133,6 +142,32 @@ func (s *httpExchangeRateService) fetchRate(ctx context.Context, path, from, to 
 		return ExchangeRateResult{Rate: rateRat, RateFloat: rateFloat, Source: "frankfurter", At: asOf}, nil
 	}
 	return ExchangeRateResult{}, lastErr
+}
+
+func readExchangeRateBody(body io.Reader) ([]byte, bool, error) {
+	data, err := io.ReadAll(io.LimitReader(body, exchangeRateResponseMaxBytes+1))
+	if err != nil {
+		return nil, false, fmt.Errorf("read exchange-rate response: %w", err)
+	}
+	if int64(len(data)) > exchangeRateResponseMaxBytes {
+		return data[:exchangeRateResponseMaxBytes], true, nil
+	}
+	return data, false, nil
+}
+
+func exchangeRateStatusError(status int, body []byte, bodyTooLarge bool) error {
+	truncated := bodyTooLarge || len(body) > exchangeRateErrorPreviewBytes
+	if len(body) > exchangeRateErrorPreviewBytes {
+		body = body[:exchangeRateErrorPreviewBytes]
+	}
+	preview := strings.TrimSpace(string(body))
+	if preview == "" {
+		preview = http.StatusText(status)
+	}
+	if truncated {
+		return fmt.Errorf("exchange-rate upstream status %d: %q [truncated]", status, preview)
+	}
+	return fmt.Errorf("exchange-rate upstream status %d: %q", status, preview)
 }
 
 func (s *httpExchangeRateService) readCache(key string) (ExchangeRateResult, bool) {

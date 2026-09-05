@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"finarch/internal/domain/model"
+	domainrepo "finarch/internal/domain/repository"
 	"finarch/internal/infrastructure/auth"
 
 	"github.com/google/uuid"
@@ -128,7 +129,7 @@ func (r *SQLiteUserRepository) SetPendingEmail(ctx context.Context, id, pendingE
 
 func (r *SQLiteUserRepository) UpdateEmail(ctx context.Context, id, newEmail string) error {
 	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
-		`UPDATE users SET email = ?, pending_email = NULL, updated_at = ? WHERE id = ?`,
+		`UPDATE users SET email = ?, pending_email = NULL, pwd_version = pwd_version + 1, updated_at = ? WHERE id = ?`,
 		newEmail, time.Now().Unix(), id,
 	)
 	if err != nil {
@@ -201,6 +202,20 @@ func (r *SQLiteUserRepository) ConsumeActionRequest(ctx context.Context, jti str
 	return r.GetActionRequestByJTI(ctx, jti)
 }
 
+// ExpirePendingActionRequestsForUser invalidates every outstanding request of
+// one action kind for a user. Callers that replace or complete a credential
+// flow invoke this inside the same transaction as the authoritative mutation.
+func (r *SQLiteUserRepository) ExpirePendingActionRequestsForUser(ctx context.Context, userID, action string) error {
+	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
+		`UPDATE action_requests SET status = 'expired' WHERE user_id = ? AND action = ? AND status = 'pending'`,
+		userID, action,
+	)
+	if err != nil {
+		return fmt.Errorf("expire user action requests: %w", err)
+	}
+	return nil
+}
+
 func (r *SQLiteUserRepository) ExpireActionRequests(ctx context.Context, action string, now time.Time) error {
 	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
 		`UPDATE action_requests SET status = 'expired' WHERE action = ? AND status = 'pending' AND expires_at < ?`,
@@ -238,28 +253,112 @@ func (r *SQLiteUserRepository) UpdateNickname(ctx context.Context, id, nickname 
 
 // DeleteUser permanently deletes the user and all their data in one transaction.
 func (r *SQLiteUserRepository) DeleteUser(ctx context.Context, id string) error {
-	executor := getExecutor(ctx, r.db)
-	res, err := executor.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
-	if err != nil {
-		return fmt.Errorf("delete user data: %w", err)
+	if tx, ok := ctx.Value(txContextKey).(*sql.Tx); ok {
+		return deleteUserData(ctx, tx, id)
 	}
-	affected, _ := res.RowsAffected()
-	if affected == 0 {
-		return fmt.Errorf("user not found")
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete user transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := deleteUserData(ctx, tx, id); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete user transaction: %w", err)
+	}
+	return nil
+}
+
+func deleteUserData(ctx context.Context, executor sqlExecutor, id string) error {
+	rows, err := executor.QueryContext(ctx, `
+		SELECT DISTINCT reimbursement_id
+		FROM transactions
+		WHERE user_id = ? AND reimbursement_id IS NOT NULL`, id)
+	if err != nil {
+		return fmt.Errorf("list user reimbursements: %w", err)
+	}
+	var reimbursementIDs []string
+	for rows.Next() {
+		var reimbursementID string
+		if err := rows.Scan(&reimbursementID); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan user reimbursement: %w", err)
+		}
+		reimbursementIDs = append(reimbursementIDs, reimbursementID)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close user reimbursement rows: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate user reimbursements: %w", err)
 	}
 
-	for _, q := range []string{
+	// Delete dependants before their parents. Several legacy tables either have
+	// no user foreign key or use RESTRICT/no-action relationships, so relying on
+	// the users cascade alone leaves data behind or aborts the deletion.
+	statements := []string{
+		`DELETE FROM attachments WHERE user_id = ?`,
+		`DELETE FROM recurring_transaction_instances WHERE user_id = ?`,
+		`DELETE FROM recurring_transaction_rules WHERE user_id = ?`,
+		`DELETE FROM reimbursement_items
+		 WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
+		`DELETE FROM transaction_tags
+		 WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
+		`DELETE FROM transactions WHERE user_id = ?`,
+		`DELETE FROM tags WHERE owner_id = ?`,
+		`DELETE FROM fund_pools WHERE owner_id = ?`,
+		`DELETE FROM ledger_journal_lines
+		 WHERE entry_id IN (SELECT id FROM ledger_journal_entries WHERE user_id = ?)
+		    OR account_id IN (SELECT id FROM ledger_accounts WHERE user_id = ?)`,
+		`DELETE FROM ledger_journal_entries WHERE user_id = ?`,
+		`DELETE FROM ledger_balance_cache WHERE user_id = ?`,
+		`DELETE FROM ledger_snapshots WHERE user_id = ?`,
+		`DELETE FROM ledger_accounts WHERE user_id = ?`,
+		`DELETE FROM ledger_events WHERE user_id = ?`,
+		`DELETE FROM budgets WHERE user_id = ?`,
+		`DELETE FROM categories WHERE user_id = ?`,
+		`DELETE FROM accounts WHERE user_id = ?`,
+		`DELETE FROM auth_sessions WHERE user_id = ?`,
+		`DELETE FROM idempotency_keys WHERE user_id = ?`,
+		`DELETE FROM email_tokens WHERE user_id = ?`,
 		`DELETE FROM monthly_summary_cache WHERE user_id = ?`,
 		`DELETE FROM audit_log WHERE user_id = ?`,
 		`DELETE FROM account_deletion_requests WHERE user_id = ?`,
 		`DELETE FROM action_requests WHERE user_id = ?`,
-		`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
-		`DELETE FROM tags WHERE owner_id = ?`,
-		`DELETE FROM fund_pools WHERE owner_id = ?`,
-	} {
-		if _, err := executor.ExecContext(ctx, q, id); err != nil {
+	}
+	for _, statement := range statements {
+		args := []any{id}
+		if strings.Contains(statement, "ledger_journal_lines") {
+			args = append(args, id)
+		}
+		if _, err := executor.ExecContext(ctx, statement, args...); err != nil {
 			return fmt.Errorf("delete user data: %w", err)
 		}
+	}
+
+	for _, reimbursementID := range reimbursementIDs {
+		if _, err := executor.ExecContext(ctx, `
+			DELETE FROM reimbursements
+			WHERE id = ?
+			  AND NOT EXISTS (
+			    SELECT 1 FROM reimbursement_items
+			    WHERE reimbursement_id = reimbursements.id
+			  )
+			  AND NOT EXISTS (
+			    SELECT 1 FROM transactions
+			    WHERE reimbursement_id = reimbursements.id
+			  )`, reimbursementID); err != nil {
+			return fmt.Errorf("delete user reimbursement: %w", err)
+		}
+	}
+
+	res, err := executor.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete user data: %w", err)
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return domainrepo.ErrUserNotFound
 	}
 	return nil
 }
@@ -300,17 +399,8 @@ func (r *SQLiteUserRepository) DeleteExpiredUnverifiedUsers(ctx context.Context,
 	defer func() { _ = tx.Rollback() }()
 
 	for _, uid := range ids {
-		for _, q := range []string{
-			`DELETE FROM email_tokens WHERE user_id = ?`,
-			`DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = ?)`,
-			`DELETE FROM transactions WHERE user_id = ?`,
-			`DELETE FROM tags WHERE owner_id = ?`,
-			`DELETE FROM fund_pools WHERE owner_id = ?`,
-			`DELETE FROM users WHERE id = ?`,
-		} {
-			if _, err := tx.ExecContext(ctx, q, uid); err != nil {
-				return 0, fmt.Errorf("cleanup user %s: %w", uid, err)
-			}
+		if err := deleteUserData(ctx, tx, uid); err != nil {
+			return 0, fmt.Errorf("cleanup user %s: %w", uid, err)
 		}
 	}
 
@@ -327,7 +417,7 @@ func scanUser(row *sql.Row) (model.User, error) {
 	// SELECT: id, email, name, username, nickname, password_hash, role, email_verified, created_at, updated_at, pending_email, pwd_version
 	if err := row.Scan(&u.ID, &u.Email, &u.Name, &u.Username, &u.Nickname, &u.PasswordHash, &u.Role, &verified, &createdAt, &updatedAt, &u.PendingEmail, &u.PwdVersion); err != nil {
 		if err == sql.ErrNoRows {
-			return model.User{}, fmt.Errorf("user not found")
+			return model.User{}, domainrepo.ErrUserNotFound
 		}
 		return model.User{}, fmt.Errorf("scan user: %w", err)
 	}
@@ -380,20 +470,52 @@ func (r *SQLiteTagRepository) Delete(ctx context.Context, id, ownerID string) er
 	return err
 }
 
-func (r *SQLiteTagRepository) AddToTransaction(ctx context.Context, transactionID, tagID string) error {
-	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
-		`INSERT OR IGNORE INTO transaction_tags(transaction_id, tag_id) VALUES(?, ?)`,
-		transactionID, tagID,
+func (r *SQLiteTagRepository) AddToTransaction(ctx context.Context, userID, transactionID, tagID string) error {
+	res, err := getExecutor(ctx, r.db).ExecContext(ctx, `
+		INSERT OR IGNORE INTO transaction_tags(transaction_id, tag_id)
+		SELECT tx.id, tag.id
+		FROM transactions tx
+		JOIN tags tag ON tag.id = ? AND tag.owner_id = ?
+		WHERE tx.id = ? AND tx.user_id = ?`,
+		tagID, userID, transactionID, userID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("add tag to transaction: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		var exists int
+		err = getExecutor(ctx, r.db).QueryRowContext(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM transaction_tags tt
+				JOIN transactions tx ON tx.id = tt.transaction_id AND tx.user_id = ?
+				JOIN tags tag ON tag.id = tt.tag_id AND tag.owner_id = ?
+				WHERE tt.transaction_id = ? AND tt.tag_id = ?
+			)`, userID, userID, transactionID, tagID).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("verify transaction tag: %w", err)
+		}
+		if exists == 0 {
+			return fmt.Errorf("transaction or tag not found")
+		}
+	}
+	return nil
 }
 
-func (r *SQLiteTagRepository) RemoveFromTransaction(ctx context.Context, transactionID, tagID string) error {
-	_, err := getExecutor(ctx, r.db).ExecContext(ctx,
-		`DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id = ?`,
-		transactionID, tagID,
+func (r *SQLiteTagRepository) RemoveFromTransaction(ctx context.Context, userID, transactionID, tagID string) error {
+	res, err := getExecutor(ctx, r.db).ExecContext(ctx, `
+		DELETE FROM transaction_tags
+		WHERE transaction_id = ? AND tag_id = ?
+		  AND EXISTS (SELECT 1 FROM transactions tx WHERE tx.id = transaction_tags.transaction_id AND tx.user_id = ?)
+		  AND EXISTS (SELECT 1 FROM tags tag WHERE tag.id = transaction_tags.tag_id AND tag.owner_id = ?)`,
+		transactionID, tagID, userID, userID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("remove tag from transaction: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("transaction tag not found")
+	}
+	return nil
 }
 
 func (r *SQLiteTagRepository) ListByTransaction(ctx context.Context, transactionID string) ([]model.Tag, error) {

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"finarch/internal/domain/service"
@@ -31,6 +32,12 @@ func NewLocalAttachmentStorage(root string) (*LocalAttachmentStorage, error) {
 	if err := os.MkdirAll(abs, 0o700); err != nil {
 		return nil, fmt.Errorf("create attachment dir: %w", err)
 	}
+	if err := syncDirectory(abs); err != nil {
+		return nil, fmt.Errorf("sync attachment dir: %w", err)
+	}
+	if err := syncDirectory(filepath.Dir(abs)); err != nil {
+		return nil, fmt.Errorf("sync attachment parent dir: %w", err)
+	}
 	return &LocalAttachmentStorage{root: abs}, nil
 }
 
@@ -50,23 +57,36 @@ func (s *LocalAttachmentStorage) Save(ctx context.Context, userID, attachmentID,
 	if !ok {
 		return service.StoredAttachment{}, fmt.Errorf("附件路径无效")
 	}
-	if err := os.MkdirAll(filepath.Dir(finalPath), 0o700); err != nil {
+	finalDir := filepath.Dir(finalPath)
+	if err := os.MkdirAll(finalDir, 0o700); err != nil {
 		return service.StoredAttachment{}, fmt.Errorf("创建附件目录失败: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(finalPath), ".upload-*")
+	// Persist a newly-created per-user directory before relying on files in it.
+	if err := syncDirectory(finalDir); err != nil {
+		return service.StoredAttachment{}, fmt.Errorf("同步附件目录失败: %w", err)
+	}
+	if finalDir != s.root {
+		if err := syncDirectory(filepath.Dir(finalDir)); err != nil {
+			return service.StoredAttachment{}, fmt.Errorf("同步附件父目录失败: %w", err)
+		}
+	}
+	tmp, err := os.CreateTemp(finalDir, ".upload-*")
 	if err != nil {
 		return service.StoredAttachment{}, fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	tmpOpen := true
+	defer func() {
+		if tmpOpen {
+			_ = tmp.Close()
+		}
+		_ = os.Remove(tmpPath)
+	}()
 
 	h := sha256.New()
 	limited := &limitReader{r: r, max: maxBytes + 1}
 	mw := io.MultiWriter(tmp, h)
 	written, err := io.Copy(mw, limited)
-	if closeErr := tmp.Close(); err == nil {
-		err = closeErr
-	}
 	if err != nil {
 		return service.StoredAttachment{}, fmt.Errorf("保存附件失败: %w", err)
 	}
@@ -83,15 +103,31 @@ func (s *LocalAttachmentStorage) Save(ctx context.Context, userID, attachmentID,
 	if declaredContentType != "" && !compatibleContentType(declaredContentType, contentType) {
 		return service.StoredAttachment{}, fmt.Errorf("文件类型与内容不匹配")
 	}
-	if err := os.Chmod(tmpPath, 0o600); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
 		return service.StoredAttachment{}, fmt.Errorf("设置附件权限失败: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		return service.StoredAttachment{}, fmt.Errorf("同步附件失败: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return service.StoredAttachment{}, fmt.Errorf("关闭附件失败: %w", err)
+	}
+	tmpOpen = false
+	select {
+	case <-ctx.Done():
+		return service.StoredAttachment{}, ctx.Err()
+	default:
 	}
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		return service.StoredAttachment{}, fmt.Errorf("保存附件失败: %w", err)
 	}
+	if err := syncDirectory(finalDir); err != nil {
+		return service.StoredAttachment{}, fmt.Errorf("提交附件失败: %w", err)
+	}
 	select {
 	case <-ctx.Done():
 		_ = os.Remove(finalPath)
+		_ = syncDirectory(finalDir)
 		return service.StoredAttachment{}, ctx.Err()
 	default:
 	}
@@ -111,29 +147,54 @@ func (s *LocalAttachmentStorage) Restore(ctx context.Context, storageKey string,
 		return ctx.Err()
 	default:
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	finalDir := filepath.Dir(path)
+	if err := os.MkdirAll(finalDir, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".restore-*")
+	if err := syncDirectory(finalDir); err != nil {
+		return err
+	}
+	if finalDir != s.root {
+		if err := syncDirectory(filepath.Dir(finalDir)); err != nil {
+			return err
+		}
+	}
+	tmp, err := os.CreateTemp(finalDir, ".restore-*")
 	if err != nil {
 		return err
 	}
 	tmpPath := tmp.Name()
 	_, copyErr := io.Copy(tmp, r)
-	closeErr := tmp.Close()
 	if copyErr != nil {
+		_ = tmp.Close()
 		_ = os.Remove(tmpPath)
 		return copyErr
 	}
-	if closeErr != nil {
-		_ = os.Remove(tmpPath)
-		return closeErr
-	}
-	if err := os.Chmod(tmpPath, 0o600); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
 		_ = os.Remove(tmpPath)
 		return err
 	}
-	return os.Rename(tmpPath, path)
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		_ = os.Remove(tmpPath)
+		return ctx.Err()
+	default:
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return syncDirectory(finalDir)
 }
 
 func (s *LocalAttachmentStorage) Open(ctx context.Context, storageKey string) (io.ReadCloser, error) {
@@ -159,7 +220,26 @@ func (s *LocalAttachmentStorage) Delete(ctx context.Context, storageKey string) 
 		return ctx.Err()
 	default:
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return syncDirectory(filepath.Dir(path))
+}
+
+// syncDirectory makes file creation, rename, and deletion durable on filesystems
+// that require the containing directory to be flushed separately. Windows does
+// not expose directory fsync through os.File.Sync, so the rename remains the
+// strongest available primitive there.
+func syncDirectory(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	if err := dir.Sync(); err != nil && runtime.GOOS != "windows" {
 		return err
 	}
 	return nil

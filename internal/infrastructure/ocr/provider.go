@@ -6,13 +6,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"finarch/internal/domain/model"
 )
+
+// DefaultOCRMaxJSONResponseBytes limits small provider control/sidecar JSON
+// responses independently from the larger AIStudio JSONL result artifact.
+const DefaultOCRMaxJSONResponseBytes = int64(1 << 20) // 1 MiB
 
 // NoneProvider keeps OCR optional when no engine is configured.
 type NoneProvider struct{}
@@ -74,8 +80,8 @@ func (p *PaddleProvider) Extract(ctx context.Context, attachment model.Attachmen
 		return model.OCRResult{}, fmt.Errorf("PaddleOCR returned %s", resp.Status)
 	}
 	var raw map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return model.OCRResult{}, err
+	if err := decodeLimitedJSONResponse(resp.Body, DefaultOCRMaxJSONResponseBytes, &raw); err != nil {
+		return model.OCRResult{}, fmt.Errorf("decode PaddleOCR response: %w", err)
 	}
 	result := model.OCRResult{Provider: p.Name(), Raw: raw}
 	if text, ok := raw["text"].(string); ok {
@@ -91,15 +97,15 @@ func (p *PaddleProvider) Extract(ctx context.Context, attachment model.Attachmen
 
 func parseSuggestion(raw map[string]any) model.OCRSuggestion {
 	var out model.OCRSuggestion
-	if v, ok := raw["amount_cents"].(float64); ok && v > 0 {
-		cents := int64(v)
+	if cents, ok := jsonInteger(raw["amount_cents"]); ok && cents > 0 {
 		out.AmountCents = &cents
 		yuan := float64(cents) / 100
 		out.AmountYuan = &yuan
-	} else if v, ok := raw["amount_yuan"].(float64); ok && v > 0 {
-		out.AmountYuan = &v
-		cents := int64(v*100 + 0.5)
-		out.AmountCents = &cents
+	} else if v, ok := jsonFloat(raw["amount_yuan"]); ok && v > 0 {
+		if cents, err := model.Money(v).Cents(); err == nil && cents > 0 {
+			out.AmountYuan = &v
+			out.AmountCents = &cents
+		}
 	}
 	if v, ok := raw["currency"].(string); ok {
 		out.Currency = strings.ToUpper(strings.TrimSpace(v))
@@ -119,8 +125,67 @@ func parseSuggestion(raw map[string]any) model.OCRSuggestion {
 	if v, ok := raw["note"].(string); ok {
 		out.Note = v
 	}
-	if v, ok := raw["confidence"].(float64); ok {
+	if v, ok := jsonFloat(raw["confidence"]); ok {
 		out.Confidence = v
 	}
 	return out
+}
+
+func jsonInteger(value any) (int64, bool) {
+	switch number := value.(type) {
+	case json.Number:
+		parsed, err := strconv.ParseInt(number.String(), 10, 64)
+		return parsed, err == nil
+	case float64:
+		// Support direct in-process provider maps, but reject values beyond the
+		// exact integer range of float64 instead of silently changing cents.
+		if math.IsNaN(number) || math.IsInf(number, 0) || number != math.Trunc(number) || math.Abs(number) > 9007199254740991 {
+			return 0, false
+		}
+		return int64(number), true
+	default:
+		return 0, false
+	}
+}
+
+func jsonFloat(value any) (float64, bool) {
+	switch number := value.(type) {
+	case json.Number:
+		parsed, err := number.Float64()
+		return parsed, err == nil && !math.IsNaN(parsed) && !math.IsInf(parsed, 0)
+	case float64:
+		return number, !math.IsNaN(number) && !math.IsInf(number, 0)
+	default:
+		return 0, false
+	}
+}
+
+func decodeLimitedJSONResponse(r io.Reader, maxBytes int64, dst any) error {
+	if maxBytes <= 0 {
+		maxBytes = DefaultOCRMaxJSONResponseBytes
+	}
+	data, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(data)) > maxBytes {
+		return fmt.Errorf("OCR JSON response exceeds %d bytes", maxBytes)
+	}
+	return decodeJSONUseNumber(data, dst)
+}
+
+func decodeJSONUseNumber(data []byte, dst any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("OCR JSON response contains multiple values")
+		}
+		return err
+	}
+	return nil
 }

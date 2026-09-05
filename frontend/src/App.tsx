@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { useAuth } from './hooks/useAuth'
 import { ConfigProvider } from './contexts/ConfigContext'
+import { useConfig } from './hooks/useConfig'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useTheme } from './hooks/useTheme'
 import { ModeProvider } from './contexts/ModeContext'
@@ -47,7 +49,7 @@ const SettingsPage = lazy(loadSettingsPage)
 const ExchangeRatePage = lazy(loadExchangeRatePage)
 
 function ProtectedRoutes() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading, sessionUnavailable } = useAuth()
   useEffect(() => {
     if (!isAuthenticated) return
     const preload = () => {
@@ -69,6 +71,8 @@ function ProtectedRoutes() {
     const id = globalThis.setTimeout(preload, 800)
     return () => globalThis.clearTimeout(id)
   }, [isAuthenticated])
+  if (sessionUnavailable) return <SessionRecoveryFallback />
+  if (isLoading) return <PageFallback />
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return (
     <Layout>
@@ -89,14 +93,21 @@ function ProtectedRoutes() {
 }
 
 function LoginRouteWrapper() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading, sessionUnavailable } = useAuth()
+  if (sessionUnavailable) return <SessionRecoveryFallback />
+  if (isLoading) return <PageFallback />
   if (isAuthenticated) return <Navigate to="/" replace />
   return <LoginPage />
 }
 
 function ProtectedDisasterRestorePage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading, sessionUnavailable } = useAuth()
+  const { loaded: configLoaded, systemOperationsEnabled } = useConfig()
+  if (sessionUnavailable) return <SessionRecoveryFallback />
+  if (isLoading) return <PageFallback />
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!configLoaded) return <PageFallback />
+  if (!systemOperationsEnabled) return <Navigate to="/" replace />
   return <DisasterRestorePage />
 }
 
@@ -113,6 +124,34 @@ function ThemedToaster() {
 
 function PageFallback() {
   return <div className="min-h-screen bg-stone-50 dark:bg-[#0f0d18]" />
+}
+
+function SessionRecoveryFallback() {
+  const { retrySession } = useAuth()
+  const { t } = useTranslation()
+
+  return (
+    <main className="min-h-screen bg-stone-50 dark:bg-[#0f0d18] flex items-center justify-center p-6">
+      <section
+        role="alert"
+        className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm dark:border-amber-900/60 dark:bg-[#191624]"
+      >
+        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
+          {t('login.sessionRecoveryTitle')}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+          {t('login.sessionRecoveryDescription')}
+        </p>
+        <button
+          type="button"
+          onClick={retrySession}
+          className="mt-5 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white"
+        >
+          {t('login.sessionRecoveryRetry')}
+        </button>
+      </section>
+    </main>
+  )
 }
 
 function App() {

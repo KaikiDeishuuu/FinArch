@@ -205,9 +205,17 @@ const en = {
           title: 'Reimbursement',
           desc: 'Advance tracking · Receipts · One-click',
         },
+        lifeEntry: {
+          title: 'Daily Accounting',
+          desc: 'Personal income & expenses · Receipts · Notes',
+        },
         smartMatch: {
           title: 'Smart Match',
           desc: 'Amount matching · Quick reconcile · Batch',
+        },
+        lifeMatch: {
+          title: 'Smart Match',
+          desc: 'Read-only combinations · Amount checks · Export',
         },
         dataVisualization: {
           title: 'Analytics',
@@ -225,6 +233,7 @@ const en = {
         publicPending: 'Pub. Pending',
         balanceLabel: 'Balance',
         advanceLabel: 'Advance',
+        lifeExpenseLabel: 'All recorded personal expenses',
         pendingLabel: 'Pending',
       },
       pending: {
@@ -317,10 +326,14 @@ const en = {
         personalDesc3: 'Attach invoice or receipt as proof',
         personalStep4: 'Reimburse',
         personalDesc4: 'Use Match tool to auto-match & reimburse',
+        personalLifeStep1: 'Record Daily Cash Flow',
+        personalLifeDesc1: 'Add a personal income or expense with its amount and time',
+        personalLifeStep2: 'Add Details',
+        personalLifeDesc2: 'Choose an account and category, then add a project or note if useful',
         personalLifeStep3: 'Attach Notes',
         personalLifeDesc3: 'Add receipts, photos, or notes for easier tracking',
-        personalLifeStep4: 'Review',
-        personalLifeDesc4: 'Use Smart Match to organize records and close items quickly',
+        personalLifeStep4: 'Compare & Export',
+        personalLifeDesc4: 'Use Smart Match to compare and export combinations without changing transaction status',
         companyTitle: 'Public Account',
         companyStep1: 'Record',
         companyDesc1: 'Log the transaction after using public funds',
@@ -381,6 +394,8 @@ const en = {
         personal: 'Personal Account',
         company: 'Public Account',
       },
+      workflowFilterLabel: 'Transaction workflow status',
+      sourceFilterLabel: 'Transaction source',
       filterPlaceholders: {
         source: 'Source',
         account: 'Account',
@@ -391,6 +406,10 @@ const en = {
         all: 'All',
         pending: 'Pending',
         done: 'Done',
+      },
+      uploadTabs: {
+        pending: 'Not uploaded',
+        done: 'Uploaded',
       },
       summary: {
         filtered: 'Filtered',
@@ -475,7 +494,7 @@ const en = {
         personalAdvance: 'Personal Account',
         publicAccount: 'Public Account',
         account: 'Account',
-        amount: 'Amount (¥)',
+        amount: 'Amount',
         category: 'Category',
         custom: 'Custom',
         customPlaceholder: 'Enter custom category name…',
@@ -490,6 +509,8 @@ const en = {
         incomeHint: 'This income will be added to the fund pool',
         submit: 'Save',
         submitting: 'Submitting…',
+        retryAttachments: 'Retry attachment links',
+        continueWithoutAttachments: 'Continue without attachments',
       },
       accountLoad: {
         loading: 'Loading accounts…',
@@ -502,6 +523,11 @@ const en = {
         successRedirect: 'Added successfully, redirecting…',
         error: 'Failed to add, please retry',
         invalidAmount: 'Please enter a valid amount',
+        createdAttachmentWarning: 'Transaction saved, but {{count}} attachment(s) could not be linked',
+      },
+      attachmentRecovery: {
+        title: 'The transaction is already saved and will not be duplicated',
+        description: '{{count}} attachment(s) remain unlinked. Retry, or discard these temporary uploads and continue to the transaction list.',
       },
     },
 
@@ -616,6 +642,8 @@ const en = {
         reviewTitle: 'Review OCR suggestions',
         reviewDesc: 'OCR is advisory. Confirm before applying fields to the form.',
         noSuggestion: 'No structured suggestion detected',
+        textReady: 'OCR text extracted; expand to review it',
+        viewText: 'View OCR text',
         invoiceNo: 'Invoice',
         fields: {
           amount: 'Amount',
@@ -670,6 +698,7 @@ const en = {
         noResults: 'No matching combinations',
         tryAdjust: 'Try increasing tolerance or max count',
         timePruned: 'Too many candidates — limited to last 90 days for speed',
+        truncated: 'The search reached its safety limit, so results may be incomplete. Narrow the account or category, or lower the maximum transaction count and retry.',
         foundBefore: 'Found ',
         foundAfter: ' combinations',
         noResultsHint: 'No matches found. Try increasing tolerance.',
@@ -697,22 +726,13 @@ const en = {
         exportPdf: 'Export Match PDF',
         exportLabel: 'Life Match · {{source}}',
         info: {
-          uploadedOnly: 'Search within <strong>uploaded, unprocessed</strong> {{source}} expenses and find combinations closest to your target',
-        },
-        table: {
-          process: 'Process',
-        },
-        process: {
-          markShort: 'Mark done',
-          done: 'Processed',
-          success: 'Marked as processed',
-          confirmPrompt: 'Confirm mark as processed?',
+          uploadedOnly: 'Find combinations closest to the target among <strong>uploaded</strong> {{source}} expenses. Results are read-only and exportable.',
         },
       },
       info: {
         description: 'Select a combination to batch-mark as reimbursed',
         uploadedOnly: 'Among <strong>uploaded, unreimbursed</strong> {{source}} records, find combinations whose sum best matches the target',
-        currencyNote: 'Note: Matching uses recorded amounts (original currency). For multi-currency projects, manually convert using current rates.',
+        currencyNote: 'Candidates use booked base amounts when available and are normalized to CNY before matching.',
       },
       table: {
         rank: 'Rank',
@@ -754,6 +774,8 @@ const en = {
         balanceTitle: 'Balance Timeline',
         balanceSubtitle: 'Daily cumulative balance in current mode',
         allAccounts: 'All Accounts',
+        rangeLabel: 'Balance history range',
+        cnyEquivalent: 'All accounts converted to CNY',
         balanceNoData: 'No balance history for this range',
         pieTitle: 'Income vs Expense',
         categoryTitle: 'Expense Category Distribution',
@@ -892,6 +914,14 @@ const en = {
           error: 'Backup download failed. Please retry.',
         },
       },
+      operationsDisabled: {
+        title: 'Operational access required',
+        desc: 'Backup export and data restore are available only when server operations are explicitly enabled.',
+      },
+      operationsRestricted: {
+        title: 'Use a controlled operations client',
+        desc: 'System operations are enabled, but the browser intentionally cannot access the operations secret. Run backup and restore only from an approved CLI or operations host.',
+      },
       restore: {
         upload: 'Upload Backup File',
         selectFile: 'Select file',
@@ -970,6 +1000,9 @@ const en = {
       captchaLoadError: 'Captcha failed to load, please refresh and try again',
       configLoading: 'Loading security verification. Please try again in a moment.',
       configLoadError: 'Security verification is unavailable. Please refresh and try again.',
+      sessionRecoveryTitle: 'We couldn\'t verify your session',
+      sessionRecoveryDescription: 'You may still be signed in. Check your connection and retry; FinArch will only return to login after the server confirms your session ended.',
+      sessionRecoveryRetry: 'Retry session check',
       operationFailed: 'Operation failed, please retry',
       processing: 'Processing...',
       sending: 'Sending...',
@@ -990,6 +1023,7 @@ const en = {
         verified: 'Email verified! Please log in.',
         deleted: 'Account deleted. Thank you for using FinArch.',
         emailChanged: 'Email updated. Please log in with your new email.',
+        passwordChanged: 'Password updated. Please log in again.',
         tokenError: 'Verification link is invalid or expired. Please resend.',
       },
       toast: {
@@ -1040,6 +1074,9 @@ const en = {
 
     // ── Verify Email ──
     verifyEmail: {
+      readyTitle: 'Verify this email address?',
+      readyDesc: 'Continue only if you requested this FinArch account verification.',
+      confirmButton: 'Verify Email',
       verifying: 'Verifying email…',
       success: 'Email verified!',
       successDesc: 'Your email has been verified. You can now log in.',
@@ -1055,6 +1092,12 @@ const en = {
 
     // ── Confirm Delete Account ──
     confirmDeleteAccount: {
+      readyTitle: 'Permanently delete this account?',
+      readyDesc: 'This link authorizes deletion of the FinArch account that requested it.',
+      warningTitle: 'Irreversible action',
+      warningDesc: 'All transactions, settings, sessions, and stored attachments will be permanently removed and cannot be recovered.',
+      confirmButton: 'Permanently Delete Account',
+      cancelButton: 'Keep My Account',
       processing: 'Processing deletion…',
       success: 'Account Deleted',
       successDesc: 'Your account and all data have been permanently deleted. Thank you for using FinArch!',
@@ -1070,6 +1113,10 @@ const en = {
 
     // ── Confirm Email Change ──
     confirmEmailChange: {
+      readyTitle: 'Use the new login email?',
+      readyDesc: 'Confirm only if you requested this email change. You will need to sign in again with the new address.',
+      confirmButton: 'Confirm New Email',
+      cancelButton: 'Do Not Change Email',
       processing: 'Confirming email change…',
       success: 'Email Changed!',
       successDesc: 'Your login email has been updated. Please log in with your new email.',
@@ -1085,6 +1132,10 @@ const en = {
 
     // ── Confirm Old Email Change ──
     confirmOldEmailChange: {
+      readyTitle: 'Authorize this email change?',
+      readyDesc: 'This confirms that you control the current email. FinArch will then send a second verification link to the new address.',
+      confirmButton: 'Authorize Email Change',
+      cancelButton: 'Do Not Authorize',
       processing: 'Confirming authorization…',
       success: 'Authorized!',
       successDesc: 'A verification link has been sent to your new email. Please check your new inbox to complete the change.',
@@ -1101,6 +1152,11 @@ const en = {
     disasterRestore: {
       title: 'Disaster Recovery',
       subtitle: 'Restore data from a backup file with email verification when data is completely lost',
+      operationsDisabledTitle: 'Disaster recovery is unavailable',
+      operationsDisabledDesc: 'This server has not enabled protected system operations.',
+      browserRestrictedTitle: 'Use a controlled operations client',
+      browserRestrictedDesc: 'Disaster recovery is enabled on the server, but is intentionally unavailable in the browser. Use an approved CLI or operations host that holds the separate operations credential.',
+      backToDashboard: 'Back to dashboard',
       step1: {
         title: 'Upload Backup File',
         desc: 'Select a FinArch backup file (.db or .zip). The system will extract the owner email and send a verification code',
@@ -1204,6 +1260,10 @@ const en = {
       },
       workflow: {
         incomeNoFlow: 'Income · no workflow',
+        pendingUpload: 'Pending upload',
+        pendingReimbursement: 'Pending reimbursement',
+        reimbursed: 'Reimbursed',
+        uploaded: 'Uploaded',
         company: {
           pendingUpload: 'Pending upload',
           pendingReimburse: 'Pending reimburse',

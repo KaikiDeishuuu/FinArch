@@ -1,6 +1,6 @@
 services:
   init-permissions:
-    image: alpine:3.23
+    image: alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
     restart: "no"
     command: ["sh", "-c", "chown -R 10001:10001 /data"]
     volumes:
@@ -17,12 +17,34 @@ services:
     image: ghcr.io/kaikideishuuu/finarch:${FINARCH_IMAGE_TAG:?FINARCH_IMAGE_TAG is required}
     container_name: finarch-api
     restart: unless-stopped
+    # Give net/http enough time to drain in-flight requests before SIGKILL.
+    stop_grace_period: ${FINARCH_HTTP_SHUTDOWN_TIMEOUT:-5m}
     environment:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - FINARCH_DB=/data/finarch.db
       - FINARCH_ADDR=0.0.0.0:8080
+      - FINARCH_HTTP_READ_HEADER_TIMEOUT=${FINARCH_HTTP_READ_HEADER_TIMEOUT:-10s}
+      - FINARCH_HTTP_READ_TIMEOUT=${FINARCH_HTTP_READ_TIMEOUT:-30m}
+      - FINARCH_HTTP_WRITE_TIMEOUT=${FINARCH_HTTP_WRITE_TIMEOUT:-30m}
+      - FINARCH_HTTP_IDLE_TIMEOUT=${FINARCH_HTTP_IDLE_TIMEOUT:-2m}
+      - FINARCH_HTTP_SHUTDOWN_TIMEOUT=${FINARCH_HTTP_SHUTDOWN_TIMEOUT:-5m}
+      - FINARCH_HTTP_MAX_HEADER_BYTES=${FINARCH_HTTP_MAX_HEADER_BYTES:-65536}
+      # System operations are server-side only. Never expose the secret to browser code.
+      - FINARCH_ENABLE_SYSTEM_OPERATIONS=${FINARCH_ENABLE_SYSTEM_OPERATIONS:-false}
+      - FINARCH_SYSTEM_OPERATIONS_SECRET=${FINARCH_SYSTEM_OPERATIONS_SECRET:-}
+      # Compose is a reverse-proxy deployment. Supply the exact direct proxy and
+      # every controlled intermediary in the trusted XFF suffix; /0 is rejected.
+      - FINARCH_BEHIND_PROXY=true
+      - FINARCH_TRUSTED_PROXY_CIDRS=${FINARCH_TRUSTED_PROXY_CIDRS:?FINARCH_TRUSTED_PROXY_CIDRS is required for Docker Compose}
+      - FINARCH_CORS_ALLOWED_ORIGINS=${FINARCH_CORS_ALLOWED_ORIGINS:-}
       - FINARCH_ATTACHMENTS_DIR=/data/attachments
       - FINARCH_ATTACHMENT_MAX_BYTES=${FINARCH_ATTACHMENT_MAX_BYTES:-20971520}
+      - FINARCH_ATTACHMENT_MAX_FILES_PER_USER=${FINARCH_ATTACHMENT_MAX_FILES_PER_USER:-500}
+      - FINARCH_ATTACHMENT_MAX_TOTAL_BYTES_PER_USER=${FINARCH_ATTACHMENT_MAX_TOTAL_BYTES_PER_USER:-1073741824}
+      - FINARCH_ATTACHMENT_UPLOADS_PER_MINUTE=${FINARCH_ATTACHMENT_UPLOADS_PER_MINUTE:-30}
+      - FINARCH_ATTACHMENT_ORPHAN_TTL=${FINARCH_ATTACHMENT_ORPHAN_TTL:-24h}
+      - FINARCH_ATTACHMENT_ORPHAN_CLEANUP_INTERVAL=${FINARCH_ATTACHMENT_ORPHAN_CLEANUP_INTERVAL:-1h}
+      - FINARCH_ATTACHMENT_ORPHAN_CLEANUP_BATCH_SIZE=${FINARCH_ATTACHMENT_ORPHAN_CLEANUP_BATCH_SIZE:-100}
       - FINARCH_RECURRING_AUTORUN=${FINARCH_RECURRING_AUTORUN:-true}
       - FINARCH_RECURRING_INTERVAL=${FINARCH_RECURRING_INTERVAL:-15m}
       - FINARCH_RECURRING_BATCH_LIMIT=${FINARCH_RECURRING_BATCH_LIMIT:-100}
@@ -37,6 +59,10 @@ services:
       - FINARCH_OCR_AISTUDIO_OPTIONAL_PAYLOAD=${FINARCH_OCR_AISTUDIO_OPTIONAL_PAYLOAD:-}
       - FINARCH_OCR_AISTUDIO_POLL_INTERVAL=${FINARCH_OCR_AISTUDIO_POLL_INTERVAL:-2s}
       - FINARCH_OCR_AISTUDIO_MAX_RESULT_BYTES=${FINARCH_OCR_AISTUDIO_MAX_RESULT_BYTES:-10485760}
+      - FINARCH_OCR_AISTUDIO_ALLOWED_RESULT_HOSTS=${FINARCH_OCR_AISTUDIO_ALLOWED_RESULT_HOSTS:-}
+      - FINARCH_OCR_MAX_CONCURRENT_PER_USER=${FINARCH_OCR_MAX_CONCURRENT_PER_USER:-1}
+      - FINARCH_OCR_MAX_CONCURRENT_GLOBAL=${FINARCH_OCR_MAX_CONCURRENT_GLOBAL:-4}
+      - FINARCH_OCR_MAX_RUNS_PER_HOUR=${FINARCH_OCR_MAX_RUNS_PER_HOUR:-20}
       - GIN_MODE=release
       # Cloudflare Turnstile CAPTCHA (leave empty to disable for local dev)
       # Get keys at https://dash.cloudflare.com/?to=/:account/turnstile
@@ -64,7 +90,9 @@ services:
       - ALL
     read_only: true
     tmpfs:
-      - /tmp
+      # One 100 MiB restore upload can coexist with up to 200 MiB of extracted data.
+      # Keep maintenance restores serialized; increase this explicitly before concurrent restores.
+      - /tmp:size=${FINARCH_TMPFS_SIZE:-512m},mode=1777
     depends_on:
       init-permissions:
         condition: service_completed_successfully
@@ -78,7 +106,7 @@ services:
   # Litestream 实时备份 sidecar（可选，需要 Cloudflare R2 凭据）
   # 启用方式：docker compose --profile backup up -d
   litestream:
-    image: litestream/litestream:0.3.13
+    image: litestream/litestream:0.3.13@sha256:027eda2a89a86015b9797d2129d4dd447e8953097b4190e1d5a30b73e76d8d58
     container_name: finarch-litestream
     restart: unless-stopped
     user: "10001:10001"

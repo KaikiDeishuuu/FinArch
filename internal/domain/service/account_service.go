@@ -116,7 +116,8 @@ func (s *AccountService) CreateAccount(
 
 // DeleteAccount soft-deletes an account. Enforces two backend-side guards:
 //  1. The last account of each type (personal / public) cannot be deleted.
-//  2. Accounts with unreimbursed expense transactions cannot be deleted.
+//  2. Accounts with any transaction history cannot be deleted. A future
+//     archive/transfer workflow must preserve that history explicitly.
 func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID string) error {
 	return s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
 		a, err := s.accounts.GetByID(txCtx, accountID)
@@ -140,13 +141,14 @@ func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID st
 			return fmt.Errorf("至少需要保留一个%s账户，无法删除", typeLabel)
 		}
 
-		// Guard 2: disallow deletion while unreimbursed expenses are bound to this account.
-		hasUnreimbursed, err := s.transactions.HasUnreimbursedByAccount(txCtx, accountID, userID)
+		// Guard 2: deleting an account with history would make its balance and
+		// statements disappear from active-account views.
+		hasTransactions, err := s.transactions.HasTransactionsByAccount(txCtx, accountID, userID)
 		if err != nil {
 			return fmt.Errorf("删除失败，请稍后重试")
 		}
-		if hasUnreimbursed {
-			return fmt.Errorf("该子账户存在未报销的交易，无法删除，请先完成报销后再操作")
+		if hasTransactions {
+			return fmt.Errorf("%w: 该账户存在历史交易，请先归档或转移交易后再操作", ErrResourceConflict)
 		}
 
 		return s.accounts.Delete(txCtx, accountID, userID)

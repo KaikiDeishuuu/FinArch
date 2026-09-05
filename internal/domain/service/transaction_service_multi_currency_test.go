@@ -18,7 +18,7 @@ type fakeTxRepo struct {
 }
 
 func (f *fakeTxRepo) Create(_ context.Context, t model.Transaction) error { f.created = t; return nil }
-func (f *fakeTxRepo) GetByIDs(context.Context, []string) ([]model.Transaction, error) {
+func (f *fakeTxRepo) GetByIDs(context.Context, string, []string) ([]model.Transaction, error) {
 	return nil, nil
 }
 func (f *fakeTxRepo) GetByIDForUser(context.Context, string, string) (model.Transaction, error) {
@@ -26,6 +26,9 @@ func (f *fakeTxRepo) GetByIDForUser(context.Context, string, string) (model.Tran
 }
 func (f *fakeTxRepo) GetByIdempotencyKey(context.Context, string, string) (model.Transaction, error) {
 	return model.Transaction{}, errors.New("not found")
+}
+func (f *fakeTxRepo) ClaimIdempotencyKey(_ context.Context, _, _, _, requestHash string) (string, bool, error) {
+	return requestHash, true, nil
 }
 func (f *fakeTxRepo) SetAttachmentKey(context.Context, string, string, string) error   { return nil }
 func (f *fakeTxRepo) ClearAttachmentKey(context.Context, string, string, string) error { return nil }
@@ -35,7 +38,7 @@ func (f *fakeTxRepo) ListByUser(context.Context, string, model.Mode) ([]model.Tr
 func (f *fakeTxRepo) ListUnreimbursedPersonalExpenses(context.Context, string, *string, int, model.Mode) ([]model.Transaction, error) {
 	return nil, nil
 }
-func (f *fakeTxRepo) MarkReimbursed(context.Context, []string, string) error { return nil }
+func (f *fakeTxRepo) MarkReimbursed(context.Context, string, []string, string) error { return nil }
 func (f *fakeTxRepo) ToggleReimbursed(context.Context, string, string) (bool, error) {
 	return false, nil
 }
@@ -43,7 +46,7 @@ func (f *fakeTxRepo) ToggleUploaded(context.Context, string, string) (bool, erro
 func (f *fakeTxRepo) SumPoolBalance(context.Context, string, model.Mode) (model.Money, model.Money, error) {
 	return 0, 0, nil
 }
-func (f *fakeTxRepo) HasUnreimbursedByAccount(context.Context, string, string) (bool, error) {
+func (f *fakeTxRepo) HasTransactionsByAccount(context.Context, string, string) (bool, error) {
 	return false, nil
 }
 func (f *fakeTxRepo) GetRecentRate(context.Context, string, string, string) (float64, int64, string, error) {
@@ -73,9 +76,13 @@ func (f fakeAcctRepo) CountByUserAndType(context.Context, string, model.AccountT
 type fakeRateSvc struct {
 	result ExchangeRateResult
 	err    error
+	calls  *int
 }
 
 func (f fakeRateSvc) GetRate(context.Context, string, string, time.Time) (ExchangeRateResult, error) {
+	if f.calls != nil {
+		(*f.calls)++
+	}
 	if f.err != nil {
 		return ExchangeRateResult{}, f.err
 	}
@@ -84,7 +91,7 @@ func (f fakeRateSvc) GetRate(context.Context, string, string, time.Time) (Exchan
 
 func TestCreateTransaction_ConvertsToAccountBaseCurrency(t *testing.T) {
 	txRepo := &fakeTxRepo{}
-	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY"}}
+	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY", IsActive: true}}
 	rate := big.NewRat(76123, 10000) // 7.6123
 	svc := NewTransactionService(txRepo, acctRepo, fakeRateSvc{result: ExchangeRateResult{Rate: rate, RateFloat: 7.6123, Source: "test", At: time.Unix(1700000000, 0)}})
 
@@ -102,7 +109,7 @@ func TestCreateTransaction_ConvertsToAccountBaseCurrency(t *testing.T) {
 
 func TestCreateTransaction_FallbackToStoredRate(t *testing.T) {
 	txRepo := &fakeTxRepo{recentRate: 8.0, recentAt: 1700000100, recentSource: "history"}
-	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY"}}
+	acctRepo := fakeAcctRepo{acct: model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY", IsActive: true}}
 	svc := NewTransactionService(txRepo, acctRepo, fakeRateSvc{err: errors.New("api down")})
 
 	_, err := svc.CreateTransaction(context.Background(), CreateTransactionRequest{UserID: "u1", AccountID: "a1", TxType: model.TxTypeExpense, Category: "meal", Currency: "EUR", AmountCents: 1568, OccurredAt: time.Unix(1700000000, 0)})
@@ -114,5 +121,33 @@ func TestCreateTransaction_FallbackToStoredRate(t *testing.T) {
 	}
 	if txRepo.created.BaseAmountCents != 12544 {
 		t.Fatalf("unexpected converted cents %d", txRepo.created.BaseAmountCents)
+	}
+}
+
+func TestCreateTransactionRejectsMismatchedResolvedRateEvidence(t *testing.T) {
+	txRepo := &fakeTxRepo{}
+	account := model.Account{ID: "a1", UserID: "u1", Type: model.AccountTypePublic, Currency: "CNY", IsActive: true}
+	acctRepo := fakeAcctRepo{acct: account}
+	rateCalls := 0
+	rateAt := time.Unix(1700000100, 0).UTC()
+	svc := NewTransactionService(txRepo, acctRepo, fakeRateSvc{result: ExchangeRateResult{
+		Rate: big.NewRat(76123, 10000), RateFloat: 7.6123, Source: "trusted-provider", At: rateAt,
+	}, calls: &rateCalls})
+	occurredAt := time.Unix(1700000000, 0).UTC()
+
+	_, err := svc.CreateTransaction(context.Background(), CreateTransactionRequest{
+		UserID: "u1", AccountID: account.ID, TxType: model.TxTypeExpense,
+		Category: "meal", Currency: "EUR", AmountCents: 100, OccurredAt: occurredAt,
+		resolvedRate: &resolvedTransactionRateEvidence{
+			userID: "u1", accountID: account.ID,
+			fromCurrency: "USD", baseCurrency: "CNY", occurredAtUnix: occurredAt.Unix(),
+			rate: 999, source: "forged", rateAt: occurredAt,
+		},
+	})
+	if !errors.Is(err, ErrResolvedRateEvidenceMismatch) {
+		t.Fatalf("mismatched evidence error=%v, want %v", err, ErrResolvedRateEvidenceMismatch)
+	}
+	if rateCalls != 0 || txRepo.created.ID != "" {
+		t.Fatalf("mismatched evidence performed side effects: rate_calls=%d created=%+v", rateCalls, txRepo.created)
 	}
 }

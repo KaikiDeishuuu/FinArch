@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"finarch/internal/domain/model"
+	domainrepo "finarch/internal/domain/repository"
 )
 
 // SQLiteBudgetRepository stores monthly budgets in SQLite.
@@ -127,7 +128,21 @@ func (r *SQLiteBudgetRepository) GetMonthlyExpenseActuals(ctx context.Context, u
 	}
 	from := start.Format("2006-01-02")
 	to := start.AddDate(0, 1, 0).Format("2006-01-02")
-	rows, err := getExecutor(ctx, r.db).QueryContext(ctx, `
+	exec := getExecutor(ctx, r.db)
+	var incompatible int
+	if err := exec.QueryRowContext(ctx, `
+		SELECT EXISTS(
+		  SELECT 1 FROM transactions
+		  WHERE user_id = ? AND mode = ? AND type = 'expense'
+		    AND txn_date >= ? AND txn_date < ?
+		    AND COALESCE(NULLIF(UPPER(TRIM(base_currency)), ''), 'CNY') != 'CNY'
+		)`, userID, string(mode), from, to).Scan(&incompatible); err != nil {
+		return model.BudgetActuals{}, fmt.Errorf("check budget actual currencies: %w", err)
+	}
+	if incompatible != 0 {
+		return model.BudgetActuals{}, fmt.Errorf("%w: 预算汇总暂不支持混合本位币", domainrepo.ErrMultiCurrencyReportingUnavailable)
+	}
+	rows, err := exec.QueryContext(ctx, `
 		SELECT COALESCE(category, ''), COALESCE(SUM(base_amount_cents), 0)
 		FROM transactions
 		WHERE user_id = ?

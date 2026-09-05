@@ -8,7 +8,7 @@
 
 轻量高效的多用户财务管理系统
 
-[![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
+[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -54,10 +54,10 @@
 ### 更多特性
 
 - **👥 多用户隔离**：每个账号数据独立，互不可见
-- **🔐 企业级安全**：邮箱验证注册 · 密码重置 · 邮箱变更双重验证 · 改密即时踢出全部设备
+- **🔐 会话安全**：15 分钟 access token · HttpOnly refresh cookie 轮换 · 改密即时踢出全部设备
 - **📱 PWA 支持**：可安装至桌面/主屏，原生应用体验
 - **☁️ 自动备份**：可选 Litestream 实时流式备份至 Cloudflare R2
-- **🛡️ 灾难恢复**：邮箱验证的公开恢复流程，即使 JWT 认证不可用也能恢复数据
+- **🛡️ 受控灾备**：Litestream R2 恢复 + 默认关闭、仅维护窗口启用的整库运维接口
 - **📡 在线设备监控**：Dashboard 实时显示当前在线设备数量（心跳机制，2 分钟间隔）
 - **🤖 人机验证**：可选 Cloudflare Turnstile 防护
 - **🧹 自动清理**：未验证账户 24 小时后自动清除，设备心跳 10 分钟超时自动回收
@@ -68,7 +68,7 @@
 
 ### 本地开发
 
-> 前置条件：Go 1.24+、Node.js 20+
+> 前置条件：Go 1.26.6+、Node.js 22+
 
 ```bash
 git clone https://github.com/KaikiDeishuuu/FinArch.git
@@ -81,7 +81,8 @@ go run ./cmd/cli serve
 cd frontend && npm install && npm run dev
 ```
 
-前端已配置 `/api` 代理，开箱即用。本地开发无需配置邮件等环境变量。
+前端已配置 `/api` 代理，开箱即用。本地开发无需配置邮件等环境变量。CLI 开发服务器
+使用非 `Secure` cookie，因此只能绑定回环地址，不能暴露到局域网或公网。
 
 ### 生产部署
 
@@ -96,18 +97,20 @@ docker compose up -d
 | 变量 | 说明 | 必填 |
 |------|------|:----:|
 | `JWT_SECRET` | Token 签名密钥 | ✅ |
-| `APP_BASE_URL` | 站点地址 | ✅ |
+| `FINARCH_IMAGE_TAG` | 要部署的不可变镜像标签，生产环境使用 `sha-<commit sha>` | ✅ |
+| `FINARCH_TRUSTED_PROXY_CIDRS` | 直连代理及 XFF 可信后缀内全部受控代理的精确 IP/CIDR；Compose 缺失时拒绝启动 | ✅ |
+| `APP_BASE_URL` | 邮件链接使用的站点地址；留空时使用服务端默认值 | 可选 |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | 邮件服务 | 可选 |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` | 人机验证 | 可选 |
 | `FINARCH_OCR_PROVIDER` / `FINARCH_OCR_AISTUDIO_*` | 附件 OCR，可选 PaddleOCR AIStudio | 可选 |
 | `LITESTREAM_*` | R2 备份 | 可选 |
 
-> 留空可选变量时，相关功能自动跳过。详细部署指南见 [DEPLOYMENT.md](DEPLOYMENT.md)（[English](DEPLOYMENT.en.md)）。
+> Compose 固定启用代理模式。必须填写完整、精确且受控的代理链地址；`0.0.0.0/0`、`::/0` 会被拒绝，也不能用全部私网作为方便的默认值。直接运行服务则默认忽略转发头。其他可选变量留空时，相关功能自动跳过。详细部署指南见 [DEPLOYMENT.md](DEPLOYMENT.md)（[English](DEPLOYMENT.en.md)）。
 
 ### CI/CD
 
 ```
-git push → GitHub Actions 构建镜像 → GHCR → VPS 拉取并重启
+push main → CI 成功且提交仍为 main 最新版本 → 构建 SHA 镜像 → GHCR → VPS 串行部署
 ```
 
 ---
@@ -155,12 +158,12 @@ FinArch/
 
 | | |
 |---|---|
-| **后端** | Go 1.24 · Gin · SQLite (WAL) |
+| **后端** | Go 1.26.6 · Gin · SQLite (WAL) |
 | **前端** | React 19 · Vite 7 · Tailwind CSS v4 · Framer Motion · Recharts |
 | **部署** | Docker 多阶段构建 · GitHub Actions → GHCR → SSH Deploy |
-| **安全** | JWT (HMAC HS256) · Cloudflare Turnstile · IP 限流 · 账户锁定 |
-| **邮件** | Resend（验证 · 重置 · 灾难恢复） |
-| **备份** | Litestream → Cloudflare R2 · 应用内下载/恢复 · 灾难恢复 |
+| **安全** | JWT (HMAC HS256) · HttpOnly refresh 会话 · Cloudflare Turnstile · IP 限流 · 账户锁定 |
+| **邮件** | Resend（验证 · 重置 · 邮箱变更） |
+| **备份** | Litestream → Cloudflare R2 · 维护窗口物理备份/恢复 |
 | **PWA** | Workbox Service Worker · 离线缓存 · 主屏安装 |
 
 ---

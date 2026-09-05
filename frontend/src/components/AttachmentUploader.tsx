@@ -1,8 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { Attachment, OCRSuggestion } from '../api/client'
 import { useAttachmentMutations } from '../hooks/useAttachments'
+import { attachmentOCRText, hasOCRSuggestion } from '../utils/ocr'
+import OcrTextDisclosure from './OcrTextDisclosure'
+import { deleteAttachment } from '../api/client'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -25,18 +28,35 @@ export default function AttachmentUploader({
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [runOCR, setRunOCR] = useState(true)
+  const [lastAttachment, setLastAttachment] = useState<Attachment | null>(null)
   const mutations = useAttachmentMutations(transactionId)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   async function upload() {
     if (!file) return
     try {
       const attachment = await mutations.upload.mutateAsync({ file, runOCR, kind: 'receipt' })
+      if (!mountedRef.current) {
+        if (!transactionId) {
+          await deleteAttachment(attachment.id).catch(() => undefined)
+        }
+        return
+      }
       toast.success(t('attachments.toast.uploaded'))
+      setLastAttachment(attachment)
       setFile(null)
       if (inputRef.current) inputRef.current.value = ''
       onUploaded?.(attachment)
-      if (attachment.ocr_result?.suggestion) {
+      if (hasOCRSuggestion(attachment.ocr_result?.suggestion)) {
         onSuggestion?.(attachment.ocr_result.suggestion, attachment)
+      } else if (attachmentOCRText(attachment)) {
+        toast.message(t('attachments.ocr.textReady'))
       } else if (attachment.ocr_status === 'unavailable') {
         toast.message(t('attachments.ocr.unavailable'))
       } else if (attachment.ocr_status === 'failed') {
@@ -85,6 +105,7 @@ export default function AttachmentUploader({
           {mutations.upload.isPending ? t('common.loading') : t('attachments.upload')}
         </button>
       )}
+      {lastAttachment && <OcrTextDisclosure attachment={lastAttachment} />}
     </div>
   )
 }
