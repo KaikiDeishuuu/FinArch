@@ -1,23 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
 import { Trans, useTranslation } from 'react-i18next'
 import {
-  changePassword, downloadBackup, requestBackupExportToken, getBackupInfo,
-  requestDeleteAccount, requestEmailChange, getMe,
+  changePassword, requestDeleteAccount, requestEmailChange, getMe,
   createAccount, renameAccount, deleteAccount, updateNickname,
 } from '../api/client'
-import type { UserProfile, BackupInfo } from '../api/client'
+import type { UserProfile } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
-import { TRANSACTIONS_QUERY_KEY, useTransactions } from '../hooks/useTransactions'
+import { useTransactions } from '../hooks/useTransactions'
 import { useMode } from '../hooks/useMode'
 import Select from '../components/Select'
-import BackupPasswordModal from '../components/BackupPasswordModal'
-import CrossAccountRestoreModal from '../components/CrossAccountRestoreModal'
-import { useRestoreBackup } from '../hooks/useRestoreBackup'
 import { CURRENCY_SYMBOLS } from '../constants/currencies'
+import { useConfig } from '../hooks/useConfig'
 
 // ─── Password strength (shared logic) ────────────────────────────────────────
 type Strength = 'none' | 'weak' | 'medium' | 'strong'
@@ -101,12 +98,27 @@ function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warni
   )
 }
 
+function OperationsNotice({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-dashed border-violet-200 bg-violet-50/60 px-4 py-3 dark:border-violet-500/30 dark:bg-violet-500/10">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-violet-500 shadow-sm dark:bg-violet-950/60 dark:text-violet-300" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-violet-800 dark:text-violet-200">{title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-violet-700/75 dark:text-violet-300/75">{description}</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { t } = useTranslation()
-  const { user, updateUser } = useAuth()
+  const navigate = useNavigate()
+  const { user, clearSession, updateUser } = useAuth()
+  const { systemOperationsEnabled } = useConfig()
   const { isWorkMode, mode } = useMode()
-  const queryClient = useQueryClient()
   const { data: accounts = [], isLoading: acctLoading } = useAccounts()
   const invalidateAccounts = useInvalidateAccounts()
   const { data: transactions = [] } = useTransactions()
@@ -169,6 +181,11 @@ export default function SettingsPage() {
       await changePassword(currentPw, newPw)
       setPwSuccess(true)
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      // Password changes revoke every server-side session, including this one.
+      // Drop the in-memory access token immediately instead of waiting for the
+      // next API request to discover the revocation.
+      clearSession()
+      navigate('/login?password_changed=1', { replace: true })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setPwError(msg || t('settings.password.toast.error'))
@@ -202,82 +219,6 @@ export default function SettingsPage() {
     } finally {
       setEmailLoading(false)
     }
-  }
-
-  // ── Backup ────────────────────────────────────────────────────────────────
-  const [backupLoading, setBackupLoading] = useState(false)
-  const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null)
-  const [backupModalOpen, setBackupModalOpen] = useState(false)
-
-  // Load backup info on mount
-  useEffect(() => {
-    getBackupInfo().then(setBackupInfo).catch(() => {/* ignore */ })
-  }, [])
-
-  async function handleDownloadBackup(password: string) {
-    setBackupLoading(true)
-    try {
-      if (!password) { throw new Error(t('common.cancel')) }
-      const exportToken = await requestBackupExportToken(password)
-      await downloadBackup(exportToken)
-      toast.success(t('settings.backup.toast.success'))
-      setBackupModalOpen(false) // Close modal on success
-    } catch (err: unknown) {
-      if ((err as { response?: { data?: { message?: string } } })?.response?.data?.message) {
-        throw err
-      }
-      toast.error(t('settings.backup.toast.error'))
-    } finally {
-      setBackupLoading(false)
-    }
-  }
-
-  // ── Restore ───────────────────────────────────────────────────────────────
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [restoreFile, setRestoreFile] = useState<File | null>(null)
-  const [restoreConfirm, setRestoreConfirm] = useState(false)
-
-  const restoreFlow = useRestoreBackup(async (result) => {
-    toast.success(
-      result.migrated_to > result.restored_version
-        ? t('settings.restore.toast.successMigrated', { from: result.restored_version, to: result.migrated_to })
-        : t('settings.restore.toast.success')
-    )
-    setRestoreFile(null)
-    setRestoreConfirm(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    queryClient.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY(user?.id, mode) })
-    queryClient.invalidateQueries({ queryKey: ['accounts', user?.id, mode] })
-    getBackupInfo().then(setBackupInfo).catch(() => { })
-  })
-
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / 1048576).toFixed(1) + ' MB'
-  }
-
-  async function handleRestore() {
-    if (!restoreFile) return
-    try {
-      const status = await restoreFlow.requestRestore(restoreFile)
-      if (status.status === 'verification_required') {
-        toast(t('settings.restore.crossAccount.prompt'))
-      }
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(msg || t('settings.restore.toast.error'))
-    }
-  }
-
-  async function handleCrossAccountSendCode(email: string) {
-    await restoreFlow.sendEmailCode(email, restoreFile ?? undefined)
-    toast.success(t('settings.restore.crossAccount.emailSentToast'))
-  }
-
-  async function handleCrossAccountVerify(code: string) {
-    await restoreFlow.submitCode(code)
-    toast.success(t('settings.restore.crossAccount.verified'))
   }
 
   // ── Delete account ────────────────────────────────────────────────────────
@@ -660,32 +601,9 @@ export default function SettingsPage() {
         <div className="flex flex-col">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.backup')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('settings.backup.desc')}</p>
-            {backupInfo && (
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-xs text-gray-500 dark:text-gray-400">
-                <span className="tabular-nums">{backupInfo.transactions} {t('settings.backup.transactions')}</span>
-                <span className="tabular-nums">{backupInfo.accounts} {t('settings.backup.accounts')}</span>
-                <span className="tabular-nums">Schema v{backupInfo.schema_version}</span>
-                <span className="tabular-nums">{formatFileSize(backupInfo.db_size_bytes)}</span>
-                <span className={`inline-flex items-center gap-1 ${backupInfo.journal_mode === 'wal' ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${backupInfo.journal_mode === 'wal' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  {backupInfo.journal_mode === 'wal' ? 'WAL' : backupInfo.journal_mode.toUpperCase()}
-                </span>
-              </div>
-            )}
-            <button type="button" onClick={() => setBackupModalOpen(true)} disabled={backupLoading}
-              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              {t('settings.backup.download')}
-            </button>
-            <BackupPasswordModal
-              isOpen={backupModalOpen}
-              onClose={() => setBackupModalOpen(false)}
-              onSubmit={handleDownloadBackup}
-              isLoading={backupLoading}
-              t={t}
+            <OperationsNotice
+              title={t(systemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')}
+              description={t(systemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')}
             />
           </div>
         </div>
@@ -696,71 +614,13 @@ export default function SettingsPage() {
         <div className="flex flex-col">
           <div className="hidden md:block"><SectionLabel>{t('settings.sections.restore')}</SectionLabel></div>
           <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-amber-100 dark:border-amber-500/30 p-5 flex-1">
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-              {t('settings.restore.desc')}
-            </p>
-            <div className="space-y-3">
-              <input ref={fileInputRef} type="file" accept=".db,.zip"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] ?? null
-                  setRestoreFile(f); setRestoreConfirm(false)
-                }}
-                className="hidden"
-              />
-              {!restoreFile && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 border border-gray-200 dark:border-gray-700 hover:border-violet-300 dark:hover:border-violet-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 text-sm font-medium text-gray-600 dark:text-gray-300 px-4 py-2.5 rounded-xl transition-colors"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                  {t('settings.restore.selectFile')}
-                </button>
-              )}
-              {restoreFile && !restoreConfirm && (
-                <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3 text-sm text-amber-800 dark:text-amber-400">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    <p className="font-semibold">{restoreFile.name}</p>
-                    <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums">({formatFileSize(restoreFile.size)})</span>
-                  </div>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                    <Trans i18nKey="settings.restore.warning" components={{ strong: <strong /> }} />
-                  </p>
-                  <button type="button" onClick={() => setRestoreConfirm(true)}
-                    className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
-                    {t('settings.restore.confirmButton')}
-                  </button>
-                </div>
-              )}
-              {restoreFile && restoreConfirm && (
-                <button type="button" onClick={handleRestore} disabled={restoreFlow.loading}
-                  className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-                  {restoreFlow.loading ? (
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
-                    </svg>
-                  )}
-                  {restoreFlow.loading ? t('settings.restore.restoring') : t('settings.restore.restoreNow')}
-                </button>
-              )}
-            </div>
+            <OperationsNotice
+              title={t(systemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')}
+              description={t(systemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')}
+            />
           </div>
         </div>
         </MobileCollapsibleSection>
-
-        <CrossAccountRestoreModal
-          isOpen={restoreFlow.verification.open}
-          onClose={restoreFlow.closeVerification}
-          onSendCode={handleCrossAccountSendCode}
-          onVerify={handleCrossAccountVerify}
-          isLoading={restoreFlow.loading}
-          emailSent={restoreFlow.verification.emailSent}
-          maskedEmail={restoreFlow.verification.maskedEmail}
-          t={t}
-        />
 
         {/* ── Danger zone ─────────────────────────────────────── full width ── */}
         <MobileCollapsibleSection title={t('settings.sections.danger')}>

@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { listAccounts } from '../api/client'
+import type { AppMode } from '../api/client'
 import { useMode } from '../hooks/useMode'
 
-export function useAccounts() {
+export function useAccounts(requestedMode?: AppMode) {
   const { user } = useAuth()
-  const { mode } = useMode()
+  const { mode: currentMode } = useMode()
+  const mode = requestedMode ?? currentMode
   return useQuery({
     queryKey: ['accounts', user?.id, mode],
     queryFn: () => listAccounts(mode),

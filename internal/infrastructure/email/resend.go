@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -28,6 +31,7 @@ type ResendSender struct {
 	apiKey  string
 	from    string
 	baseURL string // base URL of the app, used to build links
+	client  *http.Client
 }
 
 // NewResendSender returns a ResendSender. If apiKey is empty it returns a NoopSender.
@@ -43,7 +47,37 @@ func NewResendSender(apiKey, from, baseURL string) Sender {
 		apiKey:  apiKey,
 		from:    from,
 		baseURL: baseURL,
+		client:  &http.Client{Timeout: 10 * time.Second},
 	}
+}
+
+// actionLink builds a same-site action URL whose one-time bearer stays out of
+// HTTP request targets, Referer headers, and reverse-proxy access logs. The
+// frontend reads the fragment locally and sends the token in a POST body.
+func (s *ResendSender) actionLink(route, token string) (string, error) {
+	base, err := url.Parse(strings.TrimSpace(s.baseURL))
+	if err != nil {
+		return "", fmt.Errorf("parse app base URL: %w", err)
+	}
+	if base.Host == "" || (!strings.EqualFold(base.Scheme, "https") && !strings.EqualFold(base.Scheme, "http")) {
+		return "", fmt.Errorf("app base URL must be an absolute HTTP(S) URL")
+	}
+
+	link := base.JoinPath(strings.TrimPrefix(route, "/"))
+	link.RawQuery = ""
+	link.ForceQuery = false
+	link.Fragment = ""
+	link.RawFragment = ""
+	fragment := url.Values{"token": {token}}.Encode()
+	return link.String() + "#" + fragment, nil
+}
+
+func escapeEmailText(value string) string {
+	return html.EscapeString(value)
+}
+
+func escapeEmailAttribute(value string) string {
+	return html.EscapeString(value)
 }
 
 // buildEmailHTML wraps body content in a consistent email shell.
@@ -112,12 +146,12 @@ func buildEmailHTML(_, bodyHTML string) string {
 </html>`, inlineLogo, bodyHTML, 2026)
 }
 
-func (s *ResendSender) send(to, subject, html string) error {
+func (s *ResendSender) send(to, subject, htmlBody string) error {
 	body, _ := json.Marshal(map[string]any{
 		"from":    s.from,
 		"to":      []string{to},
 		"subject": subject,
-		"html":    html,
+		"html":    htmlBody,
 	})
 	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(body))
 	if err != nil {
@@ -126,7 +160,10 @@ func (s *ResendSender) send(to, subject, html string) error {
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := s.client
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("resend: send: %w", err)
@@ -139,7 +176,12 @@ func (s *ResendSender) send(to, subject, html string) error {
 }
 
 func (s *ResendSender) SendVerification(toEmail, toName, token string) error {
-	link := s.baseURL + "/verify-email?token=" + token
+	link, err := s.actionLink("/verify-email", token)
+	if err != nil {
+		return fmt.Errorf("verification email link: %w", err)
+	}
+	linkAttribute := escapeEmailAttribute(link)
+	linkText := escapeEmailText(link)
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">验证您的邮箱地址</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">完成注册，激活您的 FinArch 账号</p>
@@ -160,13 +202,18 @@ func (s *ResendSender) SendVerification(toEmail, toName, token string) error {
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有注册 FinArch 账号，请忽略此邮件，无需进行任何操作。</p>`,
-		toName, link, link, link)
+		escapeEmailText(toName), linkAttribute, linkAttribute, linkText)
 	html := buildEmailHTML("", body)
 	return s.send(toEmail, "验证您的 FinArch 邮箱地址", html)
 }
 
 func (s *ResendSender) SendPasswordReset(toEmail, toName, token string) error {
-	link := s.baseURL + "/reset-password?token=" + token
+	link, err := s.actionLink("/reset-password", token)
+	if err != nil {
+		return fmt.Errorf("password reset email link: %w", err)
+	}
+	linkAttribute := escapeEmailAttribute(link)
+	linkText := escapeEmailText(link)
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">重置您的密码</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">我们收到了您的密码重置申请</p>
@@ -188,13 +235,18 @@ func (s *ResendSender) SendPasswordReset(toEmail, toName, token string) error {
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件，您的密码不会被更改。为了账户安全，请勿将此链接分享给任何人。</p>`,
-		toName, link, link, link)
+		escapeEmailText(toName), linkAttribute, linkAttribute, linkText)
 	html := buildEmailHTML("", body)
 	return s.send(toEmail, "FinArch 密码重置申请", html)
 }
 
 func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error {
-	link := s.baseURL + "/confirm-delete-account?token=" + token
+	link, err := s.actionLink("/confirm-delete-account", token)
+	if err != nil {
+		return fmt.Errorf("account deletion email link: %w", err)
+	}
+	linkAttribute := escapeEmailAttribute(link)
+	linkText := escapeEmailText(link)
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">确认注销您的账户</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">此操作不可撤销，请谨慎确认</p>
@@ -216,13 +268,18 @@ func (s *ResendSender) SendAccountDeletion(toEmail, toName, token string) error 
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并立即修改密码以保护账户安全。</p>`,
-		toName, link, link, link)
+		escapeEmailText(toName), linkAttribute, linkAttribute, linkText)
 	html := buildEmailHTML("", body)
 	return s.send(toEmail, "⚠️ 确认注销您的 FinArch 账户", html)
 }
 
 func (s *ResendSender) SendEmailChangeOldVerify(toOldEmail, toUsername, newEmail, token string) error {
-	link := s.baseURL + "/confirm-email-change-old?token=" + token
+	link, err := s.actionLink("/confirm-email-change-old", token)
+	if err != nil {
+		return fmt.Errorf("old-email confirmation link: %w", err)
+	}
+	linkAttribute := escapeEmailAttribute(link)
+	linkText := escapeEmailText(link)
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">授权更换登录邮箱</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">请在您的当前邮箱确认此次变更请求</p>
@@ -245,13 +302,18 @@ func (s *ResendSender) SendEmailChangeOldVerify(toOldEmail, toUsername, newEmail
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并立即修改密码以保护账户安全。</p>`,
-		toUsername, newEmail, link, link, link)
+		escapeEmailText(toUsername), escapeEmailText(newEmail), linkAttribute, linkAttribute, linkText)
 	html := buildEmailHTML("", body)
 	return s.send(toOldEmail, "FinArch 登录邮箱变更授权", html)
 }
 
 func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) error {
-	link := s.baseURL + "/confirm-email-change?token=" + token
+	link, err := s.actionLink("/confirm-email-change", token)
+	if err != nil {
+		return fmt.Errorf("new-email confirmation link: %w", err)
+	}
+	linkAttribute := escapeEmailAttribute(link)
+	linkText := escapeEmailText(link)
 	body := fmt.Sprintf(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#111827">验证您的新邮箱</h1>
       <p style="margin:0 0 28px;color:#6b7280;font-size:14px">您申请更换登录邮箱</p>
@@ -273,7 +335,7 @@ func (s *ResendSender) SendEmailChange(toNewEmail, toUsername, token string) err
       </p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件并尽快修改密码以保护账户安全。</p>`,
-		toUsername, link, link, link)
+		escapeEmailText(toUsername), linkAttribute, linkAttribute, linkText)
 	html := buildEmailHTML("", body)
 	return s.send(toNewEmail, "FinArch 登录邮箱验证", html)
 }
@@ -296,7 +358,7 @@ func (s *ResendSender) SendRestoreCode(toEmail, toName, code string) error {
       </table>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
       <p style="margin:0;color:#9ca3af;font-size:12px">如果您没有发起此请求，请忽略此邮件。请勿将验证码分享给任何人。</p>`,
-		toName, code)
+		escapeEmailText(toName), escapeEmailText(code))
 	html := buildEmailHTML("", body)
 	return s.send(toEmail, "FinArch 灾难恢复验证码", html)
 }

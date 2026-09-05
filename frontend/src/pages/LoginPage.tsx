@@ -101,6 +101,7 @@ export default function LoginPage() {
   const tokenError = searchParams.get('error') === 'invalid_token'
   const accountDeleted = searchParams.get('deleted') === '1'
   const emailChanged = searchParams.get('email_changed') === '1'
+  const passwordChanged = searchParams.get('password_changed') === '1'
   const captchaRequired = captchaEnabled && !!turnstileSiteKey
   const captchaUnavailable = configLoadError || (captchaEnabled && !turnstileSiteKey)
 
@@ -217,6 +218,7 @@ export default function LoginPage() {
           {justVerified && <StatusMessage tone="success">{t('login.status.verified')}</StatusMessage>}
           {accountDeleted && <StatusMessage>{t('login.status.deleted')}</StatusMessage>}
           {emailChanged && <StatusMessage tone="success">{t('login.status.emailChanged')}</StatusMessage>}
+          {passwordChanged && <StatusMessage tone="success">{t('login.status.passwordChanged')}</StatusMessage>}
           {tokenError && <StatusMessage tone="error">{t('login.status.tokenError')}</StatusMessage>}
         </div>
 

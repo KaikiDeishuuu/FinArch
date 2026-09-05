@@ -1,33 +1,51 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Trans, useTranslation } from 'react-i18next'
-import { toggleReimbursed, toggleUploaded } from '../api/client'
+import { toggleReimbursed } from '../api/client'
 import type { MatchResult, MatchResultItem, Account, Transaction } from '../api/client'
-import { formatAmount, toCNY } from '../utils/format'
+import { formatAmount } from '../utils/format'
+import { transactionAmountToCNY } from '../utils/financeAmounts'
 import { useExchangeRates } from '../hooks/useExchangeRates'
 import { useTransactions, useInvalidateTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import Select from '../components/Select'
-import type { WorkerTxItem, WorkerResult } from '../workers/match.worker'
+import { isCurrentMatchResponse, MATCH_MAX_INPUT_CANDIDATES } from '../workers/matchProtocol'
+import type { MatchWorkerResponse, WorkerTxItem } from '../workers/matchProtocol'
 import MatchWorkerConstructor from '../workers/match.worker.ts?worker'
 import { categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../hooks/useMode'
 import { useAuth } from '../hooks/useAuth'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
+import { accountModeForTransactionSource } from '../utils/accountScope'
+import type { TransactionWorkflowKind } from '../utils/transactionWorkflow'
+
+function isEligibleMatchTransaction(transaction: Pick<Transaction, 'direction' | 'source' | 'uploaded' | 'reimbursed'>, mode: Transaction['mode']) {
+  return transaction.source === 'personal' &&
+    transaction.direction === 'expense' &&
+    transaction.uploaded &&
+    (mode === 'life' || !transaction.reimbursed)
+}
 
 export default function MatchPage() {
+  const { mode } = useMode()
+
+  return <MatchPageForMode key={mode} mode={mode} />
+}
+
+function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
   const [target, setTarget] = useState('')
   const [tolerance, setTolerance] = useState('0.01')
   const [maxItems, setMaxItems] = useState('10')
-  const { mode } = useMode()
   const isLifeMode = mode === 'life'
-  const enforcedSource: 'personal' | 'company' = mode === 'work' ? 'company' : 'personal'
-  const [sourceFilter, setSourceFilter] = useState<'personal' | 'company'>(enforcedSource)
+  const workflowKind: TransactionWorkflowKind = isLifeMode ? 'upload' : 'reimbursement'
+  const enforcedSource = 'personal' as const
+  const sourceFilter = enforcedSource
   const [filterCategory, setFilterCategory] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
   const [results, setResults] = useState<MatchResult[]>([])
   const [timePruned, setTimePruned] = useState(false)
+  const [searchTruncated, setSearchTruncated] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -37,34 +55,55 @@ export default function MatchPage() {
   const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
   const { rates } = useExchangeRates()
   const { data: txs = [] } = useTransactions()
-  const { data: accounts = [] } = useAccounts()
+  const { data: accounts = [] } = useAccounts(accountModeForTransactionSource(enforcedSource))
   const invalidate = useInvalidateTransactions()
   const { t } = useTranslation()
   const { user } = useAuth()
   const workerRef = useRef<Worker | null>(null)
-  useEffect(() => {
-    setSourceFilter(enforcedSource)
-    setFilterAccount('')
+  const activeRequestIdRef = useRef(0)
+
+  const cancelActiveMatch = useCallback(() => {
+    activeRequestIdRef.current += 1
+    workerRef.current?.terminate()
+    workerRef.current = null
+    setLoading(false)
+  }, [])
+
+  const resetSearch = useCallback(() => {
+    cancelActiveMatch()
     setResults([])
+    setTimePruned(false)
+    setSearchTruncated(false)
     setSearched(false)
-  }, [enforcedSource])
+    setExpandedIdx(null)
+    setConfirmId(null)
+  }, [cancelActiveMatch])
 
-
+  const eligibleTransactions = useMemo(
+    () => txs.filter(tx => isEligibleMatchTransaction(tx, mode)),
+    [txs, mode],
+  )
   const activeAccounts = useMemo(() =>
     accounts.filter((a: Account) => a.is_active),
     [accounts]
   )
 
-  // Filter accounts by selected source tab
+  const eligibleAccountIds = useMemo(
+    () => new Set(eligibleTransactions.map(tx => tx.account_id).filter(Boolean)),
+    [eligibleTransactions],
+  )
+
+  // Only offer personal accounts that currently have matchable transactions.
   const filteredAccounts = useMemo(() => {
-    const acctType = sourceFilter === 'company' ? 'public' : 'personal'
-    return activeAccounts.filter((a: Account) => a.type === acctType)
-  }, [activeAccounts, sourceFilter])
+    return activeAccounts.filter((a: Account) => a.type === 'personal' && eligibleAccountIds.has(a.id))
+  }, [activeAccounts, eligibleAccountIds])
 
   const allCategories = useMemo(
-    () => Array.from(new Set(txs.map(tx => tx.category).filter(Boolean))).sort() as string[],
-    [txs]
+    () => Array.from(new Set(eligibleTransactions.map(tx => tx.category).filter(Boolean))).sort() as string[],
+    [eligibleTransactions]
   )
+  const effectiveFilterCategory = allCategories.includes(filterCategory) ? filterCategory : ''
+  const effectiveFilterAccount = eligibleAccountIds.has(filterAccount) ? filterAccount : ''
 
   // Lazily create the worker on first use
   function getWorker(): Worker {
@@ -75,28 +114,32 @@ export default function MatchPage() {
   }
 
   useEffect(() => {
-    return () => { workerRef.current?.terminate() }
+    return () => {
+      activeRequestIdRef.current += 1
+      workerRef.current?.terminate()
+      workerRef.current = null
+    }
   }, [])
 
-  // Compute CNY total for a result using live rates from its items
+  // Worker totals are normalized to CNY before matching.
   function cnyTotal(r: MatchResult): number {
-    if (!r.items?.length) return r.total
-    return r.items.reduce((s, item) => s + toCNY(item.amount_yuan, item.currency || 'CNY', rates), 0)
+    return r.total
   }
   // True if a result contains non-CNY currencies
   function hasMixedCurrency(r: MatchResult): boolean {
     return !!r.items?.some(item => item.currency && item.currency.toUpperCase() !== 'CNY')
   }
 
-  async function handleReimburse(id: string, alreadyUploaded: boolean) {
+  async function handleReimburse(id: string) {
+    if (isLifeMode) return
+    const transaction = txs.find(tx => tx.id === id)
+    if (!transaction || !isEligibleMatchTransaction(transaction, 'work')) return
+
     setLoadingId(id)
     try {
-      await Promise.all([
-        toggleReimbursed(id),
-        ...(alreadyUploaded ? [] : [toggleUploaded(id)]),
-      ])
+      await toggleReimbursed(id)
       setReimbursedIds(prev => new Set(prev).add(id))
-      toast.success(isLifeMode ? t('match.life.process.success') : t('match.reimburse.success'))
+      toast.success(t('match.reimburse.success'))
       invalidate()
     } finally {
       setLoadingId(null)
@@ -112,36 +155,38 @@ export default function MatchPage() {
     const tol = parseFloat(tolerance) || 0
     const maxD = parseInt(maxItems) || 10
 
+    cancelActiveMatch()
     setLoading(true)
     setResults([])
     setTimePruned(false)
+    setSearchTruncated(false)
     setSearched(false)
     setExpandedIdx(null)
     setConfirmId(null)
     setReimbursedIds(new Set())
 
-    // Build a lookup map from tx id → tx
-    const txMap = new Map(txs.map(tx => [tx.id, tx]))
-
-    // Filter: uploaded, unreimbursed, matching source type expense + extra filters
-    const candidates = txs.filter(tx =>
-      tx.source === sourceFilter &&
-      tx.direction === 'expense' &&
-      tx.uploaded &&
-      !tx.reimbursed &&
-      (!filterCategory || tx.category === filterCategory) &&
-      (!filterAccount || tx.account_id === filterAccount)
+    // Work mode matches pending personal reimbursements. Life mode uses the
+    // same uploaded personal expenses as a read-only combination/export tool.
+    const candidates = eligibleTransactions.filter(tx =>
+      (!effectiveFilterCategory || tx.category === effectiveFilterCategory) &&
+      (!effectiveFilterAccount || tx.account_id === effectiveFilterAccount)
     )
+    const inputTruncated = candidates.length > MATCH_MAX_INPUT_CANDIDATES
+    const boundedCandidates = candidates.slice(0, MATCH_MAX_INPUT_CANDIDATES)
+    const txMap = new Map(boundedCandidates.map(tx => [tx.id, tx]))
 
-    const workerItems: WorkerTxItem[] = candidates.map(tx => ({
+    const workerItems: WorkerTxItem[] = boundedCandidates.map(tx => ({
       id: tx.id,
-      amountCents: Math.round(tx.amount_yuan * 100),
+      amountCents: Math.round(transactionAmountToCNY(tx, rates) * 100),
       occurredTs: Math.floor(new Date(tx.occurred_at).getTime() / 1000),
       projectId: tx.project_id ?? undefined,
     }))
 
+    const requestId = activeRequestIdRef.current + 1
+    activeRequestIdRef.current = requestId
     const worker = getWorker()
-    worker.onmessage = (ev: MessageEvent<{ ok: boolean; results?: WorkerResult[]; error?: string }>) => {
+    worker.onmessage = (ev: MessageEvent<MatchWorkerResponse>) => {
+      if (!isCurrentMatchResponse(ev.data, activeRequestIdRef.current)) return
       setLoading(false)
       setSearched(true)
       if (!ev.data.ok) {
@@ -149,8 +194,9 @@ export default function MatchPage() {
         return
       }
       const workerResults = ev.data.results ?? []
-      const pruned = workerResults.some(r => r.timePruned)
+      const pruned = ev.data.timePruned === true || workerResults.some(r => r.timePruned)
       setTimePruned(pruned)
+      setSearchTruncated(inputTruncated || ev.data.truncated === true)
 
       // Map WorkerResult → MatchResult, enriching with cached tx data
       const mapped: MatchResult[] = workerResults.map(wr => {
@@ -165,6 +211,8 @@ export default function MatchPage() {
             category: tx.category,
             amount_yuan: tx.amount_yuan,
             currency: tx.currency,
+            base_amount_cents: tx.base_amount_cents,
+            base_currency: tx.base_currency,
             note: tx.note ?? '',
             project_id: tx.project_id ?? '',
             uploaded: tx.uploaded,
@@ -187,11 +235,13 @@ export default function MatchPage() {
       setResults(mapped)
     }
     worker.onerror = (err) => {
+      if (activeRequestIdRef.current !== requestId) return
       setLoading(false)
       setSearched(true)
       setError(err.message || t('match.error.matchFailed'))
     }
     worker.postMessage({
+      requestId,
       targetCents: Math.round(val * 100),
       toleranceCents: Math.round(tol * 100),
       maxDepth: maxD,
@@ -216,6 +266,8 @@ export default function MatchPage() {
           mode,
           amount_yuan: item.amount_yuan,
           currency: item.currency,
+          base_amount_cents: item.base_amount_cents,
+          base_currency: item.base_currency,
           note: item.note,
           project_id: item.project_id,
           reimbursed: reimbursedIds.has(item.id),
@@ -231,7 +283,7 @@ export default function MatchPage() {
     const label = isLifeMode
       ? t('match.life.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
       : t('match.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
-    exportTransactionsPDF(matchedTransactions, label, user, rates, !isLifeMode, {})
+    exportTransactionsPDF(matchedTransactions, label, user, rates, workflowKind, {})
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
@@ -256,7 +308,10 @@ export default function MatchPage() {
                 <button
                   key={key}
                   type="button"
-                  onClick={() => { setSourceFilter(key); setFilterAccount(''); setResults([]); setSearched(false) }}
+                  onClick={() => {
+                    resetSearch()
+                    setFilterAccount('')
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${sourceFilter === key
                       ? 'bg-white dark:bg-[hsl(260,15%,11%)] text-violet-700 dark:text-violet-400 shadow-sm'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -271,8 +326,11 @@ export default function MatchPage() {
             {filteredAccounts.length > 1 && (
               <div className="w-fit min-w-[6.5rem]">
                 <Select
-                  value={filterAccount}
-                  onChange={(v) => { setFilterAccount(v); setResults([]); setSearched(false) }}
+                  value={effectiveFilterAccount}
+                  onChange={(v) => {
+                    resetSearch()
+                    setFilterAccount(v)
+                  }}
                   placeholder={t('match.filters.allAccounts')}
                   size="sm"
                   activeHighlight
@@ -288,8 +346,11 @@ export default function MatchPage() {
             {allCategories.length > 0 && (
               <div className="w-fit min-w-[6.5rem]">
                 <Select
-                  value={filterCategory}
-                  onChange={(v) => { setFilterCategory(v); setResults([]); setSearched(false) }}
+                  value={effectiveFilterCategory}
+                  onChange={(v) => {
+                    resetSearch()
+                    setFilterCategory(v)
+                  }}
                   placeholder={t('match.filters.allCategories')}
                   size="sm"
                   activeHighlight
@@ -302,10 +363,14 @@ export default function MatchPage() {
             )}
 
             {/* Clear extra filters */}
-            {(filterCategory || filterAccount) && (
+            {(effectiveFilterCategory || effectiveFilterAccount) && (
               <button
                 type="button"
-                onClick={() => { setFilterCategory(''); setFilterAccount(''); setResults([]); setSearched(false) }}
+                onClick={() => {
+                  resetSearch()
+                  setFilterCategory('')
+                  setFilterAccount('')
+                }}
                 className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs transition-all"
               >
                 {t('common.clear')}
@@ -341,7 +406,10 @@ export default function MatchPage() {
                 className={inputClass}
                 placeholder={t('match.form.targetPlaceholder')}
                 value={target}
-                onChange={(e) => setTarget(e.target.value)}
+                onChange={(e) => {
+                  resetSearch()
+                  setTarget(e.target.value)
+                }}
               />
             </div>
             <div>
@@ -352,7 +420,10 @@ export default function MatchPage() {
                 step="0.01"
                 className={inputClass}
                 value={tolerance}
-                onChange={(e) => setTolerance(e.target.value)}
+                onChange={(e) => {
+                  resetSearch()
+                  setTolerance(e.target.value)
+                }}
               />
             </div>
             <div>
@@ -363,7 +434,10 @@ export default function MatchPage() {
                 max="50"
                 className={inputClass}
                 value={maxItems}
-                onChange={(e) => setMaxItems(e.target.value)}
+                onChange={(e) => {
+                  resetSearch()
+                  setMaxItems(e.target.value)
+                }}
               />
             </div>
           </div>
@@ -411,6 +485,16 @@ export default function MatchPage() {
             <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
               <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
               <span>{t('match.results.timePruned')}</span>
+            </div>
+          )}
+
+          {searchTruncated && (
+            <div
+              data-testid="match-truncated-warning"
+              className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400"
+            >
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+              <span>{t('match.results.truncated')}</span>
             </div>
           )}
 
@@ -484,7 +568,7 @@ export default function MatchPage() {
                         {/* Mobile: card list */}
                         <div className="md:hidden divide-y divide-gray-50 dark:divide-gray-800">
                           {r.items.map((item) => {
-                            const done = reimbursedIds.has(item.id)
+                            const done = !isLifeMode && reimbursedIds.has(item.id)
                             const confirming = confirmId === item.id
                             const busy = loadingId === item.id
                             return (
@@ -500,15 +584,15 @@ export default function MatchPage() {
                                   )}
                                   {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
                                 </div>
-                                {done ? (
+                                {!isLifeMode && (done ? (
                                   <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
                                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                    {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
+                                    {t('match.reimburse.reimbursed')}
                                   </span>
                                 ) : confirming ? (
                                   <div className="flex items-center gap-2 pt-0.5">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{isLifeMode ? t('match.life.process.confirmPrompt') : t('match.reimburse.confirmPrompt')}</span>
-                                    <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{t('match.reimburse.confirmPrompt')}</span>
+                                    <button onClick={() => handleReimburse(item.id)} disabled={busy}
                                       className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
                                       {busy ? '…' : t('common.confirm')}
                                     </button>
@@ -520,9 +604,9 @@ export default function MatchPage() {
                                 ) : (
                                   <button onClick={() => setConfirmId(item.id)}
                                     className="text-xs text-violet-500 hover:text-violet-700 font-medium">
-                                    {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markButton')}
+                                    {t('match.reimburse.markButton')}
                                   </button>
-                                )}
+                                ))}
                               </div>
                             )
                           })}
@@ -541,12 +625,12 @@ export default function MatchPage() {
                               <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.project')}</th>
                               <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.note')}</th>
                               <th className="px-4 py-2.5 text-right font-semibold">{t('match.table.amount')}</th>
-                              <th className="px-4 py-2.5 text-center font-semibold">{isLifeMode ? t('match.life.table.process') : t('match.table.reimburse')}</th>
+                              {!isLifeMode && <th className="px-4 py-2.5 text-center font-semibold">{t('match.table.reimburse')}</th>}
                             </tr>
                           </thead>
                           <tbody>
                             {r.items.map((item, idx) => {
-                              const done = reimbursedIds.has(item.id)
+                              const done = !isLifeMode && reimbursedIds.has(item.id)
                               const confirming = confirmId === item.id
                               const busy = loadingId === item.id
                               return (
@@ -562,15 +646,15 @@ export default function MatchPage() {
                                   </td>
                                   <td className="px-4 py-2.5 text-gray-400 dark:text-gray-500 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
                                   <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
-                                  <td className="px-4 py-2.5 text-center">
+                                  {!isLifeMode && <td className="px-4 py-2.5 text-center">
                                     {done ? (
                                       <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium whitespace-nowrap">
                                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                        {isLifeMode ? t('match.life.process.done') : t('match.reimburse.reimbursed')}
+                                        {t('match.reimburse.reimbursed')}
                                       </span>
                                     ) : confirming ? (
                                       <div className="flex items-center justify-center gap-1.5">
-                                        <button onClick={() => handleReimburse(item.id, item.uploaded)} disabled={busy}
+                                        <button onClick={() => handleReimburse(item.id)} disabled={busy}
                                           className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
                                           {busy ? '…' : t('common.confirm')}
                                         </button>
@@ -582,10 +666,10 @@ export default function MatchPage() {
                                     ) : (
                                       <button onClick={() => setConfirmId(item.id)}
                                         className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
-                                        {isLifeMode ? t('match.life.process.markShort') : t('match.reimburse.markShort')}
+                                        {t('match.reimburse.markShort')}
                                       </button>
                                     )}
-                                  </td>
+                                  </td>}
                                 </tr>
                               )
                             })}
@@ -594,7 +678,7 @@ export default function MatchPage() {
                             <tr className="bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
                               <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</td>
                               <td className="px-4 py-2.5 text-right font-bold text-rose-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
-                              <td />
+                              {!isLifeMode && <td />}
                             </tr>
                           </tfoot>
                         </table>

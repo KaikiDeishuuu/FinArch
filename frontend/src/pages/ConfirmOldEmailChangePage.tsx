@@ -1,34 +1,37 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { confirmOldEmailForChange } from '../api/client'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
+import { useActionToken } from '../hooks/useActionToken'
 
 export default function ConfirmOldEmailChangePage() {
   useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token') ?? ''
+  const token = useActionToken()
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<'ready' | 'loading' | 'success' | 'error'>(token ? 'ready' : 'error')
   const [errorMsg, setErrorMsg] = useState('')
+  const submittingRef = useRef(false)
+  const visibleErrorMsg = token ? errorMsg : t('confirmOldEmailChange.invalidLink')
 
-  useEffect(() => {
-    if (!token) {
+  async function handleConfirm() {
+    if (!token || submittingRef.current) return
+    submittingRef.current = true
+    setStatus('loading')
+    setErrorMsg('')
+    try {
+      await confirmOldEmailForChange(token)
+      setStatus('success')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setErrorMsg(msg || t('confirmOldEmailChange.errorDefault'))
       setStatus('error')
-      setErrorMsg(t('confirmOldEmailChange.invalidLink'))
-      return
+    } finally {
+      submittingRef.current = false
     }
-    confirmOldEmailForChange(token)
-      .then(() => setStatus('success'))
-      .catch((err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        setErrorMsg(msg || t('confirmOldEmailChange.errorDefault'))
-        setStatus('error')
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }
 
   return (
     <div className="min-h-dvh flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-4 md:py-6">
@@ -40,6 +43,30 @@ export default function ConfirmOldEmailChangePage() {
           <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">FinArch</h1>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('login.subtitle')}</p>
         </div>
+
+        {status === 'ready' && (
+          <div className="space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-7 h-7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M12 2.25c2.03 1.8 4.56 2.91 7.25 3.18a11.95 11.95 0 01-7.25 16.32A11.95 11.95 0 014.75 5.43 12.1 12.1 0 0012 2.25z" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('confirmOldEmailChange.readyTitle')}</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{t('confirmOldEmailChange.readyDesc')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+            >
+              {t('confirmOldEmailChange.confirmButton')}
+            </button>
+            <Link to="/login" className="inline-block text-xs text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors font-medium">
+              {t('confirmOldEmailChange.cancelButton')}
+            </Link>
+          </div>
+        )}
 
         {status === 'loading' && (
           <div className="space-y-3">
@@ -77,7 +104,7 @@ export default function ConfirmOldEmailChangePage() {
               </svg>
             </div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('confirmOldEmailChange.errorTitle')}</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{errorMsg}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{visibleErrorMsg}</p>
             <div className="flex flex-col gap-2">
               <Link
                 to="/settings"

@@ -15,12 +15,17 @@ export interface AuthState {
   expiresAt: number | null
 }
 
-export interface AuthContextValue extends Omit<AuthState, 'expiresAt'> {
+export interface AuthContextValue {
+  user: AuthUser | null
   login: (req: LoginRequest) => Promise<void>
   register: (req: RegisterRequest) => Promise<boolean>
-  logout: () => void
+  logout: () => Promise<void>
+  clearSession: () => void
   updateUser: (patch: Partial<AuthUser>) => void
   isAuthenticated: boolean
+  isLoading: boolean
+  sessionUnavailable: boolean
+  retrySession: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

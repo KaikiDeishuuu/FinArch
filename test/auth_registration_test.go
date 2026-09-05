@@ -17,7 +17,8 @@ func newAuthSvcForRegister(t *testing.T) *service.AuthService {
 	db := setupDB(t)
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqliterepo.NewSQLiteUserRepository(db)
-	return service.NewAuthService(repo, auth.NewJWTService("test-secret"), auth.NewActionTokenService("test-secret"), auth.NewLoginAttemptTracker(5, time.Minute), &email.NoopSender{}, false, "http://localhost", sqliterepo.NewSQLiteTransactionManager(db))
+	jwt := auth.NewJWTService("test-secret")
+	return service.NewAuthService(repo, auth.NewActionTokenService("test-secret"), auth.NewLoginAttemptTracker(5, time.Minute), &email.NoopSender{}, false, "http://localhost", sqliterepo.NewSQLiteTransactionManager(db), newTestSessionService(t, db, jwt, "test-secret"))
 }
 
 func TestRegister_AllowsDuplicateNickname(t *testing.T) {

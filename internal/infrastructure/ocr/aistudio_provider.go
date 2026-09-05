@@ -1,13 +1,13 @@
 package ocr
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -25,28 +25,31 @@ const (
 
 // PaddleAIStudioConfig configures the hosted PaddleOCR AIStudio job API.
 type PaddleAIStudioConfig struct {
-	JobURL          string
-	Token           string
-	Model           string
-	OptionalPayload string
-	Timeout         time.Duration
-	PollInterval    time.Duration
-	MaxResultBytes  int64
-	Client          *http.Client
+	JobURL             string
+	Token              string
+	Model              string
+	OptionalPayload    string
+	Timeout            time.Duration
+	PollInterval       time.Duration
+	MaxResultBytes     int64
+	AllowedResultHosts []string
+	Client             *http.Client
 }
 
 // PaddleAIStudioProvider calls PaddleOCR AIStudio's async OCR job API and
 // normalizes the JSONL result into FinArch's synchronous OCR result shape.
 type PaddleAIStudioProvider struct {
-	jobURL          string
-	token           string
-	model           string
-	optionalPayload string
-	timeout         time.Duration
-	pollInterval    time.Duration
-	maxResultBytes  int64
-	client          *http.Client
-	configErr       string
+	jobURL                   string
+	token                    string
+	model                    string
+	optionalPayload          string
+	timeout                  time.Duration
+	pollInterval             time.Duration
+	maxResultBytes           int64
+	client                   *http.Client
+	configErr                string
+	jobAuthority             string
+	allowedResultAuthorities map[string]struct{}
 }
 
 func NewPaddleAIStudioProvider(cfg PaddleAIStudioConfig) *PaddleAIStudioProvider {
@@ -80,16 +83,32 @@ func NewPaddleAIStudioProvider(cfg PaddleAIStudioConfig) *PaddleAIStudioProvider
 	if client == nil {
 		client = &http.Client{Timeout: timeout}
 	}
+	allowedResultAuthorities := make(map[string]struct{}, len(cfg.AllowedResultHosts)+1)
+	jobAuthority := ""
+	if parsed, err := url.Parse(jobURL); err == nil {
+		jobAuthority = canonicalAuthority(parsed)
+		if jobAuthority != "" {
+			allowedResultAuthorities[jobAuthority] = struct{}{}
+		}
+	}
+	for _, host := range cfg.AllowedResultHosts {
+		host = strings.ToLower(strings.TrimSpace(host))
+		if host != "" {
+			allowedResultAuthorities[host] = struct{}{}
+		}
+	}
 	return &PaddleAIStudioProvider{
-		jobURL:          jobURL,
-		token:           strings.TrimSpace(cfg.Token),
-		model:           strings.TrimSpace(cfg.Model),
-		optionalPayload: optionalPayload,
-		timeout:         timeout,
-		pollInterval:    pollInterval,
-		maxResultBytes:  maxResultBytes,
-		client:          client,
-		configErr:       configErr,
+		jobURL:                   jobURL,
+		token:                    strings.TrimSpace(cfg.Token),
+		model:                    strings.TrimSpace(cfg.Model),
+		optionalPayload:          optionalPayload,
+		timeout:                  timeout,
+		pollInterval:             pollInterval,
+		maxResultBytes:           maxResultBytes,
+		client:                   client,
+		configErr:                configErr,
+		jobAuthority:             jobAuthority,
+		allowedResultAuthorities: allowedResultAuthorities,
 	}
 }
 
@@ -153,43 +172,125 @@ func (p *PaddleAIStudioProvider) validateConfig() error {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return fmt.Errorf("FINARCH_OCR_AISTUDIO_JOB_URL must be an absolute URL")
 	}
-	if parsed.Scheme != "https" && parsed.Scheme != "http" {
-		return fmt.Errorf("FINARCH_OCR_AISTUDIO_JOB_URL must use http or https")
+	if err := validateAIStudioURL(parsed, canonicalAuthority(parsed), true); err != nil {
+		return fmt.Errorf("invalid FINARCH_OCR_AISTUDIO_JOB_URL: %w", err)
 	}
 	return nil
 }
 
-func (p *PaddleAIStudioProvider) submitJob(ctx context.Context, attachment model.Attachment, r io.Reader) (string, error) {
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-	part, err := mw.CreateFormFile("file", attachment.OriginalFilename)
-	if err != nil {
-		return "", err
+func canonicalAuthority(parsed *url.URL) string {
+	if parsed == nil {
+		return ""
 	}
-	if _, err := io.Copy(part, r); err != nil {
-		return "", err
-	}
-	if err := mw.WriteField("model", p.model); err != nil {
-		return "", err
-	}
-	if p.optionalPayload != "" {
-		if err := mw.WriteField("optionalPayload", p.optionalPayload); err != nil {
-			return "", err
-		}
-	}
-	if err := mw.Close(); err != nil {
-		return "", err
-	}
+	return strings.ToLower(strings.TrimSpace(parsed.Host))
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.jobURL, &body)
+func isLoopbackHost(host string) bool {
+	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func validateAIStudioURL(parsed *url.URL, requiredAuthority string, allowLoopbackHTTP bool) error {
+	if parsed == nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("must be an absolute URL")
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("must not contain URL credentials")
+	}
+	if parsed.Fragment != "" {
+		return fmt.Errorf("must not contain a fragment")
+	}
+	authority := canonicalAuthority(parsed)
+	if requiredAuthority != "" && authority != strings.ToLower(strings.TrimSpace(requiredAuthority)) {
+		return fmt.Errorf("host %q is not allowed", authority)
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "https":
+		return nil
+	case "http":
+		if allowLoopbackHTTP && isLoopbackHost(parsed.Hostname()) {
+			return nil
+		}
+		return fmt.Errorf("must use HTTPS (HTTP is allowed only for loopback development servers)")
+	default:
+		return fmt.Errorf("must use HTTPS")
+	}
+}
+
+func (p *PaddleAIStudioProvider) validateResultURL(parsed *url.URL) error {
+	authority := canonicalAuthority(parsed)
+	if _, ok := p.allowedResultAuthorities[authority]; !ok {
+		return fmt.Errorf("host %q is not in FINARCH_OCR_AISTUDIO_ALLOWED_RESULT_HOSTS", authority)
+	}
+	return validateAIStudioURL(parsed, authority, isLoopbackHost(parsed.Hostname()))
+}
+
+func (p *PaddleAIStudioProvider) do(req *http.Request, resultRequest bool) (*http.Response, error) {
+	validate := func(candidate *url.URL) error {
+		if resultRequest {
+			return p.validateResultURL(candidate)
+		}
+		return validateAIStudioURL(candidate, p.jobAuthority, isLoopbackHost(candidate.Hostname()))
+	}
+	if err := validate(req.URL); err != nil {
+		return nil, err
+	}
+	client := *p.client
+	previousCheck := client.CheckRedirect
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if err := validate(next.URL); err != nil {
+			return err
+		}
+		if previousCheck != nil {
+			return previousCheck(next, via)
+		}
+		if len(via) >= 10 {
+			return fmt.Errorf("stopped after 10 redirects")
+		}
+		return nil
+	}
+	return client.Do(req)
+}
+
+func (p *PaddleAIStudioProvider) submitJob(ctx context.Context, attachment model.Attachment, r io.Reader) (string, error) {
+	pipeReader, pipeWriter := io.Pipe()
+	defer pipeReader.Close()
+	mw := multipart.NewWriter(pipeWriter)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.jobURL, pipeReader)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Authorization", "bearer "+p.token)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	go func() {
+		writeErr := func() error {
+			part, err := mw.CreateFormFile("file", attachment.OriginalFilename)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(part, r); err != nil {
+				return err
+			}
+			if err := mw.WriteField("model", p.model); err != nil {
+				return err
+			}
+			if p.optionalPayload != "" {
+				if err := mw.WriteField("optionalPayload", p.optionalPayload); err != nil {
+					return err
+				}
+			}
+			return mw.Close()
+		}()
+		_ = pipeWriter.CloseWithError(writeErr)
+	}()
 
-	resp, err := p.client.Do(req)
+	resp, err := p.do(req, false)
 	if err != nil {
+		_ = pipeReader.CloseWithError(err)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -202,7 +303,7 @@ func (p *PaddleAIStudioProvider) submitJob(ctx context.Context, attachment model
 			JobID string `json:"jobId"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := decodeLimitedJSONResponse(resp.Body, DefaultOCRMaxJSONResponseBytes, &payload); err != nil {
 		return "", fmt.Errorf("decode PaddleOCR AIStudio submit response: %w", err)
 	}
 	jobID := strings.TrimSpace(payload.Data.JobID)
@@ -253,7 +354,7 @@ func (p *PaddleAIStudioProvider) fetchJobState(ctx context.Context, pollURL stri
 		return "", "", "", err
 	}
 	req.Header.Set("Authorization", "bearer "+p.token)
-	resp, err := p.client.Do(req)
+	resp, err := p.do(req, false)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -273,7 +374,7 @@ func (p *PaddleAIStudioProvider) fetchJobState(ctx context.Context, pollURL stri
 		ErrorMsg string `json:"errorMsg"`
 		Message  string `json:"message"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := decodeLimitedJSONResponse(resp.Body, DefaultOCRMaxJSONResponseBytes, &payload); err != nil {
 		return "", "", "", fmt.Errorf("decode PaddleOCR AIStudio poll response: %w", err)
 	}
 	errMsg := strings.TrimSpace(payload.Data.ErrorMsg)
@@ -291,14 +392,14 @@ func (p *PaddleAIStudioProvider) downloadJSONL(ctx context.Context, jsonURL stri
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return "", 0, 0, model.OCRSuggestion{}, fmt.Errorf("PaddleOCR AIStudio result jsonUrl is not an absolute URL")
 	}
-	if parsed.Scheme != "https" && parsed.Scheme != "http" {
-		return "", 0, 0, model.OCRSuggestion{}, fmt.Errorf("PaddleOCR AIStudio result jsonUrl must use http or https")
+	if err := p.validateResultURL(parsed); err != nil {
+		return "", 0, 0, model.OCRSuggestion{}, fmt.Errorf("PaddleOCR AIStudio result jsonUrl rejected: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
 		return "", 0, 0, model.OCRSuggestion{}, err
 	}
-	resp, err := p.client.Do(req)
+	resp, err := p.do(req, true)
 	if err != nil {
 		return "", 0, 0, model.OCRSuggestion{}, err
 	}
@@ -329,7 +430,7 @@ func parseAIStudioJSONL(data []byte) (string, int, int, model.OCRSuggestion, err
 		}
 		lineCount++
 		var raw map[string]any
-		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+		if err := decodeJSONUseNumber([]byte(line), &raw); err != nil {
 			return "", lineCount, len(markdownBlocks), model.OCRSuggestion{}, fmt.Errorf("parse PaddleOCR AIStudio JSONL line %d: %w", lineCount, err)
 		}
 		if !hasSuggestion {

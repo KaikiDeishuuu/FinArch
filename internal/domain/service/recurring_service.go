@@ -50,6 +50,7 @@ type UpsertRecurringRuleRequest struct {
 	Category       string
 	AmountCents    int64
 	AmountYuan     model.Money
+	AmountProvided bool
 	Currency       string
 	ExchangeRate   float64
 	Note           string
@@ -118,8 +119,12 @@ func (s *RecurringTransactionService) UpdateRule(ctx context.Context, req Upsert
 		return model.RecurringTransactionRule{}, err
 	}
 	if err := s.recurring.UpdateRule(ctx, rule); err != nil {
+		if errors.Is(err, repository.ErrConcurrentModification) {
+			return model.RecurringTransactionRule{}, fmt.Errorf("%w: 周期规则已被并发修改", ErrConcurrentModification)
+		}
 		return model.RecurringTransactionRule{}, fmt.Errorf("周期规则更新失败: %w", err)
 	}
+	rule.Version++
 	return rule, nil
 }
 
@@ -131,6 +136,11 @@ func (s *RecurringTransactionService) SetStatus(ctx context.Context, userID, id 
 	if status != model.RecurringRuleStatusActive && status != model.RecurringRuleStatusPaused && status != model.RecurringRuleStatusEnded {
 		return model.RecurringTransactionRule{}, fmt.Errorf("无效的周期规则状态")
 	}
+	if status == model.RecurringRuleStatusActive {
+		if err := s.validateRuleAccount(ctx, rule); err != nil {
+			return model.RecurringTransactionRule{}, err
+		}
+	}
 	rule.Status = status
 	rule.UpdatedAt = time.Now()
 	if status == model.RecurringRuleStatusActive {
@@ -141,8 +151,12 @@ func (s *RecurringTransactionService) SetStatus(ctx context.Context, userID, id 
 		rule.NextRunAt = next.ScheduledAt
 	}
 	if err := s.recurring.UpdateRule(ctx, rule); err != nil {
+		if errors.Is(err, repository.ErrConcurrentModification) {
+			return model.RecurringTransactionRule{}, fmt.Errorf("%w: 周期规则已被并发修改", ErrConcurrentModification)
+		}
 		return model.RecurringTransactionRule{}, err
 	}
+	rule.Version++
 	return rule, nil
 }
 
@@ -282,27 +296,67 @@ func (s *RecurringTransactionService) GenerateRuleNow(ctx context.Context, userI
 }
 
 func (s *RecurringTransactionService) generateOne(ctx context.Context, rule model.RecurringTransactionRule, dryRun bool) (generated bool, skipped bool, err error) {
+	snapshot := rule
 	occ := RecurringOccurrence{
-		OccurrenceDate: time.Unix(rule.NextRunAt, 0).In(locationForRule(rule)).Format("2006-01-02"),
-		ScheduledAt:    rule.NextRunAt,
-		OccurredAt:     time.Unix(rule.NextRunAt, 0).In(locationForRule(rule)).Format("2006-01-02 15:04:05"),
+		OccurrenceDate: time.Unix(snapshot.NextRunAt, 0).In(locationForRule(snapshot)).Format("2006-01-02"),
+		ScheduledAt:    snapshot.NextRunAt,
+		OccurredAt:     time.Unix(snapshot.NextRunAt, 0).In(locationForRule(snapshot)).Format("2006-01-02 15:04:05"),
 	}
-	if rule.EndDate != nil && *rule.EndDate != "" && occ.OccurrenceDate > *rule.EndDate {
+	if snapshot.EndDate != nil && *snapshot.EndDate != "" && occ.OccurrenceDate > *snapshot.EndDate {
 		if dryRun {
 			return false, true, nil
 		}
-		rule.Status = model.RecurringRuleStatusEnded
-		rule.UpdatedAt = time.Now()
-		return false, true, s.recurring.UpdateRule(ctx, rule)
+		advanced, err := s.recurring.AdvanceRule(ctx, snapshot.ID, snapshot.UserID, snapshot.Version, snapshot.NextRunAt, snapshot.NextRunAt, snapshot.LastGeneratedFor, model.RecurringRuleStatusEnded)
+		if err != nil {
+			return false, true, err
+		}
+		if !advanced {
+			return false, true, fmt.Errorf("%w: 周期规则已被并发修改", ErrConcurrentModification)
+		}
+		return false, true, nil
 	}
-	key := recurringIdempotencyKey(rule.ID, occ.OccurrenceDate)
+	key := recurringIdempotencyKey(snapshot.ID, occ.OccurrenceDate)
 	if dryRun {
 		return false, true, nil
 	}
+	if s.txSvc == nil {
+		return false, false, fmt.Errorf("周期交易生成服务不可用")
+	}
+	createReq := CreateTransactionRequest{
+		UserID:                  snapshot.UserID,
+		Mode:                    snapshot.Mode,
+		OccurredAt:              time.Unix(occ.ScheduledAt, 0).UTC(),
+		AccountID:               snapshot.AccountID,
+		TxType:                  snapshot.TxType,
+		Category:                snapshot.Category,
+		AmountCents:             snapshot.AmountCents,
+		Currency:                snapshot.Currency,
+		ExchangeRate:            snapshot.ExchangeRate,
+		Note:                    snapshot.Note,
+		ProjectID:               snapshot.ProjectID,
+		IdempotencyKey:          &key,
+		RecurringRuleID:         &snapshot.ID,
+		RecurringOccurrenceDate: &occ.OccurrenceDate,
+	}
+	preexistingTransaction := false
+	if existing, lookupErr := s.transactions.GetByIdempotencyKey(ctx, snapshot.UserID, key); lookupErr == nil {
+		if err := validateRecurringTransaction(existing, snapshot, occ, key); err != nil {
+			return false, false, err
+		}
+		preexistingTransaction = true
+	} else if errors.Is(lookupErr, repository.ErrTransactionNotFound) {
+		resolvedRate, resolveErr := s.txSvc.preResolveRateEvidence(ctx, createReq)
+		if resolveErr != nil {
+			return false, false, resolveErr
+		}
+		createReq.resolvedRate = resolvedRate
+	} else {
+		return false, false, fmt.Errorf("查询周期交易幂等记录失败: %w", lookupErr)
+	}
 	inst := model.RecurringTransactionInstance{
 		ID:             uuid.NewString(),
-		RuleID:         rule.ID,
-		UserID:         rule.UserID,
+		RuleID:         snapshot.ID,
+		UserID:         snapshot.UserID,
 		OccurrenceDate: occ.OccurrenceDate,
 		ScheduledAt:    occ.ScheduledAt,
 		IdempotencyKey: key,
@@ -311,62 +365,107 @@ func (s *RecurringTransactionService) generateOne(ctx context.Context, rule mode
 		UpdatedAt:      time.Now(),
 	}
 	var created bool
-	var failureMessage string
 	err = s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
-		claimed, claimErr := s.recurring.ClaimInstance(txCtx, inst)
+		claimed, claimErr := s.recurring.ClaimInstance(txCtx, inst, snapshot.Version, snapshot.NextRunAt)
 		if claimErr != nil {
 			return claimErr
 		}
+		instance := inst
 		if !claimed {
+			current, getRuleErr := s.recurring.GetRuleByID(txCtx, snapshot.ID, snapshot.UserID)
+			if getRuleErr != nil {
+				return getRuleErr
+			}
+			if current.Status != model.RecurringRuleStatusActive || current.Version != snapshot.Version || current.NextRunAt != snapshot.NextRunAt {
+				skipped = true
+				return nil
+			}
+			existingInstance, getInstanceErr := s.recurring.GetInstanceByOccurrence(txCtx, snapshot.ID, snapshot.UserID, occ.OccurrenceDate)
+			if getInstanceErr != nil {
+				if errors.Is(getInstanceErr, repository.ErrRecurringInstanceNotFound) {
+					return fmt.Errorf("周期交易实例冲突但记录不存在")
+				}
+				return getInstanceErr
+			}
+			if !recurringInstanceMatches(existingInstance, inst) {
+				return fmt.Errorf("周期交易实例与当前执行快照不一致")
+			}
+			instance = existingInstance
+		}
+
+		existing, getErr := s.transactions.GetByIdempotencyKey(txCtx, snapshot.UserID, key)
+		switch {
+		case getErr == nil:
+			if err := validateRecurringTransaction(existing, snapshot, occ, key); err != nil {
+				return err
+			}
+			if instance.TransactionID != nil && *instance.TransactionID != existing.ID {
+				return fmt.Errorf("周期交易实例已关联其他交易")
+			}
+			if markErr := s.recurring.MarkInstanceGenerated(txCtx, instance.ID, existing.ID); markErr != nil {
+				return markErr
+			}
 			skipped = true
-			return s.advanceRule(txCtx, rule, occ.OccurrenceDate)
-		}
-		if existing, getErr := s.transactions.GetByIdempotencyKey(txCtx, rule.UserID, key); getErr == nil && existing.ID != "" {
-			created = false
-			if markErr := s.recurring.MarkInstanceGenerated(txCtx, inst.ID, existing.ID); markErr != nil {
-				return markErr
+			return s.advanceRule(txCtx, snapshot, occ.OccurrenceDate)
+		case errors.Is(getErr, repository.ErrTransactionNotFound):
+			// No transaction exists yet; continue with the claimed or safely
+			// reclaimed instance below.
+			if preexistingTransaction {
+				return fmt.Errorf("%w: 周期交易在对账事务开始前消失", ErrConcurrentModification)
 			}
-			return s.advanceRule(txCtx, rule, occ.OccurrenceDate)
+		default:
+			return fmt.Errorf("查询周期交易幂等记录失败: %w", getErr)
 		}
-		tx, createErr := s.txSvc.CreateTransaction(txCtx, CreateTransactionRequest{
-			UserID:                  rule.UserID,
-			Mode:                    rule.Mode,
-			OccurredAt:              time.Unix(occ.ScheduledAt, 0).UTC(),
-			AccountID:               rule.AccountID,
-			TxType:                  rule.TxType,
-			Category:                rule.Category,
-			AmountCents:             rule.AmountCents,
-			Currency:                rule.Currency,
-			ExchangeRate:            rule.ExchangeRate,
-			Note:                    rule.Note,
-			ProjectID:               rule.ProjectID,
-			IdempotencyKey:          &key,
-			RecurringRuleID:         &rule.ID,
-			RecurringOccurrenceDate: &occ.OccurrenceDate,
-		})
+
+		if !claimed {
+			if instance.TransactionID != nil {
+				return fmt.Errorf("周期交易实例引用的交易不存在")
+			}
+			reclaimed, reclaimErr := s.recurring.ReclaimInstance(txCtx, instance, snapshot.Version, snapshot.NextRunAt)
+			if reclaimErr != nil {
+				return reclaimErr
+			}
+			if !reclaimed {
+				return fmt.Errorf("%w: 周期交易实例无法安全重试", ErrConcurrentModification)
+			}
+		}
+
+		tx, createErr := s.txSvc.CreateTransaction(txCtx, createReq)
 		if createErr != nil {
-			failureMessage = truncateError(createErr.Error())
-			if markErr := s.recurring.MarkInstanceFailed(txCtx, inst.ID, failureMessage); markErr != nil {
-				return markErr
-			}
-			return s.advanceRule(txCtx, rule, occ.OccurrenceDate)
+			return createErr
 		}
 		created = true
-		if markErr := s.recurring.MarkInstanceGenerated(txCtx, inst.ID, tx.ID); markErr != nil {
+		if markErr := s.recurring.MarkInstanceGenerated(txCtx, instance.ID, tx.ID); markErr != nil {
 			return markErr
 		}
-		return s.advanceRule(txCtx, rule, occ.OccurrenceDate)
+		return s.advanceRule(txCtx, snapshot, occ.OccurrenceDate)
 	})
 	if err != nil {
 		return false, skipped, err
 	}
-	if failureMessage != "" {
-		return false, skipped, errors.New(failureMessage)
-	}
 	return created, skipped, nil
 }
 
+func recurringInstanceMatches(existing, expected model.RecurringTransactionInstance) bool {
+	return existing.ID != "" &&
+		existing.RuleID == expected.RuleID &&
+		existing.UserID == expected.UserID &&
+		existing.OccurrenceDate == expected.OccurrenceDate &&
+		existing.IdempotencyKey == expected.IdempotencyKey
+}
+
+func validateRecurringTransaction(tx model.Transaction, rule model.RecurringTransactionRule, occ RecurringOccurrence, key string) error {
+	if tx.ID == "" || tx.UserID != rule.UserID ||
+		tx.IdempotencyKey == nil || *tx.IdempotencyKey != key ||
+		tx.RecurringRuleID == nil || *tx.RecurringRuleID != rule.ID ||
+		tx.RecurringOccurrenceDate == nil || *tx.RecurringOccurrenceDate != occ.OccurrenceDate {
+		return fmt.Errorf("周期交易幂等记录与当前执行快照不一致")
+	}
+	return nil
+}
+
 func (s *RecurringTransactionService) advanceRule(ctx context.Context, rule model.RecurringTransactionRule, occurrenceDate string) error {
+	expectedNextRunAt := rule.NextRunAt
 	next, err := NextRecurringOccurrence(rule, time.Unix(rule.NextRunAt, 0).Add(time.Second))
 	if err != nil {
 		return err
@@ -377,12 +476,19 @@ func (s *RecurringTransactionService) advanceRule(ctx context.Context, rule mode
 	if rule.EndDate != nil && *rule.EndDate != "" && next.OccurrenceDate > *rule.EndDate {
 		rule.Status = model.RecurringRuleStatusEnded
 	}
-	return s.recurring.UpdateRule(ctx, rule)
+	advanced, err := s.recurring.AdvanceRule(ctx, rule.ID, rule.UserID, rule.Version, expectedNextRunAt, next.ScheduledAt, &occurrenceDate, rule.Status)
+	if err != nil {
+		return err
+	}
+	if !advanced {
+		return fmt.Errorf("%w: 周期规则已被并发修改", ErrConcurrentModification)
+	}
+	return nil
 }
 
 func (s *RecurringTransactionService) normalizeRule(req UpsertRecurringRuleRequest, existing *model.RecurringTransactionRule) (model.RecurringTransactionRule, error) {
 	now := time.Now()
-	r := model.RecurringTransactionRule{ID: uuid.NewString(), UserID: req.UserID, Status: model.RecurringRuleStatusActive, Interval: 1, Currency: "CNY", TimeOfDay: defaultRecurringTimeOfDay, Timezone: defaultRecurringTimezone, MonthEndPolicy: model.MonthEndClamp, CatchUpEnabled: true, CreatedAt: now, UpdatedAt: now}
+	r := model.RecurringTransactionRule{ID: uuid.NewString(), UserID: req.UserID, Status: model.RecurringRuleStatusActive, Interval: 1, Currency: "CNY", TimeOfDay: defaultRecurringTimeOfDay, Timezone: defaultRecurringTimezone, MonthEndPolicy: model.MonthEndClamp, CatchUpEnabled: true, Version: 1, CreatedAt: now, UpdatedAt: now}
 	if existing != nil {
 		r = *existing
 		r.UpdatedAt = now
@@ -440,10 +546,17 @@ func (s *RecurringTransactionService) normalizeRule(req UpsertRecurringRuleReque
 		return model.RecurringTransactionRule{}, fmt.Errorf("请选择分类")
 	}
 	amountCents := req.AmountCents
-	if amountCents == 0 && req.AmountYuan > 0 {
-		amountCents = int64(req.AmountYuan * 100)
+	amountProvided := req.AmountProvided || amountCents != 0 || req.AmountYuan != 0
+	if amountCents == 0 && req.AmountYuan != 0 {
+		amountCents, err = req.AmountYuan.Cents()
+		if err != nil {
+			return model.RecurringTransactionRule{}, fmt.Errorf("金额格式无效: %w", err)
+		}
 	}
-	if amountCents > 0 {
+	if amountProvided {
+		if amountCents <= 0 {
+			return model.RecurringTransactionRule{}, fmt.Errorf("金额必须为正数")
+		}
 		r.AmountCents = amountCents
 	}
 	if r.AmountCents <= 0 {

@@ -2,6 +2,8 @@ package wails
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"finarch/internal/domain/model"
 	"finarch/internal/domain/service"
@@ -9,6 +11,9 @@ import (
 
 // App is Wails binding root.
 type App struct {
+	// UserID is the explicitly configured owner for the local desktop profile.
+	// Desktop bootstrap must set it; an empty value is never treated as a wildcard.
+	UserID         string
 	Matching       *service.MatchingService
 	Transactions   *service.TransactionService
 	Reimbursements *service.ReimbursementService
@@ -32,13 +37,21 @@ type ReimburseRequest struct {
 
 // MatchReimbursement suggests reimbursement combinations.
 func (a *App) MatchReimbursement(ctx context.Context, req MatchRequest) ([]service.MatchResult, error) {
-	// Desktop mode is single-user; use empty string as the user scope.
-	return a.Matching.Match(ctx, "", model.Money(req.TargetYuan), model.Money(req.ToleranceYuan), req.MaxDepth, req.ProjectID, req.Limit)
+	userID, err := a.configuredUserID()
+	if err != nil {
+		return nil, err
+	}
+	return a.Matching.Match(ctx, userID, model.Money(req.TargetYuan), model.Money(req.ToleranceYuan), req.MaxDepth, req.ProjectID, req.Limit)
 }
 
 // CreateReimbursement submits one reimbursement.
 func (a *App) CreateReimbursement(ctx context.Context, req ReimburseRequest) (model.Reimbursement, error) {
+	userID, err := a.configuredUserID()
+	if err != nil {
+		return model.Reimbursement{}, err
+	}
 	return a.Reimbursements.CreateReimbursement(ctx, service.CreateReimbursementRequest{
+		UserID:         userID,
 		Applicant:      req.Applicant,
 		TransactionIDs: req.TransactionIDs,
 		RequestNo:      req.RequestNo,
@@ -47,8 +60,11 @@ func (a *App) CreateReimbursement(ctx context.Context, req ReimburseRequest) (mo
 
 // GetBalance returns company balance and personal outstanding.
 func (a *App) GetBalance(ctx context.Context) (map[string]float64, error) {
-	// Desktop mode is single-user; use empty string as the user scope.
-	company, personal, err := a.Transactions.GetBalances(ctx, "")
+	userID, err := a.configuredUserID()
+	if err != nil {
+		return nil, err
+	}
+	company, personal, err := a.Transactions.GetBalances(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -56,4 +72,12 @@ func (a *App) GetBalance(ctx context.Context) (map[string]float64, error) {
 		"companyBalanceYuan":      company.Float64(),
 		"personalOutstandingYuan": personal.Float64(),
 	}, nil
+}
+
+func (a *App) configuredUserID() (string, error) {
+	userID := strings.TrimSpace(a.UserID)
+	if userID == "" {
+		return "", fmt.Errorf("desktop user scope is not configured")
+	}
+	return userID, nil
 }

@@ -9,14 +9,68 @@ import (
 // Balance-update triggers — each string is a single complete DDL statement
 // executed via ExecContext (no semicolon splitting).
 var balanceTriggers = []string{
+	// Enforce the domain transaction range even for direct SQL writers. SQLite
+	// column affinity alone accepts REAL values in INTEGER columns, so typeof()
+	// is part of the invariant rather than relying only on numeric comparisons.
+	`CREATE TRIGGER IF NOT EXISTS trg_transaction_amount_insert
+BEFORE INSERT ON transactions
+WHEN typeof(NEW.amount_cents) != 'integer'
+  OR NEW.amount_cents <= 0
+  OR NEW.amount_cents > 9000000000000000
+  OR typeof(NEW.base_amount_cents) != 'integer'
+  OR NEW.base_amount_cents <= 0
+  OR NEW.base_amount_cents > 9000000000000000
+BEGIN
+  SELECT RAISE(ABORT, 'transaction_amount_out_of_range');
+END`,
+
+	`CREATE TRIGGER IF NOT EXISTS trg_transaction_amount_update
+BEFORE UPDATE OF amount_cents, base_amount_cents ON transactions
+WHEN typeof(NEW.amount_cents) != 'integer'
+  OR NEW.amount_cents <= 0
+  OR NEW.amount_cents > 9000000000000000
+  OR typeof(NEW.base_amount_cents) != 'integer'
+  OR NEW.base_amount_cents <= 0
+  OR NEW.base_amount_cents > 9000000000000000
+BEGIN
+  SELECT RAISE(ABORT, 'transaction_amount_out_of_range');
+END`,
+
 	// INSERT → credit the account balance
 	`CREATE TRIGGER IF NOT EXISTS trg_balance_insert
 AFTER INSERT ON transactions
 BEGIN
+  SELECT CASE
+    WHEN typeof(NEW.base_amount_cents) != 'integer'
+      OR NEW.base_amount_cents <= 0
+      OR NEW.direction NOT IN ('credit', 'debit')
+    THEN RAISE(ABORT, 'account_balance_overflow')
+    WHEN EXISTS (
+      SELECT 1
+      FROM accounts
+      WHERE id = NEW.account_id
+        AND (
+          typeof(balance_cents) != 'integer'
+          OR typeof(version) != 'integer'
+          OR version >= 9223372036854775807
+          OR (
+            NEW.direction = 'credit'
+            AND balance_cents > 9223372036854775807 - NEW.base_amount_cents
+          )
+          OR (
+            NEW.direction = 'debit'
+            AND balance_cents < (-9223372036854775807 - 1) + NEW.base_amount_cents
+          )
+        )
+    )
+    THEN RAISE(ABORT, 'account_balance_overflow')
+  END;
+
   UPDATE accounts SET
-    balance_cents = balance_cents + (
-      CASE NEW.direction WHEN 'credit' THEN NEW.base_amount_cents ELSE -NEW.base_amount_cents END
-    ),
+    balance_cents = CASE NEW.direction
+      WHEN 'credit' THEN balance_cents + NEW.base_amount_cents
+      ELSE balance_cents - NEW.base_amount_cents
+    END,
     version    = version + 1,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE id = NEW.account_id;
@@ -26,10 +80,37 @@ END`,
 	`CREATE TRIGGER IF NOT EXISTS trg_balance_delete
 AFTER DELETE ON transactions
 BEGIN
+  SELECT CASE
+    WHEN typeof(OLD.base_amount_cents) != 'integer'
+      OR OLD.base_amount_cents <= 0
+      OR OLD.direction NOT IN ('credit', 'debit')
+    THEN RAISE(ABORT, 'account_balance_overflow')
+    WHEN EXISTS (
+      SELECT 1
+      FROM accounts
+      WHERE id = OLD.account_id
+        AND (
+          typeof(balance_cents) != 'integer'
+          OR typeof(version) != 'integer'
+          OR version >= 9223372036854775807
+          OR (
+            OLD.direction = 'credit'
+            AND balance_cents < (-9223372036854775807 - 1) + OLD.base_amount_cents
+          )
+          OR (
+            OLD.direction = 'debit'
+            AND balance_cents > 9223372036854775807 - OLD.base_amount_cents
+          )
+        )
+    )
+    THEN RAISE(ABORT, 'account_balance_overflow')
+  END;
+
   UPDATE accounts SET
-    balance_cents = balance_cents - (
-      CASE OLD.direction WHEN 'credit' THEN OLD.base_amount_cents ELSE -OLD.base_amount_cents END
-    ),
+    balance_cents = CASE OLD.direction
+      WHEN 'credit' THEN balance_cents - OLD.base_amount_cents
+      ELSE balance_cents + OLD.base_amount_cents
+    END,
     version    = version + 1,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE id = OLD.account_id;
@@ -39,20 +120,70 @@ END`,
 	`CREATE TRIGGER IF NOT EXISTS trg_balance_update
 AFTER UPDATE OF base_amount_cents, direction, account_id ON transactions
 BEGIN
+  SELECT CASE
+    WHEN typeof(OLD.base_amount_cents) != 'integer'
+      OR OLD.base_amount_cents <= 0
+      OR OLD.direction NOT IN ('credit', 'debit')
+      OR typeof(NEW.base_amount_cents) != 'integer'
+      OR NEW.base_amount_cents <= 0
+      OR NEW.direction NOT IN ('credit', 'debit')
+    THEN RAISE(ABORT, 'account_balance_overflow')
+  END;
+
   -- Undo OLD row's effect on OLD account
+  SELECT CASE WHEN EXISTS (
+    SELECT 1
+    FROM accounts
+    WHERE id = OLD.account_id
+      AND (
+        typeof(balance_cents) != 'integer'
+        OR typeof(version) != 'integer'
+        OR version >= 9223372036854775807
+        OR (
+          OLD.direction = 'credit'
+          AND balance_cents < (-9223372036854775807 - 1) + OLD.base_amount_cents
+        )
+        OR (
+          OLD.direction = 'debit'
+          AND balance_cents > 9223372036854775807 - OLD.base_amount_cents
+        )
+      )
+  ) THEN RAISE(ABORT, 'account_balance_overflow') END;
+
   UPDATE accounts SET
-    balance_cents = balance_cents - (
-      CASE OLD.direction WHEN 'credit' THEN OLD.base_amount_cents ELSE -OLD.base_amount_cents END
-    ),
+    balance_cents = CASE OLD.direction
+      WHEN 'credit' THEN balance_cents - OLD.base_amount_cents
+      ELSE balance_cents + OLD.base_amount_cents
+    END,
     version    = version + 1,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE id = OLD.account_id;
 
   -- Apply NEW row's effect on NEW account (may be different if account_id changed)
+  SELECT CASE WHEN EXISTS (
+    SELECT 1
+    FROM accounts
+    WHERE id = NEW.account_id
+      AND (
+        typeof(balance_cents) != 'integer'
+        OR typeof(version) != 'integer'
+        OR version >= 9223372036854775807
+        OR (
+          NEW.direction = 'credit'
+          AND balance_cents > 9223372036854775807 - NEW.base_amount_cents
+        )
+        OR (
+          NEW.direction = 'debit'
+          AND balance_cents < (-9223372036854775807 - 1) + NEW.base_amount_cents
+        )
+      )
+  ) THEN RAISE(ABORT, 'account_balance_overflow') END;
+
   UPDATE accounts SET
-    balance_cents = balance_cents + (
-      CASE NEW.direction WHEN 'credit' THEN NEW.base_amount_cents ELSE -NEW.base_amount_cents END
-    ),
+    balance_cents = CASE NEW.direction
+      WHEN 'credit' THEN balance_cents + NEW.base_amount_cents
+      ELSE balance_cents - NEW.base_amount_cents
+    END,
     version    = version + 1,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
   WHERE id = NEW.account_id;
@@ -110,38 +241,6 @@ BEGIN
   );
 END`,
 
-	// Restore balance on specific sub-account when expense is marked reimbursed.
-	// CRITICAL: only fires for 'public' accounts (WORK mode). LIFE mode expense
-	// "clearing" is status-only — zero balance effect.
-	// Uses NEW.account_id — 1-to-1 traceability: only the originating sub-account is credited.
-	`CREATE TRIGGER IF NOT EXISTS trg_balance_reimburse
-AFTER UPDATE OF reimb_status ON transactions
-WHEN OLD.reimb_status != 'reimbursed' AND NEW.reimb_status = 'reimbursed'
-  AND NEW.direction = 'debit'
-  AND EXISTS (SELECT 1 FROM accounts WHERE id = NEW.account_id AND type = 'public')
-BEGIN
-  UPDATE accounts SET
-    balance_cents = balance_cents + NEW.base_amount_cents,
-    version       = version + 1,
-    updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-  WHERE id = NEW.account_id;
-END`,
-
-	// Reverse the reimbursement refund when toggled back to pending.
-	// Same public-type guard as above — LIFE mode "unclearing" has no balance effect.
-	`CREATE TRIGGER IF NOT EXISTS trg_balance_unreimburse
-AFTER UPDATE OF reimb_status ON transactions
-WHEN OLD.reimb_status = 'reimbursed' AND NEW.reimb_status != 'reimbursed'
-  AND NEW.direction = 'debit'
-  AND EXISTS (SELECT 1 FROM accounts WHERE id = NEW.account_id AND type = 'public')
-BEGIN
-  UPDATE accounts SET
-    balance_cents = balance_cents - NEW.base_amount_cents,
-    version       = version + 1,
-    updated_at    = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-  WHERE id = NEW.account_id;
-END`,
-
 	// Prevent hard-delete of accounts that have transactions
 	`CREATE TRIGGER IF NOT EXISTS trg_prevent_account_delete
 BEFORE DELETE ON accounts
@@ -151,10 +250,14 @@ BEGIN
 END`,
 }
 
-// dropAndRecreate lists triggers that must be dropped before recreation so that
-// updated WHEN conditions take effect on existing databases (IF NOT EXISTS would
-// silently keep the stale version).
-var dropAndRecreate = []string{
+// dropBeforeApply lists triggers that must be removed before the canonical set
+// is installed. The two reimbursement triggers are intentionally retired:
+// reimbursement is workflow state, while balances are derived exclusively from
+// posted transactions. Keeping the old triggers made cached balances disagree
+// with migrations, restore recalculation, and balance history.
+var dropBeforeApply = []string{
+	"trg_transaction_amount_insert",
+	"trg_transaction_amount_update",
 	"trg_balance_insert",
 	"trg_balance_delete",
 	"trg_balance_update",
@@ -164,11 +267,10 @@ var dropAndRecreate = []string{
 
 // ApplyTriggers (re-)creates all balance and audit triggers.
 // Called after each Migrate() run so triggers survive a fresh DB as well as upgrades.
-// Triggers in dropAndRecreate are explicitly dropped first so updated WHEN conditions
-// (e.g. the public-type guard added to the reimburse triggers) are guaranteed to apply
-// to existing databases and not just fresh ones.
+// Triggers in dropBeforeApply are explicitly dropped first so updated definitions
+// apply to existing databases and retired definitions are removed.
 func ApplyTriggers(ctx context.Context, db *sql.DB) error {
-	for _, name := range dropAndRecreate {
+	for _, name := range dropBeforeApply {
 		if _, err := db.ExecContext(ctx, "DROP TRIGGER IF EXISTS "+name); err != nil {
 			return fmt.Errorf("drop trigger %s: %w", name, err)
 		}

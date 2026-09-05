@@ -1,39 +1,50 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { confirmEmailChange } from '../api/client'
+import { useAuth } from '../hooks/useAuth'
 import { LogoMark } from '../components/Brand'
 import { useThemeColor } from '../hooks/useThemeColor'
+import { useActionToken } from '../hooks/useActionToken'
 
 export default function ConfirmEmailChangePage() {
   useThemeColor('#7c3aed', '#1e1033')
   const { t } = useTranslation()
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token') ?? ''
+  const { clearSession } = useAuth()
+  const token = useActionToken()
   const navigate = useNavigate()
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [status, setStatus] = useState<'ready' | 'loading' | 'success' | 'error'>(token ? 'ready' : 'error')
   const [errorMsg, setErrorMsg] = useState('')
+  const submittingRef = useRef(false)
+  const redirectTimerRef = useRef<number | null>(null)
+  const visibleErrorMsg = token ? errorMsg : t('confirmEmailChange.invalidLink')
 
-  useEffect(() => {
-    if (!token) {
+  async function handleConfirm() {
+    if (!token || submittingRef.current) return
+    submittingRef.current = true
+    setStatus('loading')
+    setErrorMsg('')
+    try {
+      await confirmEmailChange(token)
+      clearSession()
+      setStatus('success')
+      redirectTimerRef.current = window.setTimeout(
+        () => navigate('/login?email_changed=1', { replace: true }),
+        3000,
+      )
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setErrorMsg(msg || t('confirmEmailChange.errorDefault'))
       setStatus('error')
-      setErrorMsg(t('confirmEmailChange.invalidLink'))
-      return
+    } finally {
+      submittingRef.current = false
     }
-    confirmEmailChange(token)
-      .then(() => {
-        setStatus('success')
-        // Redirect to login so user re-authenticates with new email
-        setTimeout(() => navigate('/login?email_changed=1', { replace: true }), 3000)
-      })
-      .catch((err: unknown) => {
-        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        setErrorMsg(msg || t('confirmEmailChange.errorDefault'))
-        setStatus('error')
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }
+
+  useEffect(() => () => {
+    if (redirectTimerRef.current !== null) window.clearTimeout(redirectTimerRef.current)
+  }, [])
 
   return (
     <div className="min-h-dvh flex flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 relative px-4 py-4 md:py-6">
@@ -45,6 +56,30 @@ export default function ConfirmEmailChangePage() {
           <h1 className="text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">FinArch</h1>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('login.subtitle')}</p>
         </div>
+
+        {status === 'ready' && (
+          <div className="space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-7 h-7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12l3 3 6-6m4.5 3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('confirmEmailChange.readyTitle')}</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{t('confirmEmailChange.readyDesc')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-8 py-3 rounded-xl transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+            >
+              {t('confirmEmailChange.confirmButton')}
+            </button>
+            <Link to="/login" className="inline-block text-xs text-gray-400 dark:text-gray-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors font-medium">
+              {t('confirmEmailChange.cancelButton')}
+            </Link>
+          </div>
+        )}
 
         {status === 'loading' && (
           <div className="space-y-3">
@@ -82,7 +117,7 @@ export default function ConfirmEmailChangePage() {
               </svg>
             </div>
             <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{t('confirmEmailChange.errorTitle')}</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{errorMsg}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{visibleErrorMsg}</p>
             <div className="flex flex-col gap-2">
               <Link
                 to="/settings"

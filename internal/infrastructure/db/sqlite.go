@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -83,6 +84,36 @@ var migrationV23SQL string
 //go:embed migration_v24.sql
 var migrationV24SQL string
 
+//go:embed migration_v25.sql
+var migrationV25SQL string
+
+//go:embed migration_v26.sql
+var migrationV26SQL string
+
+//go:embed migration_v27.sql
+var migrationV27SQL string
+
+//go:embed migration_v28.sql
+var migrationV28SQL string
+
+//go:embed migration_v29.sql
+var migrationV29SQL string
+
+//go:embed migration_v30.sql
+var migrationV30SQL string
+
+//go:embed migration_v31.sql
+var migrationV31SQL string
+
+//go:embed migration_v32.sql
+var migrationV32SQL string
+
+type schemaMigration struct {
+	version            int
+	sql                string
+	disableForeignKeys bool
+}
+
 // OpenSQLite opens SQLite and configures pragmas for reliability and performance.
 func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	dsn = normalizeSQLiteDSN(dsn)
@@ -95,7 +126,7 @@ func OpenSQLite(ctx context.Context, dsn string) (*sql.DB, error) {
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON;",
 		"PRAGMA journal_mode = WAL;",
-		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA synchronous = FULL;",
 		"PRAGMA busy_timeout = 5000;",
 	}
 
@@ -118,7 +149,7 @@ func ReapplyPragmas(ctx context.Context, database *sql.DB) error {
 	pragmas := []string{
 		"PRAGMA foreign_keys = ON;",
 		"PRAGMA journal_mode = WAL;",
-		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA synchronous = FULL;",
 		"PRAGMA busy_timeout = 5000;",
 	}
 	for _, q := range pragmas {
@@ -130,12 +161,26 @@ func ReapplyPragmas(ctx context.Context, database *sql.DB) error {
 }
 
 // Migrate executes schema migrations in order, tracking applied versions.
-// It sets StatesMigration on the global ConcurrencyGuard for the duration,
+// It enters StateMigration on the global ConcurrencyGuard for the duration,
 // preventing any concurrent writes during schema changes.
 func Migrate(ctx context.Context, database *sql.DB) error {
-	Global().SetState(StateMigration)
-	defer Global().SetState(StateNormal)
+	guard := Global()
+	previousState := guard.BeginMaintenance(StateMigration)
+	defer guard.EndMaintenance(previousState)
+	return migrateSchema(ctx, database)
+}
 
+// MigrateWithinMaintenance executes migrations when the caller already owns
+// the global maintenance lock, such as during a restore. Calling Migrate in
+// that situation would attempt to acquire the non-reentrant lock again.
+func MigrateWithinMaintenance(ctx context.Context, database *sql.DB) error {
+	if Global().State() == StateNormal {
+		return fmt.Errorf("migration requires an active maintenance scope")
+	}
+	return migrateSchema(ctx, database)
+}
+
+func migrateSchema(ctx context.Context, database *sql.DB) error {
 	// Ensure migrations tracking table exists.
 	if _, err := database.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -145,52 +190,44 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 		return fmt.Errorf("create schema_migrations: %w", err)
 	}
 
-	migrations := []struct {
-		version int
-		sql     string
-	}{
-		{1, migrationSQL},
-		{2, migrationV2SQL},
-		{3, migrationV3SQL},
-		{4, migrationV4SQL},
-		{5, migrationV5SQL},
-		{6, migrationV6SQL},
-		{7, migrationV7SQL},
-		{8, migrationV8SQL},
-		{9, migrationV9SQL},
-		{10, migrationV10SQL},
-		{11, migrationV11SQL},
-		{12, migrationV12SQL},
-		{13, migrationV13SQL},
-		{14, migrationV14SQL},
-		{15, migrationV15SQL},
-		{16, migrationV16SQL},
-		{17, migrationV17SQL},
-		{18, migrationV18SQL},
-		{19, migrationV19SQL},
-		{20, migrationV20SQL},
-		{21, migrationV21SQL},
-		{22, migrationV22SQL},
-		{23, migrationV23SQL},
-		{24, migrationV24SQL},
+	migrations := []schemaMigration{
+		{version: 1, sql: migrationSQL},
+		{version: 2, sql: migrationV2SQL},
+		{version: 3, sql: migrationV3SQL},
+		{version: 4, sql: migrationV4SQL},
+		{version: 5, sql: migrationV5SQL},
+		{version: 6, sql: migrationV6SQL},
+		{version: 7, sql: migrationV7SQL},
+		{version: 8, sql: migrationV8SQL},
+		{version: 9, sql: migrationV9SQL, disableForeignKeys: true},
+		{version: 10, sql: migrationV10SQL},
+		{version: 11, sql: migrationV11SQL},
+		{version: 12, sql: migrationV12SQL},
+		{version: 13, sql: migrationV13SQL},
+		{version: 14, sql: migrationV14SQL},
+		{version: 15, sql: migrationV15SQL},
+		{version: 16, sql: migrationV16SQL},
+		{version: 17, sql: migrationV17SQL},
+		{version: 18, sql: migrationV18SQL},
+		{version: 19, sql: migrationV19SQL},
+		{version: 20, sql: migrationV20SQL},
+		{version: 21, sql: migrationV21SQL},
+		{version: 22, sql: migrationV22SQL},
+		{version: 23, sql: migrationV23SQL},
+		{version: 24, sql: migrationV24SQL},
+		{version: 25, sql: migrationV25SQL},
+		{version: 26, sql: migrationV26SQL},
+		{version: 27, sql: migrationV27SQL},
+		{version: 28, sql: migrationV28SQL},
+		{version: 29, sql: migrationV29SQL},
+		{version: 30, sql: migrationV30SQL},
+		{version: 31, sql: migrationV31SQL},
+		{version: 32, sql: migrationV32SQL},
 	}
 
 	for _, m := range migrations {
-		var exists int
-		_ = database.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM schema_migrations WHERE version = ?`, m.version,
-		).Scan(&exists)
-		if exists > 0 {
-			continue
-		}
-		if err := execStatements(ctx, database, m.sql); err != nil {
+		if err := applyMigration(ctx, database, m); err != nil {
 			return fmt.Errorf("migration v%d: %w", m.version, err)
-		}
-		if _, err := database.ExecContext(ctx,
-			`INSERT INTO schema_migrations(version, applied_at) VALUES(?, strftime('%s','now'))`,
-			m.version,
-		); err != nil {
-			return fmt.Errorf("record migration v%d: %w", m.version, err)
 		}
 	}
 
@@ -202,10 +239,70 @@ func Migrate(ctx context.Context, database *sql.DB) error {
 	return nil
 }
 
+func applyMigration(ctx context.Context, database *sql.DB, migration schemaMigration) (returnErr error) {
+	conn, err := database.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire migration connection: %w", err)
+	}
+	defer conn.Close()
+
+	var exists int
+	if err := conn.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schema_migrations WHERE version = ?`, migration.version,
+	).Scan(&exists); err != nil {
+		return fmt.Errorf("check migration version: %w", err)
+	}
+	if exists > 0 {
+		return nil
+	}
+
+	foreignKeysEnabled := 0
+	if migration.disableForeignKeys {
+		if err := conn.QueryRowContext(ctx, `PRAGMA foreign_keys`).Scan(&foreignKeysEnabled); err != nil {
+			return fmt.Errorf("read foreign_keys pragma: %w", err)
+		}
+		if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+			return fmt.Errorf("disable foreign_keys: %w", err)
+		}
+		defer func() {
+			restoreCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			pragma := `PRAGMA foreign_keys = OFF`
+			if foreignKeysEnabled != 0 {
+				pragma = `PRAGMA foreign_keys = ON`
+			}
+			if _, err := conn.ExecContext(restoreCtx, pragma); err != nil && returnErr == nil {
+				returnErr = fmt.Errorf("restore foreign_keys pragma: %w", err)
+			}
+		}()
+	}
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin migration transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := execStatements(ctx, tx, migration.sql); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO schema_migrations(version, applied_at) VALUES(?, strftime('%s','now'))`,
+		migration.version,
+	); err != nil {
+		return fmt.Errorf("record migration: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit migration: %w", err)
+	}
+	return nil
+}
+
 func normalizeSQLiteDSN(dsn string) string {
-	params := []string{"_txlock=immediate", "_busy_timeout=5000", "_fk=1"}
+	params := []string{"_txlock=immediate", "_busy_timeout=5000", "_fk=1", "_synchronous=FULL"}
 	base, rawQuery, hasQuery := strings.Cut(dsn, "?")
 	seen := map[string]struct{}{}
+	queryParts := make([]string, 0)
 	if hasQuery {
 		for _, part := range strings.Split(rawQuery, "&") {
 			if part == "" {
@@ -215,11 +312,21 @@ func normalizeSQLiteDSN(dsn string) string {
 			if decoded, err := url.QueryUnescape(key); err == nil {
 				key = decoded
 			}
+			key = strings.ToLower(key)
+			// mattn/go-sqlite3 accepts aliases for connection-local invariants,
+			// and the winning value can depend on ordering. Remove every supplied
+			// form and append one canonical safe value below.
+			if key == "_synchronous" || key == "_sync" ||
+				key == "_fk" || key == "_foreign_keys" ||
+				key == "_txlock" || key == "_busy_timeout" || key == "_timeout" {
+				continue
+			}
 			seen[key] = struct{}{}
+			queryParts = append(queryParts, part)
 		}
 	}
 
-	query := rawQuery
+	query := strings.Join(queryParts, "&")
 	for _, param := range params {
 		key, _, _ := strings.Cut(param, "=")
 		if _, ok := seen[key]; ok {
@@ -236,7 +343,11 @@ func normalizeSQLiteDSN(dsn string) string {
 	return base + "?" + query
 }
 
-func execStatements(ctx context.Context, database *sql.DB, script string) error {
+type migrationExecutor interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func execStatements(ctx context.Context, database migrationExecutor, script string) error {
 	for _, stmt := range strings.Split(script, ";") {
 		stmt = strings.TrimSpace(stmt)
 		if stmt == "" {

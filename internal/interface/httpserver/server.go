@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
@@ -41,16 +40,15 @@ func NewServer(
 
 // Run starts the HTTP server.
 func (s *Server) Run() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleIndex)
-	mux.HandleFunc("/api/balance", s.handleBalance)
-	mux.HandleFunc("/api/transactions", s.handleTransactions)
-	mux.HandleFunc("/api/transactions/{id}/reimburse", s.handleToggleReimbursed)
-	mux.HandleFunc("/api/match", s.handleMatch)
-	mux.HandleFunc("/api/reimburse", s.handleReimburse)
+	return fmt.Errorf("legacy unauthenticated HTTP server is disabled; use internal/interface/apiv1")
+}
 
-	log.Printf("FinArch Web UI: http://%s\n", s.addr)
-	return http.ListenAndServe(s.addr, corsMiddleware(mux))
+// Handler is intentionally fail-closed so this legacy package cannot be
+// embedded accidentally and expose empty-user-scope finance APIs.
+func (s *Server) Handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeError(w, http.StatusGone, "legacy unauthenticated HTTP API is disabled")
+	})
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
@@ -256,35 +254,7 @@ func (s *Server) handleMatch(w http.ResponseWriter, r *http.Request) {
 
 // handleReimburse creates a reimbursement.
 func (s *Server) handleReimburse(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "POST only")
-		return
-	}
-	ctx := r.Context()
-	var req struct {
-		Applicant      string   `json:"applicant"`
-		TransactionIDs []string `json:"transaction_ids"`
-		RequestNo      string   `json:"request_no"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid json: "+err.Error())
-		return
-	}
-	reim, err := s.reimSvc.CreateReimbursement(ctx, service.CreateReimbursementRequest{
-		Applicant:      req.Applicant,
-		TransactionIDs: req.TransactionIDs,
-		RequestNo:      req.RequestNo,
-	})
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":         reim.ID,
-		"request_no": reim.RequestNo,
-		"total_yuan": reim.TotalYuan.Float64(),
-		"status":     reim.Status,
-	})
+	writeError(w, http.StatusGone, "legacy unauthenticated HTTP API is disabled")
 }
 
 // handleToggleReimbursed flips the reimbursed flag for a single transaction.

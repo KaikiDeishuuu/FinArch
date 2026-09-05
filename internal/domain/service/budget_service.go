@@ -38,7 +38,7 @@ type UpdateBudgetRequest struct {
 	UserID          string
 	Mode            model.Mode
 	PeriodMonth     string
-	Category        string
+	Category        *string
 	AmountCents     int64
 	Currency        string
 	BaseCurrency    string
@@ -127,14 +127,27 @@ func (s *BudgetService) UpdateBudget(ctx context.Context, req UpdateBudgetReques
 	}
 	baseAmountCents := req.BaseAmountCents
 	if baseAmountCents <= 0 {
-		baseAmountCents = amountCents
+		termsChanged := req.AmountCents > 0 ||
+			strings.TrimSpace(req.Currency) != "" ||
+			strings.TrimSpace(req.BaseCurrency) != ""
+		if !termsChanged {
+			baseAmountCents = existing.BaseAmountCents
+		} else if strings.EqualFold(strings.TrimSpace(currency), strings.TrimSpace(baseCurrency)) {
+			baseAmountCents = amountCents
+		} else {
+			return model.Budget{}, fmt.Errorf("跨币种预算更新时必须提供本位币金额")
+		}
+	}
+	category := existing.Category
+	if req.Category != nil {
+		category = *req.Category
 	}
 	b, err := normalizeBudget(model.Budget{
 		ID:              existing.ID,
 		UserID:          existing.UserID,
 		Mode:            mode,
 		PeriodMonth:     periodMonth,
-		Category:        req.Category,
+		Category:        category,
 		AmountCents:     amountCents,
 		Currency:        currency,
 		BaseCurrency:    baseCurrency,
@@ -186,6 +199,13 @@ func (s *BudgetService) Summary(ctx context.Context, userID string, mode model.M
 		CategoryBudgets:  []BudgetProgress{},
 	}
 	for _, b := range budgets {
+		baseCurrency := strings.ToUpper(strings.TrimSpace(b.BaseCurrency))
+		if baseCurrency == "" {
+			baseCurrency = "CNY"
+		}
+		if baseCurrency != "CNY" {
+			return BudgetSummary{}, fmt.Errorf("%w: 预算汇总暂不支持非 CNY 本位币预算", repository.ErrMultiCurrencyReportingUnavailable)
+		}
 		actual := actuals.TotalCents
 		if b.Category != "" {
 			actual = actuals.ByCategory[b.Category]
@@ -228,6 +248,9 @@ func normalizeBudget(b model.Budget) (model.Budget, error) {
 		b.BaseCurrency = b.Currency
 	}
 	if b.BaseAmountCents <= 0 {
+		if b.Currency != b.BaseCurrency {
+			return model.Budget{}, fmt.Errorf("跨币种预算必须提供本位币金额")
+		}
 		b.BaseAmountCents = b.AmountCents
 	}
 	return b, nil

@@ -11,6 +11,9 @@ export function useRefreshFinanceData() {
 
   return useCallback(() => {
     qc.invalidateQueries({ queryKey: TRANSACTIONS_QUERY_KEY(user?.id, mode) })
-    qc.invalidateQueries({ queryKey: ['accounts', user?.id, mode] })
+    // A WORK transaction may use a personal account, whose account query is
+    // intentionally scoped as LIFE. Invalidate both mode-specific caches.
+    qc.invalidateQueries({ queryKey: ['accounts', user?.id] })
+    qc.invalidateQueries({ queryKey: ['account-balance-history', user?.id] })
   }, [qc, user?.id, mode])
 }

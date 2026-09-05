@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"finarch/internal/domain/model"
@@ -10,11 +12,15 @@ import (
 )
 
 const (
-	// dpThreshold: if N × targetCents > dpThreshold, activate time-pruning.
-	dpThreshold = int64(1_000_000_000)
-
-	// timePruneDays: fallback window when N×W exceeds threshold.
+	dpThreshold   = int64(1_000_000_000)
 	timePruneDays = 90
+
+	maxMatchingCandidateFetch = 2000
+	maxMatchingCandidates     = 500
+	maxMatchingSearchNodes    = 250_000
+	maxMatchingTargetCents    = int64(1_000_000_000_000)
+	maxMatchingToleranceCents = int64(100_000)
+	contextCheckInterval      = int64(256)
 )
 
 func normalizeMatchDepth(maxDepth int) int {
@@ -30,14 +36,14 @@ func normalizeMatchDepth(maxDepth int) int {
 // MatchResult represents one matching combination candidate.
 type MatchResult struct {
 	TransactionIDs []string
-	TotalCents     int64       // precise integer cents
-	AbsErrorCents  int64       // |total - target| in cents
-	TotalYuan      model.Money // derived: TotalCents/100  (backward compat)
-	AbsErrorYuan   model.Money // derived: AbsErrorCents/100 (backward compat)
+	TotalCents     int64
+	AbsErrorCents  int64
+	TotalYuan      model.Money
+	AbsErrorYuan   model.Money
 	ProjectCount   int
 	ItemCount      int
-	Score          float64 // multi-objective score — higher is better
-	TimePruned     bool    // true if result came from 90-day pruned set
+	Score          float64
+	TimePruned     bool
 }
 
 // MatchingService finds reimbursement combinations.
@@ -58,6 +64,13 @@ func (s *MatchingService) Match(
 	projectID *string,
 	limit int,
 ) ([]MatchResult, error) {
+	targetCents, toleranceCents, err := validateMatchingAmounts(targetYuan, toleranceYuan)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	maxDepth = normalizeMatchDepth(maxDepth)
 	if limit <= 0 {
 		limit = DefaultLimit
@@ -65,24 +78,59 @@ func (s *MatchingService) Match(
 	if limit > MaxAllowedLimit {
 		limit = MaxAllowedLimit
 	}
-	candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(ctx, userID, projectID, 2000, model.ModeWork)
+
+	candidates, err := s.transactions.ListUnreimbursedPersonalExpenses(
+		ctx, userID, projectID, maxMatchingCandidateFetch, model.ModeWork,
+	)
 	if err != nil {
 		return nil, err
 	}
-	targetCents := int64(targetYuan * 100)
-	toleranceCents := int64(toleranceYuan * 100)
-	return FindBestMatchesCents(candidates, targetCents, toleranceCents, maxDepth, limit), nil
+
+	// The target is denominated in yuan (CNY). Do not add amounts normalized
+	// to a different account base currency without a trustworthy cross-rate.
+	cnyCandidates := make([]model.Transaction, 0, len(candidates))
+	for _, candidate := range candidates {
+		baseCurrency := strings.ToUpper(strings.TrimSpace(candidate.BaseCurrency))
+		if baseCurrency == "" {
+			baseCurrency = strings.ToUpper(strings.TrimSpace(candidate.Currency))
+			if baseCurrency == "" {
+				baseCurrency = "CNY"
+			}
+		}
+		if baseCurrency != "CNY" {
+			continue
+		}
+		if candidate.BaseAmountCents == 0 {
+			// Safe legacy fallback because this candidate is CNY-denominated.
+			candidate.BaseAmountCents = candidate.AmountCents
+		}
+		cnyCandidates = append(cnyCandidates, candidate)
+	}
+	return findBestMatchesCentsContext(
+		ctx, cnyCandidates, targetCents, toleranceCents, maxDepth, limit,
+	)
 }
 
-// FindBestMatchesCents is the primary matching algorithm using integer-cent arithmetic.
-//
-// Strategy:
-//   - N × targetCents <= dpThreshold: DFS+backtracking over all candidates.
-//   - N × targetCents >  dpThreshold: try DFS on last-90-days subset first (time-pruning
-//     Fallback 2); if no results found, retry on full set.
-//
-// Results scored by multi-objective function (fewer items + older receipts = higher score).
-// Top-3 best-scored solutions among equally-close matches appear first.
+func validateMatchingAmounts(targetYuan, toleranceYuan model.Money) (int64, int64, error) {
+	targetCents, err := targetYuan.Cents()
+	if err != nil || targetCents <= 0 {
+		return 0, 0, fmt.Errorf("请输入有效的目标金额")
+	}
+	toleranceCents, err := toleranceYuan.Cents()
+	if err != nil || toleranceCents < 0 {
+		return 0, 0, fmt.Errorf("请输入有效的容差金额")
+	}
+	if targetCents > maxMatchingTargetCents {
+		return 0, 0, fmt.Errorf("目标金额过大")
+	}
+	if toleranceCents > maxMatchingToleranceCents || toleranceCents > targetCents {
+		return 0, 0, fmt.Errorf("容差金额过大")
+	}
+	return targetCents, toleranceCents, nil
+}
+
+// FindBestMatchesCents is the compatibility entry point. Request paths use the
+// cancellable search through MatchingService.Match.
 func FindBestMatchesCents(
 	candidates []model.Transaction,
 	targetCents int64,
@@ -90,28 +138,51 @@ func FindBestMatchesCents(
 	maxDepth int,
 	limit int,
 ) []MatchResult {
-	if len(candidates) == 0 || maxDepth <= 0 || limit <= 0 || targetCents <= 0 {
-		return nil
+	results, _ := findBestMatchesCentsContext(
+		context.Background(), candidates, targetCents, toleranceCents, maxDepth, limit,
+	)
+	return results
+}
+
+func findBestMatchesCentsContext(
+	ctx context.Context,
+	candidates []model.Transaction,
+	targetCents int64,
+	toleranceCents int64,
+	maxDepth int,
+	limit int,
+) ([]MatchResult, error) {
+	if len(candidates) == 0 || targetCents <= 0 || targetCents > maxMatchingTargetCents {
+		return nil, nil
+	}
+	if toleranceCents < 0 || toleranceCents > maxMatchingToleranceCents || toleranceCents > targetCents {
+		return nil, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	maxDepth = normalizeMatchDepth(maxDepth)
+	if limit <= 0 {
+		return nil, nil
+	}
+	if limit > MaxAllowedLimit {
+		limit = MaxAllowedLimit
 	}
 
-	// Ensure maxDepth is within safe, bounded limits before any allocations.
-	if maxDepth > MaxAllowedDepth {
-		maxDepth = MaxAllowedDepth
-	} else if maxDepth < 1 {
-		maxDepth = 1
+	upper := targetCents + toleranceCents
+	workCandidates := prepareMatchingCandidates(candidates, upper)
+	if len(workCandidates) == 0 {
+		return nil, nil
 	}
-
-	N := int64(len(candidates))
-	workSet := candidates
+	workSet := workCandidates
 	timePruned := false
-
-	if N*targetCents > dpThreshold {
-		// Fallback 2 – time pruning: restrict to last timePruneDays days.
+	n := int64(len(workCandidates))
+	if targetCents > dpThreshold/n {
 		cutoff := time.Now().AddDate(0, 0, -timePruneDays)
-		pruned := make([]model.Transaction, 0, len(candidates))
-		for _, c := range candidates {
-			if c.OccurredAt.After(cutoff) {
-				pruned = append(pruned, c)
+		pruned := make([]model.Transaction, 0, len(workCandidates))
+		for _, candidate := range workCandidates {
+			if candidate.OccurredAt.After(cutoff) {
+				pruned = append(pruned, candidate)
 			}
 		}
 		if len(pruned) > 0 {
@@ -120,145 +191,226 @@ func FindBestMatchesCents(
 		}
 	}
 
-	results := dfsCents(workSet, targetCents, toleranceCents, maxDepth)
-
-	// If time-pruned set yielded nothing, retry on the full set.
-	if len(results) == 0 && timePruned {
-		results = dfsCents(candidates, targetCents, toleranceCents, maxDepth)
-		timePruned = false
-	}
-	if len(results) == 0 {
-		return nil
-	}
-
-	// Build index for age-scoring.
-	txIndex := make(map[string]model.Transaction, len(candidates))
-	for _, c := range candidates {
-		txIndex[c.ID] = c
-	}
-
+	remainingNodes := int64(maxMatchingSearchNodes)
 	now := time.Now()
-	for i := range results {
-		var totalDays float64
-		for _, id := range results[i].TransactionIDs {
-			if t, ok := txIndex[id]; ok {
-				totalDays += now.Sub(t.OccurredAt).Hours() / 24
-			}
-		}
-		avgDays := totalDays / float64(results[i].ItemCount)
-		ageScore := avgDays / 365.0
-		if ageScore > 1.0 {
-			ageScore = 1.0
-		}
-		// Weight: 60% minimalist (fewer items) + 40% age preference (older receipts first).
-		minScore := 1.0 / float64(results[i].ItemCount)
-		results[i].Score = 0.6*minScore + 0.4*ageScore
-		results[i].TimePruned = timePruned
-		results[i].TotalYuan = model.Money(results[i].TotalCents) / 100
-		results[i].AbsErrorYuan = model.Money(results[i].AbsErrorCents) / 100
+	results, err := searchMatchesCents(
+		ctx, workSet, targetCents, toleranceCents, maxDepth, limit,
+		timePruned, now, &remainingNodes,
+	)
+	if err != nil {
+		return nil, err
 	}
-
-	// Primary: absolute error asc. Secondary: score desc. Tertiary: item count asc.
-	sort.Slice(results, func(i, j int) bool {
-		if results[i].AbsErrorCents != results[j].AbsErrorCents {
-			return results[i].AbsErrorCents < results[j].AbsErrorCents
+	if len(results) == 0 && timePruned && remainingNodes > 0 {
+		results, err = searchMatchesCents(
+			ctx, workCandidates, targetCents, toleranceCents, maxDepth, limit,
+			false, now, &remainingNodes,
+		)
+		if err != nil {
+			return nil, err
 		}
-		if results[i].Score != results[j].Score {
-			return results[i].Score > results[j].Score
-		}
-		return results[i].ItemCount < results[j].ItemCount
+	}
+	sort.SliceStable(results, func(i, j int) bool {
+		return betterMatch(results[i], results[j])
 	})
-
-	if len(results) > limit {
-		results = results[:limit]
-	}
-	return results
+	return results, nil
 }
 
-// dfsCents runs Fallback 1: greedy-sorted DFS with backtracking.
-// Items are sorted by amount desc (large items tried first) and date asc (older first on tie).
-func dfsCents(
+func prepareMatchingCandidates(candidates []model.Transaction, upper int64) []model.Transaction {
+	scanLimit := len(candidates)
+	if scanLimit > maxMatchingCandidateFetch {
+		scanLimit = maxMatchingCandidateFetch
+	}
+	capacity := scanLimit
+	if capacity > maxMatchingCandidates {
+		capacity = maxMatchingCandidates
+	}
+	prepared := make([]model.Transaction, 0, capacity)
+	for i := 0; i < scanLimit && len(prepared) < maxMatchingCandidates; i++ {
+		candidate := candidates[i]
+		if candidate.BaseAmountCents == 0 {
+			// Legacy cents-helper callers did not populate base cents.
+			candidate.BaseAmountCents = candidate.AmountCents
+		}
+		if candidate.BaseAmountCents <= 0 || candidate.BaseAmountCents > upper {
+			continue
+		}
+		prepared = append(prepared, candidate)
+	}
+	return prepared
+}
+
+type matchSearch struct {
+	ctx            context.Context
+	items          []model.Transaction
+	ages           []float64
+	suffix         []int64
+	target         int64
+	tolerance      int64
+	upper          int64
+	maxDepth       int
+	limit          int
+	timePruned     bool
+	remainingNodes *int64
+	results        []MatchResult
+	picked         []int
+	err            error
+}
+
+func searchMatchesCents(
+	ctx context.Context,
 	items []model.Transaction,
 	targetCents int64,
 	toleranceCents int64,
 	maxDepth int,
-) []MatchResult {
-	maxDepth = normalizeMatchDepth(maxDepth)
-	sorted := make([]model.Transaction, len(items))
-	copy(sorted, items)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].AmountCents != sorted[j].AmountCents {
-			return sorted[i].AmountCents > sorted[j].AmountCents
+	limit int,
+	timePruned bool,
+	now time.Time,
+	remainingNodes *int64,
+) ([]MatchResult, error) {
+	sortedItems := append([]model.Transaction(nil), items...)
+	sort.SliceStable(sortedItems, func(i, j int) bool {
+		if sortedItems[i].BaseAmountCents != sortedItems[j].BaseAmountCents {
+			return sortedItems[i].BaseAmountCents > sortedItems[j].BaseAmountCents
 		}
-		return sorted[i].OccurredAt.Before(sorted[j].OccurredAt)
+		if !sortedItems[i].OccurredAt.Equal(sortedItems[j].OccurredAt) {
+			return sortedItems[i].OccurredAt.Before(sortedItems[j].OccurredAt)
+		}
+		return sortedItems[i].ID < sortedItems[j].ID
 	})
 
-	suffix := make([]int64, len(sorted)+1)
-	for i := len(sorted) - 1; i >= 0; i-- {
-		suffix[i] = suffix[i+1] + sorted[i].AmountCents
+	upper := targetCents + toleranceCents
+	suffix := make([]int64, len(sortedItems)+1)
+	ages := make([]float64, len(sortedItems))
+	for i := len(sortedItems) - 1; i >= 0; i-- {
+		amount := sortedItems[i].BaseAmountCents
+		if suffix[i+1] >= upper-amount {
+			suffix[i] = upper
+		} else {
+			suffix[i] = suffix[i+1] + amount
+		}
+		ageDays := now.Sub(sortedItems[i].OccurredAt).Hours() / 24
+		if ageDays < 0 {
+			ageDays = 0
+		} else if ageDays > 365 {
+			ageDays = 365
+		}
+		ages[i] = ageDays
 	}
-
-	var results []MatchResult
-	pickedIdx := make([]int, 0, maxDepth)
-
-	var dfs func(index int, sum int64)
-	dfs = func(index int, sum int64) {
-		if len(pickedIdx) > maxDepth {
-			return
-		}
-		if sum > targetCents+toleranceCents {
-			return
-		}
-		if sum+suffix[index] < targetCents-toleranceCents {
-			return
-		}
-
-		absErr := sum - targetCents
-		if absErr < 0 {
-			absErr = -absErr
-		}
-		if absErr <= toleranceCents && len(pickedIdx) > 0 {
-			ids := make([]string, len(pickedIdx))
-			for k, idx := range pickedIdx {
-				ids[k] = sorted[idx].ID
-			}
-			projectSet := make(map[string]struct{})
-			for _, idx := range pickedIdx {
-				if sorted[idx].ProjectID != nil {
-					projectSet[*sorted[idx].ProjectID] = struct{}{}
-				}
-			}
-			results = append(results, MatchResult{
-				TransactionIDs: ids,
-				TotalCents:     sum,
-				AbsErrorCents:  absErr,
-				ProjectCount:   len(projectSet),
-				ItemCount:      len(pickedIdx),
-			})
-		}
-
-		if index >= len(sorted) || len(pickedIdx) == maxDepth {
-			return
-		}
-
-		var prevCents int64 = -1
-		for i := index; i < len(sorted); i++ {
-			if sorted[i].AmountCents == prevCents {
-				continue
-			}
-			prevCents = sorted[i].AmountCents
-			pickedIdx = append(pickedIdx, i)
-			dfs(i+1, sum+sorted[i].AmountCents)
-			pickedIdx = pickedIdx[:len(pickedIdx)-1]
-		}
+	search := matchSearch{
+		ctx: ctx, items: sortedItems, ages: ages, suffix: suffix,
+		target: targetCents, tolerance: toleranceCents, upper: upper,
+		maxDepth: maxDepth, limit: limit, timePruned: timePruned,
+		remainingNodes: remainingNodes,
+		results:        make([]MatchResult, 0, limit),
+		picked:         make([]int, 0, maxDepth),
 	}
-
-	dfs(0, 0)
-	return results
+	search.dfs(0, 0, 0)
+	return search.results, search.err
 }
 
-// FindBestMatches is kept for backward compatibility with existing tests.
-// Delegates to FindBestMatchesCents after filling AmountCents from AmountYuan for legacy data.
+func (s *matchSearch) dfs(index int, sum int64, totalAgeDays float64) {
+	if s.err != nil || *s.remainingNodes <= 0 {
+		return
+	}
+	(*s.remainingNodes)--
+	if *s.remainingNodes%contextCheckInterval == 0 {
+		if err := s.ctx.Err(); err != nil {
+			s.err = err
+			return
+		}
+	}
+	if sum > s.upper {
+		return
+	}
+	lower := s.target - s.tolerance
+	if sum+s.suffix[index] < lower {
+		return
+	}
+
+	absErr := sum - s.target
+	if absErr < 0 {
+		absErr = -absErr
+	}
+	if absErr <= s.tolerance && len(s.picked) > 0 {
+		s.consider(sum, absErr, totalAgeDays)
+	}
+	if index >= len(s.items) || len(s.picked) == s.maxDepth {
+		return
+	}
+
+	var previousAmount int64 = -1
+	for i := index; i < len(s.items); i++ {
+		amount := s.items[i].BaseAmountCents
+		if amount == previousAmount {
+			continue
+		}
+		previousAmount = amount
+		if amount > s.upper-sum {
+			continue
+		}
+		s.picked = append(s.picked, i)
+		s.dfs(i+1, sum+amount, totalAgeDays+s.ages[i])
+		s.picked = s.picked[:len(s.picked)-1]
+		if s.err != nil || *s.remainingNodes <= 0 {
+			return
+		}
+	}
+}
+
+func (s *matchSearch) consider(sum, absErr int64, totalAgeDays float64) {
+	itemCount := len(s.picked)
+	ageScore := (totalAgeDays / float64(itemCount)) / 365
+	minScore := 1 / float64(itemCount)
+	candidate := MatchResult{
+		TotalCents: sum, AbsErrorCents: absErr,
+		TotalYuan:    model.Money(sum) / 100,
+		AbsErrorYuan: model.Money(absErr) / 100,
+		ItemCount:    itemCount,
+		Score:        0.6*minScore + 0.4*ageScore,
+		TimePruned:   s.timePruned,
+	}
+
+	slot := len(s.results)
+	if slot >= s.limit {
+		slot = 0
+		for i := 1; i < len(s.results); i++ {
+			if betterMatch(s.results[slot], s.results[i]) {
+				slot = i
+			}
+		}
+		if !betterMatch(candidate, s.results[slot]) {
+			return
+		}
+	}
+
+	candidate.TransactionIDs = make([]string, itemCount)
+	projects := make(map[string]struct{}, itemCount)
+	for i, pickedIndex := range s.picked {
+		transaction := s.items[pickedIndex]
+		candidate.TransactionIDs[i] = transaction.ID
+		if transaction.ProjectID != nil {
+			projects[*transaction.ProjectID] = struct{}{}
+		}
+	}
+	candidate.ProjectCount = len(projects)
+	if len(s.results) < s.limit {
+		s.results = append(s.results, candidate)
+	} else {
+		s.results[slot] = candidate
+	}
+}
+
+func betterMatch(left, right MatchResult) bool {
+	if left.AbsErrorCents != right.AbsErrorCents {
+		return left.AbsErrorCents < right.AbsErrorCents
+	}
+	if left.Score != right.Score {
+		return left.Score > right.Score
+	}
+	return left.ItemCount < right.ItemCount
+}
+
+// FindBestMatches is kept for backward compatibility with legacy Money values.
 func FindBestMatches(
 	candidates []model.Transaction,
 	target model.Money,
@@ -266,10 +418,26 @@ func FindBestMatches(
 	maxDepth int,
 	limit int,
 ) []MatchResult {
-	for i := range candidates {
-		if candidates[i].AmountCents == 0 && candidates[i].AmountYuan != 0 {
-			candidates[i].AmountCents = int64(candidates[i].AmountYuan * 100)
+	copied := append([]model.Transaction(nil), candidates...)
+	for i := range copied {
+		if copied[i].AmountCents == 0 && copied[i].AmountYuan != 0 {
+			amountCents, err := copied[i].AmountYuan.Cents()
+			if err != nil {
+				return nil
+			}
+			copied[i].AmountCents = amountCents
+		}
+		if copied[i].BaseAmountCents == 0 {
+			copied[i].BaseAmountCents = copied[i].AmountCents
 		}
 	}
-	return FindBestMatchesCents(candidates, int64(target*100), int64(tolerance*100), maxDepth, limit)
+	targetCents, err := target.Cents()
+	if err != nil {
+		return nil
+	}
+	toleranceCents, err := tolerance.Cents()
+	if err != nil {
+		return nil
+	}
+	return FindBestMatchesCents(copied, targetCents, toleranceCents, maxDepth, limit)
 }

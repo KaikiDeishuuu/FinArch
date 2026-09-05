@@ -1,9 +1,14 @@
 import type { Transaction } from '../api/client'
-import { formatAmount, toCNY } from './format'
+import { formatAmount } from './format'
+import { transactionAmountToCNY } from './financeAmounts'
 import { FALLBACK_RATES } from './exchangeRates'
 import i18n from '../i18n'
 import { categoryLabel } from './categoryLabel'
 import { clampLifecycleTimestamp } from './timestamp'
+import {
+  transactionWorkflowStage,
+  type TransactionWorkflowKind,
+} from './transactionWorkflow'
 
 function fmt(t: Transaction) {
   return formatAmount(t.amount_yuan, t.currency)
@@ -27,7 +32,7 @@ export function exportTransactionsPDF(
   filterLabel: string,
   user: { username: string; email: string; role: string } | null,
   rates: Record<string, number> = FALLBACK_RATES,
-  isWorkMode = true,
+  workflowKind: TransactionWorkflowKind = 'reimbursement',
   accountMap: Record<string, string> = {},
 ) {
   const now = new Date()
@@ -39,10 +44,10 @@ export function exportTransactionsPDF(
   const company = filtered.filter(t => t.source === 'company')
 
   function calcStats(txs: Transaction[]) {
-    const inc = txs.filter(t => t.direction === 'income').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-    const exp = txs.filter(t => t.direction === 'expense').reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-    const reimb = txs.filter(t => t.direction === 'expense' && t.reimbursed).reduce((s, t) => s + toCNY(t.amount_yuan, t.currency, rates), 0)
-    const net = inc - exp + reimb
+    const inc = txs.filter(t => t.direction === 'income').reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
+    const exp = txs.filter(t => t.direction === 'expense').reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
+    const reimb = txs.filter(t => t.direction === 'expense' && t.reimbursed).reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
+    const net = inc - exp + (workflowKind === 'reimbursement' ? reimb : 0)
     return { count: txs.length, inc, exp, reimb, net }
   }
 
@@ -50,30 +55,33 @@ export function exportTransactionsPDF(
   const pStats = calcStats(personal)
   const cStats = calcStats(company)
 
-  // Mode-dependent labels
-  const reimbColHeader = isWorkMode ? i18n.t('exportPdf.reimbursedTotal') : i18n.t('exportPdf.clearedTotal')
-  const reimbStatusYes = isWorkMode ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.clearedYes')
-  const reimbStatusNo = isWorkMode ? i18n.t('exportPdf.reimbursedNo') : i18n.t('exportPdf.clearedNo')
-  const thReimb = isWorkMode ? i18n.t('exportPdf.thReimbursed') : i18n.t('exportPdf.thCleared')
+  const isReimbursementView = workflowKind === 'reimbursement'
 
   function workflowStatus(t: Transaction) {
-    if (t.direction === 'income') {
-      return {
-        text: i18n.t('exportPdf.workflow.incomeNoFlow'),
-        className: 'wf-income',
-      }
+    switch (transactionWorkflowStage(t, workflowKind)) {
+      case 'income':
+        return { text: i18n.t('exportPdf.workflow.incomeNoFlow'), className: 'wf-income' }
+      case 'pending-upload':
+        return { text: i18n.t('exportPdf.workflow.pendingUpload'), className: 'wf-pending' }
+      case 'pending-reimbursement':
+        return { text: i18n.t('exportPdf.workflow.pendingReimbursement'), className: 'wf-review' }
+      case 'reimbursed':
+        return { text: i18n.t('exportPdf.workflow.reimbursed'), className: 'wf-done' }
+      case 'uploaded':
+        return { text: i18n.t('exportPdf.workflow.uploaded'), className: 'wf-done' }
     }
-
-    if (t.source === 'company') {
-      if (!t.uploaded) return { text: i18n.t('exportPdf.workflow.company.pendingUpload'), className: 'wf-pending' }
-      if (!t.reimbursed) return { text: i18n.t('exportPdf.workflow.company.pendingReimburse'), className: 'wf-review' }
-      return { text: i18n.t('exportPdf.workflow.company.done'), className: 'wf-done' }
-    }
-
-    if (!t.uploaded) return { text: i18n.t('exportPdf.workflow.life.pendingUpload'), className: 'wf-pending' }
-    if (!t.reimbursed) return { text: i18n.t('exportPdf.workflow.life.pendingProcess'), className: 'wf-review' }
-    return { text: i18n.t('exportPdf.workflow.life.done'), className: 'wf-done' }
   }
+
+  const workflowLegend = isReimbursementView
+    ? [
+        { className: 'pending', text: i18n.t('exportPdf.workflow.pendingUpload') },
+        { className: 'review', text: i18n.t('exportPdf.workflow.pendingReimbursement') },
+        { className: 'done', text: i18n.t('exportPdf.workflow.reimbursed') },
+      ]
+    : [
+        { className: 'pending', text: i18n.t('exportPdf.workflow.pendingUpload') },
+        { className: 'done', text: i18n.t('exportPdf.workflow.uploaded') },
+      ]
 
   const ordered = [...filtered].sort((a, b) => {
     const ta = a.transaction_time ?? 0
@@ -89,12 +97,18 @@ export function exportTransactionsPDF(
     const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
     const uploaded = t.uploaded ? i18n.t('exportPdf.uploadedYes') : i18n.t('exportPdf.uploadedNo')
     const uploadedColor = t.uploaded ? '#7c3aed' : '#9ca3af'
-    const reimbursed = t.reimbursed ? reimbStatusYes : reimbStatusNo
+    const reimbursed = t.reimbursed ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.reimbursedNo')
     const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     const workflow = workflowStatus(t)
     const reportedAt = clampLifecycleTimestamp(t.reported_at, t.created_at) ?? '—'
     const reimbursedAt = clampLifecycleTimestamp(t.reimbursed_at, t.created_at) ?? '—'
+    const lifecycle = [
+      `<span>${e(i18n.t('exportPdf.reportedAt'))} ${e(reportedAt)}</span>`,
+      ...(isReimbursementView
+        ? [`<span>${e(i18n.t('exportPdf.reimbursedAt'))} ${e(reimbursedAt)}</span>`]
+        : []),
+    ].join('')
     return [
       '<tr class="tx-row">',
       `<td>${e(t.occurred_at)}</td>`,
@@ -102,10 +116,12 @@ export function exportTransactionsPDF(
       `<td>${e(src)}</td>`,
       `<td class="note">${e(acctName)}</td>`,
       `<td>${e(t.project_id ?? '—')}</td>`,
-      `<td class="note">${e(t.note || '—')}<div class="lifecycle"><span>${e(i18n.t('exportPdf.reportedAt'))} ${e(reportedAt)}</span><span>${e(i18n.t('exportPdf.reimbursedAt'))} ${e(reimbursedAt)}</span></div></td>`,
+      `<td class="note">${e(t.note || '—')}<div class="lifecycle">${lifecycle}</div></td>`,
       `<td style="color:${amtColor};font-weight:700;text-align:right">${e(amount)}</td>`,
       `<td style="color:${uploadedColor};text-align:center">${e(uploaded)}</td>`,
-      `<td style="color:${reimbursedColor};text-align:center">${e(reimbursed)}</td>`,
+      ...(isReimbursementView
+        ? [`<td style="color:${reimbursedColor};text-align:center">${e(reimbursed)}</td>`]
+        : []),
       `<td style="text-align:center"><span class="wf-chip ${workflow.className}">${e(workflow.text)}</span></td>`,
       '</tr>',
     ].join('')
@@ -190,7 +206,7 @@ export function exportTransactionsPDF(
       `  <td class="count">${e(s.count)} ${e(i18n.t('exportPdf.unit'))}</td>`,
       `  <td class="income">${e(fmtTotal(s.inc))}</td>`,
       `  <td class="expense">${e(fmtTotal(s.exp))}</td>`,
-      `  <td class="reimb">+${e(fmtTotal(s.reimb))}</td>`,
+      isReimbursementView ? `  <td class="reimb">+${e(fmtTotal(s.reimb))}</td>` : '',
       `  <td style="color:${netStyle(s.net)}">${e(netFmt(s.net))}</td>`,
       '</tr>',
     ].join('')
@@ -218,7 +234,7 @@ export function exportTransactionsPDF(
     '</div>',
     '<div class="summary">',
     '  <table class="summary-table">',
-    `    <thead><tr><th></th><th>${e(i18n.t('exportPdf.recordCount'))}</th><th>${e(i18n.t('exportPdf.incomeTotal'))}</th><th>${e(i18n.t('exportPdf.expenseTotal'))}</th><th>${e(reimbColHeader)}</th><th>${e(i18n.t('exportPdf.netTotal'))}</th></tr></thead>`,
+    `    <thead><tr><th></th><th>${e(i18n.t('exportPdf.recordCount'))}</th><th>${e(i18n.t('exportPdf.incomeTotal'))}</th><th>${e(i18n.t('exportPdf.expenseTotal'))}</th>${isReimbursementView ? `<th>${e(i18n.t('exportPdf.reimbursedTotal'))}</th>` : ''}<th>${e(i18n.t('exportPdf.netTotal'))}</th></tr></thead>`,
     '    <tbody>',
     summaryRow(i18n.t('exportPdf.allLabel'), 'row-all', allStats),
     summaryRow(i18n.t('exportPdf.personalLabel'), 'row-personal', pStats),
@@ -226,15 +242,14 @@ export function exportTransactionsPDF(
     '    </tbody>',
     '  </table>',
     '  <div class="status-note">',
-    `    <span class="status-pill pending">${e(i18n.t('exportPdf.workflowLegend.pending'))}</span>`,
-    `    <span class="status-pill review">${e(i18n.t('exportPdf.workflowLegend.review'))}</span>`,
-    `    <span class="status-pill done">${e(i18n.t('exportPdf.workflowLegend.done'))}</span>`,
+    ...workflowLegend.map(({ className, text }) =>
+      `    <span class="status-pill ${className}">${e(text)}</span>`),
     '  </div>',
     '</div>',
     '<table>',
     '  <thead>',
     '    <tr>',
-    '      <th>' + e(i18n.t('exportPdf.thDate')) + '</th><th>' + e(i18n.t('exportPdf.thCategory')) + '</th><th>' + e(i18n.t('exportPdf.thSource')) + '</th><th>' + e(i18n.t('exportPdf.thAccount')) + '</th><th>' + e(i18n.t('exportPdf.thProject')) + '</th><th>' + e(i18n.t('exportPdf.thNote')) + '</th><th>' + e(i18n.t('exportPdf.thAmount')) + '</th><th>' + e(i18n.t('exportPdf.thUploaded')) + '</th><th>' + e(thReimb) + '</th><th>' + e(i18n.t('exportPdf.thWorkflow')) + '</th>',
+    '      <th>' + e(i18n.t('exportPdf.thDate')) + '</th><th>' + e(i18n.t('exportPdf.thCategory')) + '</th><th>' + e(i18n.t('exportPdf.thSource')) + '</th><th>' + e(i18n.t('exportPdf.thAccount')) + '</th><th>' + e(i18n.t('exportPdf.thProject')) + '</th><th>' + e(i18n.t('exportPdf.thNote')) + '</th><th>' + e(i18n.t('exportPdf.thAmount')) + '</th><th>' + e(i18n.t('exportPdf.thUploaded')) + '</th>' + (isReimbursementView ? '<th>' + e(i18n.t('exportPdf.thReimbursed')) + '</th>' : '') + '<th>' + e(i18n.t('exportPdf.thWorkflow')) + '</th>',
     '    </tr>',
     '  </thead>',
     `  <tbody>${rows}</tbody>`,
