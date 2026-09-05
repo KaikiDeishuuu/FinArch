@@ -80,17 +80,17 @@ function AttachmentPanel({ transactionId }: { transactionId: string }) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-500/20 dark:bg-violet-500/10">
+    <div className="mt-3 rounded-[8px] border border-[hsl(var(--mode-accent))]/25 bg-[hsl(var(--mode-accent-wash))] p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">{t('attachments.title')}</p>
-        <span className="text-[10px] font-semibold text-violet-400">{attachments.length}</span>
+        <p className="text-xs font-semibold text-[hsl(var(--mode-accent-strong))]">{t('attachments.title')}</p>
+        <span className="font-data text-[10px] font-semibold text-[hsl(var(--mode-accent-strong))]/75">{attachments.length}</span>
       </div>
       <AttachmentUploader transactionId={transactionId} compact />
       <div className="mt-3 space-y-2">
         {isLoading ? (
           <div className="h-10 animate-pulse rounded-lg bg-white/70 dark:bg-gray-800/60" />
         ) : attachments.length === 0 ? (
-          <p className="text-xs text-violet-400 dark:text-violet-300/70">{t('attachments.empty')}</p>
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">{t('attachments.empty')}</p>
         ) : attachments.map((attachment) => (
           <div key={attachment.id} className="rounded-lg bg-white px-3 py-2 text-xs shadow-sm dark:bg-gray-900/45">
             <div className="flex items-start justify-between gap-3">
@@ -99,7 +99,7 @@ function AttachmentPanel({ transactionId }: { transactionId: string }) {
                 <p className="mt-0.5 text-gray-400 dark:text-gray-500">{formatFileSize(attachment.size_bytes)} · {t(`attachments.ocr.status.${attachment.ocr_status}`)}</p>
               </div>
               <div className="flex shrink-0 gap-1">
-                <button type="button" onClick={() => downloadAttachment(attachment.id, attachment.original_filename)} className="rounded-md px-2 py-1 font-semibold text-violet-600 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10">{t('common.download')}</button>
+                <button type="button" onClick={() => downloadAttachment(attachment.id, attachment.original_filename)} className="rounded-[5px] px-2 py-1 font-semibold text-[hsl(var(--mode-accent-strong))] transition-colors hover:bg-[hsl(var(--mode-accent-wash))]">{t('common.download')}</button>
                 <button type="button" onClick={() => runOCR(attachment)} disabled={mutations.runOCR.isPending} className="rounded-md px-2 py-1 font-semibold text-cyan-600 hover:bg-cyan-50 disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-500/10">{t('attachments.ocr.run')}</button>
                 <button type="button" onClick={() => removeAttachment(attachment)} disabled={mutations.remove.isPending} className="rounded-md px-2 py-1 font-semibold text-rose-500 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10">{t('common.delete')}</button>
               </div>
@@ -354,7 +354,7 @@ function TransactionsLedger({
 
   if (isError) {
     return (
-      <div className="transaction-table-container flex flex-col items-center justify-center py-16 gap-3 rounded-2xl">
+      <div className="ledger-panel flex flex-col items-center justify-center gap-3 py-16" role="alert">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-12 h-12 text-rose-300 dark:text-rose-500/70"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></svg>
         <div className="text-center">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('transactions.error.title')}</p>
@@ -364,7 +364,7 @@ function TransactionsLedger({
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+          className="rounded-[7px] bg-[hsl(var(--primary))] px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95 disabled:opacity-50"
         >
           {isFetching ? t('common.loading') : t('common.retry')}
         </button>
@@ -375,16 +375,16 @@ function TransactionsLedger({
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="ledger-rail flex items-center justify-between gap-3 pl-5">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('transactions.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5 hidden sm:block">{t('transactions.subtitle')}</p>
+          <h1 className="font-display text-2xl font-semibold tracking-[-0.025em] text-[hsl(var(--foreground))] md:text-[1.75rem]">{t('transactions.title')}</h1>
+          <p className="mt-1 hidden text-sm text-[hsl(var(--muted-foreground))] sm:block">{t('transactions.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={exportPDF}
             disabled={loading || filtered.length === 0}
-            className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-semibold px-3.5 py-2.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="fin-control flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-semibold text-[hsl(var(--foreground))] disabled:cursor-not-allowed disabled:opacity-40"
             title={t('transactions.exportTooltip')}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -394,7 +394,7 @@ function TransactionsLedger({
           </button>
           <Link
             to={`/add?source=${effectiveSourceFilter}`}
-            className="shrink-0 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-violet-300/30 dark:shadow-violet-900/30"
+            className="shrink-0 rounded-[7px] bg-[hsl(var(--primary))] px-4 py-2.5 text-sm font-semibold text-[hsl(var(--primary-foreground))] transition-colors hover:brightness-95"
           >
             {t('common.add')}
           </Link>
@@ -404,38 +404,38 @@ function TransactionsLedger({
       {/* Summary cards */}
       <StaggerContainer className="grid grid-cols-3 gap-2 md:gap-3">
         <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 md:p-4 shadow-sm">
-            <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1 md:mb-2">{t('transactions.summary.filtered')}</p>
-            <p className="text-lg md:text-2xl font-bold text-gray-700 dark:text-gray-200">{filtered.length} <span className="text-sm md:text-base font-normal text-gray-400 dark:text-gray-500">{t('transactions.unit')}</span></p>
+          <div className="ledger-panel border-t-2 border-t-[hsl(var(--mode-accent))] p-3 md:p-4">
+            <p className="page-kicker mb-1 md:mb-2">{t('transactions.summary.filtered')}</p>
+            <p className="font-data text-lg font-semibold text-[hsl(var(--foreground))] md:text-2xl">{filtered.length} <span className="font-body text-sm font-normal text-[hsl(var(--muted-foreground))] md:text-base">{t('transactions.unit')}</span></p>
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 md:p-4 shadow-sm">
-            <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1 md:mb-2">{t('transactions.summary.income')}</p>
-            <p className="text-sm md:text-2xl font-bold text-emerald-500 tabular-nums truncate">{totalIncomeStr}</p>
+          <div className="ledger-panel border-t-2 border-t-[hsl(var(--income))] p-3 md:p-4">
+            <p className="page-kicker mb-1 md:mb-2">{t('transactions.summary.income')}</p>
+            <p className="font-data truncate text-sm font-semibold tabular-nums text-[hsl(var(--income))] md:text-2xl">{totalIncomeStr}</p>
           </div>
         </StaggerItem>
         <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-3 md:p-4 shadow-sm">
-            <p className="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1 md:mb-2">{t('transactions.summary.expense')}</p>
-            <p className="text-sm md:text-2xl font-bold text-rose-500 tabular-nums truncate">{totalExpenseStr}</p>
+          <div className="ledger-panel border-t-2 border-t-[hsl(var(--expense))] p-3 md:p-4">
+            <p className="page-kicker mb-1 md:mb-2">{t('transactions.summary.expense')}</p>
+            <p className="font-data truncate text-sm font-semibold tabular-nums text-[hsl(var(--expense))] md:text-2xl">{totalExpenseStr}</p>
           </div>
         </StaggerItem>
       </StaggerContainer>
 
       {/* Tabs */}
-      <div role="group" aria-label={t('transactions.workflowFilterLabel')} className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 gap-0.5 w-full sm:w-fit overflow-x-auto">
+      <div role="group" aria-label={t('transactions.workflowFilterLabel')} className="flex w-full gap-0.5 overflow-x-auto rounded-[8px] border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-1 sm:w-fit">
         {tabs.map((tb) => (
           <button
             key={tb.key}
             onClick={() => setFilter(tb.key)}
             aria-pressed={filter === tb.key}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filter === tb.key ? 'bg-white dark:bg-gray-700 shadow text-violet-600 dark:text-violet-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            className={`flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-sm font-medium transition-colors ${filter === tb.key ? 'bg-[hsl(var(--card))] text-[hsl(var(--mode-accent-strong))] shadow-[0_1px_2px_rgb(18_32_26_/_0.08)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
               }`}
           >
             {tb.label}
             {tb.count !== undefined && (
-              <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold tabular-nums ${filter === tb.key ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+              <span className={`rounded px-1.5 py-0.5 font-data text-xs font-semibold tabular-nums ${filter === tb.key ? 'bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]' : 'bg-[hsl(var(--border))]/60 text-[hsl(var(--muted-foreground))]'
                 }`}>{tb.count}</span>
             )}
           </button>
@@ -567,7 +567,7 @@ function TransactionsLedger({
                   }}
                 >
                   <div
-                    className={`bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 shadow-sm transition-opacity ${done ? 'opacity-40' : ''
+                    className={`ledger-panel border-l-2 p-4 transition-colors ${tx.direction === 'income' ? 'border-l-[hsl(var(--income))]' : 'border-l-[hsl(var(--expense))]'} ${done ? 'bg-[hsl(var(--muted))]/55' : ''
                       }`}
                   >
                     {/* Row 1: category + amount */}
@@ -577,12 +577,12 @@ function TransactionsLedger({
                           }`} />
                         <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate min-w-0">{categoryLabel(tx.category)}</span>
                         {tx.project_id && (
-                          <span className="inline-flex items-center gap-1 text-xs font-mono bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 font-medium px-1.5 py-0.5 rounded shrink-0 max-w-[96px] truncate border border-purple-100/50 dark:border-purple-500/30 shadow-sm" title={tx.project_id}>
+                          <span className="inline-flex max-w-[96px] shrink-0 items-center gap-1 truncate rounded border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-1.5 py-0.5 font-data text-xs font-medium text-[hsl(var(--foreground))]" title={tx.project_id}>
                             <FolderIcon /> <span className="truncate">{tx.project_id}</span>
                           </span>
                         )}
                       </div>
-                      <span className={`font-bold tabular-nums text-base shrink-0 ml-2 ${tx.direction === 'income' ? 'text-emerald-500' : 'text-rose-500'
+                      <span className={`font-data ml-2 shrink-0 text-base font-semibold tabular-nums ${tx.direction === 'income' ? 'text-[hsl(var(--income))]' : 'text-[hsl(var(--expense))]'
                         }`}>
                         {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                       </span>
@@ -597,7 +597,7 @@ function TransactionsLedger({
                         {tx.source === 'company' ? t('common.company') : t('common.personal')}
                       </span>
                       {tx.account_id && accountMap[tx.account_id] && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-medium px-1.5 py-0.5 rounded min-w-0 truncate max-w-[108px] border border-indigo-100/50 dark:border-indigo-500/30 shadow-sm" title={accountMap[tx.account_id]}>
+                        <span className="inline-flex max-w-[108px] min-w-0 items-center gap-1 truncate rounded border border-[hsl(var(--mode-accent))]/25 bg-[hsl(var(--mode-accent-wash))] px-1.5 py-0.5 text-xs font-medium text-[hsl(var(--mode-accent-strong))]" title={accountMap[tx.account_id]}>
                           <BuildingIcon /> <span className="truncate">{accountMap[tx.account_id]}</span>
                         </span>
                       )}
@@ -612,7 +612,7 @@ function TransactionsLedger({
                             active={tx.uploaded}
                             activeLabel={t('transactions.badges.uploaded')}
                             inactiveLabel={t('transactions.badges.notUploaded')}
-                            activeClass="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300"
+                            activeClass="bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
                             onClick={() => handleToggleUpload(tx.id)}
                             disabled={!!togglingAction || (isReimbursementView && tx.uploaded && tx.reimbursed)}
@@ -638,7 +638,7 @@ function TransactionsLedger({
                         type="button"
                         onClick={() => setAttachmentPanelId(attachmentPanelId === tx.id ? null : tx.id)}
                         className={`ml-auto shrink-0 min-h-8 inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${attachmentPanelId === tx.id || tx.has_attachment
-                          ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300'
+                          ? 'bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]'
                           : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
                           }`}
                         title={t('attachments.title')}
@@ -669,7 +669,7 @@ function TransactionsLedger({
       {/* Desktop Feed */}
       <div className="hidden md:block space-y-2.5">
         {loading ? (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800 rounded-2xl bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100/80 dark:border-gray-800/60 p-4">
+          <div className="ledger-panel divide-y divide-[hsl(var(--border))] p-4">
             {[0, 1, 2, 3, 4, 5].map(i => <RowSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
@@ -686,7 +686,7 @@ function TransactionsLedger({
               return (
                 <div key={tx.id} className="space-y-2">
                   <article
-                    className={`transaction-feed-row group ${done ? 'opacity-55' : ''}`}
+                    className={`transaction-feed-row group ${done ? 'is-complete' : ''}`}
                   >
                   <div className="min-w-0 flex flex-1 items-center gap-3">
                     <div className={`h-9 w-9 shrink-0 rounded-xl flex items-center justify-center ${tx.direction === 'income' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'}`}>
@@ -698,8 +698,8 @@ function TransactionsLedger({
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                         <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 font-medium px-1.5 py-0.5 border border-gray-200/50 dark:border-gray-700/50 shadow-sm"><TagIcon /> {categoryLabel(tx.category)}</span>
-                        {tx.account_id && accountMap[tx.account_id] && <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-medium px-1.5 py-0.5 border border-indigo-100/50 dark:border-indigo-500/30 shadow-sm"><BuildingIcon /> {accountMap[tx.account_id]}</span>}
-                        {tx.project_id && <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 font-medium px-1.5 py-0.5 border border-purple-100/50 dark:border-purple-500/30 shadow-sm"><FolderIcon /> {tx.project_id}</span>}
+                        {tx.account_id && accountMap[tx.account_id] && <span className="inline-flex items-center gap-1 rounded border border-[hsl(var(--mode-accent))]/25 bg-[hsl(var(--mode-accent-wash))] px-1.5 py-0.5 font-medium text-[hsl(var(--mode-accent-strong))]"><BuildingIcon /> {accountMap[tx.account_id]}</span>}
+                        {tx.project_id && <span className="inline-flex items-center gap-1 rounded border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-1.5 py-0.5 font-data font-medium text-[hsl(var(--foreground))]"><FolderIcon /> {tx.project_id}</span>}
                       </div>
                       <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-400 dark:text-gray-500 tabular-nums">
                         <ClockIcon />
@@ -711,7 +711,7 @@ function TransactionsLedger({
                   </div>
 
                   <div className="ml-4 flex shrink-0 flex-col items-end justify-center gap-1.5 text-right">
-                    <div className={`amount text-[20px] leading-6 font-semibold tabular-nums ${tx.direction === 'income' ? 'amount-income text-emerald-600' : 'amount-expense text-rose-600'}`}>
+                    <div className={`amount font-data text-[20px] font-semibold leading-6 tabular-nums ${tx.direction === 'income' ? 'amount-income text-[hsl(var(--income))]' : 'amount-expense text-[hsl(var(--expense))]'}`}>
                       {tx.direction === 'income' ? '+' : '−'}{fmt(tx)}
                     </div>
                     {tx.direction === 'expense' ? (
@@ -721,7 +721,7 @@ function TransactionsLedger({
                             active={tx.uploaded}
                             activeLabel={t('transactions.badges.uploaded')}
                             inactiveLabel={t('transactions.badges.notUploaded')}
-                            activeClass="bg-[#DBEAFE] text-[#1D4ED8]"
+                            activeClass="bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                             onClick={() => handleToggleUpload(tx.id)}
                             disabled={!!togglingAction || (isReimbursementView && tx.uploaded && tx.reimbursed)}
@@ -733,7 +733,7 @@ function TransactionsLedger({
                             active={tx.reimbursed}
                             activeLabel={t('transactions.badges.reimbursed')}
                             inactiveLabel={t('transactions.badges.pending')}
-                            activeClass="bg-[#DCFCE7] text-[#166534]"
+                            activeClass="bg-[hsl(var(--income))]/10 text-[hsl(var(--income))]"
                             inactiveClass="bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
                             onClick={() => handleToggle(tx.id)}
                             disabled={!!togglingAction || !tx.uploaded}
@@ -754,8 +754,8 @@ function TransactionsLedger({
                         type="button"
                         onClick={() => setAttachmentPanelId(attachmentPanelId === tx.id ? null : tx.id)}
                         className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-all ${attachmentPanelId === tx.id || tx.has_attachment
-                          ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300'
-                          : 'text-gray-300 hover:bg-violet-50 hover:text-violet-400 dark:text-gray-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-400'
+                          ? 'bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]'
+                          : 'text-[hsl(var(--muted-foreground))]/55 hover:bg-[hsl(var(--mode-accent-wash))] hover:text-[hsl(var(--mode-accent-strong))]'
                         }`}
                         title={t('attachments.title')}
                       >
@@ -767,7 +767,7 @@ function TransactionsLedger({
                         title={t('transactions.copyIdTooltip')}
                         className={`font-mono text-[10px] rounded px-1.5 py-0.5 transition-all ${copiedId === tx.id
                           ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400'
-                          : 'text-gray-300 dark:text-gray-600 hover:text-violet-400 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10'
+                          : 'text-[hsl(var(--muted-foreground))]/55 hover:bg-[hsl(var(--mode-accent-wash))] hover:text-[hsl(var(--mode-accent-strong))]'
                           }`}
                       >
                         {copiedId === tx.id ? t('common.copied') : tx.id.slice(0, 8) + '…'}

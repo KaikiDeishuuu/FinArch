@@ -118,19 +118,14 @@ export default function PwaUpdatePrompt() {
           initial={{ opacity: 0, y: 60, x: '-50%' }}
           animate={{ opacity: 1, y: 0, x: '-50%' }}
           exit={{ opacity: 0, y: 40, x: '-50%', transition: { duration: 0.25, ease: 'easeIn' } }}
-          transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         >
-          <div className="bg-gray-900/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl shadow-black/20 px-4 py-3 flex items-center gap-3 ring-1 ring-white/10">
-            {/* 图标 — 带呼吸脉动 */}
-            <motion.div
-              className="shrink-0 w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center"
-              animate={{ scale: [1, 1.08, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            >
+          <div className="flex items-center gap-3 rounded-[10px] border border-white/10 bg-[#17201d]/95 px-4 py-3 text-white shadow-[0_16px_48px_rgba(8,18,13,0.24)] backdrop-blur-xl">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[7px] bg-[#2d6687]">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-            </motion.div>
+            </div>
             {/* 文字 */}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold leading-tight">{t('pwa.newVersion')}</p>
@@ -146,7 +141,7 @@ export default function PwaUpdatePrompt() {
               </button>
               <motion.button
                 onClick={doUpdate}
-                className="text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-xl transition-colors"
+                className="rounded-[6px] bg-[#2d6687] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#397696]"
                 whileTap={{ scale: 0.95 }}
               >
                 {t('pwa.update')}

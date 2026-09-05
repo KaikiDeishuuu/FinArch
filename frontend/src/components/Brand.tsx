@@ -1,30 +1,12 @@
-/**
- * FinArch — Brand Decorative Components
- * ─────────────────────────────────────────────────────────────────────────────
- * Logo-themed decorative elements for use across the dashboard.
- *
- * Brand Palette:
- * - Bar 1: Indigo-400  #818cf8
- * - Bar 2: Violet-400  #a78bfa
- * - Bar 3: Emerald-400 #34d399
- * - Background: Near-black #0d0b14 → Dark-violet #170f26
- *
- * Components:
- * - LogoMark:       Inline SVG logo (configurable size)
- * - LogoBars:       Standalone 3-bar icon without background
- * - BrandWatermark: Subtle watermark for card/section backgrounds
- * - BrandDivider:   Gradient divider using brand colors
- * - BrandDot:       Small decorative dot accent
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-/** Brand colors — single source of truth */
+/** FinArch Ledger brand geometry: an accounting rail crossed with a rising arch. */
 const BRAND = {
-  bar1: '#818cf8',  // Indigo-400
-  bar2: '#a78bfa',  // Violet-400
-  bar3: '#34d399',  // Emerald-400
-  bgFrom: '#0d0b14', // Near-black
-  bgTo: '#170f26',    // Dark-violet-black
+  ink: '#17201d',
+  draft: '#f3f6f2',
+  field: '#e7ede8',
+  rule: '#cbd5ce',
+  work: '#2d6687',
+  life: '#28745b',
+  oxide: '#b95642',
 } as const
 
 // ── LogoMark ────────────────────────────────────────────────────────────────
@@ -36,7 +18,6 @@ interface LogoMarkProps {
 }
 
 export function LogoMark({ size = 36, className = '' }: LogoMarkProps) {
-  const r = size * 0.2 // corner radius
   return (
     <svg
       viewBox="0 0 200 200"
@@ -46,16 +27,13 @@ export function LogoMark({ size = 36, className = '' }: LogoMarkProps) {
       role="img"
       aria-label="FinArch"
     >
-      <defs>
-        <linearGradient id="lm-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={BRAND.bgFrom} />
-          <stop offset="100%" stopColor={BRAND.bgTo} />
-        </linearGradient>
-      </defs>
-      <rect width="200" height="200" rx={r / size * 200} fill="url(#lm-bg)" />
-      <rect x="28" y="104" width="44" height="58" rx="10" fill={BRAND.bar1} />
-      <rect x="78" y="74" width="44" height="88" rx="10" fill={BRAND.bar2} />
-      <rect x="128" y="38" width="44" height="124" rx="10" fill={BRAND.bar3} />
+      <rect width="200" height="200" rx="18" fill={BRAND.ink} />
+      <path d="M38 34v130h130" fill="none" stroke={BRAND.rule} strokeWidth="4" opacity="0.72" />
+      <path d="M38 58h12M38 84h8M38 110h12M38 136h8" stroke={BRAND.rule} strokeWidth="3" opacity="0.8" />
+      <rect x="59" y="112" width="25" height="52" rx="3" fill={BRAND.work} />
+      <rect x="99" y="82" width="25" height="82" rx="3" fill={BRAND.life} />
+      <rect x="139" y="49" width="25" height="115" rx="3" fill={BRAND.oxide} />
+      <path d="M59 103h25M99 73h25M139 40h25" stroke={BRAND.draft} strokeWidth="3" opacity="0.9" />
     </svg>
   )
 }
@@ -79,9 +57,11 @@ export function LogoBars({ size = 20, className = '', opacity = 1 }: LogoBarsPro
       style={{ opacity }}
       role="presentation"
     >
-      <rect x="0" y="22" width="14" height="18" rx="3" fill={BRAND.bar1} />
-      <rect x="19" y="12" width="14" height="28" rx="3" fill={BRAND.bar2} />
-      <rect x="38" y="0" width="14" height="40" rx="3" fill={BRAND.bar3} />
+      <path d="M1 1v38h50" fill="none" stroke={BRAND.rule} strokeWidth="1.5" />
+      <path d="M1 10h4M1 20h3M1 30h4" stroke={BRAND.rule} strokeWidth="1.5" />
+      <rect x="8" y="24" width="10" height="15" rx="1" fill={BRAND.work} />
+      <rect x="24" y="14" width="10" height="25" rx="1" fill={BRAND.life} />
+      <rect x="40" y="3" width="10" height="36" rx="1" fill={BRAND.oxide} />
     </svg>
   )
 }
@@ -98,16 +78,18 @@ export function BrandWatermark({ className = '', opacity = 0.04 }: BrandWatermar
   return (
     <div className={`pointer-events-none select-none ${className}`} aria-hidden="true">
       <svg viewBox="0 0 120 90" width="120" height="90" style={{ opacity }}>
-        <rect x="0" y="50" width="32" height="40" rx="6" fill={BRAND.bar1} />
-        <rect x="42" y="30" width="32" height="60" rx="6" fill={BRAND.bar2} />
-        <rect x="84" y="0" width="32" height="90" rx="6" fill={BRAND.bar3} />
+        <path d="M7 3v80h109" fill="none" stroke={BRAND.ink} strokeWidth="3" />
+        <path d="M7 18h9M7 36h6M7 54h9M7 72h6" stroke={BRAND.ink} strokeWidth="2" />
+        <rect x="25" y="51" width="21" height="32" rx="2" fill={BRAND.work} />
+        <rect x="57" y="30" width="21" height="53" rx="2" fill={BRAND.life} />
+        <rect x="89" y="6" width="21" height="77" rx="2" fill={BRAND.oxide} />
       </svg>
     </div>
   )
 }
 
 // ── BrandDivider ────────────────────────────────────────────────────────────
-// Horizontal gradient line using the 3 brand colors
+// A ruled divider with evenly measured registration marks.
 
 interface BrandDividerProps {
   className?: string
@@ -116,13 +98,15 @@ interface BrandDividerProps {
 export function BrandDivider({ className = '' }: BrandDividerProps) {
   return (
     <div
-      className={`h-px w-full ${className}`}
-      style={{
-        background: `linear-gradient(90deg, transparent 0%, ${BRAND.bar1} 20%, ${BRAND.bar2} 50%, ${BRAND.bar3} 80%, transparent 100%)`,
-        opacity: 0.3,
-      }}
+      className={`relative h-2 w-full ${className}`}
+      style={{ opacity: 0.52 }}
       aria-hidden="true"
-    />
+    >
+      <span className="absolute inset-x-0 top-1/2 h-px" style={{ backgroundColor: BRAND.rule }} />
+      <span className="absolute left-1/4 top-0 h-2 w-px" style={{ backgroundColor: BRAND.work }} />
+      <span className="absolute left-1/2 top-0 h-2 w-px" style={{ backgroundColor: BRAND.life }} />
+      <span className="absolute left-3/4 top-0 h-2 w-px" style={{ backgroundColor: BRAND.oxide }} />
+    </div>
   )
 }
 
@@ -130,18 +114,22 @@ export function BrandDivider({ className = '' }: BrandDividerProps) {
 // Small colored dot accent — pick bar1/bar2/bar3
 
 interface BrandDotProps {
-  variant?: 'indigo' | 'violet' | 'emerald'
+  variant?: 'work' | 'life' | 'oxide' | 'indigo' | 'violet' | 'emerald'
   size?: 'sm' | 'md'
   className?: string
 }
 
 const DOT_COLORS = {
-  indigo: BRAND.bar1,
-  violet: BRAND.bar2,
-  emerald: BRAND.bar3,
+  work: BRAND.work,
+  life: BRAND.life,
+  oxide: BRAND.oxide,
+  /* Compatibility aliases for pre-redesign call sites. */
+  indigo: BRAND.work,
+  violet: BRAND.work,
+  emerald: BRAND.life,
 }
 
-export function BrandDot({ variant = 'violet', size = 'sm', className = '' }: BrandDotProps) {
+export function BrandDot({ variant = 'work', size = 'sm', className = '' }: BrandDotProps) {
   const s = size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2'
   return (
     <span

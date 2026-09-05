@@ -25,14 +25,15 @@ export default function ResponsivePieCard({ title, rows, formatFn, colors }: Res
     const palette = colors ?? getModeChartPalette(mode).categories
 
     return (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 md:mb-4">{title}</h2>
+        <div className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 md:p-5">
+            <p className="page-kicker mb-1">CATEGORY LEDGER</p>
+            <h2 className="font-display mb-3 font-semibold text-[hsl(var(--foreground))] md:mb-4">{title}</h2>
             {rows.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
+                <p className="py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">{t('stats.noData')}</p>
             ) : (
                 <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start">
                     {/* Pie chart — centered on mobile, left-aligned on desktop */}
-                    <div className="w-full max-w-[180px] mx-auto md:mx-0 md:w-64 h-40 md:h-56 shrink-0">
+                    <div className="mx-auto h-40 w-full max-w-[180px] shrink-0 md:mx-0 md:h-56 md:w-64" role="img" aria-label={title}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -53,6 +54,7 @@ export default function ResponsivePieCard({ title, rows, formatFn, colors }: Res
                                 <Tooltip
                                     formatter={(value, name) => [formatFn(value as number), name]}
                                     cursor={false}
+                                    contentStyle={{ borderRadius: '3px', border: '1px solid var(--tooltip-border)', background: 'var(--tooltip-bg)', color: 'var(--tooltip-text)', fontFamily: 'var(--font-data)' }}
                                 />
                             </PieChart>
                         </ResponsiveContainer>
@@ -68,10 +70,10 @@ export default function ResponsivePieCard({ title, rows, formatFn, colors }: Res
                                         className="w-2.5 h-2.5 rounded-full shrink-0"
                                         style={{ background: palette[idx % palette.length] }}
                                     />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[5rem]">
+                                    <span className="max-w-[5rem] truncate text-xs text-[hsl(var(--muted-foreground))]">
                                         {categoryLabel(c.category)}
                                     </span>
-                                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 tabular-nums whitespace-nowrap">
+                                    <span className="font-data whitespace-nowrap text-xs font-semibold tabular-nums text-[hsl(var(--foreground))]">
                                         {formatFn(c.total)}
                                     </span>
                                 </div>
@@ -87,15 +89,15 @@ export default function ResponsivePieCard({ title, rows, formatFn, colors }: Res
                                             className="w-3 h-3 rounded-full shrink-0"
                                             style={{ background: palette[idx % palette.length] }}
                                         />
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                                        <span className="truncate text-sm font-medium text-[hsl(var(--foreground))]">
                                             {categoryLabel(c.category)}
                                         </span>
                                     </div>
                                     <div className="text-right shrink-0">
-                                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200 tabular-nums">
+                                        <span className="font-data text-sm font-bold tabular-nums text-[hsl(var(--foreground))]">
                                             {formatFn(c.total)}
                                         </span>
-                                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">
+                                        <span className="ml-1.5 text-xs text-[hsl(var(--muted-foreground))]">
                                             {t('stats.transactionUnit', { count: c.count })}
                                         </span>
                                     </div>

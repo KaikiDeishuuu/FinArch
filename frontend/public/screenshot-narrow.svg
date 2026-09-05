@@ -1,70 +1,103 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="title desc">
+  <title id="title">FinArch Ledger mobile overview</title>
+  <desc id="desc">An architectural ledger dashboard with account balances and a monthly overview.</desc>
   <defs>
-    <linearGradient id="hdr" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0d1b3e"/>
-      <stop offset="100%" stop-color="#1e3a8a"/>
-    </linearGradient>
-    <clipPath id="card1"><rect rx="12" ry="12" width="118" height="70"/></clipPath>
+    <pattern id="draft-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M24 0H0V24" fill="none" stroke="#cbd5ce" stroke-width=".5" opacity=".22"/>
+    </pattern>
   </defs>
+  <rect width="390" height="844" fill="#f3f6f2"/>
+  <rect width="390" height="844" fill="url(#draft-grid)"/>
 
-  <!-- Background -->
-  <rect width="390" height="844" fill="#f0f2f5"/>
+  <rect width="390" height="72" fill="#fbfcfa"/>
+  <path d="M0 71.5H390" stroke="#cbd5ce"/>
+  <g transform="translate(13 16)">
+    <rect width="29" height="29" rx="4" fill="#17201d"/>
+    <path d="M6 5v19h19" fill="none" stroke="#cbd5ce"/>
+    <rect x="9" y="17" width="4" height="7" fill="#2d6687"/>
+    <rect x="15" y="13" width="4" height="11" fill="#28745b"/>
+    <rect x="21" y="8" width="4" height="16" fill="#b95642"/>
+  </g>
+  <text x="51" y="29" font-family="Georgia,'Songti SC',serif" font-size="15" font-weight="700" fill="#17201d">FinArch</text>
+  <text x="51" y="46" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="8" letter-spacing="1" fill="#5b6b63">收支 · 报销 · 统计</text>
+  <g transform="translate(210 15)">
+    <rect width="114" height="35" rx="8" fill="#e7ede8" stroke="#cbd5ce"/>
+    <rect x="4" y="4" width="55" height="27" rx="5" fill="#fbfcfa" stroke="#b7c6bc"/>
+    <text x="31" y="22" text-anchor="middle" font-family="Avenir Next,sans-serif" font-size="10" font-weight="700" fill="#2d6687">WORK</text>
+    <text x="86" y="22" text-anchor="middle" font-family="Avenir Next,sans-serif" font-size="10" font-weight="600" fill="#5b6b63">LIFE</text>
+  </g>
+  <rect x="334" y="15" width="43" height="35" rx="8" fill="#fbfcfa" stroke="#cbd5ce"/>
+  <circle cx="348" cy="32.5" r="1.4" fill="#17201d"/><circle cx="355.5" cy="32.5" r="1.4" fill="#17201d"/><circle cx="363" cy="32.5" r="1.4" fill="#17201d"/>
 
-  <!-- Header -->
-  <rect width="390" height="64" fill="url(#hdr)"/>
-  <text x="20" y="36" font-family="sans-serif" font-weight="bold" font-size="20" fill="white">FinArch</text>
-  <text x="20" y="54" font-family="sans-serif" font-size="12" fill="#93c5fd">记账 · 报销 · 统计</text>
+  <g transform="translate(16 89)">
+    <path d="M0 0V218M3 0V218" stroke="#2d6687"/>
+    <path d="M0 0H358M0 218H358" stroke="#cbd5ce"/>
+    <path d="M19 35h18m-12-4h21" stroke="#2d6687"/>
+    <text x="49" y="38" font-family="SFMono-Regular,Consolas,monospace" font-size="9" font-weight="700" letter-spacing="1.7" fill="#2d6687">FINARCH / OVERVIEW</text>
+    <text x="19" y="64" font-family="SFMono-Regular,Consolas,monospace" font-size="10" fill="#5b6b63">2026年9月5日</text>
+    <circle cx="117" cy="60.5" r="3" fill="#28745b"/>
+    <text x="126" y="64" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="9" fill="#87968d">2 台设备在线</text>
+    <text x="19" y="96" font-family="Georgia,'Songti SC',serif" font-size="24" font-weight="700" fill="#17201d">上午好！喝杯咖啡开始</text>
+    <text x="19" y="128" font-family="Georgia,'Songti SC',serif" font-size="24" font-weight="700" fill="#17201d">吧，项目进展如何，示</text>
+    <text x="19" y="160" font-family="Georgia,'Songti SC',serif" font-size="24" font-weight="700" fill="#17201d">例用户</text>
+    <rect x="19" y="178" width="196" height="24" fill="#e7ede8" stroke="#cbd5ce"/>
+    <text x="29" y="194" font-family="SFMono-Regular,Consolas,monospace" font-size="9" fill="#2d6687">＃ $ 7.26 · € 7.84 · 2026-09-05</text>
+    <rect x="278" y="20" width="68" height="40" rx="2" fill="#2d6687"/>
+    <text x="312" y="45" text-anchor="middle" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="13" font-weight="700" fill="#f3f6f2">＋ 添加</text>
+  </g>
 
-  <!-- Summary cards -->
-  <!-- Income -->
-  <rect x="12" y="80" width="118" height="70" rx="12" fill="#d1fae5"/>
-  <text x="22" y="98"  font-family="sans-serif" font-size="11" fill="#6b7280">总收入</text>
-  <text x="22" y="125" font-family="sans-serif" font-weight="bold" font-size="15" fill="#059669">¥12,340</text>
+  <g transform="translate(16 336)">
+    <rect width="358" height="107" fill="#fbfcfa" stroke="#cbd5ce"/>
+    <path d="M179 0V107" stroke="#cbd5ce"/>
+    <rect x="13" y="13" width="27" height="27" fill="none" stroke="#cbd5ce"/>
+    <path d="M20 21h13v11H20zm4-3h5v3h-5z" fill="none" stroke="#2d6687"/>
+    <text x="49" y="31" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="12" font-weight="600" fill="#5b6b63">公共账户</text>
+    <text x="13" y="70" font-family="SFMono-Regular,Consolas,monospace" font-size="19" font-weight="700" fill="#17201d">¥2.49万</text>
+    <path d="M13 74h69" stroke="#2d6687" stroke-dasharray="2 2"/>
+    <text x="13" y="90" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="9" fill="#87968d">结余</text>
+    <rect x="192" y="13" width="27" height="27" fill="none" stroke="#cbd5ce"/>
+    <text x="205.5" y="32" text-anchor="middle" font-family="Georgia,serif" font-size="18" fill="#b95642">$</text>
+    <text x="228" y="31" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="12" font-weight="600" fill="#5b6b63">个人待报销</text>
+    <text x="192" y="70" font-family="SFMono-Regular,Consolas,monospace" font-size="19" font-weight="700" fill="#17201d">¥0.00</text>
+    <path d="M192 74h60" stroke="#b95642" stroke-dasharray="2 2"/>
+    <text x="192" y="90" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="9" fill="#87968d">待报销</text>
+  </g>
 
-  <!-- Expense -->
-  <rect x="136" y="80" width="118" height="70" rx="12" fill="#fee2e2"/>
-  <text x="146" y="98"  font-family="sans-serif" font-size="11" fill="#6b7280">总支出</text>
-  <text x="146" y="125" font-family="sans-serif" font-weight="bold" font-size="15" fill="#dc2626">¥8,720</text>
+  <g transform="translate(16 471)">
+    <rect width="358" height="250" rx="10" fill="#fbfcfa" stroke="#cbd5ce"/>
+    <path d="M0 16h7M0 30h4M0 44h7" stroke="#2d6687"/>
+    <text x="17" y="31" font-family="Georgia,'Songti SC',serif" font-size="17" font-weight="700" fill="#17201d">本月概览</text>
+    <text x="17" y="52" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="10" fill="#87968d">根据当前模式下的交易自动汇总</text>
+    <rect x="17" y="76" width="324" height="155" fill="#f8faf7" stroke="#cbd5ce"/>
+    <path d="M179 76V231M17 153.5H341" stroke="#cbd5ce"/>
+    <path d="M31 101h21m-13-4h19M193 101h21m-13-4h19" stroke="#2d6687"/>
+    <text x="64" y="105" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="11" font-weight="700" fill="#2d6687">本月收入</text>
+    <text x="31" y="132" font-family="SFMono-Regular,Consolas,monospace" font-size="17" font-weight="700" fill="#28745b">¥0.00</text>
+    <path d="M31 136h61" stroke="#28745b" stroke-dasharray="2 2"/>
+    <text x="226" y="105" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="11" font-weight="700" fill="#2d6687">本月支出</text>
+    <text x="193" y="132" font-family="SFMono-Regular,Consolas,monospace" font-size="17" font-weight="700" fill="#b95642">¥0.00</text>
+    <path d="M193 136h61" stroke="#b95642" stroke-dasharray="2 2"/>
+    <text x="31" y="180" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="11" font-weight="700" fill="#2d6687">本月净结余</text>
+    <text x="31" y="210" font-family="SFMono-Regular,Consolas,monospace" font-size="17" font-weight="700" fill="#2d6687">＋¥0.00</text>
+    <text x="193" y="180" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="11" font-weight="700" fill="#2d6687">最高支出类别</text>
+    <text x="193" y="207" font-family="Avenir Next,'PingFang SC',sans-serif" font-size="10" fill="#87968d">暂无支出分类</text>
+  </g>
 
-  <!-- Net -->
-  <rect x="260" y="80" width="118" height="70" rx="12" fill="#dbeafe"/>
-  <text x="270" y="98"  font-family="sans-serif" font-size="11" fill="#6b7280">净结余</text>
-  <text x="270" y="125" font-family="sans-serif" font-weight="bold" font-size="15" fill="#2563eb">¥3,620</text>
-
-  <!-- Transaction list -->
-  <!-- Row 1 -->
-  <rect x="12" y="168" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="190" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">差旅费</text>
-  <text x="22" y="210" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-28  ·  差旅</text>
-  <text x="300" y="199" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥1,200</text>
-
-  <!-- Row 2 -->
-  <rect x="12" y="230" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="252" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">工资</text>
-  <text x="22" y="272" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-25  ·  收入</text>
-  <text x="300" y="261" font-family="sans-serif" font-weight="bold" font-size="14" fill="#059669">+¥8,000</text>
-
-  <!-- Row 3 -->
-  <rect x="12" y="292" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="314" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">餐饮</text>
-  <text x="22" y="334" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-24  ·  餐饮</text>
-  <text x="316" y="323" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥86</text>
-
-  <!-- Row 4 -->
-  <rect x="12" y="354" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="376" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">报销</text>
-  <text x="22" y="396" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-22  ·  报销</text>
-  <text x="300" y="385" font-family="sans-serif" font-weight="bold" font-size="14" fill="#059669">+¥600</text>
-
-  <!-- Row 5 -->
-  <rect x="12" y="416" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="438" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">交通</text>
-  <text x="22" y="458" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-20  ·  交通</text>
-  <text x="316" y="447" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥45</text>
-
-  <!-- Row 6 -->
-  <rect x="12" y="478" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="500" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">办公用品</text>
-  <text x="22" y="520" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-18  ·  办公</text>
-  <text x="300" y="509" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥320</text>
+  <rect y="773" width="390" height="71" fill="#fbfcfa"/>
+  <path d="M0 773.5H390" stroke="#cbd5ce"/>
+  <g font-family="Avenir Next,'PingFang SC',sans-serif" font-size="10" font-weight="600" text-anchor="middle">
+    <rect x="24" y="785" width="36" height="34" rx="6" fill="#dce9ef"/>
+    <path d="M35 800l7-6 7 6v9h-5v-6h-4v6h-5z" fill="none" stroke="#2d6687" stroke-width="1.4"/>
+    <text x="42" y="832" fill="#2d6687">概览</text>
+    <path d="M111 798h12m-12 5h12m-12 5h12M107 798h1m-1 5h1m-1 5h1" stroke="#5b6b63" stroke-width="1.4"/>
+    <text x="116" y="832" fill="#5b6b63">明细</text>
+    <rect x="176" y="784" width="39" height="36" rx="7" fill="#2d6687"/>
+    <path d="M195.5 792v20m-10-10h20" stroke="#f3f6f2" stroke-width="2"/>
+    <text x="195.5" y="832" fill="#2d6687">添加</text>
+    <circle cx="274" cy="802" r="6" fill="none" stroke="#5b6b63" stroke-width="1.4"/>
+    <path d="M278 807l5 5m-9-13v6m-3-3h6" stroke="#5b6b63" stroke-width="1.4"/>
+    <text x="274" y="832" fill="#5b6b63">匹配</text>
+    <path d="M344 809v-8m6 8v-15m6 15v-11" stroke="#5b6b63" stroke-width="1.5"/>
+    <text x="350" y="832" fill="#5b6b63">统计</text>
+  </g>
 </svg>

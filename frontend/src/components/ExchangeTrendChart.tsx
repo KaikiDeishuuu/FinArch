@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useTheme } from '../hooks/useTheme'
 
 import type { TrendPoint, ExchangeRange } from '../utils/exchangeChart'
 import { buildChartPoints, xAxisInterval } from '../utils/exchangeChart'
@@ -29,20 +28,15 @@ export default function ExchangeTrendChart({
   range: ExchangeRange
 }) {
   const isMobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
-  const { resolved } = useTheme()
-  const isDark = resolved === 'dark'
-  const palette = { primary: '#3B82F6', income: '#22C55E', expense: '#EF4444', secondary: '#6B7280' }
+  const palette = {
+    primary: 'hsl(var(--mode-accent))',
+    muted: 'hsl(var(--muted-foreground))',
+    grid: 'hsl(var(--border))',
+  }
   const tooltipPosition = useMemo(() => ({ x: isMobile ? 10 : 20, y: 16 }), [isMobile])
 
   const chartData = useMemo(() => buildChartPoints(data, range, locale), [data, locale, range])
   const tickInterval = useMemo(() => xAxisInterval(range, isMobile), [isMobile, range])
-
-  const trendDelta = chartData.length > 1 ? chartData[chartData.length - 1].rate - chartData[0].rate : 0
-  const trendColors = trendDelta > 0
-    ? { stroke: palette.expense, gradientStart: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(239,68,68,0.20)' }
-    : trendDelta < 0
-      ? { stroke: palette.income, gradientStart: isDark ? 'rgba(74,222,128,0.3)' : 'rgba(34,197,94,0.18)' }
-      : { stroke: palette.secondary, gradientStart: isDark ? 'rgba(156,163,175,0.28)' : 'rgba(107,114,128,0.14)' }
 
   const yFormatter = (v: number) => {
     const num = Number(v)
@@ -57,20 +51,16 @@ export default function ExchangeTrendChart({
     <div
       className="w-full max-w-full overflow-x-auto overflow-y-visible touch-pan-y md:overflow-visible"
       style={{ WebkitTapHighlightColor: 'transparent' }}
+      role="img"
+      aria-label={`${from}/${to}`}
     >
       <div className="h-[220px] w-full px-1 sm:h-[240px] md:h-[320px] md:min-w-0 md:px-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 16, right: isMobile ? 8 : 16, left: isMobile ? 8 : 24, bottom: 16 }}>
-            <defs>
-              <linearGradient id="rateGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={trendColors.gradientStart} />
-                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke={isDark ? '#374151' : '#E5E7EB'} strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="2 5" vertical={false} />
             <XAxis
               dataKey="tickLabel"
-              tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: palette.muted, fontFamily: 'var(--font-data)' }}
               tickMargin={8}
               minTickGap={isMobile ? 40 : 24}
               interval={tickInterval}
@@ -80,7 +70,7 @@ export default function ExchangeTrendChart({
 
             />
             <YAxis
-              tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: palette.muted, fontFamily: 'var(--font-data)' }}
               tickMargin={6}
               tickLine={false}
               axisLine={false}
@@ -93,11 +83,12 @@ export default function ExchangeTrendChart({
               position={tooltipPosition}
               cursor={{ stroke: palette.primary, strokeWidth: 1.2, strokeDasharray: '4 4' }}
               contentStyle={{
-                background: isDark ? '#111827' : '#FFFFFF',
-                borderRadius: 12,
-                border: `1px solid ${isDark ? '#374151' : '#E5E7EB'}`,
-                color: isDark ? '#F3F4F6' : '#111827',
-                boxShadow: '0 8px 20px rgba(15,23,42,0.14)',
+                background: 'var(--tooltip-bg)',
+                borderRadius: 3,
+                border: '1px solid var(--tooltip-border)',
+                color: 'var(--tooltip-text)',
+                boxShadow: '0 8px 20px rgba(15,23,42,0.10)',
+                fontFamily: 'var(--font-data)',
               }}
               wrapperStyle={{ zIndex: 20 }}
               labelFormatter={(_, payload) => String(payload?.[0]?.payload?.tooltipLabel ?? '')}
@@ -106,11 +97,11 @@ export default function ExchangeTrendChart({
             <Area
               type="monotone"
               dataKey="rate"
-              stroke={trendColors.stroke}
-              strokeWidth={isMobile ? 2.5 : 3}
-              fill="url(#rateGradient)"
+              stroke={palette.primary}
+              strokeWidth={isMobile ? 2 : 2.25}
+              fill="hsl(var(--mode-accent) / 0.08)"
               dot={false}
-              activeDot={{ r: 5, fill: isDark ? '#111827' : '#FFF', stroke: trendColors.stroke, strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: 'hsl(var(--card))', stroke: palette.primary, strokeWidth: 2 }}
               isAnimationActive
               animationDuration={420}
             />

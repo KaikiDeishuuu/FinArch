@@ -8,7 +8,6 @@ import { PageTransition } from '../motion'
 import { useMode } from '../hooks/useMode'
 import { LogoMark, LogoBars, BrandDivider } from './Brand'
 import ModeSwitcher from './ModeSwitcher'
-import MobileModeMagneticFab from './MobileModeMagneticFab'
 
 // SVG icon components
 const IconHome = () => (
@@ -116,7 +115,7 @@ const IconMore = () => (
   </svg>
 )
 
-const controlBtnClass = 'flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-white/[0.03] text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-300 hover:border-violet-200 dark:hover:border-violet-500/40 hover:bg-violet-50/80 dark:hover:bg-violet-500/10 transition-all'
+const controlBtnClass = 'fin-control flex items-center justify-center gap-1.5 px-2.5 py-2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
@@ -135,36 +134,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const mobileMoreItems = NAV_ITEMS.filter((item) => mobileMoreRoutes.includes(item.to))
 
   return (
-    <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>
+    <div className="flex overflow-x-hidden bg-[hsl(var(--background))] text-[hsl(var(--foreground))] transition-colors duration-200" style={{ height: '100dvh' }}>
 
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[236px] bg-white dark:bg-[hsl(260,15%,11%)] border-r border-gray-100/80 dark:border-gray-800/60 flex-col shrink-0">
+      <aside className="relative hidden w-[248px] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-[#17201d] text-[#f2f5f1] md:flex">
+        <div className="pointer-events-none absolute inset-y-0 right-3 w-px bg-white/[0.045]" aria-hidden="true" />
+        <div className="pointer-events-none absolute right-[9px] top-24 flex flex-col gap-20" aria-hidden="true">
+          <span className="h-px w-2 bg-white/15" /><span className="h-px w-2 bg-white/15" /><span className="h-px w-2 bg-white/15" />
+        </div>
         {/* Brand */}
-        <div className="px-4 pt-4 pb-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-violet-100/80 dark:border-violet-500/20 bg-gradient-to-br from-violet-50/80 to-white dark:from-violet-500/10 dark:to-white/[0.01] px-3.5 py-3">
-            <LogoMark size={38} className="rounded-xl shadow-sm shadow-violet-200/60 dark:shadow-violet-900/30" />
+        <div className="px-5 pb-5 pt-6">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-5">
+            <LogoMark size={40} className="rounded-[9px]" />
             <div className="min-w-0">
-              <h1 className="font-extrabold text-gray-900 dark:text-gray-100 text-base leading-tight tracking-tight">FinArch</h1>
-              <p className="text-[10px] text-violet-500/80 dark:text-violet-300/80 mt-1 tracking-wide truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</p>
+              <h1 className="font-display text-[17px] font-semibold leading-tight tracking-[-0.02em] text-white">FinArch</h1>
+              <p className="mt-1 truncate text-[9px] font-semibold uppercase tracking-[0.18em] text-white/45">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</p>
             </div>
           </div>
         </div>
 
 
-        <div className="px-5 pb-2">
+        <div className="px-5 pb-4">
           <ModeSwitcher variant="sidebar" />
         </div>
         {/* Nav */}
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${isActive
-                  ? 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 shadow-sm shadow-violet-100/50 dark:shadow-none'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-gray-200'
+                `relative flex items-center gap-3 rounded-[7px] px-3 py-2.5 text-[13px] font-medium transition-colors duration-150 ${isActive
+                  ? 'bg-white/[0.09] text-white after:absolute after:inset-y-2 after:left-0 after:w-0.5 after:bg-[hsl(var(--mode-accent))]'
+                  : 'text-white/55 hover:bg-white/[0.055] hover:text-white/90'
                 }`
               }
             >
@@ -175,10 +178,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Theme + Language toggles */}
-        <div className="px-3 pb-2 grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 px-3 pb-3">
           <button
             onClick={toggleTheme}
-            className={`${controlBtnClass} text-[11px] font-medium`}
+            type="button"
+            className={`${controlBtnClass} border-white/10 bg-white/[0.04] text-[11px] font-medium text-white/60 hover:border-white/20 hover:bg-white/[0.08] hover:text-white`}
             title={t('theme.toggle')}
           >
             {isDark ? <IconSun /> : <IconMoon />}
@@ -186,7 +190,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </button>
           <button
             onClick={toggleLang}
-            className={`${controlBtnClass} text-[11px] font-semibold`}
+            type="button"
+            className={`${controlBtnClass} border-white/10 bg-white/[0.04] text-[11px] font-semibold text-white/60 hover:border-white/20 hover:bg-white/[0.08] hover:text-white`}
             title={t('language.toggle')}
           >
             <IconLang />
@@ -195,17 +200,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* User section */}
-        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 dark:border-gray-800/60 mt-auto space-y-2">
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] transition-colors group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
+        <div className="mt-auto space-y-2 border-t border-white/10 px-3 pb-5 pt-3">
+          <div className="flex items-center gap-2.5 rounded-[8px] bg-white/[0.045] px-3 py-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] border border-white/10 bg-white/[0.08] font-data text-xs font-bold text-white">
               {initial}
             </div>
-            <p className="flex-1 text-[12px] text-gray-700 dark:text-gray-300 truncate font-medium">{displayName}</p>
+            <p className="flex-1 truncate text-[12px] font-medium text-white/70">{displayName}</p>
           </div>
           <button
             onClick={logout}
             title={t('nav.logout')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-[12px] font-semibold"
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-[7px] border border-[#b95642]/25 px-3 py-2 text-[12px] font-semibold text-[#dc8b78] transition-colors hover:border-[#b95642]/45 hover:bg-[#b95642]/10 hover:text-[#efaa99]"
           >
             <IconLogout />
             <span>{t('nav.logout')}</span>
@@ -216,27 +222,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Mobile Top Header ── */}
       <Drawer.Root open={isMoreOpen} onOpenChange={setIsMoreOpen} shouldScaleBackground>
         <header
-          className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2.5"
+          className="gpu-layer fixed inset-x-0 top-0 z-50 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 px-3 pb-2.5 backdrop-blur-md md:hidden"
           style={{ paddingTop: 'max(0.55rem, env(safe-area-inset-top))' }}
         >
-          <div className="flex min-h-11 items-center justify-between gap-3 min-w-0 overflow-hidden">
+          <div className="flex min-h-11 min-w-0 items-center justify-between gap-2 overflow-hidden">
             <div className="flex items-center gap-2.5 min-w-0">
-              <LogoMark size={30} className="rounded-lg shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30" />
+              <LogoMark size={30} className="shrink-0 rounded-[7px]" />
               <div className="min-w-0">
-                <span className="block font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight truncate">FinArch</span>
-                <span className="block text-[10px] text-violet-500/80 dark:text-violet-300/80 truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</span>
+                <span className="font-display block truncate text-[15px] font-semibold tracking-tight text-[hsl(var(--foreground))]">FinArch</span>
+                <span className="block truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-[hsl(var(--muted-foreground))]">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
-                {initial}
-              </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <ModeSwitcher />
               <Drawer.Trigger asChild>
                 <button
                   type="button"
                   title={t('nav.more')}
                   aria-label={t('nav.more')}
-                  className="h-10 w-10 rounded-2xl border border-violet-100 dark:border-violet-500/30 bg-violet-50/80 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300 flex items-center justify-center active:scale-95 transition-transform"
+                  className="fin-control flex h-10 w-10 items-center justify-center text-[hsl(var(--foreground))] transition-transform active:scale-95"
                 >
                   <IconMore />
                 </button>
@@ -246,20 +250,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 z-[70] bg-slate-950/45 backdrop-blur-[2px]" />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[80] max-h-[88dvh] rounded-t-[2rem] border border-gray-100/80 dark:border-white/10 bg-white dark:bg-[hsl(260,15%,11%)] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 shadow-2xl shadow-violet-950/20 outline-none">
-            <Drawer.Handle className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-gray-200 dark:bg-white/15" />
+          <Drawer.Overlay className="fixed inset-0 z-[70] bg-[#101815]/60 backdrop-blur-[2px]" />
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[80] max-h-[88dvh] rounded-t-[18px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 shadow-[0_-18px_60px_rgba(9,18,14,0.18)] outline-none">
+            <Drawer.Handle className="mx-auto mb-4 h-1 w-12 rounded-full bg-[hsl(var(--border))]" />
             <div className="mx-auto max-w-md overflow-y-auto pb-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Drawer.Title className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                  <Drawer.Title className="font-display text-lg font-semibold tracking-tight text-[hsl(var(--foreground))]">
                     {t('nav.moreTitle')}
                   </Drawer.Title>
-                  <Drawer.Description className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <Drawer.Description className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
                     {t('nav.moreDescription')}
                   </Drawer.Description>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[hsl(var(--foreground))] font-data text-xs font-bold text-[hsl(var(--background))]">
                   {initial}
                 </div>
               </div>
@@ -271,23 +275,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     to={item.to}
                     onClick={() => setIsMoreOpen(false)}
                     className={({ isActive }) =>
-                      `group min-h-[6rem] rounded-2xl border p-3.5 transition-all active:scale-[0.98] ${isActive
-                        ? 'border-violet-200 bg-violet-50 text-violet-700 shadow-sm shadow-violet-100/70 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-200 dark:shadow-none'
-                        : 'border-gray-100 bg-gray-50/80 text-gray-700 hover:border-violet-100 hover:bg-violet-50/60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:border-violet-500/30 dark:hover:bg-violet-500/10'
+                      `group min-h-[6rem] rounded-[10px] border p-3.5 transition-all active:scale-[0.98] ${isActive
+                        ? 'border-[hsl(var(--mode-accent))] bg-[hsl(var(--mode-accent-wash))] text-[hsl(var(--mode-accent-strong))]'
+                        : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/60 text-[hsl(var(--foreground))] hover:border-[hsl(var(--mode-accent))]/50'
                       }`
                     }
                   >
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-sm shadow-gray-200/80 group-hover:scale-105 dark:bg-white/10 dark:text-violet-300 dark:shadow-none transition-transform">
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-[7px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--mode-accent-strong))] transition-transform group-hover:-translate-y-0.5">
                       <item.Icon />
                     </div>
                     <p className="text-sm font-bold leading-tight">{t(item.labelKey)}</p>
-                    <p className="mt-1 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{t(`nav.moreHints.${item.to}`)}</p>
+                    <p className="mt-1 text-[11px] leading-snug text-[hsl(var(--muted-foreground))]">{t(`nav.moreHints.${item.to}`)}</p>
                   </NavLink>
                 ))}
               </div>
 
-              <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
-                <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{t('nav.preferences')}</p>
+              <div className="mt-5 rounded-[10px] border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/55 p-3">
+                <p className="page-kicker px-1 pb-2">{t('nav.preferences')}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={toggleTheme} className={`${controlBtnClass} h-11 text-[12px] font-semibold`}>
                     {isDark ? <IconSun /> : <IconMoon />}
@@ -300,18 +304,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
 
-              <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{t('nav.account')}</p>
-                <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3 py-2.5 dark:bg-white/[0.04]">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
+              <div className="mt-3 rounded-[10px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3">
+                <p className="page-kicker px-1 pb-2">{t('nav.account')}</p>
+                <div className="flex items-center gap-2.5 rounded-[7px] bg-[hsl(var(--muted))] px-3 py-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[hsl(var(--foreground))] font-data text-xs font-bold text-[hsl(var(--background))]">
                     {initial}
                   </div>
-                  <p className="flex-1 truncate text-[12px] font-medium text-gray-700 dark:text-gray-300">{displayName}</p>
+                  <p className="flex-1 truncate text-[12px] font-medium text-[hsl(var(--foreground))]">{displayName}</p>
                 </div>
                 <button
                   onClick={logout}
                   title={t('nav.logout')}
-                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-[12px] font-semibold"
+                  type="button"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-[7px] border border-[hsl(var(--expense))]/30 px-3 py-2.5 text-[12px] font-semibold text-[hsl(var(--expense))] transition-colors hover:bg-[hsl(var(--expense))]/10"
                 >
                   <IconLogout />
                   <span>{t('nav.logout')}</span>
@@ -323,8 +328,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </Drawer.Root>
 
       {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden pt-[4rem] md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
-        <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
+      <main className="scroll-main ledger-workspace flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pt-[4rem] md:pb-0 md:pt-0">
+        <div className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-5 md:px-8 md:py-8 lg:px-10">
           <PageTransition motionKey={location.pathname}>
             {children}
           </PageTransition>
@@ -333,35 +338,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* ── Footer ── */}
         <footer className="shrink-0 mt-auto">
           <BrandDivider className="mx-6 md:mx-8" />
-          <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
+          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-4 md:px-8 lg:px-10">
             <div className="flex items-center gap-2.5">
               <LogoBars size={16} opacity={0.25} />
-              <span className="text-[11px] font-semibold text-gray-300 dark:text-gray-600 tracking-wide">FinArch</span>
-              <span className="text-[11px] text-gray-200 dark:text-gray-700">·</span>
-              <span className="text-[11px] text-gray-300 dark:text-gray-600">{isWorkMode ? t('nav.footer') : t('nav.life.footer')}</span>
+              <span className="text-[11px] font-semibold tracking-wide text-[hsl(var(--muted-foreground))]/70">FinArch</span>
+              <span className="text-[11px] text-[hsl(var(--border))]">·</span>
+              <span className="text-[11px] text-[hsl(var(--muted-foreground))]/70">{isWorkMode ? t('nav.footer') : t('nav.life.footer')}</span>
             </div>
-            <span className="text-[10px] text-gray-300 dark:text-gray-600 font-mono">v2.3</span>
+            <span className="font-data text-[10px] text-[hsl(var(--muted-foreground))]/60">v2.3</span>
           </div>
         </footer>
       </main>
 
-      {/* ── Floating Mode Switcher (mobile) ── */}
-      <MobileModeMagneticFab />
-
       {/* ── Mobile Bottom Navigation ── */}
-      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-t border-gray-100/80 dark:border-gray-800/60 flex items-end">
+      <nav className="gpu-layer safe-bottom fixed inset-x-0 bottom-0 z-50 flex items-end border-t border-[hsl(var(--border))] bg-[hsl(var(--card))]/95 backdrop-blur-md md:hidden">
         {mobileNavItems.map((item) => {
           if (item.isPrimary) {
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                className="flex-1 flex flex-col items-center pb-2.5 pt-1 -mt-5"
+                className="flex min-h-[4.25rem] flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[hsl(var(--mode-accent-strong))]"
               >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-violet-400/40 dark:shadow-violet-900/40 active:scale-95 transition-transform">
+                <div className="flex h-8 w-10 items-center justify-center rounded-[7px] bg-[hsl(var(--mode-accent))] text-[hsl(var(--primary-foreground))] transition-transform active:scale-95">
                   <item.Icon />
                 </div>
-                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 mt-0.5">{t(item.labelKey)}</span>
+                <span className="text-[10px] font-semibold">{t(item.labelKey)}</span>
               </NavLink>
             )
           }
@@ -371,16 +373,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex-1 min-h-[4.25rem] flex flex-col items-center justify-center py-2.5 gap-1 transition-colors ${isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
+                `flex min-h-[4.25rem] flex-1 flex-col items-center justify-center gap-1 py-2.5 transition-colors ${isActive ? 'text-[hsl(var(--mode-accent-strong))]' : 'text-[hsl(var(--muted-foreground))] active:text-[hsl(var(--foreground))]'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-violet-50 dark:bg-violet-500/15' : ''}`}>
+                  <div className={`rounded-[6px] border-b-2 p-1.5 transition-colors ${isActive ? 'border-[hsl(var(--mode-accent))] bg-[hsl(var(--mode-accent-wash))]' : 'border-transparent'}`}>
                     <item.Icon />
                   </div>
-                  <span className={`text-[11px] font-semibold leading-none ${isActive ? 'text-violet-600 dark:text-violet-400' : ''}`}>{t(item.labelKey)}</span>
+                  <span className="text-[11px] font-semibold leading-none">{t(item.labelKey)}</span>
                 </>
               )}
             </NavLink>
