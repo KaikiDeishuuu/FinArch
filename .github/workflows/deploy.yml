@@ -110,10 +110,40 @@ jobs:
                 echo "FINARCH_TRUSTED_PROXY_CIDRS is missing and no existing container is available for safe discovery" >&2
                 exit 1
               fi
-              proxy_gateways="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{.IPv6Gateway}} {{end}}' finarch-api)"
+              compose_project="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' finarch-api)"
+              compose_service="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' finarch-api)"
+              if [ -z "$compose_project" ] || [ "$compose_project" = "<no value>" ] || [ "$compose_service" != "api" ]; then
+                echo "Existing finarch-api is not an identifiable Compose api service" >&2
+                exit 1
+              fi
+              compose_network_ids="$(docker network ls --quiet --no-trunc \
+                --filter "label=com.docker.compose.project=${compose_project}" \
+                --filter 'label=com.docker.compose.network=default')"
+              set -- $compose_network_ids
+              if [ "$#" -ne 1 ]; then
+                echo "Expected exactly one labeled Compose default network" >&2
+                exit 1
+              fi
+              compose_network_id="$1"
+              if [ "$(docker network inspect --format '{{.Driver}}' "$compose_network_id")" != "bridge" ]; then
+                echo "Compose default network is not a bridge" >&2
+                exit 1
+              fi
+              container_id="$(docker inspect --format '{{.Id}}' finarch-api)"
+              network_container_ids="$(docker network inspect --format '{{range $id, $_ := .Containers}}{{println $id}}{{end}}' "$compose_network_id")"
+              if ! printf '%s\n' "$network_container_ids" | grep -Fxq "$container_id"; then
+                echo "Selected Compose default network is not attached to finarch-api" >&2
+                exit 1
+              fi
+              if [ "$(docker port finarch-api 8080/tcp)" != "127.0.0.1:8080" ]; then
+                echo "finarch-api is not exclusively published on 127.0.0.1:8080" >&2
+                exit 1
+              fi
+              raw_proxy_gateways="$(docker network inspect --format '{{range .IPAM.Config}}{{if .Gateway}}{{println .Gateway}}{{end}}{{end}}' "$compose_network_id")"
+              proxy_gateways="$(printf '%s\n' "$raw_proxy_gateways" | sed '/^[[:space:]]*$/d' | sort -u)"
               set -- $proxy_gateways
               if [ "$#" -ne 1 ]; then
-                echo "Expected exactly one existing FinArch container network gateway; configure FINARCH_TRUSTED_PROXY_CIDRS explicitly" >&2
+                echo "Expected exactly one IPAM gateway on the Compose default network; configure FINARCH_TRUSTED_PROXY_CIDRS explicitly" >&2
                 exit 1
               fi
               proxy_gateway="$1"
