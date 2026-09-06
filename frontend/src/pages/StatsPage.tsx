@@ -607,25 +607,25 @@ export default function StatsPage() {
                 mutedForegroundColor={palette.mutedForeground}
                 borderColor={palette.border}
               />
-              <Table className="sr-only">
+              <table className="sr-only">
                 <caption>{t('stats.chart.monthlyTitle', { year })}</caption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('stats.chart.monthlyTitle', { year })}</TableHead>
-                    <TableHead>{t('stats.pie.incomeLabel')}</TableHead>
-                    <TableHead>{t('stats.pie.expenseLabel')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                <thead>
+                  <tr>
+                    <th scope="col">{t('stats.chart.monthlyTitle', { year })}</th>
+                    <th scope="col">{t('stats.pie.incomeLabel')}</th>
+                    <th scope="col">{t('stats.pie.expenseLabel')}</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {monthly.map((month) => (
-                    <TableRow key={month.month}>
-                      <TableCell>{month.month}</TableCell>
-                      <TableCell>{fmt(month.income)}</TableCell>
-                      <TableCell>{fmt(month.expense)}</TableCell>
-                    </TableRow>
+                    <tr key={month.month}>
+                      <th scope="row">{month.month}</th>
+                      <td>{fmt(month.income)}</td>
+                      <td>{fmt(month.expense)}</td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </>
           )}
         </CardContent>

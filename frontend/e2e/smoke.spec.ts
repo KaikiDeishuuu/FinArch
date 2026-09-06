@@ -506,6 +506,62 @@ test('renders protected mobile shell with compact top actions', async ({ page })
   await expect(page.getByRole('heading', { name: /Budgets|预算管理/ })).toBeVisible()
 })
 
+test('stats view fits the mobile width so the fixed bottom nav stays on screen', async ({ page }) => {
+  // A horizontally overflowing element widens the layout viewport on real
+  // phones, which drags `position: fixed; bottom: 0` below the visible area and
+  // hides the whole tab bar. Desktop browsers never show it, so assert the
+  // overflow itself.
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockAuthenticatedSession(page)
+  await page.route('**/api/v1/transactions**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: Array.from({ length: 12 }, (_, index) => ({
+          id: 'stats-' + index,
+          occurred_at: `2026-0${(index % 9) + 1}-01 09:00:00`,
+          direction: index % 2 ? 'income' : 'expense',
+          source: 'company',
+          account_id: 'account-cny',
+          category: 'category-' + (index % 5),
+          amount_yuan: 10 + index,
+          currency: 'CNY',
+          base_amount_cents: (10 + index) * 100,
+          base_currency: 'CNY',
+          note: 'note ' + index,
+          project_id: null,
+          reimbursed: false,
+          uploaded: true,
+          mode: 'work',
+        })),
+      }),
+    })
+  })
+  await page.route('**/api/v1/accounts**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: [{ id: 'account-cny', name: 'Company Wallet', type: 'public', currency: 'CNY', balance_cents: 10_000, balance_yuan: 100, is_active: true }],
+      }),
+    })
+  })
+  await page.route('**/api/v1/auth/heartbeat', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: {} }) })
+  })
+  await page.route('**/api/v1/auth/devices/online', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { count: 1 } }) })
+  })
+
+  await page.goto('/stats')
+  await expect(page.getByRole('navigation').filter({ hasText: /Stats|统计/ })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => {
+    const root = document.documentElement
+    return root.scrollWidth - root.clientWidth
+  })).toBe(0)
+})
+
 test('keeps system operations unavailable when the config flag is absent', async ({ page }) => {
   await mockAuthenticatedSession(page)
 
