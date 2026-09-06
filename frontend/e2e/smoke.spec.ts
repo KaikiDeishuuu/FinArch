@@ -506,6 +506,67 @@ test('renders protected mobile shell with compact top actions', async ({ page })
   await expect(page.getByRole('heading', { name: /Budgets|预算管理/ })).toBeVisible()
 })
 
+test('dashboard surfaces unsettled public expenses instead of reporting all clear', async ({ page }) => {
+  await mockAuthenticatedSession(page)
+  const publicExpense = (id: string, uploaded: boolean) => ({
+    id,
+    occurred_at: '2026-09-01 09:00:00',
+    direction: 'expense',
+    source: 'company',
+    account_id: 'account-public',
+    category: 'office',
+    amount_yuan: 50,
+    currency: 'CNY',
+    base_amount_cents: 5_000,
+    base_currency: 'CNY',
+    note: id,
+    project_id: null,
+    reimbursed: false,
+    settled: false,
+    uploaded,
+    mode: 'work',
+  })
+  await page.route('**/api/v1/transactions**', async (route) => {
+    const mode = new URL(route.request().url()).searchParams.get('mode')
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: mode === 'life' ? [] : [publicExpense('public-uploaded', true), publicExpense('public-pending', false)],
+      }),
+    })
+  })
+  await page.route('**/api/v1/accounts**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: [{ id: 'account-public', name: 'Public Wallet', type: 'public', currency: 'CNY', balance_cents: 100_000, balance_yuan: 1000, is_active: true }],
+      }),
+    })
+  })
+  await page.route('**/api/v1/auth/heartbeat', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: {} }) })
+  })
+  await page.route('**/api/v1/auth/devices/online', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { count: 1 } }) })
+  })
+  await page.route((url) => url.pathname === '/api/v1/budgets', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })
+  })
+  await page.route('**/api/v1/budgets/summary**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { mode: 'work', period_month: '2026-09', total_actual_cents: 0, total_actual_yuan: 0, total_budget: null, category_budgets: [] } }) })
+  })
+  await page.route('**/api/v1/recurring-rules**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })
+  })
+
+  await page.goto('/')
+  await expect(page.getByText(/Settlement queue|待核销分析/)).toBeVisible()
+  // The all-clear banner must not fire while public expenses are unsettled.
+  await expect(page.getByText(/Nothing pending|暂无待办事项/)).toHaveCount(0)
+})
+
 test('announcement board carries the support address and can be restored from settings', async ({ page }) => {
   await mockAuthenticatedSession(page)
   await page.route('**/api/v1/auth/me', async (route) => {

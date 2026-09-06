@@ -254,8 +254,8 @@ const zh = {
         maxLabel: '最大',
         daysAgo: '{{days}} 天前',
         oldestNote: '最早一笔：',
-        noPending: '暂无待报销项目',
-        tip: '及时报销，减少资金压力',
+        noPending: '暂无待办事项',
+        tip: '个人垫付与公共支出都已处理完',
         // ── Smart sub-messages ──
         notUploaded: {
           over30d: '累计 {{amt}}，最早一笔已超 {{days}} 天，建议尽快上传避免遗漏',
@@ -289,6 +289,12 @@ const zh = {
           manyItems: '共 {{count}} 项待处理，建议抽空集中处理',
           default: '共 {{count}} 项待处理',
         },
+      },
+      settlement: {
+        title: '待核销分析',
+        header: '共 {{count}} 笔公共支出待处理，合计 {{amt}}',
+        notUploadedSub: '累计 {{amt}}，最早一笔 {{days}} 天前，需先上传凭证才能核销',
+        awaitingSub: '累计 {{amt}}，最早一笔 {{days}} 天前，凭证已上传，等待与财务核销',
       },
       addButton: '+ 添加',
       insights: {
