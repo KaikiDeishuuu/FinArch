@@ -412,6 +412,10 @@ const en = {
         pending: 'Not uploaded',
         done: 'Uploaded',
       },
+      settlementTabs: {
+        pending: 'Pending',
+        done: 'Settled',
+      },
       summary: {
         filtered: 'Filtered',
         income: 'Income',
@@ -437,6 +441,8 @@ const en = {
         notUploaded: 'Pending',
         reimbursed: 'Done',
         pending: 'Pending',
+        settled: 'Settled',
+        pendingSettlement: 'Pending',
         personalShort: 'Self',
         companyShort: 'Pub',
       },
@@ -449,6 +455,8 @@ const en = {
       incomeNoReimburse: 'Income — no reimbursement',
       copyIdTooltip: 'Click to copy full ID',
       lockTitle: 'Cancel reimbursement first',
+      settleLockTitle: 'Cancel settlement first',
+      incomeNoSettle: 'Income — no settlement',
 
       life: {
         tabs: {
@@ -480,6 +488,10 @@ const en = {
         reimbursedError: 'Reimbursement toggle failed',
         uploadError: 'Upload toggle failed, please verify backend',
         cancelReimburseFirst: 'Cancel reimbursement before canceling upload',
+        settledOn: 'Marked as settled',
+        unsettled: 'Unmarked settlement',
+        settledError: 'Settlement toggle failed',
+        cancelSettleFirst: 'Cancel settlement before canceling upload',
       },
     },
 
@@ -1253,6 +1265,8 @@ const en = {
         pendingReimbursement: 'Pending reimbursement',
         reimbursed: 'Reimbursed',
         uploaded: 'Uploaded',
+        pendingSettlement: 'Pending settlement',
+        settled: 'Settled',
         company: {
           pendingUpload: 'Pending upload',
           pendingReimburse: 'Pending reimburse',

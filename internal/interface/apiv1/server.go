@@ -688,6 +688,7 @@ func (s *Server) registerRoutes() {
 	api.GET("/transactions", s.handleListTransactions)
 	api.POST("/transactions", s.handleCreateTransaction)
 	api.PATCH("/transactions/:id/reimburse", s.handleToggleReimbursed)
+	api.PATCH("/transactions/:id/settle", s.handleToggleSettled)
 	api.PATCH("/transactions/:id/upload", s.handleToggleUploaded)
 	api.POST("/transactions/:id/tags", s.handleAddTag)
 	api.DELETE("/transactions/:id/tags/:tagID", s.handleRemoveTag)
@@ -1932,6 +1933,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		UpdatedAt          string  `json:"updated_at"`
 		ReportedAt         *string `json:"reported_at"`
 		ReimbursedAt       *string `json:"reimbursed_at"`
+		SettledAt          *string `json:"settled_at"`
 		// Backward-compat fields retained for frontend
 		OccurredAt              string   `json:"occurred_at"`
 		Direction               string   `json:"direction"`
@@ -1943,6 +1945,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		ProjectID               *string  `json:"project_id"`
 		Project                 *string  `json:"project"`
 		Reimbursed              bool     `json:"reimbursed"`
+		Settled                 bool     `json:"settled"`
 		Uploaded                bool     `json:"uploaded"`
 		AttachmentKey           *string  `json:"attachment_key"`
 		HasAttachment           bool     `json:"has_attachment"`
@@ -1960,6 +1963,7 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 		}
 		reportedAt := formatLifecycleSecond(t.ReportedAt, t.CreatedAt)
 		reimbursedAt := formatLifecycleSecond(t.ReimbursedAt, t.CreatedAt)
+		settledAt := formatLifecycleSecond(t.SettledAt, t.CreatedAt)
 		dtos = append(dtos, txDTO{
 			ID: t.ID, GroupID: t.GroupID,
 			AccountID: t.AccountID, AccountType: string(t.AccountType),
@@ -1968,14 +1972,14 @@ func (s *Server) handleListTransactions(c *gin.Context) {
 			ExchangeRate: t.ExchangeRate, ExchangeRateSource: t.ExchangeRateSource, ExchangeRateAt: t.ExchangeRateAt, BaseCurrency: t.BaseCurrency, ReimbStatus: string(t.ReimbStatus),
 			TxnDate: t.TxnDate, TransactionTime: t.TransactionTime,
 			CreatedAt: formatSecond(t.CreatedAt), UpdatedAt: formatSecond(t.UpdatedAt),
-			ReportedAt: reportedAt, ReimbursedAt: reimbursedAt,
+			ReportedAt: reportedAt, ReimbursedAt: reimbursedAt, SettledAt: settledAt,
 			// backward-compat
 			OccurredAt: formatSecond(t.OccurredAt),
 			Direction:  string(t.Direction), Source: string(t.Source),
 			Category: t.Category, AmountYuan: t.AmountYuan.Float64(),
 			Currency: t.Currency, Note: t.Note,
 			ProjectID: t.ProjectID, Project: t.Project,
-			Reimbursed: t.Reimbursed, Uploaded: t.Uploaded,
+			Reimbursed: t.Reimbursed, Settled: t.Settled, Uploaded: t.Uploaded,
 			AttachmentKey: t.AttachmentKey, HasAttachment: t.AttachmentKey != nil,
 			RecurringRuleID: t.RecurringRuleID, RecurringOccurrenceDate: t.RecurringOccurrenceDate,
 			Mode: string(t.Mode), Tags: tagNames,
@@ -2226,6 +2230,23 @@ func (s *Server) handleToggleReimbursed(c *gin.Context) {
 		return
 	}
 	ok(c, gin.H{"id": id, "reimbursed": newState})
+}
+
+func (s *Server) handleToggleSettled(c *gin.Context) {
+	id := c.Param("id")
+	newState, err := s.txRepo.ToggleSettled(c.Request.Context(), id, userID(c))
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrConcurrentModification):
+			fail(c, http.StatusConflict, "concurrent_modification", "The transaction changed concurrently. Please refresh and try again.")
+		case errors.Is(err, repository.ErrTransactionNotFound):
+			fail(c, http.StatusNotFound, "transaction_not_found", "Transaction not found.")
+		default:
+			fail(c, http.StatusUnprocessableEntity, 40001, err.Error())
+		}
+		return
+	}
+	ok(c, gin.H{"id": id, "settled": newState})
 }
 
 func (s *Server) handleToggleUploaded(c *gin.Context) {
@@ -6053,6 +6074,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		       COALESCE(exchange_rate_source, 'legacy'), exchange_rate_at, base_amount_cents, base_currency,
 		       type, category_id, category, reimb_status, reimb_to_account, project_id, project,
 		       note, uploaded, txn_date, transaction_time, reported_at, reimbursed_at,
+		       settled, settled_at,
 		       created_at, updated_at, mode
 		FROM transactions
 		WHERE user_id = ?
@@ -6068,13 +6090,14 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 		var exchangeRateAt sql.NullInt64
 		var oldCategoryID, category, reimbStatus sql.NullString
 		var oldReimbToAccount, oldProjectID, project, note sql.NullString
-		var transactionTime, reportedAt, reimbursedAt sql.NullInt64
-		var uploaded int
+		var transactionTime, reportedAt, reimbursedAt, settledAt sql.NullInt64
+		var uploaded, settled int
 		var txnDate, createdAt, updatedAt string
 		if err := srcTxRows.Scan(&oldID, &oldGroupID, &dir, &oldAccountID, &amount, &currency, &exchangeRate,
 			&exchangeRateSource, &exchangeRateAt, &baseAmount, &baseCurrency,
 			&typ, &oldCategoryID, &category, &reimbStatus, &oldReimbToAccount, &oldProjectID, &project,
 			&note, &uploaded, &txnDate, &transactionTime, &reportedAt, &reimbursedAt,
+			&settled, &settledAt,
 			&createdAt, &updatedAt, &txnMode); err != nil {
 			srcTxRows.Close()
 			return 0, fmt.Errorf("跨账号恢复失败：读取备份交易失败")
@@ -6147,7 +6170,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 				reimb_status, reimb_to_account, reimbursement_id,
 				project_id, project, mode,
 				note, uploaded, idempotency_key, txn_date, transaction_time,
-				reported_at, reimbursed_at, created_at, updated_at, version,
+				reported_at, reimbursed_at, settled, settled_at, created_at, updated_at, version,
 				restore_source_backup_id, restore_import_batch_id, restore_recovered_at, restore_txn_hash
 			) VALUES (
 				?, ?, ?, ?, ?, ?, ?,
@@ -6156,7 +6179,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 				?, ?, NULL,
 				?, ?, ?,
 				?, ?, NULL, ?, ?,
-				?, ?, ?, ?, 1,
+				?, ?, ?, ?, ?, ?, 1,
 				?, ?, ?, ?
 			)
 			ON CONFLICT(id) DO NOTHING
@@ -6166,7 +6189,7 @@ func (s *Server) performCrossAccountMergeRestore(ctx context.Context, tmpPath st
 			reimbText, mappedReimbTo,
 			mappedProjectID, projectText, txnMode,
 			noteText, uploaded, txnDate, transactionTime,
-			reportedAt, reimbursedAt, createdAt, updatedAt,
+			reportedAt, reimbursedAt, settled, settledAt, createdAt, updatedAt,
 			sourceBackupID, importBatchID, recoveryTimestamp, restoreTxnHash)
 		if err != nil {
 			srcTxRows.Close()

@@ -157,10 +157,44 @@ test('PDF and transaction tabs share explicit reimbursement and upload stages', 
   assert.equal(transactionWorkflowStage(pendingUpload, 'upload'), 'pending-upload')
   assert.equal(transactionWorkflowStage(uploadedPending, 'upload'), 'uploaded')
 
-  assert.match(transactionsSource, /workflowKind[^\n]*isReimbursementView \? 'reimbursement' : 'upload'/)
+  assert.match(
+    transactionsSource,
+    /workflowKind[^\n]*isReimbursementView\s*\n\s*\? 'reimbursement'\s*\n\s*: isSettlementView \? 'settlement' : 'upload'/,
+  )
   assert.match(transactionsSource, /exportTransactionsPDF\(filtered,[\s\S]*?workflowKind, accountMap\)/)
   assert.match(matchSource, /workflowKind[^\n]*isLifeMode \? 'upload' : 'reimbursement'/)
   assert.match(matchSource, /exportTransactionsPDF\(matchedTransactions,[\s\S]*?workflowKind, \{\}\)/)
+})
+
+test('public-account settlement is a separate lane that never reads reimbursement', () => {
+  const pendingUpload = { direction: 'expense', uploaded: false, reimbursed: false, settled: false }
+  const uploadedPending = { direction: 'expense', uploaded: true, reimbursed: false, settled: false }
+  const settled = { direction: 'expense', uploaded: true, reimbursed: false, settled: true }
+
+  assert.equal(transactionWorkflowStage(pendingUpload, 'settlement'), 'pending-upload')
+  assert.equal(transactionWorkflowStage(uploadedPending, 'settlement'), 'pending-settlement')
+  assert.equal(transactionWorkflowStage(settled, 'settlement'), 'settled')
+  assert.equal(isTransactionInWorkflowTab(settled, 'reimbursed', 'settlement'), true)
+  assert.equal(isTransactionInWorkflowTab(uploadedPending, 'unreimbursed', 'settlement'), true)
+
+  // The two lanes must stay independent: reimbursing must not settle, and
+  // settling must not reimburse. WORK statistics add reimbursed amounts back
+  // into net, so a public-account expense leaking into that lane would inflate
+  // the user's net by money that was never theirs.
+  const reimbursedOnly = { direction: 'expense', uploaded: true, reimbursed: true, settled: false }
+  assert.equal(transactionWorkflowStage(reimbursedOnly, 'settlement'), 'pending-settlement')
+  assert.equal(transactionWorkflowStage(settled, 'reimbursement'), 'pending-reimbursement')
+
+  assert.match(transactionsSource, /const isSettlementView = isWorkMode && effectiveSourceFilter === 'company'/)
+  assert.match(
+    transactionsSource,
+    /if \(!tx \|\| !isWorkMode \|\| tx\.source !== 'company' \|\| tx\.direction !== 'expense'\) return/,
+  )
+  assert.match(transactionsSource, /\{isSettlementView && <StatusBadge[\s\S]*?onClick=\{\(\) => handleToggleSettle\(tx\.id\)\}/)
+  assert.equal(en.transactions.badges.settled, 'Settled')
+  assert.equal(zh.transactions.badges.settled, '已核销')
+  assert.equal(zh.transactions.settlementTabs.done, '已核销')
+  assert.equal(zh.exportPdf.workflow.settled, '已核销')
 })
 
 test('work dashboard derives reimbursement cards and actions from personal advances', () => {

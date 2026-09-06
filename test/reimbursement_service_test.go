@@ -211,3 +211,89 @@ func TestToggleReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
 		t.Fatalf("pending lifecycle = status:%q reimbursed_at:%v", status, reimbursedAt)
 	}
 }
+
+func TestToggleSettledEnforcesPublicExpenseLifecycle(t *testing.T) {
+	database := setupDB(t)
+	defer database.Close()
+	ctx := context.Background()
+	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
+	acctRepo := sqliterepo.NewSQLiteAccountRepository(database)
+	txSvc := service.NewTransactionService(txRepo, acctRepo, nil)
+
+	personal, err := acctRepo.GetByUserAndType(ctx, testUserID, model.AccountTypePersonal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := acctRepo.GetByUserAndType(ctx, testUserID, model.AccountTypePublic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	create := func(accountID string, txType model.TxType, source model.Source, mode model.Mode) model.Transaction {
+		t.Helper()
+		tx, err := txSvc.CreateTransaction(ctx, service.CreateTransactionRequest{
+			UserID: testUserID, OccurredAt: time.Now(), AccountID: accountID,
+			TxType: txType, Source: source, Category: "settlement", AmountCents: 100, Currency: "CNY",
+			Mode: mode,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tx
+	}
+	markUploaded := func(id string) {
+		t.Helper()
+		if _, err := database.Exec(`UPDATE transactions SET uploaded = 1 WHERE id = ?`, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Settlement is public-account, WORK-mode, expense-only. Personal advances
+	// keep using the reimbursement lane.
+	personalExpense := create(personal.ID, model.TxTypeExpense, model.SourcePersonal, model.ModeWork)
+	publicIncome := create(public.ID, model.TxTypeIncome, model.SourceCompany, model.ModeWork)
+	for _, transaction := range []model.Transaction{personalExpense, publicIncome} {
+		markUploaded(transaction.ID)
+		if _, err := txRepo.ToggleSettled(ctx, transaction.ID, testUserID); err == nil {
+			t.Fatalf("ineligible transaction %s was marked settled", transaction.ID)
+		}
+	}
+
+	publicExpense := create(public.ID, model.TxTypeExpense, model.SourceCompany, model.ModeWork)
+	if _, err := txRepo.ToggleSettled(ctx, publicExpense.ID, testUserID); err == nil {
+		t.Fatal("unreported public expense was marked settled")
+	}
+	markUploaded(publicExpense.ID)
+	marked, err := txRepo.ToggleSettled(ctx, publicExpense.ID, testUserID)
+	if err != nil || !marked {
+		t.Fatalf("mark public expense settled = %t, %v", marked, err)
+	}
+	var settledAt sql.NullInt64
+	if err := database.QueryRow(`SELECT settled_at FROM transactions WHERE id = ?`, publicExpense.ID).Scan(&settledAt); err != nil {
+		t.Fatal(err)
+	}
+	if !settledAt.Valid {
+		t.Fatal("settled transaction is missing settled_at")
+	}
+
+	// Settling must never touch the reimbursement lane: WORK statistics add
+	// reimbursed amounts back into net, and public money was never fronted.
+	var reimbStatus string
+	if err := database.QueryRow(`SELECT reimb_status FROM transactions WHERE id = ?`, publicExpense.ID).Scan(&reimbStatus); err != nil {
+		t.Fatal(err)
+	}
+	if reimbStatus != string(model.ReimbStatusNone) {
+		t.Fatalf("settling a public expense changed reimb_status to %q", reimbStatus)
+	}
+
+	marked, err = txRepo.ToggleSettled(ctx, publicExpense.ID, testUserID)
+	if err != nil || marked {
+		t.Fatalf("return public expense to pending = %t, %v", marked, err)
+	}
+	var settled int
+	if err := database.QueryRow(`SELECT settled, settled_at FROM transactions WHERE id = ?`, publicExpense.ID).Scan(&settled, &settledAt); err != nil {
+		t.Fatal(err)
+	}
+	if settled != 0 || settledAt.Valid {
+		t.Fatalf("pending lifecycle = settled:%d settled_at:%v", settled, settledAt)
+	}
+}

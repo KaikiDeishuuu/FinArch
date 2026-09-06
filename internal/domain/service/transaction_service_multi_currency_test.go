@@ -43,6 +43,7 @@ func (f *fakeTxRepo) ToggleReimbursed(context.Context, string, string) (bool, er
 	return false, nil
 }
 func (f *fakeTxRepo) ToggleUploaded(context.Context, string, string) (bool, error) { return false, nil }
+func (f *fakeTxRepo) ToggleSettled(context.Context, string, string) (bool, error)  { return false, nil }
 func (f *fakeTxRepo) SumPoolBalance(context.Context, string, model.Mode) (model.Money, model.Money, error) {
 	return 0, 0, nil
 }

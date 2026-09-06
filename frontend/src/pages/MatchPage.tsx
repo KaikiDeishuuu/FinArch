@@ -288,6 +288,8 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
           note: item.note,
           project_id: item.project_id,
           reimbursed: reimbursedIds.has(item.id),
+          // Matching only ever sees personal advances, which never settle.
+          settled: false,
           uploaded: item.uploaded,
         })
       }

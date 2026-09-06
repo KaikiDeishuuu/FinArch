@@ -93,6 +93,12 @@ type Transaction struct {
 	ReimbToAccount  *string
 	ReimbursementID *string
 
+	// ── Settlement ────────────────────────────────────────────────────────────
+	// Settled clears a public-account expense with finance. It is deliberately
+	// separate from ReimbStatus: public money was never fronted by the user, so
+	// settling must not feed the reimbursement adjustments in WORK statistics.
+	Settled bool
+
 	// ── Project ───────────────────────────────────────────────────────────────
 	ProjectID *string
 	Project   *string // denormalized project name
@@ -120,4 +126,5 @@ type Transaction struct {
 	UpdatedAt    time.Time
 	ReportedAt   *time.Time
 	ReimbursedAt *time.Time
+	SettledAt    *time.Time
 }

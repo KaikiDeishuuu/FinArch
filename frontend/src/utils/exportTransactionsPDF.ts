@@ -67,6 +67,10 @@ export function exportTransactionsPDF(
         return { text: i18n.t('exportPdf.workflow.pendingReimbursement'), className: 'wf-review' }
       case 'reimbursed':
         return { text: i18n.t('exportPdf.workflow.reimbursed'), className: 'wf-done' }
+      case 'pending-settlement':
+        return { text: i18n.t('exportPdf.workflow.pendingSettlement'), className: 'wf-review' }
+      case 'settled':
+        return { text: i18n.t('exportPdf.workflow.settled'), className: 'wf-done' }
       case 'uploaded':
         return { text: i18n.t('exportPdf.workflow.uploaded'), className: 'wf-done' }
     }
@@ -78,10 +82,16 @@ export function exportTransactionsPDF(
         { className: 'review', text: i18n.t('exportPdf.workflow.pendingReimbursement') },
         { className: 'done', text: i18n.t('exportPdf.workflow.reimbursed') },
       ]
-    : [
-        { className: 'pending', text: i18n.t('exportPdf.workflow.pendingUpload') },
-        { className: 'done', text: i18n.t('exportPdf.workflow.uploaded') },
-      ]
+    : workflowKind === 'settlement'
+      ? [
+          { className: 'pending', text: i18n.t('exportPdf.workflow.pendingUpload') },
+          { className: 'review', text: i18n.t('exportPdf.workflow.pendingSettlement') },
+          { className: 'done', text: i18n.t('exportPdf.workflow.settled') },
+        ]
+      : [
+          { className: 'pending', text: i18n.t('exportPdf.workflow.pendingUpload') },
+          { className: 'done', text: i18n.t('exportPdf.workflow.uploaded') },
+        ]
 
   const ordered = [...filtered].sort((a, b) => {
     const ta = a.transaction_time ?? 0
