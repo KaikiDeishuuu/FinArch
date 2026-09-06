@@ -204,6 +204,21 @@ test('work dashboard derives reimbursement cards and actions from personal advan
   assert.doesNotMatch(dashboardSource, /companyUploadedNotReimbursed|companyOutstanding/)
 })
 
+test('work dashboard queues unsettled public expenses without feeding reimbursement math', () => {
+  // Public expenses have their own queue. Before this existed the dashboard
+  // reported "all clear" while unsettled public expenses sat in the ledger.
+  assert.match(dashboardSource, /const publicPending = useMemo\([\s\S]*?isWorkMode[\s\S]*?t\.source === 'company'[\s\S]*?!t\.settled/)
+  assert.match(dashboardSource, /const hasPublicPending = isWorkMode && publicPending\.length > 0/)
+  assert.match(dashboardSource, /const allClear = isWorkMode && !loading && !hasPending && !hasPublicPending/)
+
+  // The settlement queue must stay out of the reimbursement totals: WORK net
+  // adds reimbursed amounts back, and public money was never the user's.
+  assert.match(dashboardSource, /const personalOutstanding = useMemo\(\(\) =>[\s\S]*?t\.source === 'personal'/)
+  assert.doesNotMatch(dashboardSource, /personalOutstanding[\s\S]{0,200}publicPending/)
+  assert.equal(en.dashboard.settlement.title, 'Settlement queue')
+  assert.equal(zh.dashboard.settlement.title, '待核销分析')
+})
+
 test('work matching accepts only uploaded, pending personal expenses', () => {
   const eligible = {
     source: 'personal',

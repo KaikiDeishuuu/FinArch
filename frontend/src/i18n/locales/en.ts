@@ -254,8 +254,8 @@ const en = {
         maxLabel: 'Max',
         daysAgo: '{{days}} days ago',
         oldestNote: 'Oldest: ',
-        noPending: 'No pending items',
-        tip: 'Reimburse promptly to ease cash flow',
+        noPending: 'Nothing pending',
+        tip: 'Personal advances and public spending are all cleared',
         // ── Smart sub-messages ──
         notUploaded: {
           over30d: 'Total {{amt}}, oldest over {{days}} days — upload soon to avoid missing items',
@@ -289,6 +289,12 @@ const en = {
           manyItems: '{{count}} items pending, batch processing recommended',
           default: '{{count}} items pending',
         },
+      },
+      settlement: {
+        title: 'Settlement queue',
+        header: '{{count}} public expenses to handle, {{amt}} in total',
+        notUploadedSub: '{{amt}} total, oldest {{days}} days ago — upload the receipt before settling',
+        awaitingSub: '{{amt}} total, oldest {{days}} days ago — receipts uploaded, awaiting settlement with finance',
       },
       addButton: '+ Add',
       insights: {

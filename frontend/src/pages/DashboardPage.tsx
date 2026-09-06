@@ -6,6 +6,7 @@ import {
   BarChart3,
   Check,
   CircleCheck,
+  FileCheck,
   Globe2,
   List,
   PenLine,
@@ -208,8 +209,22 @@ export default function DashboardPage() {
     () => pendingTxs.filter((transaction) => transaction.uploaded && !transaction.reimbursed),
     [pendingTxs],
   )
+
+  // Public-account expenses clear with finance instead of being reimbursed, so
+  // they get their own queue. Without it the dashboard reported "all clear"
+  // while unsettled public expenses were still sitting in the ledger.
+  const publicPending = useMemo(
+    () => isWorkMode
+      ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.settled)
+      : [],
+    [isWorkMode, transactions],
+  )
+  const publicNotUploaded = useMemo(() => publicPending.filter((transaction) => !transaction.uploaded), [publicPending])
+  const publicAwaitingSettlement = useMemo(() => publicPending.filter((transaction) => transaction.uploaded), [publicPending])
+
   const hasPending = isWorkMode && pendingTxs.length > 0
-  const allClear = isWorkMode && !loading && !hasPending && transactions.length > 0
+  const hasPublicPending = isWorkMode && publicPending.length > 0
+  const allClear = isWorkMode && !loading && !hasPending && !hasPublicPending && transactions.length > 0
 
   const pendingAnalysis = useMemo(() => {
     const now = analysisNow
@@ -276,6 +291,37 @@ export default function DashboardPage() {
 
     return { notUploadedSub, uploadedNotReimbursedSub, headerHint }
   }, [analysisNow, notUploaded, uploadedNotReimbursed, rates, t])
+
+  const settlementAnalysis = useMemo(() => {
+    const day = 86_400_000
+    const sum = (items: typeof transactions) =>
+      items.reduce((total, transaction) => total + transactionAmountToCNY(transaction, rates), 0)
+    const oldestDays = (items: typeof transactions) => {
+      const dates = items
+        .map((transaction) => new Date(transaction.occurred_at).getTime())
+        .filter((date) => !Number.isNaN(date))
+      return dates.length > 0 ? Math.floor((analysisNow - Math.min(...dates)) / day) : 0
+    }
+
+    const notUploadedSub = publicNotUploaded.length > 0
+      ? t('dashboard.settlement.notUploadedSub', {
+          amt: fmtExact(sum(publicNotUploaded)),
+          days: oldestDays(publicNotUploaded),
+        })
+      : ''
+    const awaitingSub = publicAwaitingSettlement.length > 0
+      ? t('dashboard.settlement.awaitingSub', {
+          amt: fmtExact(sum(publicAwaitingSettlement)),
+          days: oldestDays(publicAwaitingSettlement),
+        })
+      : ''
+    const total = publicNotUploaded.length + publicAwaitingSettlement.length
+    const headerHint = total > 0
+      ? t('dashboard.settlement.header', { count: total, amt: fmtExact(sum(publicPending)) })
+      : ''
+
+    return { notUploadedSub, awaitingSub, headerHint }
+  }, [analysisNow, publicNotUploaded, publicAwaitingSettlement, publicPending, rates, t])
 
   if (loading) {
     return (
@@ -614,6 +660,56 @@ export default function DashboardPage() {
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {pendingAnalysis.uploadedNotReimbursedSub}
                   </p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {hasPublicPending ? (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t('dashboard.settlement.title')}</CardTitle>
+              {settlementAnalysis.headerHint ? (
+                <CardDescription>{settlementAnalysis.headerHint}</CardDescription>
+              ) : null}
+            </div>
+            <Badge variant="warning">{publicPending.length}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {publicNotUploaded.length > 0 ? (
+              <Link
+                to="/transactions?source=company"
+                className="group flex items-center gap-3 rounded-lg border border-warning/25 bg-warning-soft p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-warning ring-1 ring-warning/20">
+                  <Upload className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {publicNotUploaded.length} {t('transactions.badges.notUploaded')}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{settlementAnalysis.notUploadedSub}</p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : null}
+            {publicAwaitingSettlement.length > 0 ? (
+              <Link
+                to="/transactions?source=company"
+                className="group flex items-center gap-3 rounded-lg border border-accent/25 bg-accent-soft p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-accent ring-1 ring-accent/20">
+                  <FileCheck className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {publicAwaitingSettlement.length} {t('transactions.badges.pendingSettlement')}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{settlementAnalysis.awaitingSub}</p>
                 </div>
                 <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
