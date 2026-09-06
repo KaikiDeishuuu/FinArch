@@ -32,6 +32,7 @@ import { useMode } from '../hooks/useMode'
 import { useBudgetSummary, currentBudgetMonth } from '../hooks/useBudgets'
 import { useRecurringRules } from '../hooks/useRecurringRules'
 import { categoryLabel } from '../utils/categoryLabel'
+import AnnouncementBoard from '../components/AnnouncementBoard'
 import { Alert } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
 import { ButtonLink } from '../components/ui/button'
@@ -389,6 +390,8 @@ export default function DashboardPage() {
           </>
         )}
       />
+
+      <AnnouncementBoard />
 
       <section aria-label={t('dashboard.balance.balanceLabel')} className="grid grid-cols-2 gap-3">
         {isWorkMode ? (

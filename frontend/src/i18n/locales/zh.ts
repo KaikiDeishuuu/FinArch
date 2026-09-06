@@ -1,5 +1,14 @@
 const zh = {
   translation: {
+    // ── Announcement ──
+    announcement: {
+      title: '欢迎使用 FinArch',
+      body: '这里是你的财务工作台：工作与生活两套账本各算各的，公共支出、个人垫付、预算与定期记账都在同一处管理。点右上角「添加」记第一笔，或先去「设置」把账户建好。',
+      support: '使用中遇到任何问题、或有功能建议，都欢迎联系：',
+      dismissHint: '关掉之后不会再自动弹出；想再看时可以到「设置 · 帮助与支持」里点“重新显示公告”。',
+      dismiss: '不再显示',
+    },
+
     // ── Common ──
     common: {
       confirm: '确认',
@@ -831,6 +840,14 @@ const zh = {
         restore: '数据恢复',
         danger: '危险区域',
         appearance: '外观设置',
+        support: '帮助与支持',
+      },
+      support: {
+        title: '需要帮助？',
+        desc: '使用中遇到问题、或有功能建议，欢迎邮件联系我们：',
+        showAnnouncement: '重新显示公告',
+        restored: '公告已恢复，回到概览页即可看到',
+        alreadyVisible: '公告当前正显示在概览页顶部。',
       },
       accounts: {
         publicLabel: '公共',

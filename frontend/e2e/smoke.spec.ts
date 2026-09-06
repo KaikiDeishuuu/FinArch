@@ -506,6 +506,57 @@ test('renders protected mobile shell with compact top actions', async ({ page })
   await expect(page.getByRole('heading', { name: /Budgets|预算管理/ })).toBeVisible()
 })
 
+test('announcement board carries the support address and can be restored from settings', async ({ page }) => {
+  await mockAuthenticatedSession(page)
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { id: 'u1', email: 'demo@example.com', username: 'demo', nickname: 'Demo', pending_email: '', role: 'user' } }),
+    })
+  })
+  await page.route('**/api/v1/transactions**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })
+  })
+  await page.route('**/api/v1/accounts**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })
+  })
+  await page.route('**/api/v1/auth/heartbeat', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: {} }) })
+  })
+  await page.route('**/api/v1/auth/devices/online', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { count: 1 } }) })
+  })
+  await page.route((url) => url.pathname === '/api/v1/budgets', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })
+  })
+  await page.route('**/api/v1/budgets/summary**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: { mode: 'work', period_month: '2026-01', total_actual_cents: 0, total_actual_yuan: 0, total_budget: null, category_budgets: [] } }) })
+  })
+  await page.route('**/api/v1/recurring-rules**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })
+  })
+
+  const boardName = /Welcome to FinArch|欢迎使用 FinArch/
+  await page.goto('/')
+  const board = page.getByRole('region', { name: boardName })
+  await expect(board).toBeVisible()
+  await expect(board.getByRole('link', { name: 'support@farc.dev' })).toHaveAttribute('href', 'mailto:support@farc.dev')
+
+  await board.getByRole('button', { name: /Dismiss|不再显示/ }).click()
+  await expect(board).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByRole('region', { name: boardName })).toHaveCount(0)
+
+  // Settings keeps the address reachable and can bring the board back, so a
+  // dismissal never buries the only route to support.
+  await page.goto('/settings')
+  await expect(page.getByRole('link', { name: 'support@farc.dev' })).toHaveAttribute('href', 'mailto:support@farc.dev')
+  await page.getByRole('button', { name: /Show announcement again|重新显示公告/ }).click()
+
+  await page.goto('/')
+  await expect(page.getByRole('region', { name: boardName })).toBeVisible()
+})
+
 test('stats view fits the mobile width so the fixed bottom nav stays on screen', async ({ page }) => {
   // A horizontally overflowing element widens the layout viewport on real
   // phones, which drags `position: fixed; bottom: 0` below the visible area and
