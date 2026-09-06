@@ -21,8 +21,9 @@ export default defineConfig({
         name: 'FinArch',
         short_name: 'FinArch',
         description: '记账 · 报销 · 统计，轻量高效的多用户财务管理工具',
-        theme_color: '#FAFAF9',
-        background_color: '#FAFAF9',
+        // Keep in sync with index.html and src/constants/theme.ts.
+        theme_color: '#F6F7F9',
+        background_color: '#F6F7F9',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -83,8 +84,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // API 请求：网络优先，失败时 404（不缓存）
-            urlPattern: /^\/api\//,
+            // Workbox tests RegExp routes against the complete URL, so match
+            // the same-origin API path through a callback instead.
+            urlPattern: ({ sameOrigin, url }) => sameOrigin && url.pathname.startsWith('/api/'),
             handler: 'NetworkOnly',
           },
         ],

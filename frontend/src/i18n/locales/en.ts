@@ -355,6 +355,7 @@ const en = {
       actual: 'Actual',
       remaining: 'Remaining',
       overBy: 'Over by',
+      confirmDelete: 'Delete budget “{{name}}”?',
       status: {
         ok: 'On Track',
         warning: 'Near Limit',
@@ -842,7 +843,7 @@ const en = {
           createError: 'Create failed',
           renameError: 'Rename failed',
           deleteError: 'Delete failed',
-          hasUnreimbursed: 'This account has unreimbursed transactions and cannot be deleted.',
+          hasTransactions: 'This account has transaction history and cannot be deleted.',
         },
       },
       profile: {
@@ -1196,18 +1197,6 @@ const en = {
       updateDesc: 'Click update now to get the latest features',
       later: 'Later',
       update: 'Update Now',
-    },
-
-    // ── DatePicker ──
-    datePicker: {
-      weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
-      months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-      today: 'Today',
-      notSelected: 'Not selected',
-      placeholder: 'Select date',
-      yearMonth: '{{month}} {{year}}',
-      displayFormat: '{{weekday}}, {{month}} {{day}}, {{year}}',
-      weekdaysFull: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     },
 
     // ── Select ──

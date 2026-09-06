@@ -19,6 +19,23 @@ import { useAuth } from '../hooks/useAuth'
 import { exportTransactionsPDF } from '../utils/exportTransactionsPDF'
 import { accountModeForTransactionSource } from '../utils/accountScope'
 import type { TransactionWorkflowKind } from '../utils/transactionWorkflow'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  Info,
+  Search,
+} from 'lucide-react'
+import { Alert } from '../components/ui/alert'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
+import { EmptyState } from '../components/ui/empty-state'
+import { Field, Input } from '../components/ui/input'
+import { PageHeader } from '../components/ui/page-header'
+import { Segmented, SegmentedButton } from '../components/ui/segmented'
+import { cn } from '../lib/utils'
 
 function isEligibleMatchTransaction(transaction: Pick<Transaction, 'direction' | 'source' | 'uploaded' | 'reimbursed'>, mode: Transaction['mode']) {
   return transaction.source === 'personal' &&
@@ -287,40 +304,33 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
-  const inputClass = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 dark:bg-gray-800/50 dark:text-gray-200 transition-all hover:bg-white dark:hover:bg-[hsl(260,15%,11%)] tabular-nums'
-  const labelClass = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider'
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('match.title')}</h1>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{isLifeMode ? t('match.life.subtitle') : t('match.subtitle')}</p>
-      </div>
+    <div className="max-w-4xl space-y-6">
+      <PageHeader
+        title={t('match.title')}
+        description={isLifeMode ? t('match.life.subtitle') : t('match.subtitle')}
+        meta={<Badge variant="mode">{isLifeMode ? t('mode.life') : t('mode.work')}</Badge>}
+      />
 
-      {/* Form card — Premium */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
-        <div className="border-b border-gray-100 dark:border-gray-800 px-5 pt-4 pb-0">
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {/* Source filter tabs */}
-            <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit">
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-border px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented aria-label={t('transactions.sourceFilterLabel')}>
               {([enforcedSource] as const).map((key) => (
-                <button
+                <SegmentedButton
                   key={key}
-                  type="button"
                   onClick={() => {
                     resetSearch()
                     setFilterAccount('')
                   }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${sourceFilter === key
-                      ? 'bg-white dark:bg-[hsl(260,15%,11%)] text-violet-700 dark:text-violet-400 shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
+                  aria-pressed={sourceFilter === key}
+                  className="aria-pressed:text-mode"
                 >
                   {t(`match.sourceTabs.${key}`)}
-                </button>
+                </SegmentedButton>
               ))}
-            </div>
+            </Segmented>
 
             {/* Account filter */}
             {filteredAccounts.length > 1 && (
@@ -362,48 +372,45 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
               </div>
             )}
 
-            {/* Clear extra filters */}
             {(effectiveFilterCategory || effectiveFilterAccount) && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   resetSearch()
                   setFilterCategory('')
                   setFilterAccount('')
                 }}
-                className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs transition-all"
               >
                 {t('common.clear')}
-              </button>
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Info bar */}
-        <div className="bg-violet-50 dark:bg-violet-500/10 border-b border-violet-100 dark:border-violet-800 px-5 py-3 flex items-start gap-2.5">
-          <svg className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+        <Alert variant="info" className="rounded-none border-x-0 border-t-0 px-5 py-3">
+          <Info className="mt-0.5 size-4 shrink-0" />
           <div>
-            <p className="text-sm text-violet-700 dark:text-violet-300">
+            <p>
               <Trans
                 i18nKey={isLifeMode ? 'match.life.info.uploadedOnly' : 'match.info.uploadedOnly'}
                 values={{ source: t(`match.sourceTabs.${sourceFilter}`) }}
                 components={{ strong: <strong /> }}
               />
             </p>
-            <p className="text-xs text-violet-500/80 dark:text-violet-400/70 mt-1">{t('match.info.currencyNote')}</p>
+            <p className="mt-1 text-xs opacity-80">{t('match.info.currencyNote')}</p>
           </div>
-        </div>
+        </Alert>
 
         <form onSubmit={handleSubmit} className="p-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={labelClass}>{t('match.form.targetAmount')}</label>
-              <input
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label={t('match.form.targetAmount')}>
+              <Input
                 type="number"
                 required
                 min="0.01"
                 step="0.01"
-                className={inputClass}
+                className="tabular-nums"
                 placeholder={t('match.form.targetPlaceholder')}
                 value={target}
                 onChange={(e) => {
@@ -411,162 +418,131 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                   setTarget(e.target.value)
                 }}
               />
-            </div>
-            <div>
-              <label className={labelClass}>{t('match.form.tolerance')}</label>
-              <input
+            </Field>
+            <Field label={t('match.form.tolerance')}>
+              <Input
                 type="number"
                 min="0"
                 step="0.01"
-                className={inputClass}
+                className="tabular-nums"
                 value={tolerance}
                 onChange={(e) => {
                   resetSearch()
                   setTolerance(e.target.value)
                 }}
               />
-            </div>
-            <div>
-              <label className={labelClass}>{t('match.form.maxCount')}</label>
-              <input
+            </Field>
+            <Field label={t('match.form.maxCount')}>
+              <Input
                 type="number"
                 min="1"
                 max="50"
-                className={inputClass}
+                className="tabular-nums"
                 value={maxItems}
                 onChange={(e) => {
                   resetSearch()
                   setMaxItems(e.target.value)
                 }}
               />
-            </div>
+            </Field>
           </div>
 
           {error && (
-            <div className="mt-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
-              <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-              {error}
-            </div>
+            <Alert variant="negative" className="mt-4">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>{error}</span>
+            </Alert>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-5 w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-all shadow-sm flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                {t('match.form.searching')}
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                {t('match.form.searchButton')}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPDF}
-            disabled={matchedTransactions.length === 0}
-            className="mt-2 w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 disabled:opacity-50 rounded-xl py-2.5 text-sm font-semibold transition-all"
-          >
-            {isLifeMode ? t('match.life.exportPdf') : t('transactions.exportPdf')}
-          </button>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <Button type="submit" loading={loading} loadingText={t('match.form.searching')}>
+              <Search className="size-4" />
+              {t('match.form.searchButton')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={matchedTransactions.length === 0}
+            >
+              <Download className="size-4" />
+              {isLifeMode ? t('match.life.exportPdf') : t('transactions.exportPdf')}
+            </Button>
+          </div>
         </form>
-      </div>
+      </Card>
 
       {/* Results */}
       {searched && (
         <div className="space-y-3">
-          {/* Time-pruned warning */}
           {timePruned && (
-            <div className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+            <Alert variant="warning">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>{t('match.results.timePruned')}</span>
-            </div>
+            </Alert>
           )}
 
           {searchTruncated && (
-            <div
-              data-testid="match-truncated-warning"
-              className="flex items-start gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400"
-            >
-              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+            <Alert data-testid="match-truncated-warning" variant="warning">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>{t('match.results.truncated')}</span>
+            </Alert>
+          )}
+
+          {results.length === 0 ? (
+            <EmptyState
+              title={t('match.results.noResultsHint')}
+              icon={<Search />}
+            />
+          ) : (
+            <div className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+              <CheckCircle2 className="size-5 shrink-0 text-positive" />
+              <span>
+                {t('match.results.foundBefore')}
+                <strong className="mx-1 text-base text-foreground">{results.length}</strong>
+                {t('match.results.foundAfter')}
+              </span>
             </div>
           )}
 
-          {/* Result header */}
-          <div className="flex items-center justify-between px-1">
-            {results.length === 0 ? (
-              <div className="flex items-center gap-2 text-gray-500">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 shrink-0"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
-                <span className="text-sm">{t('match.results.noResultsHint')}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {t('match.results.foundBefore')}<span className="text-violet-600 dark:text-violet-400 font-bold text-base">{results.length}</span>{t('match.results.foundAfter')}
-                </span>
-              </div>
-            )}
-          </div>
-
           {results.map((r, i) => {
-            const rankColors = [
-              'bg-yellow-500',  // gold
-              'bg-gray-400',    // silver
-              'bg-amber-700',   // bronze
-            ]
-            const rankBg = i < 3 ? rankColors[i] : 'bg-violet-600'
             return (
-              <div key={i} className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
-                {/* Card header (clickable) */}
+              <Card key={i} className="overflow-hidden p-0">
                 <button
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+                  aria-expanded={expandedIdx === i}
                 >
-                  <div className="flex items-center gap-4 text-left">
-                    <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${rankBg} text-white text-xs font-bold shrink-0`}>
+                  <div className="flex min-w-0 items-center gap-4">
+                    <Badge variant={i === 0 ? 'accent' : 'neutral'} className="grid size-8 place-items-center px-0 font-mono">
                       {i + 1}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-gray-800 dark:text-gray-200 text-base">{fmt(cnyTotal(r), 'CNY')}</p>
-                        {r.error <= 0.01 && (
-                          <span className="text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.exactMatch')}</span>
-                        )}
-                        {r.score != null && (
-                          <span className="text-xs bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5 rounded-full font-medium tabular-nums">
-                            Score {r.score.toFixed(3)}
-                          </span>
-                        )}
-                        {hasMixedCurrency(r) && (
-                          <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium">{t('match.results.mixedCurrency')}</span>
-                        )}
+                    </Badge>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-semibold text-foreground tabular-nums">{fmt(cnyTotal(r), 'CNY')}</p>
+                        {r.error <= 0.01 && <Badge variant="positive">{t('match.results.exactMatch')}</Badge>}
+                        {r.score != null && <Badge variant="accent" className="font-mono">Score {r.score.toFixed(3)}</Badge>}
+                        {hasMixedCurrency(r) && <Badge variant="warning">{t('match.results.mixedCurrency')}</Badge>}
                       </div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-2">
+                      <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{t('match.results.count', { count: r.item_count })}</span>
-                        <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <span className="size-1 rounded-full bg-input" />
                         <span>{t('match.results.projects', { count: r.project_count })}</span>
                       </p>
                     </div>
                   </div>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${expandedIdx === i ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 rotate-180' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                  </div>
+                  <span className={cn('grid size-7 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground transition-transform', expandedIdx === i && 'rotate-180 text-accent')}>
+                    <ChevronDown className="size-4" />
+                  </span>
                 </button>
 
-                {/* Expanded detail */}
                 {expandedIdx === i && (
-                  <div className="border-t border-gray-100 dark:border-gray-800">
+                  <div className="border-t border-border">
                     {r.items && r.items.length > 0 ? (
                       <>
                         {/* Mobile: card list */}
-                        <div className="md:hidden divide-y divide-gray-50 dark:divide-gray-800">
+                        <div className="md:hidden divide-y divide-border">
                           {r.items.map((item) => {
                             const done = !isLifeMode && reimbursedIds.has(item.id)
                             const confirming = confirmId === item.id
@@ -574,51 +550,49 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                             return (
                               <div key={item.id} className={`px-4 py-3 space-y-1.5 ${done ? 'opacity-60' : ''}`}>
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className={`font-semibold text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-300'}`}>{categoryLabel(item.category)}</span>
-                                  <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
+                                  <span className={`font-semibold text-sm ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{categoryLabel(item.category)}</span>
+                                  <span className={`font-bold tabular-nums whitespace-nowrap text-sm ${done ? 'text-muted-foreground line-through' : 'text-negative'}`}>−{fmt(item.amount_yuan, item.currency)}</span>
                                 </div>
-                                <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 dark:text-gray-500">
+                                <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
                                   <span className="tabular-nums">{item.occurred_at}</span>
                                   {item.project_id && (
-                                    <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>
+                                    <span className="font-mono bg-muted text-muted-foreground px-1.5 py-0.5 rounded">{item.project_id}</span>
                                   )}
                                   {item.note && <span className="truncate max-w-[180px]">{item.note}</span>}
                                 </div>
                                 {!isLifeMode && (done ? (
-                                  <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium">
-                                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-positive">
+                                    <CheckCircle2 className="size-3.5" />
                                     {t('match.reimburse.reimbursed')}
                                   </span>
                                 ) : confirming ? (
-                                  <div className="flex items-center gap-2 pt-0.5">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{t('match.reimburse.confirmPrompt')}</span>
-                                    <button onClick={() => handleReimburse(item.id)} disabled={busy}
-                                      className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
+                                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                    <span className="text-xs text-muted-foreground">{t('match.reimburse.confirmPrompt')}</span>
+                                    <Button size="sm" variant="positive" onClick={() => handleReimburse(item.id)} disabled={busy} className="h-7 px-2.5">
                                       {busy ? '…' : t('common.confirm')}
-                                    </button>
-                                    <button onClick={() => setConfirmId(null)}
-                                      className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1">
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setConfirmId(null)} className="h-7 px-2">
                                       {t('common.cancel')}
-                                    </button>
+                                    </Button>
                                   </div>
                                 ) : (
-                                  <button onClick={() => setConfirmId(item.id)}
-                                    className="text-xs text-violet-500 hover:text-violet-700 font-medium">
+                                  <Button size="sm" variant="ghost" onClick={() => setConfirmId(item.id)} className="h-7 px-0 text-accent hover:text-accent">
                                     {t('match.reimburse.markButton')}
-                                  </button>
+                                  </Button>
                                 ))}
                               </div>
                             )
                           })}
-                          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
-                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</span>
-                            <span className="font-bold text-rose-600 tabular-nums whitespace-nowrap text-sm">−{fmt(cnyTotal(r), 'CNY')}</span>
+                          <div className="flex items-center justify-between bg-muted/65 px-4 py-3">
+                            <span className="text-xs font-semibold text-muted-foreground">{t('match.results.totalRealtime')}</span>
+                            <span className="text-sm font-semibold whitespace-nowrap text-negative tabular-nums">−{fmt(cnyTotal(r), 'CNY')}</span>
                           </div>
                         </div>
                         {/* Desktop: table */}
-                        <table className="hidden md:table w-full text-xs">
+                        <div className="hidden overflow-x-auto md:block">
+                        <table className="w-full text-xs">
                           <thead>
-                            <tr className="bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
+                            <tr className="border-b border-border bg-muted/65 text-muted-foreground uppercase tracking-wider">
                               <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.id')}</th>
                               <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.date')}</th>
                               <th className="px-4 py-2.5 text-left font-semibold">{t('match.table.category')}</th>
@@ -634,40 +608,37 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                               const confirming = confirmId === item.id
                               const busy = loadingId === item.id
                               return (
-                                <tr key={item.id} className={`border-b border-gray-50 dark:border-gray-800 last:border-0 transition-colors ${done ? 'opacity-50 bg-emerald-50/30 dark:bg-emerald-500/5' : idx % 2 === 0 ? 'hover:bg-gray-50/60 dark:hover:bg-gray-800/40' : 'bg-gray-50/30 dark:bg-gray-800/20 hover:bg-gray-50/60 dark:hover:bg-gray-800/40'}`}>
-                                  <td className="px-4 py-2.5 font-mono text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-800/30">{item.id.slice(0, 8)}…</td>
-                                  <td className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-500 dark:text-gray-400'}`}>{item.occurred_at}</td>
-                                  <td className={`px-4 py-2.5 font-medium ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-600 dark:text-gray-300'}`}>{categoryLabel(item.category)}</td>
+                                <tr key={item.id} className={cn('border-b border-border last:border-0 transition-colors hover:bg-muted/45', idx % 2 !== 0 && 'bg-muted/20', done && 'bg-positive-soft/30 opacity-55')}>
+                                  <td className="bg-muted/35 px-4 py-2.5 font-mono text-muted-foreground">{item.id.slice(0, 8)}…</td>
+                                  <td className={cn('px-4 py-2.5 tabular-nums whitespace-nowrap text-muted-foreground', done && 'line-through')}>{item.occurred_at}</td>
+                                  <td className={cn('px-4 py-2.5 font-medium text-foreground', done && 'text-muted-foreground line-through')}>{categoryLabel(item.category)}</td>
                                   <td className="px-4 py-2.5">
                                     {item.project_id
-                                      ? <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">{item.project_id}</span>
-                                      : <span className="text-gray-300 dark:text-gray-600">—</span>
+                                      ? <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-muted-foreground">{item.project_id}</span>
+                                      : <span className="text-subtle">—</span>
                                     }
                                   </td>
-                                  <td className="px-4 py-2.5 text-gray-400 dark:text-gray-500 max-w-[140px] truncate" title={item.note ?? undefined}>{item.note || '—'}</td>
-                                  <td className={`px-4 py-2.5 text-right font-bold tabular-nums whitespace-nowrap ${done ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-rose-500'}`}>−{fmt(item.amount_yuan, item.currency)}</td>
+                                  <td className="max-w-[140px] truncate px-4 py-2.5 text-muted-foreground" title={item.note ?? undefined}>{item.note || '—'}</td>
+                                  <td className={cn('px-4 py-2.5 text-right font-semibold tabular-nums whitespace-nowrap text-negative', done && 'text-muted-foreground line-through')}>−{fmt(item.amount_yuan, item.currency)}</td>
                                   {!isLifeMode && <td className="px-4 py-2.5 text-center">
                                     {done ? (
-                                      <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-medium whitespace-nowrap">
-                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                      <span className="inline-flex items-center gap-1 text-xs font-medium whitespace-nowrap text-positive">
+                                        <CheckCircle2 className="size-3.5" />
                                         {t('match.reimburse.reimbursed')}
                                       </span>
                                     ) : confirming ? (
                                       <div className="flex items-center justify-center gap-1.5">
-                                        <button onClick={() => handleReimburse(item.id)} disabled={busy}
-                                          className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-2 py-1 rounded-lg font-medium">
+                                        <Button size="sm" variant="positive" onClick={() => handleReimburse(item.id)} disabled={busy} className="h-7 px-2">
                                           {busy ? '…' : t('common.confirm')}
-                                        </button>
-                                        <button onClick={() => setConfirmId(null)}
-                                          className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1">
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setConfirmId(null)} className="h-7 px-1.5">
                                           {t('common.cancel')}
-                                        </button>
+                                        </Button>
                                       </div>
                                     ) : (
-                                      <button onClick={() => setConfirmId(item.id)}
-                                        className="text-xs text-violet-500 hover:text-violet-700 font-medium whitespace-nowrap">
+                                      <Button size="sm" variant="ghost" onClick={() => setConfirmId(item.id)} className="h-7 px-1.5 text-accent hover:text-accent">
                                         {t('match.reimburse.markShort')}
-                                      </button>
+                                      </Button>
                                     )}
                                   </td>}
                                 </tr>
@@ -675,20 +646,21 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                             })}
                           </tbody>
                           <tfoot>
-                            <tr className="bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
-                              <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">{t('match.results.totalRealtime')}</td>
-                              <td className="px-4 py-2.5 text-right font-bold text-rose-600 tabular-nums whitespace-nowrap">−{fmt(cnyTotal(r), 'CNY')}</td>
+                            <tr className="border-t border-border bg-muted/65">
+                              <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold text-muted-foreground">{t('match.results.totalRealtime')}</td>
+                              <td className="px-4 py-2.5 text-right font-semibold whitespace-nowrap text-negative tabular-nums">−{fmt(cnyTotal(r), 'CNY')}</td>
                               {!isLifeMode && <td />}
                             </tr>
                           </tfoot>
                         </table>
+                        </div>
                       </>
                     ) : (
                       <div className="px-5 py-4">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-2 uppercase tracking-wider">{t('match.results.idListTitle')}</p>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('match.results.idListTitle')}</p>
                         <div className="flex flex-wrap gap-1.5">
                           {r.ids.map((id) => (
-                            <span key={id} className="font-mono text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-lg">
+                            <span key={id} className="rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted-foreground">
                               {id.slice(0, 8)}…
                             </span>
                           ))}
@@ -697,7 +669,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                     )}
                   </div>
                 )}
-              </div>
+              </Card>
             )
           })}
         </div>

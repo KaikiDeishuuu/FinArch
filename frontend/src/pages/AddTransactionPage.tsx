@@ -1,22 +1,47 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  Building2,
+  CheckCircle2,
+  Paperclip,
+  Settings2,
+  UserRound,
+} from 'lucide-react'
 import { createTransaction, deleteAttachment, linkAttachment } from '../api/client'
 import type { Attachment, OCRSuggestion } from '../api/client'
+import AttachmentUploader from '../components/AttachmentUploader'
+import Select from '../components/Select'
+import { Alert } from '../components/ui/alert'
+import { Button, buttonVariants } from '../components/ui/button'
+import { Card } from '../components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import { Input, Label } from '../components/ui/input'
+import { PageHeader } from '../components/ui/page-header'
+import { Segmented, SegmentedButton } from '../components/ui/segmented'
+import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from '../constants/currencies'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHaptic } from '../hooks/useHaptic'
-import Select from '../components/Select'
-import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 import { useMode } from '../hooks/useMode'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
-import { CURRENCY_SYMBOLS, SUPPORTED_CURRENCIES } from '../constants/currencies'
-import AttachmentUploader from '../components/AttachmentUploader'
-import OcrReviewModal from '../components/OcrReviewModal'
+import { cn } from '../lib/utils'
+import { accountModeForTransactionSource, transactionSourceForMode } from '../utils/accountScope'
+import { CATEGORY_KEYS, categoryLabel } from '../utils/categoryLabel'
 import { formatAmount } from '../utils/format'
 import { shouldRotateIdempotencyKey } from '../utils/idempotency'
-import { accountModeForTransactionSource, transactionSourceForMode } from '../utils/accountScope'
+import { hasOCRSuggestion } from '../utils/ocr'
 
 function currentLocalDateTime() {
   const now = new Date()
@@ -25,6 +50,59 @@ function currentLocalDateTime() {
 
 function apiDateTime(value: string) {
   return value ? `${value.replace('T', ' ')}:00` : currentLocalDateTime().replace('T', ' ') + ':00'
+}
+
+function OcrReviewDialog({
+  suggestion,
+  onApply,
+  onClose,
+}: {
+  suggestion: OCRSuggestion | null
+  onApply: (suggestion: OCRSuggestion) => void
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const visibleSuggestion = hasOCRSuggestion(suggestion) ? suggestion : null
+  const rows = visibleSuggestion
+    ? [
+        ['amount', visibleSuggestion.amount_yuan ? String(visibleSuggestion.amount_yuan) : ''],
+        ['date', visibleSuggestion.occurred_at || ''],
+        ['merchant', visibleSuggestion.merchant || ''],
+        ['category', visibleSuggestion.category || ''],
+        ['note', visibleSuggestion.note || ''],
+      ].filter(([, value]) => value)
+    : []
+
+  return (
+    <Dialog open={Boolean(visibleSuggestion)} onOpenChange={(open) => { if (!open) onClose() }}>
+      {visibleSuggestion ? (
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('attachments.ocr.reviewTitle')}</DialogTitle>
+            <DialogDescription>{t('attachments.ocr.reviewDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 rounded-lg border border-border bg-muted/60 p-3">
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('attachments.ocr.noSuggestion')}</p>
+            ) : rows.map(([key, value]) => (
+              <div key={key} className="flex justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">{t(`attachments.ocr.fields.${key}`)}</span>
+                <span className="text-right font-medium text-foreground">{value}</span>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="button" onClick={() => onApply(visibleSuggestion)}>
+              {t('attachments.ocr.apply')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      ) : null}
+    </Dialog>
+  )
 }
 
 export default function AddTransactionPage() {
@@ -227,8 +305,7 @@ function AddTransactionForm({
     }
   }
 
-  const inputClass = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-gray-50 dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder-gray-500 transition-all hover:bg-white dark:hover:bg-gray-800'
-  const labelClass = 'block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider'
+  const labelClass = 'mb-1.5 block text-xs font-medium text-muted-foreground'
 
   const isExpense = form.direction === 'expense'
   const isPersonal = form.source === 'personal'
@@ -251,304 +328,300 @@ function AddTransactionForm({
   }
 
   return (
-    <div className="max-w-3xl pb-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('addTransaction.title')}</h1>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('addTransaction.subtitle')}</p>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-5 pb-8">
+      <PageHeader
+        title={t('addTransaction.title')}
+        description={t('addTransaction.subtitle')}
+      />
 
-      {success && (
-        <div className="mb-4 bg-emerald-50 dark:bg-emerald-500/10 border border-green-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-          {t('addTransaction.toast.successRedirect')}
-        </div>
-      )}
+      {success ? (
+        <Alert variant="positive">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+          <span>{t('addTransaction.toast.successRedirect')}</span>
+        </Alert>
+      ) : null}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-stretch">
-        <fieldset disabled={Boolean(createdTransactionId)} className="contents">
-
-        {/* Direction + Source */}
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-1">
-          <div>
-            <p id="transaction-direction-label" className={labelClass}>{t('addTransaction.form.direction')}</p>
-            <div role="group" aria-labelledby="transaction-direction-label" className="grid grid-cols-2 gap-2">
-              <button type="button"
-                onClick={() => set('direction', 'expense')}
-                aria-pressed={isExpense}
-                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                  isExpense
-                    ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400'
-                    : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-rose-200 dark:hover:border-rose-500/30 hover:text-rose-400'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>
-                {t('addTransaction.form.expense')}
-              </button>
-              <button type="button"
-                onClick={() => set('direction', 'income')}
-                aria-pressed={!isExpense}
-                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                  !isExpense
-                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                    : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-emerald-200 dark:hover:border-emerald-500/30 hover:text-emerald-400'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>
-                {t('addTransaction.form.income')}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <p id="transaction-source-label" className={labelClass}>{t('addTransaction.form.source')}</p>
-            <div role="group" aria-labelledby="transaction-source-label" className="grid grid-cols-2 gap-2">
-              <button type="button"
-                onClick={() => set('source', 'personal')}
-                aria-pressed={isPersonal}
-                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                  isPersonal
-                    ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400'
-                    : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-amber-200 dark:hover:border-amber-500/30 hover:text-amber-400'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                {t('addTransaction.form.personalAdvance')}
-              </button>
-              <button type="button"
-                onClick={() => isWorkMode && set('source', 'company')}
-                disabled={!isWorkMode}
-                aria-pressed={!isPersonal}
-                className={`min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                  !isPersonal
-                    ? 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400'
-                    : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-sky-200 dark:hover:border-sky-500/30 hover:text-sky-400'
-                } ${!isWorkMode ? 'cursor-not-allowed opacity-50' : ''}`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                {t('addTransaction.form.publicAccount')}
-              </button>
-            </div>
-          </div>
-
-          {/* Account picker */}
-          <div>
-            <label className={labelClass}>{t('addTransaction.form.account')}</label>
-            {accountsLoading ? (
-              <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3.5 py-2.5 text-sm text-gray-400 dark:text-gray-500">
-                {t('addTransaction.accountLoad.loading')}
-              </div>
-            ) : accountsError ? (
-              <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3.5 py-3 text-sm text-rose-700 dark:text-rose-400 space-y-2">
-                <p>{t('addTransaction.accountLoad.error')}</p>
-                <button
-                  type="button"
-                  onClick={() => refetchAccounts()}
-                  disabled={accountsFetching}
-                  className="text-xs font-semibold underline underline-offset-2 disabled:opacity-50"
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
+        <fieldset
+          disabled={Boolean(createdTransactionId)}
+          className="grid min-w-0 grid-cols-1 gap-4 md:col-span-2 md:grid-cols-2 md:items-stretch"
+        >
+          <Card className="order-1 space-y-5">
+            <div>
+              <p id="transaction-direction-label" className={labelClass}>{t('addTransaction.form.direction')}</p>
+              <Segmented role="group" aria-labelledby="transaction-direction-label" className="grid w-full grid-cols-2">
+                <SegmentedButton
+                  onClick={() => set('direction', 'expense')}
+                  aria-pressed={isExpense}
+                  className="h-9 aria-pressed:text-negative"
                 >
-                  {accountsFetching ? t('common.loading') : t('common.retry')}
-                </button>
-              </div>
-            ) : sourceAccounts.length > 0 ? (
-              <Select
-                value={form.account_id}
-                onChange={(v) => set('account_id', v)}
-                size="lg"
-                options={sourceAccounts.map(a => ({
-                  value: a.id,
-                  label: `${a.name}（${t('common.balance')} ${formatAmount(a.balance_yuan, a.currency)}）`,
-                }))}
-              />
-            ) : (
-              <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-3 text-sm text-amber-700 dark:text-amber-400 space-y-2">
-                <p>{t('addTransaction.accountLoad.empty')}</p>
-                <Link to="/settings" className="inline-flex text-xs font-semibold underline underline-offset-2">
-                  {t('addTransaction.accountLoad.settingsLink')}
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+                  <ArrowDown className="size-4" />
+                  {t('addTransaction.form.expense')}
+                </SegmentedButton>
+                <SegmentedButton
+                  onClick={() => set('direction', 'income')}
+                  aria-pressed={!isExpense}
+                  className="h-9 aria-pressed:text-positive"
+                >
+                  <ArrowUp className="size-4" />
+                  {t('addTransaction.form.income')}
+                </SegmentedButton>
+              </Segmented>
+            </div>
 
-        {/* Amount */}
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm flex flex-col justify-between order-2">
-          <label className={labelClass}>{t('addTransaction.form.amount')}</label>
-          <div className={`flex items-center gap-2 rounded-xl border-2 px-3 py-1 transition-all ${isExpense ? 'border-rose-200 dark:border-rose-500/30 focus-within:border-red-400 dark:focus-within:border-rose-400' : 'border-green-200 dark:border-emerald-500/30 focus-within:border-green-400 dark:focus-within:border-emerald-400'}`}>
-            <span className={`text-xl font-bold select-none whitespace-nowrap shrink-0 ${isExpense ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {isExpense ? '−' : '+'}{CURRENCY_SYMBOLS[form.currency] ?? form.currency}
-            </span>
-            <input
-              type="number"
-              required
-              min="0.01"
-              step="0.01"
-              className="flex-1 min-w-0 text-xl font-bold text-gray-800 dark:text-gray-200 bg-transparent py-2 focus:outline-none placeholder:text-gray-200 dark:placeholder:text-gray-600"
-              placeholder="0.00"
-              value={form.amount_yuan}
-              onChange={(e) => set('amount_yuan', e.target.value)}
-            />
-            <div className="shrink-0">
+            <div>
+              <p id="transaction-source-label" className={labelClass}>{t('addTransaction.form.source')}</p>
+              <Segmented role="group" aria-labelledby="transaction-source-label" className="grid w-full grid-cols-2">
+                <SegmentedButton
+                  onClick={() => set('source', 'personal')}
+                  aria-pressed={isPersonal}
+                  className="h-9 aria-pressed:text-mode"
+                >
+                  <UserRound className="size-4" />
+                  {t('addTransaction.form.personalAdvance')}
+                </SegmentedButton>
+                <SegmentedButton
+                  onClick={() => isWorkMode && set('source', 'company')}
+                  disabled={!isWorkMode}
+                  aria-pressed={!isPersonal}
+                  className="h-9 aria-pressed:text-mode"
+                >
+                  <Building2 className="size-4" />
+                  {t('addTransaction.form.publicAccount')}
+                </SegmentedButton>
+              </Segmented>
+            </div>
+
+            <div>
+              <Label className="mb-1.5 block">{t('addTransaction.form.account')}</Label>
+              {accountsLoading ? (
+                <div className="rounded-lg border border-input bg-muted px-3 py-2.5 text-sm text-muted-foreground">
+                  {t('addTransaction.accountLoad.loading')}
+                </div>
+              ) : accountsError ? (
+                <Alert variant="negative" className="flex-col items-start">
+                  <p>{t('addTransaction.accountLoad.error')}</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => refetchAccounts()}
+                    disabled={accountsFetching}
+                    className="h-7 px-0 text-negative hover:bg-transparent hover:text-negative"
+                  >
+                    {accountsFetching ? t('common.loading') : t('common.retry')}
+                  </Button>
+                </Alert>
+              ) : sourceAccounts.length > 0 ? (
+                <Select
+                  value={form.account_id}
+                  onChange={(value) => set('account_id', value)}
+                  size="lg"
+                  options={sourceAccounts.map((account) => ({
+                    value: account.id,
+                    label: `${account.name}（${t('common.balance')} ${formatAmount(account.balance_yuan, account.currency)}）`,
+                  }))}
+                />
+              ) : (
+                <Alert variant="warning" className="flex-col items-start">
+                  <p>{t('addTransaction.accountLoad.empty')}</p>
+                  <Link
+                    to="/settings"
+                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 px-0 text-warning hover:bg-transparent hover:text-warning' })}
+                  >
+                    <Settings2 className="size-3.5" />
+                    {t('addTransaction.accountLoad.settingsLink')}
+                  </Link>
+                </Alert>
+              )}
+            </div>
+          </Card>
+
+          <Card className="order-2 flex flex-col justify-between">
+            <Label htmlFor="transaction-amount" className="mb-1.5 block">{t('addTransaction.form.amount')}</Label>
+            <div className={cn(
+              'flex items-center gap-2 rounded-lg border bg-card px-3 transition-[border-color,box-shadow] focus-within:ring-2',
+              isExpense
+                ? 'border-negative/40 focus-within:border-negative focus-within:ring-negative/15'
+                : 'border-positive/40 focus-within:border-positive focus-within:ring-positive/15',
+            )}>
+              <span className={cn('shrink-0 whitespace-nowrap text-xl font-semibold', isExpense ? 'text-negative' : 'text-positive')}>
+                {isExpense ? '−' : '+'}{CURRENCY_SYMBOLS[form.currency] ?? form.currency}
+              </span>
+              <input
+                id="transaction-amount"
+                type="number"
+                required
+                min="0.01"
+                step="0.01"
+                className="w-full min-w-20 flex-1 bg-transparent py-3 text-2xl font-semibold tabular-nums text-foreground outline-none placeholder:text-subtle"
+                placeholder="0.00"
+                value={form.amount_yuan}
+                onChange={(event) => set('amount_yuan', event.target.value)}
+              />
               <Select
                 value={form.currency}
-                onChange={(v) => set('currency', v)}
+                onChange={(value) => set('currency', value)}
                 size="sm"
-                className="!rounded-lg min-w-[72px] !bg-gray-100 !text-gray-700 !border-gray-200 hover:!bg-white hover:!border-gray-300 dark:!bg-gray-800 dark:!text-gray-200 dark:!border-gray-600 dark:hover:!bg-gray-700 dark:hover:!border-gray-500"
+                className="min-w-[4.5rem]"
                 options={SUPPORTED_CURRENCIES.map((currency) => ({
                   value: currency.code,
                   label: currency.code,
                 }))}
               />
             </div>
-          </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            {isExpense ? t('addTransaction.form.expenseHint') : t('addTransaction.form.incomeHint')}
-          </p>
-        </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {isExpense ? t('addTransaction.form.expenseHint') : t('addTransaction.form.incomeHint')}
+            </p>
+          </Card>
 
-        {/* Category */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm order-3">
-          <label className={labelClass}>{t('addTransaction.form.category')}</label>
-          <div className="grid grid-cols-2 min-[380px]:grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2.5">
-            {CATEGORY_KEYS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => { set('category', c); setCustomCat('') }}
-                className={`min-h-11 flex items-center justify-center py-2.5 px-2 rounded-xl text-xs font-semibold border-2 transition-all ${
-                  form.category === c
-                    ? 'bg-violet-50 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/30 text-violet-700 dark:text-violet-400 shadow-sm shadow-violet-100/70 dark:shadow-none ring-1 ring-violet-100 dark:ring-violet-500/20'
-                    : 'bg-white dark:bg-transparent border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-violet-200 dark:hover:border-violet-500/30 hover:bg-violet-50/50 dark:hover:bg-violet-500/5 hover:text-violet-700 dark:hover:text-violet-400'
-                }`}
-              >
-                <span className="leading-tight text-center">{categoryLabel(c)}</span>
-              </button>
-            ))}
-          </div>
-          {/* Custom category */}
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{t('addTransaction.form.custom')}</span>
-            <input
-              type="text"
-              value={customCat}
-              onChange={e => {
-                const v = e.target.value
-                setCustomCat(v)
-                set('category', v.trim() !== '' ? v.trim() : CATEGORY_KEYS[0])
-              }}
-              placeholder={t('addTransaction.form.customPlaceholder')}
-              className={`flex-1 text-xs rounded-xl border-2 py-2 px-3 outline-none transition-all placeholder-gray-300 dark:placeholder-gray-600 ${
-                !CATEGORY_KEYS.includes(form.category as typeof CATEGORY_KEYS[number]) && customCat.trim() !== ''
-                  ? 'border-violet-500 dark:border-violet-400 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 font-semibold'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 focus:border-violet-300 dark:focus:border-violet-500/30 focus:bg-violet-50 dark:focus:bg-violet-500/5'
-              }`}
+          <Card className="order-3 md:col-span-2">
+            <Label className="mb-2 block">{t('addTransaction.form.category')}</Label>
+            <div className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-3 sm:grid-cols-5 md:grid-cols-7">
+              {CATEGORY_KEYS.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => { set('category', category); setCustomCat('') }}
+                  aria-pressed={form.category === category}
+                  className="min-h-10 rounded-lg border border-border bg-card px-2 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:border-accent/40 aria-pressed:bg-accent-soft aria-pressed:text-accent"
+                >
+                  {categoryLabel(category)}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <Label htmlFor="custom-category" className="shrink-0">{t('addTransaction.form.custom')}</Label>
+              <Input
+                id="custom-category"
+                type="text"
+                value={customCat}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setCustomCat(value)
+                  set('category', value.trim() !== '' ? value.trim() : CATEGORY_KEYS[0])
+                }}
+                placeholder={t('addTransaction.form.customPlaceholder')}
+                className={cn(
+                  'h-8 text-xs',
+                  !CATEGORY_KEYS.includes(form.category as typeof CATEGORY_KEYS[number]) && customCat.trim() !== '' &&
+                    'border-accent bg-accent-soft text-accent',
+                )}
+              />
+            </div>
+          </Card>
+
+          <Card className="order-4 md:col-span-2">
+            <Label htmlFor="transaction-occurred-at" className="mb-1.5 block">{t('addTransaction.form.occurredAt')}</Label>
+            <Input
+              id="transaction-occurred-at"
+              type="datetime-local"
+              value={occurredAt}
+              onChange={(event) => setOccurredAt(event.target.value)}
             />
-          </div>
-        </div>
+          </Card>
 
-        {/* Date/time */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm order-4">
-          <label className={labelClass}>{t('addTransaction.form.occurredAt')}</label>
-          <input
-            type="datetime-local"
-            className={inputClass}
-            value={occurredAt}
-            onChange={(e) => setOccurredAt(e.target.value)}
-          />
-        </div>
-
-        {/* Attachment + OCR */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-3 order-5">
-          <div>
-            <label className={labelClass}>{t('attachments.title')}</label>
-            <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">{t('attachments.addHint')}</p>
+          <Card className="order-5 space-y-3 md:col-span-2">
+            <div className="flex items-start gap-2">
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+                <Paperclip className="size-4" />
+              </span>
+              <div>
+                <Label className="block text-foreground">{t('attachments.title')}</Label>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t('attachments.addHint')}</p>
+              </div>
+            </div>
             <AttachmentUploader
               onUploaded={addPendingAttachment}
               onSuggestion={setOcrSuggestion}
             />
-            {pendingAttachments.length > 0 && (
-              <div className="mt-2 space-y-1">
+            {pendingAttachments.length > 0 ? (
+              <div className="grid gap-1 rounded-lg border border-positive/25 bg-positive-soft p-3">
                 {pendingAttachments.map((attachment) => (
-                  <p key={attachment.id} className="text-xs text-emerald-600 dark:text-emerald-300">
+                  <p key={attachment.id} className="text-xs text-positive">
                     {t('attachments.pendingLink', { name: attachment.original_filename })}
                   </p>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
+            ) : null}
+          </Card>
 
-        {/* Project + Note */}
-        <div className="md:col-span-2 bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm space-y-4 order-6">
-          <div>
-            <label className={labelClass}>
-              {t('addTransaction.form.project')} <span className="text-gray-300 dark:text-gray-600 font-normal normal-case tracking-normal">{t('addTransaction.form.optional')}</span>
-            </label>
-            <input
-              type="text"
-              className={inputClass}
-              placeholder={t('addTransaction.form.projectPlaceholder')}
-              value={form.project_id}
-              onChange={(e) => set('project_id', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>
-              {t('addTransaction.form.note')} <span className="text-gray-300 dark:text-gray-600 font-normal normal-case tracking-normal">{t('addTransaction.form.optional')}</span>
-            </label>
-            <input
-              type="text"
-              className={inputClass}
-              placeholder={t('addTransaction.form.notePlaceholder')}
-              value={form.note}
-              onChange={(e) => set('note', e.target.value)}
-            />
-          </div>
-        </div>
+          <Card className="order-6 grid gap-4 md:col-span-2 md:grid-cols-2">
+            <div>
+              <Label htmlFor="transaction-project" className="mb-1.5 block">
+                {t('addTransaction.form.project')}{' '}
+                <span className="font-normal text-muted-foreground">{t('addTransaction.form.optional')}</span>
+              </Label>
+              <Input
+                id="transaction-project"
+                type="text"
+                placeholder={t('addTransaction.form.projectPlaceholder')}
+                value={form.project_id}
+                onChange={(event) => set('project_id', event.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="transaction-note" className="mb-1.5 block">
+                {t('addTransaction.form.note')}{' '}
+                <span className="font-normal text-muted-foreground">{t('addTransaction.form.optional')}</span>
+              </Label>
+              <Input
+                id="transaction-note"
+                type="text"
+                placeholder={t('addTransaction.form.notePlaceholder')}
+                value={form.note}
+                onChange={(event) => set('note', event.target.value)}
+              />
+            </div>
+          </Card>
         </fieldset>
 
-        {/* Error + Actions */}
-        <div className="md:col-span-2 space-y-3 order-7">
-          {createdTransactionId && !success && pendingAttachments.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-              <p className="font-semibold">{t('addTransaction.attachmentRecovery.title')}</p>
-              <p className="mt-1 text-xs leading-5">{t('addTransaction.attachmentRecovery.description', { count: pendingAttachments.length })}</p>
-            </div>
-          )}
-          {error && (
-            <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-              {error}
-            </div>
-          )}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 rounded-2xl bg-white/80 dark:bg-[hsl(260,15%,11%)]/80 border border-gray-100/80 dark:border-gray-800/50 p-3 shadow-sm">
-            <button
-              type="submit"
-              disabled={loading || success || (!createdTransactionId && accountsUnavailable)}
-              className={`flex-1 font-semibold rounded-xl py-3.5 text-sm transition-all disabled:opacity-50 ${
-                isExpense
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-              }`}
-            >
-              {loading
-                ? t('addTransaction.form.submitting')
-                : createdTransactionId
-                  ? t('addTransaction.form.retryAttachments')
-                  : t('addTransaction.form.submit')}
-            </button>
-            <button
+        <div className="order-7 space-y-3 md:col-span-2">
+          {createdTransactionId && !success && pendingAttachments.length > 0 ? (
+            <Alert variant="warning" className="items-start">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="font-semibold">{t('addTransaction.attachmentRecovery.title')}</p>
+                <p className="mt-1 text-xs leading-5">{t('addTransaction.attachmentRecovery.description', { count: pendingAttachments.length })}</p>
+              </div>
+            </Alert>
+          ) : null}
+          {error ? (
+            <Alert variant="negative" className="items-start">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <span>{error}</span>
+            </Alert>
+          ) : null}
+          <Card className="flex flex-col-reverse gap-2 p-3 sm:flex-row sm:justify-end">
+            <Button
               type="button"
+              variant="outline"
               onClick={() => { void handleCancel() }}
               disabled={loading || success}
-              className="px-5 py-3.5 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 font-medium transition-all"
+              className="sm:min-w-28"
             >
               {createdTransactionId ? t('addTransaction.form.continueWithoutAttachments') : t('common.cancel')}
-            </button>
-          </div>
+            </Button>
+            <Button
+              type="submit"
+              loading={loading}
+              loadingText={t('addTransaction.form.submitting')}
+              disabled={success || (!createdTransactionId && accountsUnavailable)}
+              className="sm:min-w-44"
+            >
+              {createdTransactionId
+                ? t('addTransaction.form.retryAttachments')
+                : t('addTransaction.form.submit')}
+            </Button>
+          </Card>
         </div>
-
       </form>
-      <OcrReviewModal suggestion={ocrSuggestion} onApply={applyOcrSuggestion} onClose={() => setOcrSuggestion(null)} />
+
+      <OcrReviewDialog
+        suggestion={ocrSuggestion}
+        onApply={applyOcrSuggestion}
+        onClose={() => setOcrSuggestion(null)}
+      />
     </div>
   )
 }

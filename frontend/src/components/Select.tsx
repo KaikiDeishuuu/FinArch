@@ -1,38 +1,16 @@
 /**
- * FinArch — Apple-Style Select Component
- * ─────────────────────────────────────────────────────────────────────────────
- * 企业级财务管理系统统一下拉菜单组件
- *
- * 设计原则：
- * - 圆角统一体系：trigger 10px / dropdown 12px / option 8px
- * - 阴影层级：dropdown 使用 lg 级别 (0 10px 25px -5px)
- * - 动效存在感 < 30%：仅 opacity + 4px y-offset，220ms, cubic-bezier(0.4,0,0.2,1)
- * - 支持：单选 / 占位符 / 键盘导航 / 禁用 / 错误态
- * - Portal 挂载：避免 overflow:hidden 裁切
- * - z-index: 50 (与 tooltip 同级)
- *
- * 状态设计：
- * - default:    bg-gray-50, border-gray-200, 安静不干扰
- * - hover:      border-gray-300, 轻微暗示可交互
- * - focus:      ring-2 ring-violet-500/20, border-violet-400, 明确焦点
- * - open:       同 focus + dropdown 展开
- * - selected:   text-gray-900 (替代 placeholder 灰色)
- * - disabled:   opacity-50, cursor-not-allowed
- * - error:      ring-2 ring-rose-500/20, border-rose-400
- *
- * Token:
- * - 颜色: bg-gray-50(default) → bg-white(hover) → violet-400(focus border)
- * - 圆角: trigger 10px, dropdown 12px, option 8px
- * - 阴影: dropdown shadow-lg
- * - 间距: sm(h-8 px-2.5) / md(h-9 px-3) / lg(h-10 px-3.5)
- * ─────────────────────────────────────────────────────────────────────────────
+ * FinArch token-driven select component.
+ * Preserves native combobox/listbox semantics, keyboard navigation, and portal
+ * positioning while deriving all visual states from the shared theme tokens.
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Check, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { EASE_STANDARD, DURATION_NORMAL } from '../motion/tokens'
+import { cn } from '../lib/utils'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +39,12 @@ export interface SelectProps {
   className?: string
   /** 是否有"选中 = 高亮"效果（如筛选器被激活时） */
   activeHighlight?: boolean
+  /** Trigger id used to associate an external label. */
+  id?: string
+  /** Accessible name when no external label is available. */
+  'aria-label'?: string
+  /** Id of an external label element. */
+  'aria-labelledby'?: string
 }
 
 // ── Sizing tokens ───────────────────────────────────────────────────────────
@@ -98,8 +82,14 @@ export default function Select({
   size = 'md',
   className = '',
   activeHighlight = false,
+  id,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
 }: SelectProps) {
   const { t } = useTranslation()
+  const generatedId = useId()
+  const triggerId = id ?? `select-${generatedId}`
+  const listboxId = `${triggerId}-listbox`
   const resolvedPlaceholder = placeholder === '请选择' ? t('select.placeholder') : placeholder
   const [open, setOpen] = useState(false)
   const [highlightIndex, setHighlightIndex] = useState(-1)
@@ -237,21 +227,21 @@ export default function Select({
 
   const isActive = activeHighlight && hasValue
 
-  const triggerCls = [
-    'relative w-full rounded-[10px] border outline-none transition-all cursor-pointer text-left',
-    'focus:ring-2',
+  const triggerCls = cn(
+    'relative w-full cursor-pointer rounded-lg border text-left outline-none transition-colors',
+    'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
     SIZE_MAP[size],
     disabled
-      ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500'
+      ? 'cursor-not-allowed border-border bg-muted text-muted-foreground opacity-50'
       : error
-        ? 'bg-white dark:bg-gray-900 border-rose-400 ring-2 ring-rose-500/20 text-gray-700 dark:text-gray-300'
+        ? 'border-negative bg-card text-foreground ring-2 ring-negative/20'
         : isActive
-          ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold focus:ring-violet-500/20'
+          ? 'border-accent/50 bg-accent-soft font-semibold text-accent'
           : open
-            ? 'bg-white dark:bg-gray-900 border-violet-400 ring-2 ring-violet-500/20 text-gray-700 dark:text-gray-300'
-            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600 focus:ring-violet-500/20 focus:border-violet-400',
+            ? 'border-accent bg-card text-foreground ring-2 ring-ring/25'
+            : 'border-input bg-card text-muted-foreground hover:border-accent/40 hover:bg-muted/60',
     className,
-  ].join(' ')
+  )
 
   // ── Dropdown position ───────────────────────────────────────────────────
 
@@ -269,9 +259,13 @@ export default function Select({
     <>
       {/* Trigger */}
       <button
+        id={triggerId}
         ref={triggerRef}
         type="button"
         role="combobox"
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        aria-controls={listboxId}
         aria-expanded={open}
         aria-haspopup="listbox"
         disabled={disabled}
@@ -279,20 +273,19 @@ export default function Select({
         onClick={() => open ? closeDropdown() : openDropdown()}
         onKeyDown={handleKeyDown}
       >
-        <span className={`block truncate ${hasValue ? '' : 'text-gray-400 dark:text-gray-500'}`}>
+        <span className={cn('block truncate', !hasValue && 'text-muted-foreground')}>
           {selected?.label ?? resolvedPlaceholder}
         </span>
 
-        {/* Chevron */}
-        <svg
-          className={`absolute top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 dark:text-gray-500 transition-transform duration-200 ${CHEVRON_SIZE[size]} ${open ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.5}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            'pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground transition-transform duration-200',
+            CHEVRON_SIZE[size],
+            open && 'rotate-180',
+          )}
+          strokeWidth={2}
+        />
       </button>
 
       {/* Dropdown (Portal) */}
@@ -300,15 +293,17 @@ export default function Select({
         <AnimatePresence>
           {open && dropdownStyle && (
             <motion.div
+              id={listboxId}
               ref={dropdownRef}
               role="listbox"
+              aria-labelledby={ariaLabelledBy ?? (!ariaLabel ? triggerId : undefined)}
               variants={dropdownVariants}
               initial="hidden"
               animate="visible"
               exit="exit"
               transition={dropdownTransition}
               style={dropdownStyle}
-              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-700 shadow-lg py-1 max-h-60 overflow-y-auto overscroll-contain"
+              className="max-h-60 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card py-1 text-card-foreground shadow-[var(--shadow-sm)]"
             >
               {options.map((opt, idx) => {
                 const isSelected = opt.value === value
@@ -320,25 +315,21 @@ export default function Select({
                     role="option"
                     aria-selected={isSelected}
                     data-index={idx}
-                    className={[
-                      'flex items-center justify-between gap-2 px-3 py-2 mx-1 rounded-lg text-sm cursor-pointer transition-colors duration-150 select-none',
+                    className={cn(
+                      'mx-1 flex cursor-pointer select-none items-center justify-between gap-2 rounded-md px-3 py-2 text-sm transition-colors duration-150',
                       opt.disabled
-                        ? 'opacity-40 cursor-not-allowed text-gray-400 dark:text-gray-500'
+                        ? 'cursor-not-allowed text-muted-foreground opacity-40'
                         : isHighlighted
-                          ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800',
-                    ].join(' ')}
+                          ? 'bg-accent-soft text-accent'
+                          : 'text-foreground hover:bg-muted',
+                    )}
                     onClick={() => selectOption(opt)}
                     onMouseEnter={() => !opt.disabled && setHighlightIndex(idx)}
                   >
                     <span className={`truncate ${isSelected ? 'font-semibold' : 'font-normal'}`}>
                       {opt.label}
                     </span>
-                    {isSelected && (
-                      <svg className="w-4 h-4 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
+                    {isSelected ? <Check className="size-4 shrink-0 text-accent" strokeWidth={2.5} /> : null}
                   </div>
                 )
               })}

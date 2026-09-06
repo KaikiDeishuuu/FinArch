@@ -13,7 +13,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Button } from './ui/button'
 
 const SW_JUST_UPDATED_KEY = 'pwa-just-updated'
 const SW_DISMISSED_KEY = 'pwa-dismissed-at'
@@ -120,37 +122,24 @@ export default function PwaUpdatePrompt() {
           exit={{ opacity: 0, y: 40, x: '-50%', transition: { duration: 0.25, ease: 'easeIn' } }}
           transition={{ type: 'spring', damping: 26, stiffness: 300 }}
         >
-          <div className="bg-gray-900/95 backdrop-blur-xl text-white rounded-2xl shadow-2xl shadow-black/20 px-4 py-3 flex items-center gap-3 ring-1 ring-white/10">
-            {/* 图标 — 带呼吸脉动 */}
-            <motion.div
-              className="shrink-0 w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center"
-              animate={{ scale: [1, 1.08, 1] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-            </motion.div>
-            {/* 文字 */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold leading-tight">{t('pwa.newVersion')}</p>
-              <p className="text-xs text-gray-400 leading-tight mt-0.5">{t('pwa.updateDesc')}</p>
+          <div
+            role="status"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground shadow-[var(--shadow-sm)]"
+          >
+            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+              <RefreshCw className="size-4.5" />
             </div>
-            {/* 按钮组 */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={dismiss}
-                className="text-xs text-gray-400 hover:text-gray-200 px-2 py-1 rounded-lg transition-colors"
-              >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold leading-tight">{t('pwa.newVersion')}</p>
+              <p className="mt-0.5 text-xs leading-tight text-muted-foreground">{t('pwa.updateDesc')}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={dismiss}>
                 {t('pwa.later')}
-              </button>
-              <motion.button
-                onClick={doUpdate}
-                className="text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded-xl transition-colors"
-                whileTap={{ scale: 0.95 }}
-              >
+              </Button>
+              <Button size="sm" onClick={doUpdate}>
                 {t('pwa.update')}
-              </motion.button>
+              </Button>
             </div>
           </div>
         </motion.div>

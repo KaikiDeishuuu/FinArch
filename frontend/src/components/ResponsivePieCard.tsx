@@ -1,110 +1,115 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-    PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
 } from 'recharts'
+import { useChartPalette } from '../hooks/useChartPalette'
 import { categoryLabel } from '../utils/categoryLabel'
-import { useMode } from '../hooks/useMode'
-import { getModeChartPalette } from '../utils/chartPalette'
+import type { CategoryChartRow } from '../utils/categoryChart'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 
-interface PieRow {
-    category: string
-    total: number
-    count: number
+interface DisplayPieRow extends CategoryChartRow {
+  label: string
 }
 
 interface ResponsivePieCardProps {
-    title: string
-    rows: PieRow[]
-    formatFn: (n: number) => string
-    colors?: string[]
+  title: string
+  rows: CategoryChartRow[]
+  formatFn: (n: number) => string
 }
 
-export default function ResponsivePieCard({ title, rows, formatFn, colors }: ResponsivePieCardProps) {
-    const { t } = useTranslation()
-    const { mode } = useMode()
-    const palette = colors ?? getModeChartPalette(mode).categories
+export default function ResponsivePieCard({ title, rows, formatFn }: ResponsivePieCardProps) {
+  const { t } = useTranslation()
+  const chartPalette = useChartPalette()
+  const displayRows = useMemo<DisplayPieRow[]>(
+    () => rows.map((row) => ({
+      ...row,
+      label: row.label ?? categoryLabel(row.category),
+    })),
+    [rows],
+  )
 
-    return (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 md:mb-4">{title}</h2>
-            {rows.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
-            ) : (
-                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-center md:items-start">
-                    {/* Pie chart — centered on mobile, left-aligned on desktop */}
-                    <div className="w-full max-w-[180px] mx-auto md:mx-0 md:w-64 h-40 md:h-56 shrink-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={rows}
-                                    dataKey="total"
-                                    nameKey="category"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={52}
-                                    outerRadius={82}
-                                    paddingAngle={2}
-                                    strokeWidth={0}
-                                >
-                                    {rows.map((_, i) => (
-                                        <Cell key={i} fill={palette[i % palette.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    formatter={(value, name) => [formatFn(value as number), name]}
-                                    cursor={false}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      {displayRows.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">{t('stats.noData')}</p>
+      ) : (
+        <CardContent className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-6">
+          <div
+            role="img"
+            aria-label={title}
+            className="mx-auto h-44 w-full max-w-48 shrink-0 md:mx-0 md:h-56 md:w-64 md:max-w-none"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={displayRows}
+                  dataKey="total"
+                  nameKey="label"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={52}
+                  outerRadius={82}
+                  paddingAngle={2}
+                  stroke={chartPalette.surface}
+                  strokeWidth={2}
+                >
+                  {displayRows.map((row) => (
+                    <Cell key={row.category} fill={chartPalette.categories[row.colorIndex]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name) => [formatFn(Number(value)), name]}
+                  cursor={false}
+                  contentStyle={{
+                    background: chartPalette.surface,
+                    border: `1px solid ${chartPalette.border}`,
+                    borderRadius: 8,
+                    color: chartPalette.foreground,
+                    fontSize: 12,
+                    boxShadow: 'var(--shadow-sm)',
+                  }}
+                  itemStyle={{ color: chartPalette.foreground }}
+                  labelStyle={{ color: chartPalette.mutedForeground }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-                    {/* Legend — wrapping on mobile, vertical scrollable list on desktop */}
-                    <div className="w-full flex-1 min-w-0">
-                        {/* Mobile: compact wrapping legend */}
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-2 md:hidden">
-                            {rows.map((c, idx) => (
-                                <div key={c.category} className="flex items-center gap-1.5 min-w-0">
-                                    <span
-                                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                                        style={{ background: palette[idx % palette.length] }}
-                                    />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[5rem]">
-                                        {categoryLabel(c.category)}
-                                    </span>
-                                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 tabular-nums whitespace-nowrap">
-                                        {formatFn(c.total)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Desktop: full legend list */}
-                        <div className="hidden md:block space-y-3 max-h-56 overflow-y-auto pr-1">
-                            {rows.map((c, idx) => (
-                                <div key={c.category} className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span
-                                            className="w-3 h-3 rounded-full shrink-0"
-                                            style={{ background: palette[idx % palette.length] }}
-                                        />
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                                            {categoryLabel(c.category)}
-                                        </span>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <span className="text-sm font-bold text-gray-800 dark:text-gray-200 tabular-nums">
-                                            {formatFn(c.total)}
-                                        </span>
-                                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">
-                                            {t('stats.transactionUnit', { count: c.count })}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+          <div className="grid w-full min-w-0 flex-1 grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 md:max-h-56 md:grid-cols-1 md:overflow-y-auto">
+            {displayRows.map((row) => (
+              <div
+                key={row.category}
+                className="flex min-w-0 items-center justify-between gap-3 bg-card px-3 py-2.5"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-2.5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: chartPalette.categories[row.colorIndex] }}
+                  />
+                  <span className="truncate text-xs font-medium text-foreground" title={row.label}>
+                    {row.label}
+                  </span>
                 </div>
-            )}
-        </div>
-    )
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-semibold text-foreground tabular-nums">{formatFn(row.total)}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    {t('stats.transactionUnit', { count: row.count })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  )
 }

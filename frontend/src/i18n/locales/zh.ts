@@ -355,6 +355,7 @@ const zh = {
       actual: '已用',
       remaining: '剩余',
       overBy: '超出',
+      confirmDelete: '确认删除预算“{{name}}”？',
       status: {
         ok: '节奏正常',
         warning: '接近上限',
@@ -842,7 +843,7 @@ const zh = {
           createError: '创建失败',
           renameError: '重命名失败',
           deleteError: '删除失败',
-          hasUnreimbursed: '该子账户存在未报销的交易，无法删除，请先完成报销后再操作。',
+          hasTransactions: '该子账户存在交易历史，无法删除。',
         },
       },
       profile: {
@@ -1196,18 +1197,6 @@ const zh = {
       updateDesc: '点击立即更新以获取最新功能',
       later: '稍后',
       update: '立即更新',
-    },
-
-    // ── DatePicker ──
-    datePicker: {
-      weekdays: ['一', '二', '三', '四', '五', '六', '日'],
-      months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
-      today: '今天',
-      notSelected: '未选择',
-      placeholder: '选择日期',
-      yearMonth: '{{year}} 年 {{month}}',
-      displayFormat: '{{year}} 年 {{month}} 月 {{day}} 日 {{weekday}}',
-      weekdaysFull: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
     },
 
     // ── Select ──

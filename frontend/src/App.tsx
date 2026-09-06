@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { MotionConfig } from 'framer-motion'
 import { Toaster } from 'sonner'
 import { ExchangeRateProvider } from './contexts/ExchangeRateContext'
 import { AuthProvider } from './contexts/AuthContext'
@@ -12,6 +13,7 @@ import { useTheme } from './hooks/useTheme'
 import { ModeProvider } from './contexts/ModeContext'
 import Layout from './components/Layout'
 import PwaUpdatePrompt from './components/PwaUpdatePrompt'
+
 const loadLoginPage = () => import('./pages/LoginPage')
 const loadForgotPasswordPage = () => import('./pages/ForgotPasswordPage')
 const loadResetPasswordPage = () => import('./pages/ResetPasswordPage')
@@ -116,14 +118,27 @@ function ThemedToaster() {
   return (
     <Toaster
       position="bottom-right"
-      richColors
       theme={resolved}
+      mobileOffset={{ bottom: 'calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom) + 12px)' }}
+      toastOptions={{
+        classNames: {
+          toast: '!rounded-lg !border-border !bg-card !text-card-foreground !shadow-[var(--shadow-sm)]',
+          title: '!text-foreground',
+          description: '!text-muted-foreground',
+          actionButton: '!rounded-md !bg-primary !text-primary-foreground',
+          cancelButton: '!rounded-md !bg-muted !text-muted-foreground',
+          success: '!border-positive/30',
+          error: '!border-negative/30',
+          warning: '!border-warning/30',
+          info: '!border-accent/30',
+        },
+      }}
     />
   )
 }
 
 function PageFallback() {
-  return <div className="min-h-screen bg-stone-50 dark:bg-[#0f0d18]" />
+  return <div className="min-h-screen bg-background" />
 }
 
 function SessionRecoveryFallback() {
@@ -131,21 +146,21 @@ function SessionRecoveryFallback() {
   const { t } = useTranslation()
 
   return (
-    <main className="min-h-screen bg-stone-50 dark:bg-[#0f0d18] flex items-center justify-center p-6">
+    <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <section
         role="alert"
-        className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm dark:border-amber-900/60 dark:bg-[#191624]"
+        className="w-full max-w-md rounded-xl border border-warning/30 bg-card p-6 text-center text-card-foreground shadow-[var(--shadow-sm)]"
       >
-        <h1 className="text-xl font-semibold text-stone-900 dark:text-stone-100">
+        <h1 className="text-xl font-semibold text-foreground">
           {t('login.sessionRecoveryTitle')}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-stone-600 dark:text-stone-300">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {t('login.sessionRecoveryDescription')}
         </p>
         <button
           type="button"
           onClick={retrySession}
-          className="mt-5 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white"
+          className="mt-5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           {t('login.sessionRecoveryRetry')}
         </button>
@@ -176,33 +191,35 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider>
-    <BrowserRouter>
-      <ExchangeRateProvider>
-      <ConfigProvider>
-        <ModeProvider>
-        <AuthProvider>
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
-              <Route path="/login" element={<LoginRouteWrapper />} />
-              <Route path="/verify-email" element={<VerifyEmailPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
-              <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
-              <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
-              <Route path="/disaster-restore" element={<ProtectedDisasterRestorePage />} />
-              <Route path="/*" element={<ProtectedRoutes />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
-        </ModeProvider>
-      </ConfigProvider>
-      </ExchangeRateProvider>
-      <PwaUpdatePrompt />
-      <ThemedToaster />
-    </BrowserRouter>
-    </ThemeProvider>
+    <MotionConfig reducedMotion="user">
+      <ThemeProvider>
+        <BrowserRouter>
+          <ExchangeRateProvider>
+            <ConfigProvider>
+              <ModeProvider>
+                <AuthProvider>
+                  <Suspense fallback={<PageFallback />}>
+                    <Routes>
+                      <Route path="/login" element={<LoginRouteWrapper />} />
+                      <Route path="/verify-email" element={<VerifyEmailPage />} />
+                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
+                      <Route path="/confirm-delete-account" element={<ConfirmDeleteAccountPage />} />
+                      <Route path="/confirm-email-change-old" element={<ConfirmOldEmailChangePage />} />
+                      <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
+                      <Route path="/disaster-restore" element={<ProtectedDisasterRestorePage />} />
+                      <Route path="/*" element={<ProtectedRoutes />} />
+                    </Routes>
+                  </Suspense>
+                </AuthProvider>
+              </ModeProvider>
+            </ConfigProvider>
+          </ExchangeRateProvider>
+          <PwaUpdatePrompt />
+          <ThemedToaster />
+        </BrowserRouter>
+      </ThemeProvider>
+    </MotionConfig>
   )
 }
 

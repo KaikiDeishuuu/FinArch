@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
 } from 'recharts'
+import { BarChart3, RefreshCw, TriangleAlert } from 'lucide-react'
 import { formatAmountCompact, formatAmount, formatAmountExact } from '../utils/format'
 import { transactionAmountToCNY } from '../utils/financeAmounts'
 import CompactAmount from '../components/CompactAmount'
@@ -11,19 +16,50 @@ import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import Select from '../components/Select'
 import type { Account } from '../api/client'
-import { StaggerContainer, StaggerItem } from '../motion'
 import { categoryLabel } from '../utils/categoryLabel'
+import { buildCategoryChartRows } from '../utils/categoryChart'
 import { useMode } from '../hooks/useMode'
 import ResponsivePieCard from '../components/ResponsivePieCard'
 import { calculateWorkModeAdjustments } from '../utils/workModeStats'
-import { getModeChartPalette } from '../utils/chartPalette'
+import { useChartPalette } from '../hooks/useChartPalette'
 import { accountModeForTransactionSource } from '../utils/accountScope'
 import AccountBalanceChart from '../components/AccountBalanceChart'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card'
+import { PageHeader } from '../components/ui/page-header'
+import { Segmented, SegmentedButton } from '../components/ui/segmented'
+import { Spinner } from '../components/ui/spinner'
+import { StatTile } from '../components/ui/stat-tile'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableWrapper,
+} from '../components/ui/table'
 
+interface MonthData {
+  month: number
+  income: number
+  expense: number
+}
 
-// ─── Custom SVG bar chart (avoids recharts BarChart cursor/overflow bugs) ─────
-
-interface MonthData { month: number; income: number; expense: number }
+interface CategoryRow {
+  category: string
+  total: number
+  count: number
+  colorIndex: number
+  label?: string
+}
 
 function MonthlyBarChart({
   data,
@@ -31,162 +67,207 @@ function MonthlyBarChart({
   fmtShort,
   incomeColor,
   expenseColor,
+  gridColor,
+  surfaceColor,
+  foregroundColor,
+  mutedForegroundColor,
+  borderColor,
 }: {
   data: MonthData[]
   fmt: (n: number) => string
   fmtShort: (n: number) => string
   incomeColor: string
   expenseColor: string
+  gridColor: string
+  surfaceColor: string
+  foregroundColor: string
+  mutedForegroundColor: string
+  borderColor: string
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [svgWidth, setSvgWidth] = useState(560)
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; income: number; expense: number; label: string } | null>(null)
+  const [tooltip, setTooltip] = useState<{
+    x: number
+    y: number
+    income: number
+    expense: number
+    label: string
+  } | null>(null)
+  const { t } = useTranslation()
+  const monthLabels = t('stats.monthLabels', { returnObjects: true }) as string[]
 
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    setSvgWidth(el.clientWidth)
-    const ro = new ResizeObserver(entries => setSvgWidth(entries[0].contentRect.width))
-    ro.observe(el)
-    return () => ro.disconnect()
+    const element = containerRef.current
+    if (!element) return
+
+    setSvgWidth(element.clientWidth)
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) setSvgWidth(width)
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
   }, [])
 
-  const { t } = useTranslation()
-  const MONTH_LABELS = t('stats.monthLabels', { returnObjects: true }) as string[]
-  const PAD_L = 72   // room for Y-axis labels
-  const PAD_R = 12
-  const PAD_T = 12
-  const PAD_B = 28   // room for X-axis labels
-  const SVG_H = 212
-
-  const chartW = svgWidth - PAD_L - PAD_R
-  const chartH = SVG_H - PAD_T - PAD_B
-
-  const maxVal = Math.max(...data.flatMap(d => [d.income, d.expense]), 1)
-  // nice Y ticks
-  const roughStep = maxVal / 4
-  const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)))
-  const niceStep = Math.ceil(roughStep / mag) * mag || 1
+  const padLeft = 72
+  const padRight = 12
+  const padTop = 12
+  const padBottom = 28
+  const svgHeight = 212
+  const chartWidth = Math.max(svgWidth - padLeft - padRight, 1)
+  const chartHeight = svgHeight - padTop - padBottom
+  const maxValue = Math.max(...data.flatMap((item) => [item.income, item.expense]), 1)
+  const roughStep = maxValue / 4
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep || 1)))
+  const niceStep = Math.ceil(roughStep / magnitude) * magnitude || 1
   const yMax = niceStep * 4
   const yTicks = [0, niceStep, niceStep * 2, niceStep * 3, niceStep * 4]
+  const yPosition = (value: number) => padTop + chartHeight - (value / yMax) * chartHeight
+  const groupWidth = chartWidth / data.length
+  const barGutter = Math.max(groupWidth * 0.18, 3)
+  const pairWidth = groupWidth - barGutter * 2
+  const barWidth = Math.max(pairWidth / 2 - 2, 4)
+  const cornerRadius = Math.min(barWidth / 2, 4)
 
-  const yPx = (v: number) => PAD_T + chartH - (v / yMax) * chartH
-
-  const groupW = chartW / data.length
-  const barGutter = Math.max(groupW * 0.18, 3)
-  const pairW = groupW - barGutter * 2
-  const barW = Math.max((pairW / 2) - 2, 4)
-  const CORNER = Math.min(barW / 2, 4)
+  function showTooltip(item: MonthData, labelX: number) {
+    const incomeY = yPosition(item.income)
+    const expenseY = yPosition(item.expense)
+    setTooltip({
+      x: Math.max(padLeft + 60, Math.min(labelX, svgWidth - 60)),
+      y: Math.min(incomeY, expenseY),
+      income: item.income,
+      expense: item.expense,
+      label: monthLabels[item.month - 1] ?? String(item.month),
+    })
+  }
 
   return (
-    <div ref={containerRef} className="relative w-full" style={{ height: SVG_H }}>
-      <svg width={svgWidth} height={SVG_H}>
-        {/* Grid lines + Y labels (drawn inside SVG bounds) */}
-        {yTicks.map(v => {
-          const y = yPx(v)
+    <div ref={containerRef} className="relative w-full" style={{ height: svgHeight }}>
+      <svg width={svgWidth} height={svgHeight} role="img" aria-label={t('stats.chart.monthlyTitle', { year: new Date().getFullYear() })}>
+        {yTicks.map((value) => {
+          const y = yPosition(value)
           return (
-            <g key={v}>
+            <g key={value}>
               <line
-                x1={PAD_L} y1={y} x2={PAD_L + chartW} y2={y}
-                className={v === 0 ? 'stroke-gray-300 dark:stroke-gray-600' : 'stroke-gray-100 dark:stroke-gray-800/60'}
-                strokeWidth={1}
+                x1={padLeft}
+                y1={y}
+                x2={padLeft + chartWidth}
+                y2={y}
+                stroke={gridColor}
+                strokeWidth={value === 0 ? 1.25 : 1}
               />
-              <text x={PAD_L - 6} y={y} dominantBaseline="middle" textAnchor="end"
-                fontSize={10} className="fill-gray-400 dark:fill-gray-400" fontFamily="inherit">
-                {fmtShort(v)}
+              <text
+                x={padLeft - 6}
+                y={y}
+                dominantBaseline="middle"
+                textAnchor="end"
+                fontSize={10}
+                fill={mutedForegroundColor}
+                fontFamily="inherit"
+              >
+                {fmtShort(value)}
               </text>
             </g>
           )
         })}
 
-        {/* Bars + X labels */}
-        {data.map((d, i) => {
-          const gx = PAD_L + i * groupW + barGutter
-          const incX = gx
-          const expX = gx + barW + 2
-          const incH = (d.income / yMax) * chartH
-          const expH = (d.expense / yMax) * chartH
-          const incY = yPx(d.income)
-          const expY = yPx(d.expense)
-          const labelX = PAD_L + (i + 0.5) * groupW
-          const tooltipX = Math.max(PAD_L + 60, Math.min(labelX, svgWidth - 60))
+        {data.map((item, index) => {
+          const groupX = padLeft + index * groupWidth + barGutter
+          const incomeX = groupX
+          const expenseX = groupX + barWidth + 2
+          const incomeHeight = (item.income / yMax) * chartHeight
+          const expenseHeight = (item.expense / yMax) * chartHeight
+          const incomeY = yPosition(item.income)
+          const expenseY = yPosition(item.expense)
+          const labelX = padLeft + (index + 0.5) * groupWidth
+          const monthLabel = monthLabels[item.month - 1] ?? String(item.month)
 
           return (
-            <g key={d.month}
-              onMouseEnter={() => setTooltip({ x: tooltipX, y: Math.min(incY, expY), income: d.income, expense: d.expense, label: MONTH_LABELS[d.month - 1] })}
+            <g
+              key={item.month}
+              tabIndex={0}
+              role="img"
+              aria-label={`${monthLabel}: ${t('stats.pie.incomeLabel')} ${fmt(item.income)}, ${t('stats.pie.expenseLabel')} ${fmt(item.expense)}`}
+              onMouseEnter={() => showTooltip(item, labelX)}
               onMouseLeave={() => setTooltip(null)}
-              style={{ cursor: 'default' }}
+              onFocus={() => showTooltip(item, labelX)}
+              onBlur={() => setTooltip(null)}
+              className="outline-none focus-visible:[&>rect]:fill-muted"
             >
-              {/* Hover highlight */}
               <rect
-                x={PAD_L + i * groupW} y={PAD_T} width={groupW} height={chartH}
+                x={padLeft + index * groupWidth}
+                y={padTop}
+                width={groupWidth}
+                height={chartHeight}
                 fill="transparent"
-                onMouseEnter={() => setTooltip({ x: tooltipX, y: Math.min(incY, expY), income: d.income, expense: d.expense, label: MONTH_LABELS[d.month - 1] })}
               />
-              {/* Income bar */}
-              {d.income > 0 && (
+              {item.income > 0 ? (
                 <path
-                  d={`M${incX + CORNER},${incY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${incH - CORNER} h${-barW} v${-(incH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
+                  d={`M${incomeX + cornerRadius},${incomeY} h${barWidth - cornerRadius * 2} a${cornerRadius},${cornerRadius} 0 0 1 ${cornerRadius},${cornerRadius} v${incomeHeight - cornerRadius} h${-barWidth} v${-(incomeHeight - cornerRadius)} a${cornerRadius},${cornerRadius} 0 0 1 ${cornerRadius},${-cornerRadius}z`}
                   fill={incomeColor}
                 />
-              )}
-              {/* Expense bar */}
-              {d.expense > 0 && (
+              ) : null}
+              {item.expense > 0 ? (
                 <path
-                  d={`M${expX + CORNER},${expY} h${barW - CORNER * 2} a${CORNER},${CORNER} 0 0 1 ${CORNER},${CORNER} v${expH - CORNER} h${-barW} v${-(expH - CORNER)} a${CORNER},${CORNER} 0 0 1 ${CORNER},${-CORNER}z`}
+                  d={`M${expenseX + cornerRadius},${expenseY} h${barWidth - cornerRadius * 2} a${cornerRadius},${cornerRadius} 0 0 1 ${cornerRadius},${cornerRadius} v${expenseHeight - cornerRadius} h${-barWidth} v${-(expenseHeight - cornerRadius)} a${cornerRadius},${cornerRadius} 0 0 1 ${cornerRadius},${-cornerRadius}z`}
                   fill={expenseColor}
                 />
-              )}
-              {/* X label */}
-              <text x={labelX} y={PAD_T + chartH + 18} textAnchor="middle"
-                fontSize={10} className="fill-gray-400 dark:fill-gray-400" fontFamily="inherit">
-                {MONTH_LABELS[d.month - 1]}
+              ) : null}
+              <text
+                x={labelX}
+                y={padTop + chartHeight + 18}
+                textAnchor="middle"
+                fontSize={10}
+                fill={mutedForegroundColor}
+                fontFamily="inherit"
+              >
+                {monthLabel}
               </text>
             </g>
           )
         })}
       </svg>
 
-      {/* Floating tooltip */}
-      {tooltip && (
+      {tooltip ? (
         <div
-          className="pointer-events-none absolute z-10 bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100 dark:border-gray-800/50 rounded-xl shadow-lg px-3 py-2.5 text-xs"
+          className="pointer-events-none absolute z-10 min-w-32 rounded-lg border px-3 py-2.5 text-xs shadow-[var(--shadow-sm)]"
           style={{
             left: tooltip.x,
             top: Math.max(4, tooltip.y - 72),
             transform: 'translateX(-50%)',
-            minWidth: 130,
+            background: surfaceColor,
+            borderColor,
+            color: foregroundColor,
           }}
         >
-          <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1.5 border-b border-gray-50 dark:border-gray-800 pb-1">{tooltip.label}</p>
+          <p className="mb-1.5 border-b border-border pb-1 font-semibold">{tooltip.label}</p>
           <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: incomeColor }} />{t('stats.pie.incomeLabel')}
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="inline-block size-2 shrink-0 rounded-sm" style={{ background: incomeColor }} />
+              {t('stats.pie.incomeLabel')}
             </span>
-            <span className="font-bold tabular-nums" style={{ color: incomeColor }}>{fmt(tooltip.income)}</span>
+            <span className="font-semibold tabular-nums">{fmt(tooltip.income)}</span>
           </div>
-          <div className="flex items-center justify-between gap-3 mt-1">
-            <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-              <span className="w-2 h-2 rounded-sm inline-block flex-shrink-0" style={{ background: expenseColor }} />{t('stats.pie.expenseLabel')}
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="inline-block size-2 shrink-0 rounded-sm" style={{ background: expenseColor }} />
+              {t('stats.pie.expenseLabel')}
             </span>
-            <span className="font-bold tabular-nums" style={{ color: expenseColor }}>{fmt(tooltip.expense)}</span>
+            <span className="font-semibold tabular-nums">{fmt(tooltip.expense)}</span>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
-
-
-// CategoryPieCard replaced by ResponsivePieCard component
 
 export default function StatsPage() {
   const year = new Date().getFullYear()
   const { data: transactions = [], isLoading: loading, isError, refetch, isFetching } = useTransactions()
   const { rates, rateDate, loading: ratesLoading } = useExchangeRates()
   const { t } = useTranslation()
-  const { isWorkMode, mode } = useMode()
-  const palette = getModeChartPalette(mode)
+  const { isWorkMode } = useMode()
+  const palette = useChartPalette()
   const [workSourceFilter, setWorkSourceFilter] = useState<'personal' | 'company'>('company')
   const sourceFilter: 'personal' | 'company' = isWorkMode ? workSourceFilter : 'personal'
   const accountLookupMode = accountModeForTransactionSource(sourceFilter)
@@ -203,179 +284,208 @@ export default function StatsPage() {
     setFilterAccount('')
   }
 
-  const activeAccounts = useMemo(() =>
-    accounts.filter((a: Account) => a.is_active),
-    [accounts]
+  const activeAccounts = useMemo(
+    () => accounts.filter((account: Account) => account.is_active),
+    [accounts],
   )
 
-  // Filter accounts by selected source tab
   const filteredAccounts = useMemo(() => {
-    const acctType = sourceFilter === 'company' ? 'public' : 'personal'
-    return activeAccounts.filter((a: Account) => a.type === acctType)
+    const accountType = sourceFilter === 'company' ? 'public' : 'personal'
+    return activeAccounts.filter((account: Account) => account.type === accountType)
   }, [activeAccounts, sourceFilter])
 
   const allCategories = useMemo(
-    () => Array.from(new Set(transactions.filter(t => t.source === sourceFilter).map(t => t.category).filter(Boolean))).sort() as string[],
-    [transactions, sourceFilter]
+    () => Array.from(new Set(
+      transactions
+        .filter((transaction) => transaction.source === sourceFilter)
+        .map((transaction) => transaction.category)
+        .filter(Boolean),
+    )).sort() as string[],
+    [transactions, sourceFilter],
   )
 
   const allProjects = useMemo(
-    () => Array.from(new Set(transactions.filter(t => t.source === sourceFilter).map(t => t.project_id).filter(Boolean))).sort() as string[],
-    [transactions, sourceFilter]
+    () => Array.from(new Set(
+      transactions
+        .filter((transaction) => transaction.source === sourceFilter)
+        .map((transaction) => transaction.project_id)
+        .filter(Boolean),
+    )).sort() as string[],
+    [transactions, sourceFilter],
   )
 
-  // A global mode change can replace the visible source without going through
-  // selectSource. Ignore stale selections that do not belong to that source so
-  // hidden filters cannot make the new view appear empty.
   const effectiveFilterCategory = allCategories.includes(filterCategory) ? filterCategory : ''
   const effectiveFilterProject = allProjects.includes(filterProject) ? filterProject : ''
-  const effectiveFilterAccount = filteredAccounts.some(account => account.id === filterAccount) ? filterAccount : ''
+  const effectiveFilterAccount = filteredAccounts.some((account) => account.id === filterAccount) ? filterAccount : ''
 
-  const filteredBySource = useMemo(() =>
-    transactions.filter(t => t.source === sourceFilter)
-      .filter(t => !effectiveFilterCategory || t.category === effectiveFilterCategory)
-      .filter(t => !effectiveFilterProject || (t.project_id ?? '') === effectiveFilterProject)
-      .filter(t => !effectiveFilterAccount || t.account_id === effectiveFilterAccount),
-    [transactions, sourceFilter, effectiveFilterCategory, effectiveFilterProject, effectiveFilterAccount]
+  const filteredBySource = useMemo(
+    () => transactions
+      .filter((transaction) => transaction.source === sourceFilter)
+      .filter((transaction) => !effectiveFilterCategory || transaction.category === effectiveFilterCategory)
+      .filter((transaction) => !effectiveFilterProject || (transaction.project_id ?? '') === effectiveFilterProject)
+      .filter((transaction) => !effectiveFilterAccount || transaction.account_id === effectiveFilterAccount),
+    [
+      transactions,
+      sourceFilter,
+      effectiveFilterCategory,
+      effectiveFilterProject,
+      effectiveFilterAccount,
+    ],
   )
 
-  const fmt = (n: number) => formatAmount(n, 'CNY')
-  const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
-  const fmtShort = (n: number) => formatAmountCompact(n, 'CNY')
+  const fmt = (value: number) => formatAmount(value, 'CNY')
+  const fmtExact = (value: number) => formatAmountExact(value, 'CNY')
+  const fmtShort = (value: number) => formatAmountCompact(value, 'CNY')
+  const otherLabel = t('stats.other')
 
   const statsData = useMemo(() => {
-    const otherLabel = t('stats.other')
     const monthlyMap = new Map<number, { month: number; income: number; expense: number; reimbursed: number }>()
     const expenseCategoryMap = new Map<string, { total: number; count: number }>()
     const incomeCategoryMap = new Map<string, { total: number; count: number }>()
     const projectMap = new Map<string, { project_name: string; income: number; expense: number }>()
 
-    for (const tx of filteredBySource) {
-      const cny = transactionAmountToCNY(tx, rates)
-      if (tx.occurred_at.startsWith(String(year))) {
-        const month = parseInt(tx.occurred_at.substring(5, 7))
-        if (!monthlyMap.has(month)) monthlyMap.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
+    for (const transaction of filteredBySource) {
+      const cny = transactionAmountToCNY(transaction, rates)
+      if (transaction.occurred_at.startsWith(String(year))) {
+        const month = parseInt(transaction.occurred_at.substring(5, 7))
+        if (!monthlyMap.has(month)) {
+          monthlyMap.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
+        }
         const entry = monthlyMap.get(month)!
-        if (tx.direction === 'income') {
+        if (transaction.direction === 'income') {
           entry.income += cny
         } else {
           entry.expense += cny
-          if (tx.reimbursed) entry.reimbursed += cny
+          if (transaction.reimbursed) entry.reimbursed += cny
         }
       }
 
-      const category = tx.category || otherLabel
-      const categoryMap = tx.direction === 'income' ? incomeCategoryMap : expenseCategoryMap
+      const category = transaction.category || '其他'
+      const categoryMap = transaction.direction === 'income' ? incomeCategoryMap : expenseCategoryMap
       if (!categoryMap.has(category)) categoryMap.set(category, { total: 0, count: 0 })
       const categoryEntry = categoryMap.get(category)!
       categoryEntry.total += cny
-      categoryEntry.count++
+      categoryEntry.count += 1
 
-      if (tx.project_id) {
-        if (!projectMap.has(tx.project_id)) projectMap.set(tx.project_id, { project_name: tx.project_id, income: 0, expense: 0 })
-        const projectEntry = projectMap.get(tx.project_id)!
-        if (tx.direction === 'income') projectEntry.income += cny
+      if (transaction.project_id) {
+        if (!projectMap.has(transaction.project_id)) {
+          projectMap.set(transaction.project_id, {
+            project_name: transaction.project_id,
+            income: 0,
+            expense: 0,
+          })
+        }
+        const projectEntry = projectMap.get(transaction.project_id)!
+        if (transaction.direction === 'income') projectEntry.income += cny
         else projectEntry.expense += cny
       }
     }
 
-    const mapCategories = (map: Map<string, { total: number; count: number }>) => Array.from(map.entries())
-      .map(([category, value]) => ({ category: categoryLabel(category), total: value.total, count: value.count }))
-      .sort((a, b) => b.total - a.total)
+    const mapCategories = (
+      map: Map<string, { total: number; count: number }>,
+      selectedCategory = '',
+    ): CategoryRow[] => buildCategoryChartRows(
+      Array.from(map, ([category, value]) => ({ category, ...value })),
+      selectedCategory,
+      otherLabel,
+    )
 
     return {
       monthly: Array.from(monthlyMap.values()).sort((a, b) => a.month - b.month),
-      categories: mapCategories(expenseCategoryMap),
-      incomeCategories: mapCategories(incomeCategoryMap),
+      categories: mapCategories(expenseCategoryMap, effectiveFilterCategory),
+      incomeCategories: mapCategories(incomeCategoryMap, effectiveFilterCategory),
       projects: Array.from(projectMap.entries())
-        .map(([project_id, value]) => ({ project_id, project_name: value.project_name, income: value.income, expense: value.expense, net: value.income - value.expense }))
+        .map(([project_id, value]) => ({
+          project_id,
+          project_name: value.project_name,
+          income: value.income,
+          expense: value.expense,
+          net: value.income - value.expense,
+        }))
         .sort((a, b) => a.project_id.localeCompare(b.project_id)),
     }
-  }, [filteredBySource, rates, t, year])
+  }, [effectiveFilterCategory, filteredBySource, rates, otherLabel, year])
 
   const { monthly, categories, incomeCategories, projects } = statsData
+  const totalIncome = monthly.reduce((sum, month) => sum + month.income, 0)
+  const totalExpense = monthly.reduce((sum, month) => sum + month.expense, 0)
 
-  const totalIncome = monthly.reduce((s, m) => s + m.income, 0)
-  const totalExpense = monthly.reduce((s, m) => s + m.expense, 0)
-
-  // Reimbursement adjustments — WORK mode only
   const { totalReimbursed, adjustedNet: totalNet } = isWorkMode && sourceFilter === 'personal'
     ? calculateWorkModeAdjustments(monthly, totalIncome, totalExpense)
     : { totalReimbursed: 0, adjustedNet: totalIncome - totalExpense }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-64 items-center justify-center" role="status" aria-label={t('common.loading')}>
+        <Spinner size="lg" className="text-accent" />
       </div>
     )
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 rounded-2xl bg-white dark:bg-[hsl(260,15%,11%)] border border-gray-100 dark:border-gray-800/50">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-12 h-12 text-rose-300 dark:text-rose-500/70"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /></svg>
-        <div className="text-center">
-          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('stats.error.title')}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('stats.error.desc')}</p>
+      <Card className="grid min-h-64 place-items-center">
+        <div className="grid justify-items-center gap-3 text-center">
+          <span className="grid size-10 place-items-center rounded-lg bg-negative-soft text-negative">
+            <TriangleAlert className="size-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-sm font-semibold text-foreground">{t('stats.error.title')}</h1>
+            <p className="mt-1 text-xs text-muted-foreground">{t('stats.error.desc')}</p>
+          </div>
+          <Button onClick={() => void refetch()} disabled={isFetching} loading={isFetching}>
+            <RefreshCw className="size-4" aria-hidden="true" />
+            {isFetching ? t('common.loading') : t('common.retry')}
+          </Button>
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
-        >
-          {isFetching ? t('common.loading') : t('common.retry')}
-        </button>
-      </div>
+      </Card>
     )
   }
 
+  const rateBadge = !ratesLoading ? (
+    rateDate ? (
+      <Badge variant="positive" dot className="max-w-full truncate">
+        {t('stats.rateLabel.live')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}
+      </Badge>
+    ) : (
+      <Badge variant="warning" dot className="max-w-full truncate">
+        {t('stats.rateLabel.fallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}
+      </Badge>
+    )
+  ) : null
+
+  const incomeExpenseTotal = totalIncome + totalExpense
+  const incomeShare = incomeExpenseTotal > 0 ? Math.round((totalIncome / incomeExpenseTotal) * 100) : 0
+  const expenseShare = incomeExpenseTotal > 0 ? Math.round((totalExpense / incomeExpenseTotal) * 100) : 0
+
   return (
     <div className="space-y-5 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{t('stats.title')}</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('stats.subtitle', { year })}</p>
-        </div>
-        {!ratesLoading && (
-          rateDate
-            ? <span className="w-fit max-w-full text-[10px] px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium sm:mt-1 truncate">{t('stats.rateLabel.live')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-            : <span className="w-fit max-w-full text-[10px] px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium sm:mt-1 truncate">{t('stats.rateLabel.fallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
-        )}
-      </div>
+      <PageHeader
+        title={t('stats.title')}
+        description={t('stats.subtitle', { year })}
+        meta={rateBadge}
+      />
 
-      {/* Filter bar */}
-      <div className="rounded-2xl bg-white/70 dark:bg-[hsl(260,15%,11%)]/70 border border-gray-100/80 dark:border-gray-800/50 p-3 flex flex-wrap items-center gap-2 shadow-sm md:bg-transparent md:dark:bg-transparent md:border-0 md:p-0 md:shadow-none">
-        {/* Source filter */}
+      <Card className="flex flex-wrap items-center gap-2 p-3" aria-label={t('stats.title')}>
         {isWorkMode ? (
-          <div className="inline-flex h-8 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-gray-700 dark:bg-gray-800">
+          <Segmented aria-label={t('transactions.sourceFilterLabel')}>
             {(['company', 'personal'] as const).map((source) => (
-              <button
+              <SegmentedButton
                 key={source}
-                type="button"
                 onClick={() => selectSource(source)}
                 aria-pressed={sourceFilter === source}
-                className={`h-7 rounded-md px-2.5 text-xs font-semibold transition-colors ${sourceFilter === source
-                  ? source === 'company'
-                    ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
-                    : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
+                className="aria-pressed:text-mode"
               >
                 {t(`transactions.sourceTabs.${source}`)}
-              </button>
+              </SegmentedButton>
             ))}
-          </div>
+          </Segmented>
         ) : (
-          <div className="h-8 px-2.5 inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400">
-            {t('common.personal')}
-          </div>
+          <Badge variant="mode">{t('common.personal')}</Badge>
         )}
 
-        {/* Account filter */}
-        {filteredAccounts.length > 1 && (
-          <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
+        {filteredAccounts.length > 1 ? (
+          <div className="w-full min-w-[6.5rem] min-[420px]:w-fit">
             <Select
               value={effectiveFilterAccount}
               onChange={setFilterAccount}
@@ -384,15 +494,14 @@ export default function StatsPage() {
               activeHighlight
               options={[
                 { value: '', label: t('stats.filter.allAccounts') },
-                ...filteredAccounts.map((a: Account) => ({ value: a.id, label: a.name })),
+                ...filteredAccounts.map((account: Account) => ({ value: account.id, label: account.name })),
               ]}
             />
           </div>
-        )}
+        ) : null}
 
-        {/* Category filter */}
-        {allCategories.length > 0 && (
-          <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
+        {allCategories.length > 0 ? (
+          <div className="w-full min-w-[6.5rem] min-[420px]:w-fit">
             <Select
               value={effectiveFilterCategory}
               onChange={setFilterCategory}
@@ -401,15 +510,14 @@ export default function StatsPage() {
               activeHighlight
               options={[
                 { value: '', label: t('stats.filter.allCategories') },
-                ...allCategories.map(c => ({ value: c, label: categoryLabel(c) })),
+                ...allCategories.map((category) => ({ value: category, label: categoryLabel(category) })),
               ]}
             />
           </div>
-        )}
+        ) : null}
 
-        {/* Project filter */}
-        {allProjects.length > 0 && (
-          <div className="w-full min-[420px]:w-fit min-w-[6.5rem]">
+        {allProjects.length > 0 ? (
+          <div className="w-full min-w-[6.5rem] min-[420px]:w-fit">
             <Select
               value={effectiveFilterProject}
               onChange={setFilterProject}
@@ -418,82 +526,118 @@ export default function StatsPage() {
               activeHighlight
               options={[
                 { value: '', label: t('stats.filter.allProjects') },
-                ...allProjects.map(p => ({ value: p, label: p })),
+                ...allProjects.map((project) => ({ value: project, label: project })),
               ]}
             />
           </div>
-        )}
+        ) : null}
 
-        {/* Clear filters */}
-        {(effectiveFilterCategory || effectiveFilterProject || effectiveFilterAccount) && (
-          <button
-            onClick={() => { setFilterCategory(''); setFilterProject(''); setFilterAccount('') }}
-            className="h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs transition-all"
+        {effectiveFilterCategory || effectiveFilterProject || effectiveFilterAccount ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilterCategory('')
+              setFilterProject('')
+              setFilterAccount('')
+            }}
           >
             {t('stats.filter.clear')}
-          </button>
-        )}
-      </div>
+          </Button>
+        ) : null}
+      </Card>
 
-      {/* Summary cards — Premium: flat, clean */}
-      <StaggerContainer className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2.5 md:gap-3">
-        <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyIncome')}</p>
-            <p className="text-base md:text-2xl font-bold text-indigo-600 dark:text-indigo-400 truncate tabular-nums mt-1.5">
-              <CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />
-            </p>
-          </div>
-        </StaggerItem>
-        <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyExpense')}</p>
-            <p className="text-base md:text-2xl font-bold text-rose-500 dark:text-rose-400 truncate tabular-nums mt-1.5">
-              <CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />
-            </p>
-          </div>
-        </StaggerItem>
-        <StaggerItem>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100 dark:border-gray-800/50 p-3 md:p-5 overflow-hidden">
-            <p className="text-[10px] md:text-[11px] text-gray-400 dark:text-gray-500 tracking-wide font-semibold truncate">{t('stats.yearlyNet')}</p>
-            <p className={`text-base md:text-2xl font-bold truncate tabular-nums mt-1.5 ${totalNet >= 0 ? 'text-violet-600 dark:text-violet-400' : 'text-orange-500 dark:text-orange-400'}`}>
-              <CompactAmount compact={fmtShort(totalNet)} exact={fmtExact(totalNet)} prefix={totalNet >= 0 ? '+' : ''} />
-            </p>
-          </div>
-        </StaggerItem>
-      </StaggerContainer>
+      <div className="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-3 md:gap-3">
+        <StatTile
+          label={t('stats.yearlyIncome')}
+          value={<CompactAmount compact={fmtShort(totalIncome)} exact={fmtExact(totalIncome)} />}
+          tone="positive"
+        />
+        <StatTile
+          label={t('stats.yearlyExpense')}
+          value={<CompactAmount compact={fmtShort(totalExpense)} exact={fmtExact(totalExpense)} />}
+          tone="negative"
+        />
+        <StatTile
+          label={t('stats.yearlyNet')}
+          value={(
+            <CompactAmount
+              compact={fmtShort(totalNet)}
+              exact={fmtExact(totalNet)}
+              prefix={totalNet >= 0 ? '+' : ''}
+            />
+          )}
+          tone={totalNet >= 0 ? 'positive' : 'negative'}
+        />
+      </div>
 
       <AccountBalanceChart accounts={filteredAccounts} />
 
-      {/* Monthly bar chart — Premium */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-5">
+      <Card>
+        <CardHeader className="flex-wrap">
           <div>
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.monthlyTitle', { year })}</h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('stats.chart.monthlySubtitle')}</p>
+            <CardTitle>{t('stats.chart.monthlyTitle', { year })}</CardTitle>
+            <CardDescription>{t('stats.chart.monthlySubtitle')}</CardDescription>
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground" aria-label={t('stats.chart.monthlyTitle', { year })}>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: palette.income }} />{t('stats.pie.incomeLabel')}
+              <span className="inline-block h-2.5 w-3 rounded-sm" style={{ background: palette.income }} />
+              {t('stats.pie.incomeLabel')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm inline-block" style={{ background: palette.expense }} />{t('stats.pie.expenseLabel')}
+              <span className="inline-block h-2.5 w-3 rounded-sm" style={{ background: palette.expense }} />
+              {t('stats.pie.expenseLabel')}
             </span>
           </div>
-        </div>
-        {monthly.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-10">{t('stats.noData')}</p>
-        ) : (
-          <MonthlyBarChart data={monthly} fmt={fmt} fmtShort={fmtShort} incomeColor={palette.income} expenseColor={palette.expense} />
-        )}
-      </div>
+        </CardHeader>
+        <CardContent>
+          {monthly.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">{t('stats.noData')}</p>
+          ) : (
+            <>
+              <MonthlyBarChart
+                data={monthly}
+                fmt={fmt}
+                fmtShort={fmtShort}
+                incomeColor={palette.income}
+                expenseColor={palette.expense}
+                gridColor={palette.grid}
+                surfaceColor={palette.surface}
+                foregroundColor={palette.foreground}
+                mutedForegroundColor={palette.mutedForeground}
+                borderColor={palette.border}
+              />
+              <Table className="sr-only">
+                <caption>{t('stats.chart.monthlyTitle', { year })}</caption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('stats.chart.monthlyTitle', { year })}</TableHead>
+                    <TableHead>{t('stats.pie.incomeLabel')}</TableHead>
+                    <TableHead>{t('stats.pie.expenseLabel')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {monthly.map((month) => (
+                    <TableRow key={month.month}>
+                      <TableCell>{month.month}</TableCell>
+                      <TableCell>{fmt(month.income)}</TableCell>
+                      <TableCell>{fmt(month.expense)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Income vs expense overview pie */}
-      {monthly.length > 0 && totalIncome + totalExpense > 0 && (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-4 md:p-5 shadow-sm">
-          <h2 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('stats.chart.pieTitle')}</h2>
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0">
+      {monthly.length > 0 && incomeExpenseTotal > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle id="income-expense-title">{t('stats.chart.pieTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+            <figure className="size-32 shrink-0" aria-labelledby="income-expense-title">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -502,7 +646,8 @@ export default function StatsPage() {
                       { name: t('stats.pie.expenseLabel'), value: totalExpense },
                     ]}
                     dataKey="value"
-                    cx="50%" cy="50%"
+                    cx="50%"
+                    cy="50%"
                     innerRadius={34}
                     outerRadius={52}
                     paddingAngle={3}
@@ -511,104 +656,129 @@ export default function StatsPage() {
                     <Cell fill={palette.income} />
                     <Cell fill={palette.expense} />
                   </Pie>
-                  <Tooltip formatter={(value, name) => [fmt(value as number), name]} cursor={false}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--tooltip-border, #e5e7eb)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: '12px', background: 'var(--tooltip-bg, #fff)', color: 'var(--tooltip-text, #374151)' }}
-                    itemStyle={{ color: 'var(--tooltip-text, #374151)' }}
-                    labelStyle={{ color: 'var(--tooltip-text, #374151)' }}
+                  <Tooltip
+                    formatter={(value, name) => [fmt(value as number), name]}
+                    cursor={false}
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: `1px solid ${palette.border}`,
+                      boxShadow: 'var(--shadow-sm)',
+                      fontSize: '12px',
+                      background: palette.surface,
+                      color: palette.foreground,
+                    }}
+                    itemStyle={{ color: palette.foreground }}
+                    labelStyle={{ color: palette.foreground }}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-            <div className="space-y-3 flex-1 w-full min-w-0">
-              <div>
-                <div className="flex items-center justify-between text-sm mb-1 gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 font-medium min-w-0 shrink-0">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: palette.income }} />{t('stats.pie.incomeLabel')}
-                  </span>
-                  <span className="font-bold tabular-nums truncate text-right" style={{ color: palette.income }}>{fmt(totalIncome)}</span>
-                </div>
-                <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ background: palette.income, width: `${totalIncome + totalExpense > 0 ? Math.round(totalIncome / (totalIncome + totalExpense) * 100) : 0}%` }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between text-sm mb-1 gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400 font-medium min-w-0 shrink-0">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: palette.expense }} />{t('stats.pie.expenseLabel')}
-                  </span>
-                  <span className="font-bold tabular-nums truncate text-right" style={{ color: palette.expense }}>{fmt(totalExpense)}</span>
-                </div>
-                <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ background: palette.expense, width: `${totalIncome + totalExpense > 0 ? Math.round(totalExpense / (totalIncome + totalExpense) * 100) : 0}%` }} />
-                </div>
-              </div>
-              {isWorkMode && sourceFilter === 'personal' && totalReimbursed > 0 && (
-                <div className="pt-1 border-t border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 gap-2">
-                    <span className="truncate">{t('stats.reimbursed')}</span>
-                    <span className="font-semibold text-violet-500 tabular-nums whitespace-nowrap">+{fmt(totalReimbursed)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+            </figure>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5">
-        <ResponsivePieCard title={t('stats.chart.categoryTitle')} rows={categories} formatFn={fmt} colors={palette.categories} />
-        <ResponsivePieCard title={t('stats.chart.incomeCategoryTitle')} rows={incomeCategories} formatFn={fmt} colors={palette.categories} />
+            <div className="w-full min-w-0 flex-1 space-y-4">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 font-medium text-muted-foreground">
+                    <span className="size-2.5 rounded-full" style={{ background: palette.income }} />
+                    {t('stats.pie.incomeLabel')}
+                  </span>
+                  <span className="truncate text-right font-semibold text-foreground tabular-nums">{fmt(totalIncome)}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full" style={{ background: palette.income, width: `${incomeShare}%` }} />
+                </div>
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 font-medium text-muted-foreground">
+                    <span className="size-2.5 rounded-full" style={{ background: palette.expense }} />
+                    {t('stats.pie.expenseLabel')}
+                  </span>
+                  <span className="truncate text-right font-semibold text-foreground tabular-nums">{fmt(totalExpense)}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full" style={{ background: palette.expense, width: `${expenseShare}%` }} />
+                </div>
+              </div>
+              {isWorkMode && sourceFilter === 'personal' && totalReimbursed > 0 ? (
+                <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                  <span className="truncate">{t('stats.reimbursed')}</span>
+                  <span className="whitespace-nowrap font-semibold text-positive tabular-nums">+{fmt(totalReimbursed)}</span>
+                </div>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <ResponsivePieCard
+          title={t('stats.chart.categoryTitle')}
+          rows={categories}
+          formatFn={fmt}
+        />
+        <ResponsivePieCard
+          title={t('stats.chart.incomeCategoryTitle')}
+          rows={incomeCategories}
+          formatFn={fmt}
+        />
       </div>
 
-      {/* Project breakdown — Premium */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 shadow-sm overflow-hidden">
-        <div className="px-4 md:px-5 py-4 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between gap-3">
-          <h2 className="font-semibold text-gray-800 dark:text-gray-200">{t('stats.chart.projectTitle')}</h2>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{t('stats.projectCount', { count: projects.length })}</span>
-        </div>
+      <Card className="overflow-hidden p-0">
+        <CardHeader className="border-b border-border px-4 py-4 md:px-5">
+          <div>
+            <CardTitle>{t('stats.chart.projectTitle')}</CardTitle>
+            <CardDescription>{t('stats.projectCount', { count: projects.length })}</CardDescription>
+          </div>
+          <BarChart3 className="size-4 text-muted-foreground" aria-hidden="true" />
+        </CardHeader>
         {projects.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('stats.noData')}</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{t('stats.noData')}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[320px]">
-              <thead>
-                <tr className="bg-gray-50/80 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wide border-b border-gray-100 dark:border-gray-800/50">
-                  <th className="px-4 md:px-5 py-3 text-left font-semibold">{t('stats.project.name')}</th>
-                  <th className="px-4 md:px-5 py-3 text-right font-semibold">{t('stats.project.income')}</th>
-                  <th className="px-4 md:px-5 py-3 text-right font-semibold">{t('stats.project.expense')}</th>
-                  <th className="px-4 md:px-5 py-3 text-right font-semibold">{t('stats.project.net')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                {projects.map((p) => (
-                  <tr key={p.project_id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 md:px-5 py-3.5">
-                      <p className="font-medium text-gray-700 dark:text-gray-300">{p.project_id}</p>
-                      {p.project_name && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{p.project_name}</p>}
-                    </td>
-                    <td className="px-4 md:px-5 py-3.5 text-right">
-                      <span className="text-indigo-600 font-medium tabular-nums whitespace-nowrap">
-                        <CompactAmount compact={fmtShort(p.income)} exact={fmtExact(p.income)} />
+          <TableWrapper className="rounded-none border-0">
+            <Table className="min-w-[420px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 text-muted-foreground md:px-5">{t('stats.project.name')}</TableHead>
+                  <TableHead className="px-4 text-right text-muted-foreground md:px-5">{t('stats.project.income')}</TableHead>
+                  <TableHead className="px-4 text-right text-muted-foreground md:px-5">{t('stats.project.expense')}</TableHead>
+                  <TableHead className="px-4 text-right text-muted-foreground md:px-5">{t('stats.project.net')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {projects.map((project) => (
+                  <TableRow key={project.project_id}>
+                    <TableCell className="px-4 md:px-5">
+                      <p className="font-medium text-foreground">{project.project_id}</p>
+                      {project.project_name ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{project.project_name}</p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="px-4 text-right md:px-5">
+                      <span className="whitespace-nowrap font-medium text-positive tabular-nums">
+                        <CompactAmount compact={fmtShort(project.income)} exact={fmtExact(project.income)} />
                       </span>
-                    </td>
-                    <td className="px-4 md:px-5 py-3.5 text-right">
-                      <span className="text-rose-500 font-medium tabular-nums whitespace-nowrap">
-                        <CompactAmount compact={fmtShort(p.expense)} exact={fmtExact(p.expense)} />
+                    </TableCell>
+                    <TableCell className="px-4 text-right md:px-5">
+                      <span className="whitespace-nowrap font-medium text-negative tabular-nums">
+                        <CompactAmount compact={fmtShort(project.expense)} exact={fmtExact(project.expense)} />
                       </span>
-                    </td>
-                    <td className="px-4 md:px-5 py-3.5 text-right">
-                      <span className={`font-bold tabular-nums whitespace-nowrap px-2 py-0.5 rounded-lg text-xs ${p.net >= 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
-                        }`}>
-                        <CompactAmount compact={fmtShort(p.net)} exact={fmtExact(p.net)} prefix={p.net >= 0 ? '+' : ''} />
-                      </span>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="px-4 text-right md:px-5">
+                      <Badge variant={project.net >= 0 ? 'positive' : 'negative'}>
+                        <CompactAmount
+                          compact={fmtShort(project.net)}
+                          exact={fmtExact(project.net)}
+                          prefix={project.net >= 0 ? '+' : ''}
+                        />
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableWrapper>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ArrowRightLeft, ChevronDown, Globe2, Search } from 'lucide-react'
 import AnimatedNumber from '../motion/AnimatedNumber'
-import Skeleton from '../motion/Skeleton'
 import { SUPPORTED_CURRENCIES } from '../constants/currencies'
 import { fallbackRatesForBase } from '../utils/exchangeRates'
+import { Alert } from '../components/ui/alert'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { EmptyState } from '../components/ui/empty-state'
+import { Input, Label } from '../components/ui/input'
+import { PageHeader } from '../components/ui/page-header'
+import { Segmented, SegmentedButton } from '../components/ui/segmented'
+import Skeleton from '../components/ui/skeleton'
+import { cn } from '../lib/utils'
 
 const ExchangeTrendChart = lazy(() => import('../components/ExchangeTrendChart'))
 
@@ -121,6 +131,10 @@ function CurrencySelector({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const labelId = useId()
+  const valueId = useId()
+  const listboxId = useId()
+  const searchId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
   const selected = CURRENCIES.find(c => c.code === value) ?? CURRENCIES[0]
   const options = CURRENCIES
@@ -142,47 +156,55 @@ function CurrencySelector({
   }, [open])
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-full box-border">
-      <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
+    <div ref={containerRef} className="relative w-full">
+      <Label id={labelId}>{label}</Label>
       <button
-        onClick={() => setOpen(v => !v)}
-        className="group flex h-12 w-full max-w-full items-center justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white/60 px-3 md:px-4 text-left shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.01] hover:border-blue-300 hover:bg-white hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700/80 dark:bg-black/20 dark:hover:border-blue-500/50 dark:hover:bg-gray-900/60" style={{ boxSizing: 'border-box' }}
+        type="button"
+        aria-labelledby={`${labelId} ${valueId}`}
+        aria-controls={listboxId}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((value) => !value)}
+        className="mt-1.5 flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-input bg-card px-3 text-left text-sm shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:bg-blue-500/10 dark:group-hover:text-blue-400">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
-          </span>
-          <span className="font-bold shrink-0 text-gray-900 dark:text-gray-100">{selected.code}</span>
-          <span className="truncate text-sm text-gray-500 transition-colors group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300">{selected.en}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Globe2 className="size-4 shrink-0 text-muted-foreground" />
+          <span id={valueId} className="shrink-0 font-mono font-semibold text-foreground">{selected.code}</span>
+          <span className="truncate text-muted-foreground">{selected.en}</span>
         </span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" /></svg>
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </button>
 
-      {open && (
-        <div className="absolute right-0 z-30 mt-2 w-full max-w-full origin-top transform rounded-[20px] border border-white/60 bg-white/80 p-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-2xl transition-all duration-300 dark:border-white/10 dark:bg-gray-900/80" style={{ boxSizing: 'border-box' }}>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('exchange.searchCurrency')}
-            className="mb-2 h-10 w-full rounded-xl border border-gray-200/80 bg-white/50 px-3 text-sm shadow-inner outline-none transition-all focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:border-gray-700/80 dark:bg-black/20 focus:dark:ring-blue-500/20"
-          />
-          <div className="max-h-56 overflow-auto space-y-1 rounded-xl p-1 overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-            {options.map(c => (
+      {open ? (
+        <div className="absolute inset-x-0 z-30 mt-2 rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-sm)]">
+          <div className="relative mb-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id={searchId}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t('exchange.searchCurrency')}
+              aria-label={t('exchange.searchCurrency')}
+              className="pl-9"
+            />
+          </div>
+          <div id={listboxId} role="listbox" aria-labelledby={labelId} className="max-h-56 space-y-0.5 overflow-auto overscroll-contain">
+            {options.map((currency) => (
               <button
-                key={c.code}
-                onClick={() => { onChange(c.code); setOpen(false); setQuery('') }}
-                className="group flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all duration-200 hover:bg-blue-50 hover:pl-4 dark:hover:bg-blue-500/10"
+                key={currency.code}
+                type="button"
+                role="option"
+                aria-selected={currency.code === value}
+                onClick={() => { onChange(currency.code); setOpen(false); setQuery('') }}
+                className="flex min-h-10 w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors group-hover:border-blue-200 group-hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:group-hover:border-blue-500/30 dark:group-hover:text-blue-400">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><circle cx="12" cy="12" r="8" /><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M12 4a14 14 0 010 16M12 4a14 14 0 000 16" /></svg>
-                </span>
-                <span className="font-bold shrink-0 text-gray-900 transition-colors group-hover:text-blue-700 dark:text-gray-100 dark:group-hover:text-blue-300">{c.code}</span>
-                <span className="truncate text-sm text-gray-500 transition-colors group-hover:text-blue-600/70 dark:text-gray-400 dark:group-hover:text-blue-400/70">{c.en}</span>
+                <span className="w-10 shrink-0 font-mono font-semibold text-foreground">{currency.code}</span>
+                <span className="truncate text-muted-foreground">{currency.en}</span>
               </button>
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -285,121 +307,118 @@ export default function ExchangeRatePage() {
   }, [history])
 
   const trendMeta = trendPct > 0.02
-    ? { arrow: '↑', cls: 'text-rose-600', value: `+${trendPct.toFixed(2)}%` }
+    ? { arrow: '↑', variant: 'negative' as const, value: `+${trendPct.toFixed(2)}%` }
     : trendPct < -0.02
-      ? { arrow: '↓', cls: 'text-emerald-600', value: `${trendPct.toFixed(2)}%` }
-      : { arrow: '→', cls: 'text-gray-400', value: t('exchange.flat') }
+      ? { arrow: '↓', variant: 'positive' as const, value: `${trendPct.toFixed(2)}%` }
+      : { arrow: '→', variant: 'neutral' as const, value: t('exchange.flat') }
 
   const fromMeta = CURRENCIES.find(c => c.code === from) ?? CURRENCIES[0]
   const toMeta = CURRENCIES.find(c => c.code === to) ?? CURRENCIES[1]
 
   return (
-    <div className="relative min-h-[calc(100vh-80px)] space-y-6 text-[#111827]">
-      {/* Decorative blurred backgrounds */}
-      <div className="absolute top-[-10%] left-[-5%] z-[-1] h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-[120px] dark:bg-blue-900/20 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-5%] z-[-1] h-[600px] w-[600px] rounded-full bg-purple-500/10 blur-[120px] dark:bg-purple-900/20 pointer-events-none" />
+    <div className="space-y-6">
+      <PageHeader title={t('exchange.title')} description={t('exchange.subtitle')} />
 
-      <div className="relative z-10">
-        <h1 className="text-[28px] font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('exchange.title')}</h1>
-        <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">{t('exchange.subtitle')}</p>
-      </div>
-
-      <div className="relative z-10 grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <section className="max-w-full xl:col-span-2 relative overflow-hidden rounded-[24px] border border-white/60 bg-white/70 p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#1A1825]/70 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
-          {latestLoading ? (
-            <div className="space-y-3">
-              <Skeleton height="h-4" width="w-20" />
-              <Skeleton height="h-[84px]" />
+      <div className="grid gap-5 xl:grid-cols-5">
+        <Card className="min-w-0 xl:col-span-2">
+          <CardHeader>
+            <div>
+              <CardTitle>{t('exchange.amount')}</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">{fromMeta.code} → {toMeta.code}</p>
             </div>
-          ) : (
-            <>
-              <label className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('exchange.amount')}</label>
-              <div className="mt-1.5 rounded-2xl border border-gray-200/80 bg-white/50 px-4 py-3 shadow-inner transition-all focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-gray-700/80 dark:bg-black/20 focus-within:dark:ring-blue-500/20">
-                <input
-                  type="number"
-                  value={amountInput}
-                  onChange={e => setAmountInput(e.target.value)}
-                  className="h-10 w-full bg-transparent text-[28px] font-semibold text-gray-900 outline-none dark:text-gray-100"
-                />
-                <p className="text-xs text-gray-400">{fromMeta.code}</p>
-              </div>
-            </>
-          )}
+            {!latestLoading ? <Badge variant={trendMeta.variant}>{trendMeta.arrow} {trendMeta.value}</Badge> : null}
+          </CardHeader>
 
-          <div className="mt-4 flex flex-col md:flex-row items-center gap-3 md:gap-4 relative">
-            <div className="w-full flex-1 min-w-0">
-              {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />}
-            </div>
-            <div className="md:mt-[24px] z-10 -my-1 md:my-0 shrink-0">
-              <button
-                onClick={() => {
-                  setSwapSpin(true)
-                  setFrom(to)
-                  setTo(from)
-                  window.setTimeout(() => setSwapSpin(false), 280)
-                }}
-                className="group relative flex h-12 w-12 items-center justify-center rounded-full border border-gray-200/80 bg-white text-gray-500 shadow-sm backdrop-blur-md transition-all duration-300 ease-out hover:scale-110 hover:border-blue-200 hover:text-blue-600 hover:shadow-blue-500/20 focus:outline-none focus:ring-4 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500/30 dark:hover:text-blue-400"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`h-5 w-5 transition-transform duration-300 ease-in-out ${swapSpin ? 'rotate-180 scale-90' : ''}`}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h12" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 3 4 4-4 4" /><path strokeLinecap="round" strokeLinejoin="round" d="M20 17H8" /><path strokeLinecap="round" strokeLinejoin="round" d="m12 13-4 4 4 4" /></svg>
-              </button>
-            </div>
-            <div className="w-full flex-1 min-w-0">
-              {latestLoading ? <Skeleton height="h-16" /> : <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />}
-            </div>
-          </div>
-
-          <button className="mt-5 h-12 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-bold tracking-wide text-white shadow-[0_4px_14px_0_rgba(79,70,229,0.39)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(79,70,229,0.39)] hover:from-blue-500 hover:to-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 active:scale-[0.98]">
-            {t('exchange.convert')}
-          </button>
-
-          <div className="mt-6 overflow-hidden relative rounded-3xl border border-white/60 bg-gradient-to-br from-blue-50/50 to-purple-50/50 p-5 backdrop-blur-md shadow-inner dark:border-white/5 dark:from-blue-900/10 dark:to-purple-900/10">
-            <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-blue-400/20 blur-[40px] pointer-events-none" />
+          <CardContent className="space-y-5">
             {latestLoading ? (
               <div className="space-y-3">
-                <Skeleton height="h-4" width="w-28" />
-                <Skeleton height="h-10" width="w-48" />
-                <Skeleton height="h-4" width="w-64" />
+                <Skeleton height="h-11" />
+                <Skeleton height="h-16" />
               </div>
             ) : (
               <>
-                <p className="text-sm text-gray-500">{debouncedAmount.toLocaleString()} {fromMeta.code}</p>
-                <p className="mt-1 text-[32px] font-semibold leading-9 text-gray-900 transition-all duration-300 dark:text-gray-100">
-                  <AnimatedNumber value={converted} formatter={(n) => `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${toMeta.code}`} />
-                </p>
-                <p className="mt-2 text-base text-gray-600 dark:text-gray-300">
-                  {t('exchange.exchangeRate')}: 1 {from} = {rate.toFixed(4)} {to}
-                  <span className={`ml-2 text-sm font-semibold ${trendMeta.cls}`}>{trendMeta.arrow} {trendMeta.value}</span>
-                </p>
-                <p className="mt-1 text-[13px] text-gray-400">{t('exchange.lastUpdated', { sec: ageSec })}</p>
-                {error && <p className="mt-2 text-xs text-amber-600">{error}</p>}
+                <div>
+                  <Label htmlFor="exchange-amount">{t('exchange.amount')}</Label>
+                  <div className="mt-1.5 flex items-center gap-3 rounded-lg border border-input bg-card px-3 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
+                    <input
+                      id="exchange-amount"
+                      type="number"
+                      value={amountInput}
+                      onChange={(event) => setAmountInput(event.target.value)}
+                      className="h-12 min-w-0 flex-1 bg-transparent text-2xl font-semibold tabular-nums text-foreground outline-none"
+                    />
+                    <span className="font-mono text-xs font-semibold text-muted-foreground">{fromMeta.code}</span>
+                  </div>
+                </div>
+
+                <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                  <CurrencySelector label={t('exchange.fromCurrency')} value={from} onChange={setFrom} peerValue={to} t={t} />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label={`${t('exchange.fromCurrency')} / ${t('exchange.toCurrency')}`}
+                    onClick={() => {
+                      setSwapSpin(true)
+                      setFrom(to)
+                      setTo(from)
+                      window.setTimeout(() => setSwapSpin(false), 280)
+                    }}
+                    className="mx-auto sm:mb-1.5"
+                  >
+                    <ArrowRightLeft className={cn('size-4 transition-transform', swapSpin && 'rotate-180')} />
+                  </Button>
+                  <CurrencySelector label={t('exchange.toCurrency')} value={to} onChange={setTo} peerValue={from} t={t} />
+                </div>
               </>
             )}
-          </div>
-        </section>
 
-        <section className="max-w-full overflow-hidden xl:col-span-3 relative rounded-[24px] border border-white/60 bg-white/70 p-4 sm:p-5 md:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#1A1825]/70 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
-          <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-[1.1rem] font-bold text-gray-900 dark:text-gray-100 tracking-tight">{from} / {to} {t('exchange.trend')}</h2>
-            <div className="flex items-center gap-1 rounded-xl bg-black/5 p-1 backdrop-blur-md dark:bg-white/5">
-              {(['1D', '1W', '1M', '1Y'] as RangeKey[]).map(r => (
-                <button key={r} onClick={() => setRange(r)} className={`min-h-9 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-300 ${range === r ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-800 dark:text-blue-400' : 'text-gray-500 hover:text-gray-800 hover:bg-black/5 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/5'}`}>
-                  {t(`exchange.ranges.${r}`)}
-                </button>
-              ))}
+            <div className="rounded-lg border border-border bg-muted/55 p-4">
+              {latestLoading ? (
+                <div className="space-y-3">
+                  <Skeleton height="h-4" width="w-28" />
+                  <Skeleton height="h-8" width="w-48" />
+                  <Skeleton height="h-4" width="w-64" />
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">{debouncedAmount.toLocaleString()} {fromMeta.code}</p>
+                  <p className="mt-1 text-3xl font-semibold leading-tight tabular-nums text-foreground">
+                    <AnimatedNumber value={converted} formatter={(value) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${toMeta.code}`} />
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {t('exchange.exchangeRate')}: <span className="font-medium tabular-nums text-foreground">1 {from} = {rate.toFixed(4)} {to}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t('exchange.lastUpdated', { sec: ageSec })}</p>
+                  {error ? <Alert variant="warning" className="mt-3">{error}</Alert> : null}
+                </>
+              )}
             </div>
-          </div>
-          <Suspense fallback={<div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>}>
-            {historyLoading ? (
-              <div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>
-            ) : history.length > 0 ? (
-              <ExchangeTrendChart key={chartRenderKey} data={history} from={from} to={to} locale={i18n.language} range={range} />
-            ) : (
-              <div className="h-[320px] flex items-center justify-center rounded-2xl border border-dashed border-gray-200/80 dark:border-gray-700/80 text-sm text-gray-500 dark:text-gray-400">
-                {t('exchange.noHistory')}
-              </div>
-            )}
-          </Suspense>
-        </section>
+          </CardContent>
+        </Card>
+
+        <Card className="min-w-0 overflow-hidden xl:col-span-3">
+          <CardHeader className="flex-wrap">
+            <CardTitle>{from} / {to} {t('exchange.trend')}</CardTitle>
+            <Segmented aria-label={t('exchange.trend')}>
+              {(['1D', '1W', '1M', '1Y'] as RangeKey[]).map((option) => (
+                <SegmentedButton key={option} onClick={() => setRange(option)} aria-pressed={range === option}>
+                  {t(`exchange.ranges.${option}`)}
+                </SegmentedButton>
+              ))}
+            </Segmented>
+          </CardHeader>
+          <CardContent>
+            <Suspense fallback={<div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>}>
+              {historyLoading ? (
+                <div className="h-[320px] space-y-3 p-3"><Skeleton height="h-5" width="w-32" /><Skeleton height="h-[260px]" /></div>
+              ) : history.length > 0 ? (
+                <ExchangeTrendChart key={chartRenderKey} data={history} from={from} to={to} locale={i18n.language} range={range} />
+              ) : (
+                <EmptyState className="h-[320px] content-center" title={t('exchange.noHistory')} icon={<Globe2 />} />
+              )}
+            </Suspense>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

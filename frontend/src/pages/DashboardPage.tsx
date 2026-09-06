@@ -1,6 +1,22 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  ArrowRight,
+  BarChart3,
+  Check,
+  CircleCheck,
+  Globe2,
+  List,
+  PenLine,
+  Plus,
+  Repeat2,
+  SearchCheck,
+  Sparkles,
+  Upload,
+  WalletCards,
+  type LucideIcon,
+} from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useExchangeRates } from '../hooks/useExchangeRates'
 import { formatAmountCompact, formatAmountExact } from '../utils/format'
@@ -8,109 +24,74 @@ import { accountBalanceToCNY, transactionAmountToCNY } from '../utils/financeAmo
 import { formatGreeting, normalizeGreetingLocale } from '../utils/greeting'
 import { secureRandomInt } from '../utils/secureRandom'
 import CompactAmount from '../components/CompactAmount'
-import { BrandWatermark } from '../components/Brand'
 import { useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { useHeartbeat } from '../hooks/useHeartbeat'
 import { useOnlineDevices } from '../hooks/useOnlineDevices'
-import { StaggerContainer, StaggerItem, AnimatedCard, CardSkeleton } from '../motion'
 import { useMode } from '../hooks/useMode'
 import { useBudgetSummary, currentBudgetMonth } from '../hooks/useBudgets'
 import { useRecurringRules } from '../hooks/useRecurringRules'
-import { EmptyState, FinanceCard, ProgressBar, SectionHeader } from '../components/FinancePrimitives'
 import { categoryLabel } from '../utils/categoryLabel'
-
-const IconList = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-  </svg>
-)
-const IconPlus = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="w-5 h-5">
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-)
-const IconSearch = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-  </svg>
-)
-const IconChart = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <path d="M18 20V10M12 20V4M6 20v-6" />
-  </svg>
-)
-const IconUpload = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-    <polyline points="17 8 12 3 7 8" />
-    <line x1="12" y1="3" x2="12" y2="15" />
-  </svg>
-)
-const IconPen = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-  </svg>
-)
-const IconCheck = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-)
-
-const IconSparkles = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z" />
-    <path d="M5 16l.9 2.1L8 19l-2.1.9L5 22l-.9-2.1L2 19l2.1-.9L5 16z" />
-    <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" />
-  </svg>
-)
+import { Alert } from '../components/ui/alert'
+import { Badge } from '../components/ui/badge'
+import { ButtonLink } from '../components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card'
+import { EmptyState } from '../components/ui/empty-state'
+import { PageHeader } from '../components/ui/page-header'
+import { ProgressBar } from '../components/ui/progress-bar'
+import { Segmented, SegmentedButton } from '../components/ui/segmented'
+import { CardSkeleton } from '../components/ui/skeleton'
+import { StatTile } from '../components/ui/stat-tile'
+import { cn } from '../lib/utils'
 
 const FEATURES = [
   {
     to: '/transactions',
-    Icon: IconList,
+    Icon: List,
     titleKey: 'dashboard.features.smartAccounting.title',
     descKey: 'dashboard.features.smartAccounting.desc',
     lifeTitleKey: 'dashboard.features.smartAccounting.title',
     lifeDescKey: 'dashboard.features.smartAccounting.desc',
-    color: 'bg-violet-50 dark:bg-violet-500/10 border-violet-100 dark:border-violet-500/20',
-    iconBg: 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400',
   },
   {
     to: '/add',
-    Icon: IconPlus,
+    Icon: Plus,
     titleKey: 'dashboard.features.reimbursement.title',
     descKey: 'dashboard.features.reimbursement.desc',
     lifeTitleKey: 'dashboard.features.lifeEntry.title',
     lifeDescKey: 'dashboard.features.lifeEntry.desc',
-    color: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20',
-    iconBg: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500 dark:text-emerald-400',
   },
   {
     to: '/match',
-    Icon: IconSearch,
+    Icon: SearchCheck,
     titleKey: 'dashboard.features.smartMatch.title',
     descKey: 'dashboard.features.smartMatch.desc',
     lifeTitleKey: 'dashboard.features.lifeMatch.title',
     lifeDescKey: 'dashboard.features.lifeMatch.desc',
-    color: 'bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20',
-    iconBg: 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400',
   },
   {
     to: '/stats',
-    Icon: IconChart,
+    Icon: BarChart3,
     titleKey: 'dashboard.features.dataVisualization.title',
     descKey: 'dashboard.features.dataVisualization.desc',
     lifeTitleKey: 'dashboard.features.dataVisualization.title',
     lifeDescKey: 'dashboard.features.dataVisualization.desc',
-    color: 'bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20',
-    iconBg: 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400',
   },
-]
+] satisfies Array<{
+  to: string
+  Icon: LucideIcon
+  titleKey: string
+  descKey: string
+  lifeTitleKey: string
+  lifeDescKey: string
+}>
 
-// ─── Time-based greeting key selector ─────────────────────────────────────
 function getGreetingKey() {
   const hour = new Date().getHours()
   if (hour >= 1 && hour < 5) return 'dawn'
@@ -120,7 +101,7 @@ function getGreetingKey() {
   if (hour >= 12 && hour < 14) return 'lunch'
   if (hour >= 14 && hour < 18) return 'afternoon'
   if (hour >= 18 && hour < 21) return 'evening'
-  return 'night' // 21-0, 0-1
+  return 'night'
 }
 
 export default function DashboardPage() {
@@ -132,11 +113,9 @@ export default function DashboardPage() {
   const workflowTab = isWorkMode ? workWorkflowTab : 'personal'
   const [analysisNow] = useState(Date.now)
 
-  // Device heartbeat — keeps this device marked as online
   useHeartbeat()
   const { data: onlineDeviceCount } = useOnlineDevices()
 
-  // Greeting — generated once per mount, pick random from i18n array
   const [greetingKey] = useState(getGreetingKey)
   const greetingMessages = t(`dashboard.greeting.${greetingKey}`, { returnObjects: true }) as string[]
   const [greetingIdx] = useState(() => {
@@ -162,55 +141,52 @@ export default function DashboardPage() {
     ? ((txError as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t('common.error'))
     : ''
 
-  // Use server-side cached account balances
   const companyBalance = useMemo(() =>
     accounts
-      .filter(a => a.type === 'public' && a.is_active)
+      .filter((account) => account.type === 'public' && account.is_active)
       .reduce((sum, account) => sum + accountBalanceToCNY(account, rates), 0),
-    [accounts, rates]
-  )
+  [accounts, rates])
 
   const personalBalance = useMemo(() =>
     accounts
-      .filter(a => a.type === 'personal' && a.is_active)
+      .filter((account) => account.type === 'personal' && account.is_active)
       .reduce((sum, account) => sum + accountBalanceToCNY(account, rates), 0),
-    [accounts, rates]
-  )
+  [accounts, rates])
 
   const personalTotalExpense = useMemo(() =>
     transactions
-      .filter(t => t.source === 'personal' && t.direction === 'expense')
+      .filter((transaction) => transaction.source === 'personal' && transaction.direction === 'expense')
       .reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0),
-    [transactions, rates]
-  )
-
+  [transactions, rates])
 
   const personalOutstanding = useMemo(() =>
     transactions
       .filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
       .reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0),
-    [transactions, rates]
-  )
+  [transactions, rates])
 
-  const fmtExact = (n: number) => formatAmountExact(n, 'CNY')
-  const fmtCompact = (n: number) => formatAmountCompact(n, 'CNY')
+  const fmtExact = (value: number) => formatAmountExact(value, 'CNY')
+  const fmtCompact = (value: number) => formatAmountCompact(value, 'CNY')
 
   const monthInsights = useMemo(() => {
-    const monthPrefix = budgetMonth
-    const monthly = transactions.filter(t => t.source === sourceFilter && t.occurred_at.startsWith(monthPrefix))
+    const monthly = transactions.filter(
+      (transaction) => transaction.source === sourceFilter && transaction.occurred_at.startsWith(budgetMonth),
+    )
     const byCategory = new Map<string, number>()
     let income = 0
     let expense = 0
-    for (const tx of monthly) {
-      const amount = transactionAmountToCNY(tx, rates)
-      if (tx.direction === 'income') {
+
+    for (const transaction of monthly) {
+      const amount = transactionAmountToCNY(transaction, rates)
+      if (transaction.direction === 'income') {
         income += amount
       } else {
         expense += amount
-        const key = tx.category || t('categories.other')
+        const key = transaction.category || t('categories.other')
         byCategory.set(key, (byCategory.get(key) ?? 0) + amount)
       }
     }
+
     const topCategory = Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1])[0]
     return {
       income,
@@ -224,65 +200,77 @@ export default function DashboardPage() {
     () => isWorkMode
       ? transactions.filter(t => t.source === 'personal' && t.direction === 'expense' && !t.reimbursed)
       : [],
-    [isWorkMode, transactions]
+    [isWorkMode, transactions],
   )
-  const notUploaded = useMemo(() => pendingTxs.filter((t) => !t.uploaded), [pendingTxs])
-  const uploadedNotReimbursed = useMemo(() => pendingTxs.filter((t) => t.uploaded && !t.reimbursed), [pendingTxs])
-
-  // ─── Smart pending item analysis ───────────────────────────────────────────
+  const notUploaded = useMemo(() => pendingTxs.filter((transaction) => !transaction.uploaded), [pendingTxs])
+  const uploadedNotReimbursed = useMemo(
+    () => pendingTxs.filter((transaction) => transaction.uploaded && !transaction.reimbursed),
+    [pendingTxs],
+  )
   const hasPending = isWorkMode && pendingTxs.length > 0
   const allClear = isWorkMode && !loading && !hasPending && transactions.length > 0
 
   const pendingAnalysis = useMemo(() => {
     const now = analysisNow
-    const DAY = 86400000
-
-    const notUploadedAmount = notUploaded.reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
-    const uploadedNotReimbursedAmount = uploadedNotReimbursed.reduce((sum, transaction) => sum + transactionAmountToCNY(transaction, rates), 0)
-    const oldestDate = (txs: typeof transactions) => {
-      if (txs.length === 0) return null
-      const dates = txs.map(t => new Date(t.occurred_at).getTime()).filter(d => !isNaN(d))
+    const day = 86_400_000
+    const notUploadedAmount = notUploaded.reduce(
+      (sum, transaction) => sum + transactionAmountToCNY(transaction, rates),
+      0,
+    )
+    const uploadedNotReimbursedAmount = uploadedNotReimbursed.reduce(
+      (sum, transaction) => sum + transactionAmountToCNY(transaction, rates),
+      0,
+    )
+    const oldestDate = (items: typeof transactions) => {
+      if (items.length === 0) return null
+      const dates = items
+        .map((transaction) => new Date(transaction.occurred_at).getTime())
+        .filter((date) => !Number.isNaN(date))
       return dates.length > 0 ? Math.min(...dates) : null
     }
-
     const oldestNotUploaded = oldestDate(notUploaded)
     const oldestUploaded = oldestDate(uploadedNotReimbursed)
-    const daysSince = (ts: number | null) => ts ? Math.floor((now - ts) / DAY) : 0
+    const daysSince = (timestamp: number | null) => timestamp ? Math.floor((now - timestamp) / day) : 0
 
-    // Smart sub-messages: notUploaded
     const notUploadedSub = (() => {
       if (notUploaded.length === 0) return ''
       const days = daysSince(oldestNotUploaded)
-      const amt = fmtExact(notUploadedAmount)
-      if (days > 30) return t('dashboard.pending.notUploaded.over30d', { amt, days })
-      if (days > 14) return t('dashboard.pending.notUploaded.over14d', { amt })
-      if (days > 7) return t('dashboard.pending.notUploaded.over7d', { amt })
-      if (notUploaded.length >= 10) return t('dashboard.pending.notUploaded.manyItems', { amt })
-      if (notUploadedAmount >= 5000) return t('dashboard.pending.notUploaded.highAmount', { amt })
-      return t('dashboard.pending.notUploaded.default', { amt })
+      const amount = fmtExact(notUploadedAmount)
+      if (days > 30) return t('dashboard.pending.notUploaded.over30d', { amt: amount, days })
+      if (days > 14) return t('dashboard.pending.notUploaded.over14d', { amt: amount })
+      if (days > 7) return t('dashboard.pending.notUploaded.over7d', { amt: amount })
+      if (notUploaded.length >= 10) return t('dashboard.pending.notUploaded.manyItems', { amt: amount })
+      if (notUploadedAmount >= 5000) return t('dashboard.pending.notUploaded.highAmount', { amt: amount })
+      return t('dashboard.pending.notUploaded.default', { amt: amount })
     })()
 
-    // Smart sub-messages: uploadedNotReimbursed
     const uploadedNotReimbursedSub = (() => {
       if (uploadedNotReimbursed.length === 0) return ''
       const days = daysSince(oldestUploaded)
-      const amt = fmtExact(uploadedNotReimbursedAmount)
-      if (days > 60) return t('dashboard.pending.uploadedPending.over60d', { amt, days })
-      if (days > 30) return t('dashboard.pending.uploadedPending.over30d', { amt })
-      if (days > 14) return t('dashboard.pending.uploadedPending.over14d', { amt })
-      if (uploadedNotReimbursed.length >= 5) return t('dashboard.pending.uploadedPending.manyItems', { amt, count: uploadedNotReimbursed.length })
-      return t('dashboard.pending.uploadedPending.default', { amt })
+      const amount = fmtExact(uploadedNotReimbursedAmount)
+      if (days > 60) return t('dashboard.pending.uploadedPending.over60d', { amt: amount, days })
+      if (days > 30) return t('dashboard.pending.uploadedPending.over30d', { amt: amount })
+      if (days > 14) return t('dashboard.pending.uploadedPending.over14d', { amt: amount })
+      if (uploadedNotReimbursed.length >= 5) {
+        return t('dashboard.pending.uploadedPending.manyItems', {
+          amt: amount,
+          count: uploadedNotReimbursed.length,
+        })
+      }
+      return t('dashboard.pending.uploadedPending.default', { amt: amount })
     })()
 
-    // Urgency header
     const maxDays = Math.max(daysSince(oldestNotUploaded), daysSince(oldestUploaded))
     const totalPending = notUploaded.length + uploadedNotReimbursed.length
     const totalAmount = notUploadedAmount + uploadedNotReimbursedAmount
-
     let headerHint = ''
     if (maxDays > 30) headerHint = t('dashboard.pending.header.overdue', { days: maxDays })
-    else if (totalAmount >= 10000) headerHint = t('dashboard.pending.header.highAmount', { count: totalPending, amt: fmtExact(totalAmount) })
-    else if (totalPending >= 8) headerHint = t('dashboard.pending.header.manyItems', { count: totalPending })
+    else if (totalAmount >= 10_000) {
+      headerHint = t('dashboard.pending.header.highAmount', {
+        count: totalPending,
+        amt: fmtExact(totalAmount),
+      })
+    } else if (totalPending >= 8) headerHint = t('dashboard.pending.header.manyItems', { count: totalPending })
     else if (totalPending > 0) headerHint = t('dashboard.pending.header.default', { count: totalPending })
 
     return { notUploadedSub, uploadedNotReimbursedSub, headerHint }
@@ -290,381 +278,426 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <CardSkeleton className="h-28" />
-        <div className="grid grid-cols-2 gap-3">
-          <CardSkeleton /><CardSkeleton /><CardSkeleton /><CardSkeleton />
-        </div>
+      <div className="space-y-6 animate-fade-in" aria-busy="true">
         <CardSkeleton className="h-24" />
-        <CardSkeleton className="h-40" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <CardSkeleton className="h-40" />
+          <CardSkeleton className="h-40" />
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 rounded-xl p-6 text-sm">
-        <p className="font-semibold mb-1">{t('common.error')}</p>
-        <p>{error}</p>
-      </div>
+      <Alert variant="negative" className="block p-5">
+        <p className="font-semibold">{t('common.error')}</p>
+        <p className="mt-1 text-sm opacity-85">{error}</p>
+      </Alert>
     )
   }
 
-  const dateLocale = i18n.language === 'zh' ? 'zh-CN' : 'en-US'
+  const dateLocale = (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US'
   const featureCards = FEATURES.map((feature) => ({
     ...feature,
     titleKey: isWorkMode ? feature.titleKey : feature.lifeTitleKey,
     descKey: isWorkMode ? feature.descKey : feature.lifeDescKey,
   }))
   const nextRecurringRule = recurringRules
-    .filter(rule => rule.status === 'active')
-    .sort((a, b) => (a.next_run_at || 0) - (b.next_run_at || 0))[0]
+    .filter((rule) => rule.status === 'active')
+    .sort((first, second) => (first.next_run_at || 0) - (second.next_run_at || 0))[0]
+  const activeRecurringCount = recurringRules.filter((rule) => rule.status === 'active').length
+  const budgetTone = budgetSummary?.total_budget?.status === 'over'
+    ? 'negative'
+    : budgetSummary?.total_budget?.status === 'warning'
+      ? 'warning'
+      : 'positive'
+
+  const personalWorkflowSteps = [
+    {
+      step: '1',
+      Icon: PenLine,
+      titleKey: isWorkMode ? 'dashboard.workflow.personalStep1' : 'dashboard.workflow.personalLifeStep1',
+      descKey: isWorkMode ? 'dashboard.workflow.personalDesc1' : 'dashboard.workflow.personalLifeDesc1',
+    },
+    {
+      step: '2',
+      Icon: Upload,
+      titleKey: isWorkMode ? 'dashboard.workflow.personalStep2' : 'dashboard.workflow.personalLifeStep2',
+      descKey: isWorkMode ? 'dashboard.workflow.personalDesc2' : 'dashboard.workflow.personalLifeDesc2',
+    },
+    {
+      step: '3',
+      Icon: SearchCheck,
+      titleKey: isWorkMode ? 'dashboard.workflow.personalStep3' : 'dashboard.workflow.personalLifeStep3',
+      descKey: isWorkMode ? 'dashboard.workflow.personalDesc3' : 'dashboard.workflow.personalLifeDesc3',
+    },
+    {
+      step: '4',
+      Icon: Check,
+      titleKey: isWorkMode ? 'dashboard.workflow.personalStep4' : 'dashboard.workflow.personalLifeStep4',
+      descKey: isWorkMode ? 'dashboard.workflow.personalDesc4' : 'dashboard.workflow.personalLifeDesc4',
+    },
+  ]
+  const companyWorkflowSteps = [
+    { step: '1', Icon: PenLine, titleKey: 'dashboard.workflow.companyStep1', descKey: 'dashboard.workflow.companyDesc1' },
+    { step: '2', Icon: Upload, titleKey: 'dashboard.workflow.companyStep2', descKey: 'dashboard.workflow.companyDesc2' },
+    { step: '3', Icon: Check, titleKey: 'dashboard.workflow.companyStep3', descKey: 'dashboard.workflow.companyDesc3' },
+  ]
+  const workflowSteps = workflowTab === 'company' ? companyWorkflowSteps : personalWorkflowSteps
 
   return (
     <div className="space-y-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-500 rounded-2xl p-6 md:p-7 text-white shadow-lg shadow-violet-500/20 dark:shadow-violet-900/30">
-        <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-        <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-fuchsia-400/20 rounded-full blur-2xl" />
-        <BrandWatermark className="absolute -bottom-2 right-4 opacity-[0.08]" opacity={0.12} />
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-white/70 text-xs font-medium">{new Date().toLocaleDateString(dateLocale, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-              {onlineDeviceCount != null && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 backdrop-blur-sm inline-flex items-center gap-1">
-                  <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-300"></span></span>
-                  {t('common.devices', { count: onlineDeviceCount })}
-                </span>
-              )}
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">{greetingText}</h1>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              {ratesLoading
-                ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/70 backdrop-blur-sm">{t('dashboard.hero.exRateLoading')}</span>
-                : rateDate
-                  ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-sm font-medium inline-flex items-center gap-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3 h-3"><path d="M4 7h16M4 17h16M10 4c-2 2-2 14 0 16M14 4c2 2 2 14 0 16" /></svg> $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}</span>
-                  : <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 backdrop-blur-sm font-medium">{t('dashboard.hero.exRateFallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}</span>
-              }
-            </div>
-          </div>
-          <Link
-            to="/add"
-            className="shrink-0 bg-white/20 hover:bg-white/30 active:scale-95 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all border border-white/20"
-          >
+      <PageHeader
+        title={greetingText}
+        description={new Date().toLocaleDateString(dateLocale, {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })}
+        actions={(
+          <ButtonLink to="/add">
+            <Plus className="size-4" />
             {t('dashboard.addButton')}
-          </Link>
-        </div>
-      </div>
-
-      {/* Balance cards */}
-      {isWorkMode ? (
-        <StaggerContainer className="grid grid-cols-2 gap-2 sm:gap-3">
-          <StaggerItem>
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-4 0v2" /><line x1="12" y1="12" x2="12" y2="16" /><line x1="10" y1="14" x2="14" y2="14" /></svg>
-                </div>
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.public')}</p>
-              </div>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-                <CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
-            </div>
-          </StaggerItem>
-          <StaggerItem>
-            <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-3 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 dark:bg-rose-500/15 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" /></svg>
-                </div>
-                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide truncate">{t('dashboard.balance.personalPending')}</p>
-              </div>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 leading-tight tabular-nums whitespace-nowrap truncate">
-                <CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-1 sm:mt-1.5">{t('dashboard.balance.pendingLabel')}</p>
-            </div>
-          </StaggerItem>
-        </StaggerContainer>
-      ) : (
-        <StaggerContainer className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <StaggerItem>
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-100/80 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-500/12 dark:via-[hsl(260,15%,11%)] dark:to-emerald-500/5 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-              <div className="absolute -top-6 -right-6 w-20 h-20 bg-emerald-300/20 rounded-full blur-2xl" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 inline-flex items-center justify-center"><IconSparkles /></span>
-                  <p className="text-xs font-semibold text-emerald-700/80 dark:text-emerald-300/80 tracking-wide">{t('dashboard.balance.personalAdvance')}</p>
-                </div>
-                <p className="mt-1 text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-200 tabular-nums">
-                  <CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />
-                </p>
-                <p className="text-[11px] text-emerald-700/60 dark:text-emerald-300/70 mt-1.5">{t('dashboard.balance.balanceLabel')}</p>
-              </div>
-            </div>
-          </StaggerItem>
-          <StaggerItem>
-            <div className="relative overflow-hidden rounded-2xl border border-rose-100/80 dark:border-rose-500/20 bg-gradient-to-br from-rose-50 via-white to-orange-100/70 dark:from-rose-500/12 dark:via-[hsl(260,15%,11%)] dark:to-orange-500/10 p-4 sm:p-5 shadow-sm hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-black/20 transition-shadow">
-              <div className="absolute -bottom-7 -left-6 w-24 h-24 bg-rose-300/20 rounded-full blur-2xl" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 inline-flex items-center justify-center"><IconChart /></span>
-                  <p className="text-xs font-semibold text-rose-700/80 dark:text-rose-300/80 tracking-wide">{t('transactions.summary.expense')}</p>
-                </div>
-                <p className="mt-1 text-xl md:text-2xl font-bold text-rose-600 dark:text-rose-300 tabular-nums">
-                  <CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />
-                </p>
-                <p className="text-[11px] text-rose-700/60 dark:text-rose-300/70 mt-1.5">{t('dashboard.balance.lifeExpenseLabel')}</p>
-              </div>
-            </div>
-          </StaggerItem>
-        </StaggerContainer>
-      )}
-
-      {/* Monthly insights */}
-      <FinanceCard>
-        <SectionHeader title={t('dashboard.insights.title')} subtitle={t('dashboard.insights.subtitle')} />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            { label: t('dashboard.insights.income'), value: monthInsights.income, tone: 'text-emerald-600 dark:text-emerald-300' },
-            { label: t('dashboard.insights.expense'), value: monthInsights.expense, tone: 'text-rose-500 dark:text-rose-300' },
-            { label: t('dashboard.insights.net'), value: monthInsights.net, tone: monthInsights.net >= 0 ? 'text-violet-600 dark:text-violet-300' : 'text-orange-500 dark:text-orange-300' },
-          ].map(item => (
-            <div key={item.label} className="rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{item.label}</p>
-              <p className={`mt-1 text-lg font-bold tabular-nums ${item.tone}`}>
-                <CompactAmount compact={fmtCompact(item.value)} exact={fmtExact(item.value)} prefix={item.label === t('dashboard.insights.net') && item.value >= 0 ? '+' : ''} />
-              </p>
-            </div>
-          ))}
-          <div className="rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{t('dashboard.insights.topCategory')}</p>
-            {monthInsights.topCategory ? (
-              <>
-                <p className="mt-1 truncate text-sm font-bold text-gray-800 dark:text-gray-100">{categoryLabel(monthInsights.topCategory.category)}</p>
-                <p className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400">{fmtCompact(monthInsights.topCategory.amount)}</p>
-              </>
+          </ButtonLink>
+        )}
+        meta={(
+          <>
+            {onlineDeviceCount != null ? (
+              <Badge variant="positive" dot>
+                {t('common.devices', { count: onlineDeviceCount })}
+              </Badge>
+            ) : null}
+            {ratesLoading ? (
+              <Badge>{t('dashboard.hero.exRateLoading')}</Badge>
+            ) : rateDate ? (
+              <Badge variant="accent">
+                <Globe2 className="size-3" />
+                $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)} · {rateDate}
+              </Badge>
             ) : (
-              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('dashboard.insights.noCategory')}</p>
+              <Badge variant="warning">
+                {t('dashboard.hero.exRateFallback')} · $ {rates.USD?.toFixed(2)} · € {rates.EUR?.toFixed(2)}
+              </Badge>
             )}
-          </div>
-        </div>
-      </FinanceCard>
+          </>
+        )}
+      />
 
-      {/* Budget and recurring preview */}
+      <section aria-label={t('dashboard.balance.balanceLabel')} className="grid grid-cols-2 gap-3">
+        {isWorkMode ? (
+          <>
+            <StatTile
+              label={t('dashboard.balance.public')}
+              value={<CompactAmount compact={fmtCompact(companyBalance)} exact={fmtExact(companyBalance)} />}
+              hint={t('dashboard.balance.balanceLabel')}
+              icon={<WalletCards />}
+            />
+            <StatTile
+              label={t('dashboard.balance.personalPending')}
+              value={<CompactAmount compact={fmtCompact(personalOutstanding)} exact={fmtExact(personalOutstanding)} />}
+              hint={t('dashboard.balance.pendingLabel')}
+              icon={<Upload />}
+              tone="warning"
+            />
+          </>
+        ) : (
+          <>
+            <StatTile
+              label={t('dashboard.balance.personalAdvance')}
+              value={<CompactAmount compact={fmtCompact(personalBalance)} exact={fmtExact(personalBalance)} />}
+              hint={t('dashboard.balance.balanceLabel')}
+              icon={<Sparkles />}
+              tone="positive"
+            />
+            <StatTile
+              label={t('transactions.summary.expense')}
+              value={<CompactAmount compact={fmtCompact(personalTotalExpense)} exact={fmtExact(personalTotalExpense)} />}
+              hint={t('dashboard.balance.lifeExpenseLabel')}
+              icon={<BarChart3 />}
+              tone="negative"
+            />
+          </>
+        )}
+      </section>
+
+      <section aria-labelledby="dashboard-insights-title" className="space-y-3">
+        <div>
+          <h2 id="dashboard-insights-title" className="text-sm font-semibold text-foreground">
+            {t('dashboard.insights.title')}
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.insights.subtitle')}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile
+            label={t('dashboard.insights.income')}
+            value={<CompactAmount compact={fmtCompact(monthInsights.income)} exact={fmtExact(monthInsights.income)} />}
+            tone="positive"
+          />
+          <StatTile
+            label={t('dashboard.insights.expense')}
+            value={<CompactAmount compact={fmtCompact(monthInsights.expense)} exact={fmtExact(monthInsights.expense)} />}
+            tone="negative"
+          />
+          <StatTile
+            label={t('dashboard.insights.net')}
+            value={(
+              <CompactAmount
+                compact={fmtCompact(monthInsights.net)}
+                exact={fmtExact(monthInsights.net)}
+                prefix={monthInsights.net >= 0 ? '+' : ''}
+              />
+            )}
+            tone={monthInsights.net >= 0 ? 'positive' : 'negative'}
+          />
+          <StatTile
+            label={t('dashboard.insights.topCategory')}
+            value={monthInsights.topCategory
+              ? categoryLabel(monthInsights.topCategory.category)
+              : t('dashboard.insights.noCategory')}
+            hint={monthInsights.topCategory ? fmtCompact(monthInsights.topCategory.amount) : undefined}
+          />
+        </div>
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-2">
-        <FinanceCard interactive>
-          <SectionHeader
-            title={t('dashboard.budgetCard.title')}
-            subtitle={t('dashboard.budgetCard.subtitle')}
-            action={<Link to="/budgets" className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25">{t('dashboard.budgetCard.action')}</Link>}
-          />
-          {budgetSummary?.total_budget ? (
-            <div className="space-y-3">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('budgets.actual')}</p>
-                  <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{fmtCompact(budgetSummary.total_budget.actual_yuan)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('budgets.planned')}</p>
-                  <p className="text-sm font-semibold tabular-nums text-gray-600 dark:text-gray-300">{fmtCompact(budgetSummary.total_budget.budget.base_amount_yuan)}</p>
-                </div>
-              </div>
-              <ProgressBar value={budgetSummary.total_budget.usage_ratio} tone={budgetSummary.total_budget.status === 'over' ? 'danger' : budgetSummary.total_budget.status === 'warning' ? 'warning' : 'success'} />
-              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500">
-                <span>{Math.round(budgetSummary.total_budget.usage_ratio * 100)}%</span>
-                <span>{budgetSummary.total_budget.remaining_yuan < 0 ? t('budgets.overBy') : t('budgets.remaining')}: {fmtCompact(Math.abs(budgetSummary.total_budget.remaining_yuan))}</span>
-              </div>
-            </div>
-          ) : (
-            <EmptyState title={t('dashboard.budgetCard.emptyTitle')} description={t('dashboard.budgetCard.emptyDesc')} />
-          )}
-        </FinanceCard>
-        <FinanceCard interactive>
-          <SectionHeader
-            title={t('dashboard.recurringCard.title')}
-            subtitle={t('dashboard.recurringCard.subtitle')}
-            action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>}
-          />
-          {recurringRules.length > 0 ? (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm leading-relaxed text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-                {nextRecurringRule
-                  ? t('dashboard.recurringCard.next', { name: nextRecurringRule.name, time: nextRecurringRule.next_occurred_at })
-                  : t('dashboard.recurringCard.desc')}
-              </div>
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500">{t('dashboard.recurringCard.activeCount', { count: recurringRules.filter(rule => rule.status === 'active').length })}</p>
-            </div>
-          ) : (
-            <EmptyState title={t('dashboard.recurringCard.emptyTitle')} description={t('dashboard.recurringCard.emptyDesc')} action={<Link to="/recurring" className="rounded-lg bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-100 dark:bg-cyan-500/15 dark:text-cyan-300 dark:hover:bg-cyan-500/25">{t('dashboard.recurringCard.action')}</Link>} />
-          )}
-        </FinanceCard>
-      </div>
-
-      {/* Pending action hints */}
-      {hasPending && (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.pending.title')}</h2>
-            {pendingAnalysis.headerHint && (
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">{pendingAnalysis.headerHint}</span>
-            )}
-          </div>
-          <div className="space-y-2">
-            {notUploaded.length > 0 && (
-              <Link to="/transactions?source=personal" className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 hover:border-amber-300 dark:hover:border-amber-400/40 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><IconUpload /></span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{notUploaded.length} {t('transactions.badges.notUploaded')}</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400/70 mt-0.5">{pendingAnalysis.notUploadedSub}</p>
-                </div>
-                <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </Link>
-            )}
-            {uploadedNotReimbursed.length > 0 && (
-              <Link to="/match" className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-100 dark:border-violet-500/20 hover:border-violet-300 dark:hover:border-violet-400/40 transition-colors">
-                <span className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0"><IconSearch /></span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-violet-800 dark:text-violet-300">{uploadedNotReimbursed.length} {t('transactions.badges.pending')}</p>
-                  <p className="text-xs text-violet-600 dark:text-violet-400/70 mt-0.5">{pendingAnalysis.uploadedNotReimbursedSub}</p>
-                </div>
-                <svg className="w-4 h-4 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
-      {allClear && (
-        <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0"><IconCheck /></span>
+        <Card>
+          <CardHeader>
             <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                {t('dashboard.pending.noPending')}
-              </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                {t('dashboard.pending.tip')}
-              </p>
+              <CardTitle>{t('dashboard.budgetCard.title')}</CardTitle>
+              <CardDescription>{t('dashboard.budgetCard.subtitle')}</CardDescription>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Feature guide */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
-        <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-4 tracking-wide">{t('dashboard.featureNavTitle')}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {featureCards.map((f) => (
-            <AnimatedCard
-              key={f.to}
-              className="rounded-2xl"
-            >
-              <Link
-                to={f.to}
-                className="flex items-start gap-3 p-4 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 transition-all hover:border-violet-200 dark:hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-100/30 dark:hover:shadow-violet-900/20 group bg-white dark:bg-transparent"
-              >
-                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${f.iconBg} transition-transform group-hover:scale-105`}>
-                  <f.Icon />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t(f.titleKey)}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(f.descKey)}</p>
+            <ButtonLink to="/budgets" variant="ghost" size="sm">
+              {t('dashboard.budgetCard.action')}
+              <ArrowRight className="size-3.5" />
+            </ButtonLink>
+          </CardHeader>
+          <CardContent>
+            {budgetSummary?.total_budget ? (
+              <div className="space-y-3">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">{t('budgets.actual')}</p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+                      {fmtCompact(budgetSummary.total_budget.actual_yuan)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-medium text-muted-foreground">{t('budgets.planned')}</p>
+                    <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                      {fmtCompact(budgetSummary.total_budget.budget.base_amount_yuan)}
+                    </p>
+                  </div>
                 </div>
-              </Link>
-            </AnimatedCard>
-          ))}
-        </div>
+                <ProgressBar
+                  label={t('dashboard.budgetCard.title')}
+                  value={budgetSummary.total_budget.usage_ratio * 100}
+                  tone={budgetTone}
+                />
+                <div className="flex justify-between gap-3 text-xs text-muted-foreground">
+                  <span>{Math.round(budgetSummary.total_budget.usage_ratio * 100)}%</span>
+                  <span className="text-right">
+                    {budgetSummary.total_budget.remaining_yuan < 0 ? t('budgets.overBy') : t('budgets.remaining')}:{' '}
+                    {fmtCompact(Math.abs(budgetSummary.total_budget.remaining_yuan))}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <EmptyState
+                className="bg-background py-7"
+                title={t('dashboard.budgetCard.emptyTitle')}
+                description={t('dashboard.budgetCard.emptyDesc')}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t('dashboard.recurringCard.title')}</CardTitle>
+              <CardDescription>{t('dashboard.recurringCard.subtitle')}</CardDescription>
+            </div>
+            <ButtonLink to="/recurring" variant="ghost" size="sm">
+              {t('dashboard.recurringCard.action')}
+              <ArrowRight className="size-3.5" />
+            </ButtonLink>
+          </CardHeader>
+          <CardContent>
+            {recurringRules.length > 0 ? (
+              <div className="rounded-lg border border-border bg-background p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-mode-soft text-mode">
+                    <Repeat2 className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm leading-relaxed text-foreground">
+                      {nextRecurringRule
+                        ? t('dashboard.recurringCard.next', {
+                          name: nextRecurringRule.name,
+                          time: nextRecurringRule.next_occurred_at,
+                        })
+                        : t('dashboard.recurringCard.desc')}
+                    </p>
+                    <p className="mt-2 text-xs font-medium text-muted-foreground">
+                      {t('dashboard.recurringCard.activeCount', { count: activeRecurringCount })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <EmptyState
+                className="bg-background py-7"
+                title={t('dashboard.recurringCard.emptyTitle')}
+                description={t('dashboard.recurringCard.emptyDesc')}
+                action={(
+                  <ButtonLink to="/recurring" variant="outline" size="sm">
+                    {t('dashboard.recurringCard.action')}
+                  </ButtonLink>
+                )}
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Workflow guide — timeline style with tabs */}
-      <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm hover:shadow-md transition-shadow">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
-          <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide">{t('dashboard.workflowTitle')}</h2>
-          {isWorkMode && (
-            <div className="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800/60">
+      {hasPending ? (
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t('dashboard.pending.title')}</CardTitle>
+              {pendingAnalysis.headerHint ? (
+                <CardDescription>{pendingAnalysis.headerHint}</CardDescription>
+              ) : null}
+            </div>
+            <Badge variant="warning">{pendingTxs.length}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {notUploaded.length > 0 ? (
+              <Link
+                to="/transactions?source=personal"
+                className="group flex items-center gap-3 rounded-lg border border-warning/25 bg-warning-soft p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-warning ring-1 ring-warning/20">
+                  <Upload className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {notUploaded.length} {t('transactions.badges.notUploaded')}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{pendingAnalysis.notUploadedSub}</p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : null}
+            {uploadedNotReimbursed.length > 0 ? (
+              <Link
+                to="/match"
+                className="group flex items-center gap-3 rounded-lg border border-accent/25 bg-accent-soft p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-accent ring-1 ring-accent/20">
+                  <SearchCheck className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {uploadedNotReimbursed.length} {t('transactions.badges.pending')}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {pendingAnalysis.uploadedNotReimbursedSub}
+                  </p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {allClear ? (
+        <Alert variant="positive" className="items-start p-4">
+          <CircleCheck className="mt-0.5 size-4 shrink-0" />
+          <div>
+            <p className="font-medium">{t('dashboard.pending.noPending')}</p>
+            <p className="mt-0.5 text-xs opacity-80">{t('dashboard.pending.tip')}</p>
+          </div>
+        </Alert>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{t('dashboard.featureNavTitle')}</CardTitle>
+            <CardDescription>{t('dashboard.workflowTitle')}</CardDescription>
+          </div>
+          {isWorkMode ? (
+            <Segmented aria-label={t('dashboard.workflowTitle')}>
               {(['company', 'personal'] as const).map((source) => (
-                <button
+                <SegmentedButton
                   key={source}
-                  type="button"
                   onClick={() => setWorkWorkflowTab(source)}
                   aria-pressed={workflowTab === source}
-                  className={`rounded-md px-2.5 py-1 text-[10px] font-bold transition-colors ${workflowTab === source
-                    ? source === 'company'
-                      ? 'bg-white text-sky-600 shadow-sm dark:bg-gray-700 dark:text-sky-400'
-                      : 'bg-white text-amber-600 shadow-sm dark:bg-gray-700 dark:text-amber-400'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                  }`}
+                  className="max-w-36 truncate"
                 >
-                  {source === 'company' ? t('dashboard.workflow.companyTitle') : t('dashboard.workflow.personalTitle')}
-                </button>
+                  {source === 'company'
+                    ? t('dashboard.workflow.companyTitle')
+                    : t('dashboard.workflow.personalTitle')}
+                </SegmentedButton>
               ))}
-            </div>
-          )}
-        </div>
+            </Segmented>
+          ) : null}
+        </CardHeader>
 
-        {/* Personal flow */}
-        {workflowTab === 'personal' && (
-          <div className="space-y-0">
-            {([
-              { step: '1', Icon: IconPen, titleKey: isWorkMode ? 'dashboard.workflow.personalStep1' : 'dashboard.workflow.personalLifeStep1', descKey: isWorkMode ? 'dashboard.workflow.personalDesc1' : 'dashboard.workflow.personalLifeDesc1', color: 'amber' },
-              { step: '2', Icon: IconUpload, titleKey: isWorkMode ? 'dashboard.workflow.personalStep2' : 'dashboard.workflow.personalLifeStep2', descKey: isWorkMode ? 'dashboard.workflow.personalDesc2' : 'dashboard.workflow.personalLifeDesc2', color: 'amber' },
-              { step: '3', Icon: IconSearch, titleKey: isWorkMode ? 'dashboard.workflow.personalStep3' : 'dashboard.workflow.personalLifeStep3', descKey: isWorkMode ? 'dashboard.workflow.personalDesc3' : 'dashboard.workflow.personalLifeDesc3', color: 'amber' },
-              { step: '4', Icon: IconCheck, titleKey: isWorkMode ? 'dashboard.workflow.personalStep4' : 'dashboard.workflow.personalLifeStep4', descKey: isWorkMode ? 'dashboard.workflow.personalDesc4' : 'dashboard.workflow.personalLifeDesc4', color: 'amber' },
-            ] as const).map((s, i, arr) => (
-              <div key={s.step} className="flex gap-3">
-                {/* Timeline spine */}
-                <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    <s.Icon />
+        <CardContent className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+          <nav className="grid gap-2 sm:grid-cols-2" aria-label={t('dashboard.featureNavTitle')}>
+            {featureCards.map((feature) => (
+              <Link
+                key={feature.to}
+                to={feature.to}
+                className="group flex min-h-24 items-start gap-3 rounded-lg border border-border bg-background p-3 transition-colors hover:border-input hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-mode ring-1 ring-border">
+                  <feature.Icon className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">{t(feature.titleKey)}</p>
+                    <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
-                  {i < arr.length - 1 && <div className="w-px flex-1 bg-amber-200/60 dark:bg-amber-500/20 my-1" />}
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t(feature.descKey)}</p>
                 </div>
-                {/* Content */}
-                <div className={`pb-4 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-amber-500/60 dark:text-amber-400/50">STEP {s.step}</span>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t(s.titleKey)}</p>
-                  </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(s.descKey)}</p>
-                </div>
-              </div>
+              </Link>
             ))}
-          </div>
-        )}
+          </nav>
 
-        {/* Company flow */}
-        {isWorkMode && workflowTab === 'company' && (
-          <div className="space-y-0">
-            {([
-              { step: '1', Icon: IconPen, titleKey: 'dashboard.workflow.companyStep1', descKey: 'dashboard.workflow.companyDesc1', color: 'sky' },
-              { step: '2', Icon: IconUpload, titleKey: 'dashboard.workflow.companyStep2', descKey: 'dashboard.workflow.companyDesc2', color: 'sky' },
-              { step: '3', Icon: IconCheck, titleKey: 'dashboard.workflow.companyStep3', descKey: 'dashboard.workflow.companyDesc3', color: 'sky' },
-            ] as const).map((s, i, arr) => (
-              <div key={s.step} className="flex gap-3">
-                {/* Timeline spine */}
+          <ol className="space-y-0" aria-label={t('dashboard.workflowTitle')}>
+            {workflowSteps.map((step, index) => (
+              <li key={step.step} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                    <s.Icon />
-                  </div>
-                  {i < arr.length - 1 && <div className="w-px flex-1 bg-sky-200/60 dark:bg-sky-500/20 my-1" />}
+                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-mode-soft text-mode">
+                    <step.Icon className="size-4" />
+                  </span>
+                  {index < workflowSteps.length - 1 ? (
+                    <span className="my-1 min-h-4 w-px flex-1 bg-border" aria-hidden="true" />
+                  ) : null}
                 </div>
-                {/* Content */}
-                <div className={`pb-4 ${i === arr.length - 1 ? 'pb-0' : ''}`}>
+                <div className={cn('min-w-0 pb-4', index === workflowSteps.length - 1 && 'pb-0')}>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-sky-500/60 dark:text-sky-400/50">STEP {s.step}</span>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t(s.titleKey)}</p>
+                    <span className="font-mono text-[10px] font-semibold text-muted-foreground">{step.step.padStart(2, '0')}</span>
+                    <p className="text-sm font-semibold text-foreground">{t(step.titleKey)}</p>
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 leading-relaxed">{t(s.descKey)}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t(step.descKey)}</p>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
-        )}
-      </div>
+          </ol>
+        </CardContent>
+      </Card>
     </div>
   )
 }

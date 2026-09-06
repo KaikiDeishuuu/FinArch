@@ -141,8 +141,8 @@ FinArch/
 │       └── httpserver/      Embedded static file server
 ├── frontend/src/
 │   ├── api/                 Axios API client
-│   ├── components/          Shared components (Select · DatePicker · Brand …)
-│   ├── contexts/            Auth · ExchangeRate · Config
+│   ├── components/          Shared components and UI primitives (Select · Dialog · Brand …)
+│   ├── contexts/            Auth · Theme · Mode · ExchangeRate · Config
 │   ├── hooks/               useTransactions · useAccounts · useHeartbeat …
 │   ├── motion/              Framer Motion animation system
 │   ├── pages/               Page components
@@ -161,7 +161,7 @@ FinArch/
 | | |
 |---|---|
 | **Backend** | Go 1.26.6 · Gin · SQLite (WAL) |
-| **Frontend** | React 19 · Vite 7 · Tailwind CSS v4 · Framer Motion · Recharts |
+| **Frontend** | React 19 · Vite 8 · Tailwind CSS v4 · Geist + Noto Sans SC · Framer Motion · Recharts |
 | **Deployment** | Docker multi-stage build · GitHub Actions → GHCR → SSH Deploy |
 | **Security** | JWT (HMAC HS256) · HttpOnly refresh sessions · Cloudflare Turnstile · IP rate limiting · Account lockout |
 | **Email** | Resend (verification · reset · email change) |

@@ -19,10 +19,10 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-6 text-center">
-          <div>
+        <div className="flex min-h-screen items-center justify-center bg-background p-6 text-center text-foreground">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
             <h1 className="text-xl font-semibold">Something went wrong.</h1>
-            <p className="mt-2 text-sm text-gray-500">Please refresh and try again.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Please refresh and try again.</p>
           </div>
         </div>
       )

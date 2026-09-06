@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 interface Props {
@@ -11,8 +11,9 @@ interface Props {
 export default function CompactAmount({ compact, exact, className = '', prefix = '' }: Props) {
   const [show, setShow] = useState(false)
   const [pos, setPos] = useState({ x: 0, y: 0 })
-  const triggerRef = useRef<HTMLSpanElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const bubbleRef = useRef<HTMLDivElement>(null)
+  const tooltipId = useId()
   const isAbbreviated = compact !== exact
 
   // Recalculate position from the trigger element
@@ -23,7 +24,6 @@ export default function CompactAmount({ compact, exact, className = '', prefix =
   }, [])
 
   function handleClick(e: React.MouseEvent) {
-    if (!isAbbreviated) return
     e.stopPropagation()
     if (show) { setShow(false); return }
     updatePos()
@@ -51,24 +51,36 @@ export default function CompactAmount({ compact, exact, className = '', prefix =
 
   return (
     <>
-      <span
-        ref={triggerRef}
-        title={isAbbreviated ? exact : undefined}
-        onClick={handleClick}
-        className={[className, isAbbreviated ? 'cursor-pointer select-none' : ''].join(' ')}
-        style={isAbbreviated ? {
-          textDecoration: 'underline',
-          textDecorationStyle: 'dotted',
-          textUnderlineOffset: '3px',
-          textDecorationColor: 'currentColor',
-        } : {}}
-      >
-        {prefix}{compact}
-      </span>
+      {isAbbreviated ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          title={exact}
+          aria-label={`${prefix}${exact}`}
+          aria-describedby={show ? tooltipId : undefined}
+          aria-expanded={show}
+          onClick={handleClick}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !show) return
+            event.stopPropagation()
+            setShow(false)
+          }}
+          className={[
+            className,
+            'cursor-pointer select-none rounded-sm bg-transparent p-0 font-inherit text-inherit underline decoration-dotted underline-offset-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          ].join(' ')}
+        >
+          {prefix}{compact}
+        </button>
+      ) : (
+        <span className={className}>{prefix}{compact}</span>
+      )}
 
       {show && createPortal(
         <div
           ref={bubbleRef}
+          id={tooltipId}
+          role="tooltip"
           style={{
             position: 'fixed',
             left: pos.x,
@@ -76,15 +88,13 @@ export default function CompactAmount({ compact, exact, className = '', prefix =
             transform: 'translate(-50%, -100%)',
             zIndex: 9999,
           }}
-          className="bg-gray-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap pointer-events-auto"
+          className="pointer-events-auto whitespace-nowrap rounded-lg bg-foreground px-3 py-1.5 text-xs font-medium text-background shadow-lg"
         >
           {prefix}{exact}
-          <div style={{
-            position: 'absolute', bottom: -4, left: '50%',
-            transform: 'translateX(-50%)', width: 0, height: 0,
-            borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-            borderTop: '5px solid #111827',
-          }} />
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-1 left-1/2 size-2 -translate-x-1/2 rotate-45 bg-foreground"
+          />
         </div>,
         document.body
       )}

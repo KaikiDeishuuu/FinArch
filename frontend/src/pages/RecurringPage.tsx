@@ -1,9 +1,16 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { CalendarClock, History, Pencil, Play, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import Select from '../components/Select'
-import { EmptyState, FinanceCard, SectionHeader } from '../components/FinancePrimitives'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader } from '../components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { EmptyState } from '../components/ui/empty-state'
+import { Field, Input } from '../components/ui/input'
+import { PageHeader } from '../components/ui/page-header'
 import { useAccounts } from '../hooks/useAccounts'
 import { useMode } from '../hooks/useMode'
 import { useRecurringInstances, useRecurringMutations, useRecurringPreview, useRecurringRules } from '../hooks/useRecurringRules'
@@ -143,26 +150,26 @@ function HistoryPanel({ ruleId }: { ruleId: string }) {
   const { t } = useTranslation()
   const { data: instances = [], isLoading } = useRecurringInstances(ruleId)
   return (
-    <div className="mt-3 rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/45">
-      <p className="mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400">{t('recurring.history')}</p>
+    <div className="mt-3 rounded-lg border border-border bg-card p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <History className="size-3.5" />
+        {t('recurring.history')}
+      </p>
       {isLoading ? (
-        <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+        <div className="h-10 animate-pulse rounded-lg bg-muted" />
       ) : instances.length === 0 ? (
-        <p className="text-xs text-gray-400 dark:text-gray-500">{t('recurring.noHistory')}</p>
+        <p className="text-xs text-muted-foreground">{t('recurring.noHistory')}</p>
       ) : (
         <div className="space-y-2">
           {instances.slice(0, 5).map((item) => (
-            <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg bg-white px-3 py-2 text-xs dark:bg-gray-900/40">
+            <div key={item.id} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-xs">
               <div>
-                <p className="font-semibold text-gray-700 dark:text-gray-200">{item.occurrence_date}</p>
-                {item.error && <p className="mt-0.5 text-rose-500 dark:text-rose-300">{item.error}</p>}
+                <p className="font-medium text-foreground tabular-nums">{item.occurrence_date}</p>
+                {item.error ? <p className="mt-0.5 text-negative">{item.error}</p> : null}
               </div>
-              <span className={`rounded-full px-2 py-0.5 font-bold ${item.status === 'generated'
-                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300'
-                : item.status === 'failed'
-                  ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300'
-                  : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-              }`}>{t(`recurring.instanceStatus.${item.status}`)}</span>
+              <Badge variant={item.status === 'generated' ? 'positive' : item.status === 'failed' ? 'negative' : 'neutral'} dot>
+                {t(`recurring.instanceStatus.${item.status}`)}
+              </Badge>
             </div>
           ))}
         </div>
@@ -180,6 +187,7 @@ export default function RecurringPage() {
   const activeAccounts = useMemo(() => accounts.filter(a => a.is_active && a.type === (isWorkMode ? 'public' : 'personal')), [accounts, isWorkMode])
   const [form, setForm] = useState<RecurringFormState>(() => defaultForm())
   const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<RecurringRule | null>(null)
 
   const previewRequest = useMemo(() => buildRequest({ ...form, account_id: form.account_id || activeAccounts[0]?.id || '' }), [activeAccounts, form])
   const previewEnabled = Boolean((form.account_id || activeAccounts[0]?.id) && form.category && Number(form.amount_yuan) > 0 && form.start_date)
@@ -250,10 +258,10 @@ export default function RecurringPage() {
   }
 
   async function removeRule(rule: RecurringRule) {
-    if (!window.confirm(t('recurring.confirmDelete', { name: rule.name }))) return
     try {
       await mutations.remove.mutateAsync(rule.id)
       if (form.id === rule.id) resetForm()
+      setDeleteTarget(null)
       toast.success(t('recurring.toast.deleted'))
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -261,197 +269,183 @@ export default function RecurringPage() {
     }
   }
 
-  const inputClass = 'w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition-all placeholder:text-gray-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-500/15 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-100 dark:placeholder:text-gray-500'
-  const labelClass = 'mb-1.5 block text-xs font-semibold text-gray-500 dark:text-gray-400'
+  const labelClass = 'mb-1.5 block text-xs font-medium text-muted-foreground'
 
   return (
-    <div className="space-y-5 md:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{t('recurring.title')}</h1>
-          <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">{t('recurring.subtitle')}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:min-w-[18rem]">
-          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800/50 dark:bg-[hsl(260,15%,11%)]">
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">{t('recurring.summary.active')}</p>
-            <p className="mt-1 text-xl font-bold text-violet-600 dark:text-violet-300">{rules.filter(r => r.status === 'active').length}</p>
-          </div>
-          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800/50 dark:bg-[hsl(260,15%,11%)]">
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">{t('recurring.summary.failed')}</p>
-            <p className="mt-1 text-xl font-bold text-rose-500 dark:text-rose-300">{failedCount}</p>
-          </div>
-        </div>
-      </div>
-
-      <FinanceCard>
-        <SectionHeader title={form.id ? t('recurring.form.editTitle') : t('recurring.form.createTitle')} subtitle={t('recurring.form.subtitle')} />
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div>
-              <label className={labelClass}>{t('recurring.form.name')}</label>
-              <input className={inputClass} value={form.name} onChange={(e) => update('name', e.target.value)} placeholder={t('recurring.form.namePlaceholder')} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.account')}</label>
-              <Select
-                value={form.account_id || activeAccounts[0]?.id || ''}
-                onChange={(v) => update('account_id', v)}
-                size="lg"
-                options={activeAccounts.map(account => ({ value: account.id, label: `${account.name} · ${account.currency}` }))}
-                disabled={activeAccounts.length === 0}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.direction')}</label>
-              <Select
-                value={form.direction}
-                onChange={(v) => update('direction', v as 'income' | 'expense')}
-                size="lg"
-                options={[{ value: 'expense', label: t('common.expense') }, { value: 'income', label: t('common.income') }]}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr]">
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.amount')}</label>
-              <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1 dark:border-gray-700 dark:bg-gray-800/80">
-                <span className="text-sm font-bold text-gray-400">{CURRENCY_SYMBOLS[form.currency] ?? form.currency}</span>
-                <input type="number" min="0.01" step="0.01" className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-gray-800 outline-none dark:text-gray-100" value={form.amount_yuan} onChange={(e) => update('amount_yuan', e.target.value)} placeholder="0.00" />
-                <div className="w-20 shrink-0">
-                  <Select value={form.currency} onChange={(v) => update('currency', v)} size="sm" options={SUPPORTED_CURRENCIES.map(c => ({ value: c.code, label: c.code }))} />
-                </div>
-              </div>
-            </div>
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.category')}</label>
-              <Select value={CATEGORY_KEYS.includes(form.category as typeof CATEGORY_KEYS[number]) ? form.category : ''} onChange={(v) => { update('category', v); update('custom_category', '') }} size="lg" options={CATEGORY_KEYS.map(c => ({ value: c, label: categoryLabel(c) }))} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.custom')}</label>
-              <input className={inputClass} value={form.custom_category} onChange={(e) => { update('custom_category', e.target.value); if (e.target.value.trim()) update('category', e.target.value.trim()) }} placeholder={t('addTransaction.form.customPlaceholder')} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            <div>
-              <label className={labelClass}>{t('recurring.form.frequency')}</label>
-              <Select value={form.frequency} onChange={(v) => update('frequency', v as RecurringFrequency)} size="lg" options={(['daily', 'weekly', 'monthly', 'yearly'] as RecurringFrequency[]).map(freq => ({ value: freq, label: t(`recurring.frequency.${freq}`) }))} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('recurring.form.interval')}</label>
-              <input type="number" min="1" step="1" className={inputClass} value={form.interval} onChange={(e) => update('interval', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('recurring.form.startDate')}</label>
-              <input type="date" className={inputClass} value={form.start_date} onChange={(e) => update('start_date', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('recurring.form.timeOfDay')}</label>
-              <input type="time" className={inputClass} value={form.time_of_day} onChange={(e) => update('time_of_day', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            <div>
-              <label className={labelClass}>{t('recurring.form.endDate')}</label>
-              <input type="date" className={inputClass} value={form.end_date} onChange={(e) => update('end_date', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('recurring.form.timezone')}</label>
-              <input className={inputClass} value={form.timezone} onChange={(e) => update('timezone', e.target.value)} placeholder="Asia/Shanghai" />
-            </div>
-            <div>
-              <label className={labelClass}>{t('recurring.form.weekday')}</label>
-              <Select value={form.day_of_week} onChange={(v) => update('day_of_week', v)} size="lg" disabled={form.frequency !== 'weekly'} options={WEEKDAYS.map(day => ({ value: String(day), label: t(`recurring.weekdays.${day}`) }))} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('recurring.form.monthDay')}</label>
-              <input type="number" min="1" max="31" className={inputClass} disabled={form.frequency !== 'monthly' && form.frequency !== 'yearly'} value={form.day_of_month} onChange={(e) => update('day_of_month', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr]">
-            <div>
-              <label className={labelClass}>{t('recurring.form.monthEndPolicy')}</label>
-              <Select value={form.month_end_policy} onChange={(v) => update('month_end_policy', v as MonthEndPolicy)} size="lg" options={[{ value: 'clamp', label: t('recurring.monthEndPolicy.clamp') }, { value: 'skip', label: t('recurring.monthEndPolicy.skip') }]} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.project')} <span className="font-normal text-gray-300">{t('addTransaction.form.optional')}</span></label>
-              <input className={inputClass} value={form.project_id} onChange={(e) => update('project_id', e.target.value)} placeholder={t('addTransaction.form.projectPlaceholder')} />
-            </div>
-            <div>
-              <label className={labelClass}>{t('addTransaction.form.note')} <span className="font-normal text-gray-300">{t('addTransaction.form.optional')}</span></label>
-              <input className={inputClass} value={form.note} onChange={(e) => update('note', e.target.value)} placeholder={t('addTransaction.form.notePlaceholder')} />
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-            <input type="checkbox" checked={form.catch_up_enabled} onChange={(e) => update('catch_up_enabled', e.target.checked)} className="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
-            {t('recurring.form.catchUp')}
-          </label>
-
-          <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3 dark:border-violet-500/30 dark:bg-violet-500/10">
-            <p className="mb-2 text-xs font-semibold text-violet-700 dark:text-violet-300">{t('recurring.previewTitle')}</p>
-            {preview.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {preview.map((item) => <span key={item.occurrence_date} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-violet-600 shadow-sm dark:bg-gray-900/50 dark:text-violet-300">{item.occurred_at}</span>)}
-              </div>
-            ) : (
-              <p className="text-xs text-violet-500/70 dark:text-violet-300/70">{t('recurring.previewEmpty')}</p>
-            )}
-          </div>
-
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            {form.id && <button type="button" onClick={resetForm} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">{t('common.cancel')}</button>}
-            <button type="submit" disabled={mutations.create.isPending || mutations.update.isPending || activeAccounts.length === 0} className="rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition-all hover:from-violet-700 hover:to-purple-700 disabled:opacity-50">
-              {mutations.create.isPending || mutations.update.isPending ? t('common.saving') : form.id ? t('common.save') : t('common.add')}
-            </button>
-          </div>
-        </form>
-      </FinanceCard>
-
-      <FinanceCard>
-        <SectionHeader
-          title={t('recurring.listTitle')}
-          subtitle={nextRule ? t('recurring.nextDue', { name: nextRule.name, time: nextRule.next_occurred_at }) : t('recurring.noNextDue')}
-        />
-        {isLoading ? (
-          <div className="h-24 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800" />
-        ) : rules.length === 0 ? (
-          <EmptyState title={t('recurring.empty.title')} description={t('recurring.empty.desc')} />
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {rules.map(rule => (
-              <div key={rule.id} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-800/60 dark:bg-gray-800/30">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="truncate text-sm font-bold text-gray-900 dark:text-gray-100">{rule.name}</h3>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${rule.status === 'active' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>{t(`recurring.status.${rule.status}`)}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{formatSchedule(rule, t)} · {rule.next_occurred_at}</p>
-                  </div>
-                  <p className={`shrink-0 text-base font-bold ${rule.direction === 'income' ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-500 dark:text-rose-300'}`}>{rule.direction === 'income' ? '+' : '−'}{formatAmount(rule.amount_yuan, rule.currency)}</p>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="rounded-lg bg-white px-2 py-1 font-semibold text-gray-600 dark:bg-gray-900/45 dark:text-gray-300">{categoryLabel(rule.category)}</span>
-                  {rule.project_id && <span className="rounded-lg bg-purple-50 px-2 py-1 font-semibold text-purple-600 dark:bg-purple-500/15 dark:text-purple-300">{rule.project_id}</span>}
-                  {rule.note && <span className="min-w-0 truncate rounded-lg bg-white px-2 py-1 text-gray-400 dark:bg-gray-900/45 dark:text-gray-500">{rule.note}</span>}
-                </div>
-                <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800/60">
-                  <button type="button" onClick={() => setExpandedRuleId(expandedRuleId === rule.id ? null : rule.id)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-white dark:text-gray-300 dark:hover:bg-gray-800">{expandedRuleId === rule.id ? t('common.collapse') : t('recurring.history')}</button>
-                  <button type="button" onClick={() => generateNow(rule)} disabled={mutations.generateNow.isPending} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-50 disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-500/10">{t('recurring.generateNow')}</button>
-                  <button type="button" onClick={() => toggleStatus(rule)} disabled={mutations.setStatus.isPending || rule.status === 'ended'} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:text-amber-300 dark:hover:bg-amber-500/10">{rule.status === 'active' ? t('recurring.pause') : t('recurring.resume')}</button>
-                  <button type="button" onClick={() => startEdit(rule)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-500/10">{t('common.edit')}</button>
-                  <button type="button" onClick={() => removeRule(rule)} disabled={mutations.remove.isPending} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-500 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-500/10">{t('common.delete')}</button>
-                </div>
-                {expandedRuleId === rule.id && <HistoryPanel ruleId={rule.id} />}
-              </div>
-            ))}
+    <div className="space-y-6">
+      <PageHeader
+        title={t('recurring.title')}
+        description={t('recurring.subtitle')}
+        actions={(
+          <div className="grid min-w-64 grid-cols-2 gap-2">
+            <Card className="p-3 shadow-none">
+              <p className="text-[11px] font-medium text-muted-foreground">{t('recurring.summary.active')}</p>
+              <p className="mt-1 text-xl font-semibold text-positive tabular-nums">{rules.filter(r => r.status === 'active').length}</p>
+            </Card>
+            <Card className="p-3 shadow-none">
+              <p className="text-[11px] font-medium text-muted-foreground">{t('recurring.summary.failed')}</p>
+              <p className="mt-1 text-xl font-semibold text-negative tabular-nums">{failedCount}</p>
+            </Card>
           </div>
         )}
-      </FinanceCard>
+      />
+
+      <Card>
+        <CardHeader>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">{form.id ? t('recurring.form.editTitle') : t('recurring.form.createTitle')}</h2>
+            <CardDescription>{t('recurring.form.subtitle')}</CardDescription>
+          </div>
+          {form.id ? <Badge variant="accent">{t('common.edit')}</Badge> : null}
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={submit} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label={t('recurring.form.name')}>
+                <Input value={form.name} onChange={(e) => update('name', e.target.value)} placeholder={t('recurring.form.namePlaceholder')} />
+              </Field>
+              <div>
+                <label className={labelClass}>{t('addTransaction.form.account')}</label>
+                <Select aria-label={t('addTransaction.form.account')} value={form.account_id || activeAccounts[0]?.id || ''} onChange={(v) => update('account_id', v)} size="lg" options={activeAccounts.map(account => ({ value: account.id, label: `${account.name} · ${account.currency}` }))} disabled={activeAccounts.length === 0} />
+              </div>
+              <div>
+                <label className={labelClass}>{t('addTransaction.form.direction')}</label>
+                <Select aria-label={t('addTransaction.form.direction')} value={form.direction} onChange={(v) => update('direction', v as 'income' | 'expense')} size="lg" options={[{ value: 'expense', label: t('common.expense') }, { value: 'income', label: t('common.income') }]} />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label htmlFor="recurring-amount" className={labelClass}>{t('addTransaction.form.amount')}</label>
+                <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-card px-3 shadow-xs focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
+                  <span className="text-sm font-semibold text-muted-foreground">{CURRENCY_SYMBOLS[form.currency] ?? form.currency}</span>
+                  <input id="recurring-amount" type="number" min="0.01" step="0.01" className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-foreground outline-none placeholder:text-subtle" value={form.amount_yuan} onChange={(e) => update('amount_yuan', e.target.value)} placeholder="0.00" />
+                  <div className="w-20 shrink-0"><Select aria-label={t('addTransaction.form.currency')} value={form.currency} onChange={(v) => update('currency', v)} size="sm" options={SUPPORTED_CURRENCIES.map(c => ({ value: c.code, label: c.code }))} /></div>
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>{t('addTransaction.form.category')}</label>
+                <Select aria-label={t('addTransaction.form.category')} value={CATEGORY_KEYS.includes(form.category as typeof CATEGORY_KEYS[number]) ? form.category : ''} onChange={(v) => { update('category', v); update('custom_category', '') }} size="lg" options={CATEGORY_KEYS.map(c => ({ value: c, label: categoryLabel(c) }))} />
+              </div>
+              <Field label={t('addTransaction.form.custom')}>
+                <Input value={form.custom_category} onChange={(e) => { update('custom_category', e.target.value); if (e.target.value.trim()) update('category', e.target.value.trim()) }} placeholder={t('addTransaction.form.customPlaceholder')} />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <label className={labelClass}>{t('recurring.form.frequency')}</label>
+                <Select aria-label={t('recurring.form.frequency')} value={form.frequency} onChange={(v) => update('frequency', v as RecurringFrequency)} size="lg" options={(['daily', 'weekly', 'monthly', 'yearly'] as RecurringFrequency[]).map(freq => ({ value: freq, label: t(`recurring.frequency.${freq}`) }))} />
+              </div>
+              <Field label={t('recurring.form.interval')}><Input type="number" min="1" step="1" value={form.interval} onChange={(e) => update('interval', e.target.value)} /></Field>
+              <Field label={t('recurring.form.startDate')}><Input type="date" value={form.start_date} onChange={(e) => update('start_date', e.target.value)} /></Field>
+              <Field label={t('recurring.form.timeOfDay')}><Input type="time" value={form.time_of_day} onChange={(e) => update('time_of_day', e.target.value)} /></Field>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <Field label={t('recurring.form.endDate')}><Input type="date" value={form.end_date} onChange={(e) => update('end_date', e.target.value)} /></Field>
+              <Field label={t('recurring.form.timezone')}><Input value={form.timezone} onChange={(e) => update('timezone', e.target.value)} placeholder="Asia/Shanghai" /></Field>
+              <div>
+                <label className={labelClass}>{t('recurring.form.weekday')}</label>
+                <Select aria-label={t('recurring.form.weekday')} value={form.day_of_week} onChange={(v) => update('day_of_week', v)} size="lg" disabled={form.frequency !== 'weekly'} options={WEEKDAYS.map(day => ({ value: String(day), label: t(`recurring.weekdays.${day}`) }))} />
+              </div>
+              <Field label={t('recurring.form.monthDay')}><Input type="number" min="1" max="31" disabled={form.frequency !== 'monthly' && form.frequency !== 'yearly'} value={form.day_of_month} onChange={(e) => update('day_of_month', e.target.value)} /></Field>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelClass}>{t('recurring.form.monthEndPolicy')}</label>
+                <Select aria-label={t('recurring.form.monthEndPolicy')} value={form.month_end_policy} onChange={(v) => update('month_end_policy', v as MonthEndPolicy)} size="lg" options={[{ value: 'clamp', label: t('recurring.monthEndPolicy.clamp') }, { value: 'skip', label: t('recurring.monthEndPolicy.skip') }]} />
+              </div>
+              <Field label={`${t('addTransaction.form.project')} · ${t('addTransaction.form.optional')}`}><Input value={form.project_id} onChange={(e) => update('project_id', e.target.value)} placeholder={t('addTransaction.form.projectPlaceholder')} /></Field>
+              <Field label={`${t('addTransaction.form.note')} · ${t('addTransaction.form.optional')}`}><Input value={form.note} onChange={(e) => update('note', e.target.value)} placeholder={t('addTransaction.form.notePlaceholder')} /></Field>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <input type="checkbox" checked={form.catch_up_enabled} onChange={(e) => update('catch_up_enabled', e.target.checked)} className="size-4 rounded border-input accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30" />
+              {t('recurring.form.catchUp')}
+            </label>
+
+            <div className="rounded-lg border border-dashed border-accent/35 bg-accent-soft p-3">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-accent"><CalendarClock className="size-3.5" />{t('recurring.previewTitle')}</p>
+              {preview.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {preview.map((item) => <Badge key={item.occurrence_date} variant="accent" className="font-mono">{item.occurred_at}</Badge>)}
+                </div>
+              ) : <p className="text-xs text-muted-foreground">{t('recurring.previewEmpty')}</p>}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              {form.id ? <Button type="button" variant="outline" onClick={resetForm}>{t('common.cancel')}</Button> : null}
+              <Button type="submit" loading={mutations.create.isPending || mutations.update.isPending} loadingText={t('common.saving')} disabled={activeAccounts.length === 0} className="min-w-24">
+                {form.id ? t('common.save') : t('common.add')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">{t('recurring.listTitle')}</h2>
+            <CardDescription>{nextRule ? t('recurring.nextDue', { name: nextRule.name, time: nextRule.next_occurred_at }) : t('recurring.noNextDue')}</CardDescription>
+          </div>
+          <Badge variant="neutral">{rules.length}</Badge>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div role="status" aria-label={t('common.loading')}>
+              <div aria-hidden="true" className="h-28 animate-pulse rounded-lg bg-muted" />
+            </div>
+          ) : rules.length === 0 ? (
+            <EmptyState title={t('recurring.empty.title')} description={t('recurring.empty.desc')} icon={<CalendarClock />} />
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {rules.map(rule => (
+                <section key={rule.id} className="rounded-xl border border-border bg-background p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-sm font-semibold text-foreground">{rule.name}</h3>
+                        <Badge variant={rule.status === 'active' ? 'positive' : 'neutral'} dot>{t(`recurring.status.${rule.status}`)}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatSchedule(rule, t)} · {rule.next_occurred_at}</p>
+                    </div>
+                    <p className={`shrink-0 text-base font-semibold tabular-nums ${rule.direction === 'income' ? 'text-positive' : 'text-negative'}`}>{rule.direction === 'income' ? '+' : '−'}{formatAmount(rule.amount_yuan, rule.currency)}</p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                    <Badge variant="neutral">{categoryLabel(rule.category)}</Badge>
+                    {rule.project_id ? <Badge variant="accent">{rule.project_id}</Badge> : null}
+                    {rule.note ? <span className="min-w-0 truncate text-muted-foreground">{rule.note}</span> : null}
+                  </div>
+                  <div className="mt-4 flex flex-wrap justify-end gap-1 border-t border-border pt-3">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setExpandedRuleId(expandedRuleId === rule.id ? null : rule.id)}><History className="size-3.5" />{expandedRuleId === rule.id ? t('common.collapse') : t('recurring.history')}</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => generateNow(rule)} disabled={mutations.generateNow.isPending}><Play className="size-3.5" />{t('recurring.generateNow')}</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => toggleStatus(rule)} disabled={mutations.setStatus.isPending || rule.status === 'ended'}>{rule.status === 'active' ? t('recurring.pause') : t('recurring.resume')}</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => startEdit(rule)}><Pencil className="size-3.5" />{t('common.edit')}</Button>
+                    <Button type="button" variant="danger" size="sm" onClick={() => setDeleteTarget(rule)} disabled={mutations.remove.isPending}><Trash2 className="size-3.5" />{t('common.delete')}</Button>
+                  </div>
+                  {expandedRuleId === rule.id ? <HistoryPanel ruleId={rule.id} /> : null}
+                </section>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open && !mutations.remove.isPending) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('common.delete')}</DialogTitle>
+            <DialogDescription>{deleteTarget ? t('recurring.confirmDelete', { name: deleteTarget.name }) : ''}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)} disabled={mutations.remove.isPending}>{t('common.cancel')}</Button>
+            <Button type="button" variant="danger" loading={mutations.remove.isPending} loadingText={t('common.loading')} onClick={() => { if (deleteTarget) void removeRule(deleteTarget) }}>{t('common.delete')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
