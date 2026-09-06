@@ -111,6 +111,9 @@ var migrationV32SQL string
 //go:embed migration_v33.sql
 var migrationV33SQL string
 
+//go:embed migration_v34.sql
+var migrationV34SQL string
+
 type schemaMigration struct {
 	version            int
 	sql                string
@@ -227,6 +230,7 @@ func migrateSchema(ctx context.Context, database *sql.DB) error {
 		{version: 31, sql: migrationV31SQL},
 		{version: 32, sql: migrationV32SQL},
 		{version: 33, sql: migrationV33SQL},
+		{version: 34, sql: migrationV34SQL},
 	}
 
 	for _, m := range migrations {
