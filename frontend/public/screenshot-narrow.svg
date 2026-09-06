@@ -1,70 +1,85 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
-  <defs>
-    <linearGradient id="hdr" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0d1b3e"/>
-      <stop offset="100%" stop-color="#1e3a8a"/>
-    </linearGradient>
-    <clipPath id="card1"><rect rx="12" ry="12" width="118" height="70"/></clipPath>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-label="FinArch dashboard preview">
+  <rect width="390" height="844" fill="#F6F7F9"/>
+  <rect width="390" height="70" fill="#FFFFFF"/>
+  <path d="M0 69.5H390" stroke="#E2E6EC"/>
 
-  <!-- Background -->
-  <rect width="390" height="844" fill="#f0f2f5"/>
+  <g transform="translate(16 15)">
+    <rect width="40" height="40" rx="9" fill="#161A22"/>
+    <rect x="6" y="21" width="8" height="12" rx="2" fill="#6B7A99"/>
+    <rect x="16" y="15" width="8" height="18" rx="2" fill="#3D6BE8"/>
+    <rect x="26" y="8" width="8" height="25" rx="2" fill="#2FB37C"/>
+  </g>
+  <text x="68" y="32" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="17" font-weight="600" fill="#161A22">FinArch</text>
+  <text x="68" y="50" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="11" fill="#5D6572">WORK · 财务工作台</text>
+  <rect x="319" y="21" width="55" height="28" rx="7" fill="#EEF1F5"/>
+  <text x="346.5" y="39" text-anchor="middle" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" font-weight="600" fill="#161A22">更多</text>
 
-  <!-- Header -->
-  <rect width="390" height="64" fill="url(#hdr)"/>
-  <text x="20" y="36" font-family="sans-serif" font-weight="bold" font-size="20" fill="white">FinArch</text>
-  <text x="20" y="54" font-family="sans-serif" font-size="12" fill="#93c5fd">记账 · 报销 · 统计</text>
+  <text x="16" y="106" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="20" font-weight="600" fill="#161A22">财务概览</text>
+  <text x="16" y="127" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="11" fill="#5D6572">清晰掌握资金、预算和待处理事项</text>
 
-  <!-- Summary cards -->
-  <!-- Income -->
-  <rect x="12" y="80" width="118" height="70" rx="12" fill="#d1fae5"/>
-  <text x="22" y="98"  font-family="sans-serif" font-size="11" fill="#6b7280">总收入</text>
-  <text x="22" y="125" font-family="sans-serif" font-weight="bold" font-size="15" fill="#059669">¥12,340</text>
+  <rect x="16" y="147" width="175" height="92" rx="10" fill="#FFFFFF" stroke="#E2E6EC"/>
+  <text x="29" y="173" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="11" fill="#5D6572">公共账户余额</text>
+  <text x="29" y="205" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="21" font-weight="600" fill="#161A22">¥ 84,260</text>
+  <rect x="29" y="218" width="52" height="4" rx="2" fill="#3D6BE8"/>
 
-  <!-- Expense -->
-  <rect x="136" y="80" width="118" height="70" rx="12" fill="#fee2e2"/>
-  <text x="146" y="98"  font-family="sans-serif" font-size="11" fill="#6b7280">总支出</text>
-  <text x="146" y="125" font-family="sans-serif" font-weight="bold" font-size="15" fill="#dc2626">¥8,720</text>
+  <rect x="199" y="147" width="175" height="92" rx="10" fill="#FFFFFF" stroke="#E2E6EC"/>
+  <text x="212" y="173" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="11" fill="#5D6572">个人垫付余额</text>
+  <text x="212" y="205" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="21" font-weight="600" fill="#161A22">¥ 3,620</text>
+  <rect x="212" y="218" width="52" height="4" rx="2" fill="#0B7A6B"/>
 
-  <!-- Net -->
-  <rect x="260" y="80" width="118" height="70" rx="12" fill="#dbeafe"/>
-  <text x="270" y="98"  font-family="sans-serif" font-size="11" fill="#6b7280">净结余</text>
-  <text x="270" y="125" font-family="sans-serif" font-weight="bold" font-size="15" fill="#2563eb">¥3,620</text>
+  <rect x="16" y="251" width="358" height="118" rx="10" fill="#FFFFFF" stroke="#E2E6EC"/>
+  <text x="29" y="278" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="12" font-weight="600" fill="#161A22">本月概览</text>
+  <path d="M29 291H361" stroke="#E2E6EC"/>
+  <text x="29" y="318" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" fill="#5D6572">收入</text>
+  <text x="29" y="345" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="16" font-weight="600" fill="#1B7F4C">¥ 12,340</text>
+  <text x="142" y="318" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" fill="#5D6572">支出</text>
+  <text x="142" y="345" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="16" font-weight="600" fill="#C93A3F">¥ 8,720</text>
+  <text x="255" y="318" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" fill="#5D6572">待报销</text>
+  <text x="255" y="345" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="16" font-weight="600" fill="#161A22">¥ 1,880</text>
 
-  <!-- Transaction list -->
-  <!-- Row 1 -->
-  <rect x="12" y="168" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="190" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">差旅费</text>
-  <text x="22" y="210" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-28  ·  差旅</text>
-  <text x="300" y="199" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥1,200</text>
+  <text x="16" y="404" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="13" font-weight="600" fill="#161A22">近期交易</text>
+  <g font-family="Geist, 'Noto Sans SC', sans-serif">
+    <g transform="translate(16 419)">
+      <rect width="358" height="64" rx="9" fill="#FFFFFF" stroke="#E2E6EC"/>
+      <rect x="13" y="13" width="38" height="38" rx="8" fill="#EEF1F5"/>
+      <text x="32" y="37" text-anchor="middle" font-size="10" font-weight="600" fill="#161A22">差旅</text>
+      <text x="64" y="27" font-size="12" font-weight="600" fill="#161A22">差旅费</text>
+      <text x="64" y="46" font-size="10" fill="#5D6572">9 月 5 日 · 差旅</text>
+      <text x="343" y="36" text-anchor="end" font-size="13" font-weight="600" fill="#C93A3F">−¥1,200</text>
+    </g>
+    <g transform="translate(16 491)">
+      <rect width="358" height="64" rx="9" fill="#FFFFFF" stroke="#E2E6EC"/>
+      <rect x="13" y="13" width="38" height="38" rx="8" fill="#E4F4EB"/>
+      <text x="32" y="37" text-anchor="middle" font-size="10" font-weight="600" fill="#1B7F4C">收入</text>
+      <text x="64" y="27" font-size="12" font-weight="600" fill="#161A22">项目回款</text>
+      <text x="64" y="46" font-size="10" fill="#5D6572">9 月 3 日 · 项目</text>
+      <text x="343" y="36" text-anchor="end" font-size="13" font-weight="600" fill="#1B7F4C">+¥8,000</text>
+    </g>
+    <g transform="translate(16 563)">
+      <rect width="358" height="64" rx="9" fill="#FFFFFF" stroke="#E2E6EC"/>
+      <rect x="13" y="13" width="38" height="38" rx="8" fill="#FBF0DC"/>
+      <text x="32" y="37" text-anchor="middle" font-size="10" font-weight="600" fill="#9A5B00">设备</text>
+      <text x="64" y="27" font-size="12" font-weight="600" fill="#161A22">实验设备</text>
+      <text x="64" y="46" font-size="10" fill="#5D6572">9 月 2 日 · 设备</text>
+      <text x="343" y="36" text-anchor="end" font-size="13" font-weight="600" fill="#C93A3F">−¥2,480</text>
+    </g>
+  </g>
 
-  <!-- Row 2 -->
-  <rect x="12" y="230" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="252" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">工资</text>
-  <text x="22" y="272" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-25  ·  收入</text>
-  <text x="300" y="261" font-family="sans-serif" font-weight="bold" font-size="14" fill="#059669">+¥8,000</text>
+  <rect x="16" y="649" width="358" height="98" rx="10" fill="#FFFFFF" stroke="#E2E6EC"/>
+  <text x="29" y="676" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="12" font-weight="600" fill="#161A22">预算进度</text>
+  <text x="361" y="676" text-anchor="end" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" fill="#5D6572">62%</text>
+  <rect x="29" y="692" width="332" height="7" rx="3.5" fill="#EEF1F5"/>
+  <rect x="29" y="692" width="206" height="7" rx="3.5" fill="#1B7F4C"/>
+  <text x="29" y="725" font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" fill="#5D6572">已使用 ¥6,200 / ¥10,000</text>
 
-  <!-- Row 3 -->
-  <rect x="12" y="292" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="314" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">餐饮</text>
-  <text x="22" y="334" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-24  ·  餐饮</text>
-  <text x="316" y="323" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥86</text>
-
-  <!-- Row 4 -->
-  <rect x="12" y="354" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="376" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">报销</text>
-  <text x="22" y="396" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-22  ·  报销</text>
-  <text x="300" y="385" font-family="sans-serif" font-weight="bold" font-size="14" fill="#059669">+¥600</text>
-
-  <!-- Row 5 -->
-  <rect x="12" y="416" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="438" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">交通</text>
-  <text x="22" y="458" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-20  ·  交通</text>
-  <text x="316" y="447" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥45</text>
-
-  <!-- Row 6 -->
-  <rect x="12" y="478" width="366" height="54" rx="10" fill="white"/>
-  <text x="22" y="500" font-family="sans-serif" font-weight="bold" font-size="14" fill="#111827">办公用品</text>
-  <text x="22" y="520" font-family="sans-serif" font-size="12" fill="#9ca3af">2026-02-18  ·  办公</text>
-  <text x="300" y="509" font-family="sans-serif" font-weight="bold" font-size="14" fill="#dc2626">-¥320</text>
+  <rect y="780" width="390" height="64" fill="#FFFFFF"/>
+  <path d="M0 780.5H390" stroke="#E2E6EC"/>
+  <g font-family="Geist, 'Noto Sans SC', sans-serif" font-size="10" text-anchor="middle">
+    <text x="39" y="818" fill="#2F5FD6" font-weight="600">概览</text>
+    <text x="117" y="818" fill="#5D6572">明细</text>
+    <circle cx="195" cy="802" r="19" fill="#161A22"/>
+    <path d="M195 794V810M187 802H203" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+    <text x="273" y="818" fill="#5D6572">统计</text>
+    <text x="351" y="818" fill="#5D6572">更多</text>
+  </g>
 </svg>

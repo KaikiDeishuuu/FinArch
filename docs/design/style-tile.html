@@ -1,0 +1,754 @@
+<title>FinArch 工作台样张</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --background: #F6F7F9; --card: #FFFFFF; --muted: #EEF1F5; --muted-2: #E4E8EE; --border: #E2E6EC; --input: #D6DBE3;
+    --foreground: #161A22; --muted-foreground: #5D6572; --subtle: #8A929F;
+    --primary: #161A22; --primary-foreground: #FFFFFF; --accent: #2F5FD6; --accent-soft: #E8EEFB; --ring: #2F5FD6;
+    --positive: #1B7F4C; --positive-soft: #E4F4EB; --negative: #C93A3F; --negative-soft: #FBE7E8; --warning: #9A5B00; --warning-soft: #FBF0DC;
+    --mode-work: #2F5FD6; --mode-work-soft: #E8EEFB; --mode-life: #0B7A6B; --mode-life-soft: #DFF3EF;
+    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100; --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #e34948;
+    --shadow-xs: 0 1px 2px rgb(22 26 34 / 0.05); --shadow-sm: 0 2px 10px rgb(22 26 34 / 0.06);
+    --r-lg: 12px; --r-md: 8px; --r-sm: 6px;
+    --font-sans: "Geist", "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --background: #111318; --card: #181B21; --muted: #1F232B; --muted-2: #262B35; --border: #2A2F39; --input: #343A46;
+      --foreground: #E8EAEE; --muted-foreground: #A3AAB6; --subtle: #6B7383;
+      --primary: #F2F4F7; --primary-foreground: #111318; --accent: #7F9CF3; --accent-soft: #1E2A4A; --ring: #7F9CF3;
+      --positive: #4CC38A; --positive-soft: #16302A; --negative: #F0717A; --negative-soft: #3A1F24; --warning: #E0A23C; --warning-soft: #3A2E17;
+      --mode-work: #7F9CF3; --mode-work-soft: #1E2A4A; --mode-life: #3FC1AC; --mode-life-soft: #15302D;
+      --chart-1: #3987e5; --chart-2: #d95926; --chart-3: #199e70; --chart-4: #c98500; --chart-5: #d55181; --chart-6: #008300; --chart-7: #9085e9; --chart-8: #e66767;
+      --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4); --shadow-sm: 0 2px 10px rgb(0 0 0 / 0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --background: #111318; --card: #181B21; --muted: #1F232B; --muted-2: #262B35; --border: #2A2F39; --input: #343A46;
+    --foreground: #E8EAEE; --muted-foreground: #A3AAB6; --subtle: #6B7383;
+    --primary: #F2F4F7; --primary-foreground: #111318; --accent: #7F9CF3; --accent-soft: #1E2A4A; --ring: #7F9CF3;
+    --positive: #4CC38A; --positive-soft: #16302A; --negative: #F0717A; --negative-soft: #3A1F24; --warning: #E0A23C; --warning-soft: #3A2E17;
+    --mode-work: #7F9CF3; --mode-work-soft: #1E2A4A; --mode-life: #3FC1AC; --mode-life-soft: #15302D;
+    --chart-1: #3987e5; --chart-2: #d95926; --chart-3: #199e70; --chart-4: #c98500; --chart-5: #d55181; --chart-6: #008300; --chart-7: #9085e9; --chart-8: #e66767;
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4); --shadow-sm: 0 2px 10px rgb(0 0 0 / 0.45);
+  }
+  .theme-light {
+    color-scheme: light;
+    --background: #F6F7F9; --card: #FFFFFF; --muted: #EEF1F5; --muted-2: #E4E8EE; --border: #E2E6EC; --input: #D6DBE3;
+    --foreground: #161A22; --muted-foreground: #5D6572; --subtle: #8A929F;
+    --primary: #161A22; --primary-foreground: #FFFFFF; --accent: #2F5FD6; --accent-soft: #E8EEFB; --ring: #2F5FD6;
+    --positive: #1B7F4C; --positive-soft: #E4F4EB; --negative: #C93A3F; --negative-soft: #FBE7E8; --warning: #9A5B00; --warning-soft: #FBF0DC;
+    --mode-work: #2F5FD6; --mode-work-soft: #E8EEFB; --mode-life: #0B7A6B; --mode-life-soft: #DFF3EF;
+    --chart-1: #2a78d6; --chart-2: #eb6834; --chart-3: #1baf7a; --chart-4: #eda100; --chart-5: #e87ba4; --chart-6: #008300; --chart-7: #4a3aa7; --chart-8: #e34948;
+    --shadow-xs: 0 1px 2px rgb(22 26 34 / 0.05); --shadow-sm: 0 2px 10px rgb(22 26 34 / 0.06);
+  }
+  .theme-dark {
+    color-scheme: dark;
+    --background: #111318; --card: #181B21; --muted: #1F232B; --muted-2: #262B35; --border: #2A2F39; --input: #343A46;
+    --foreground: #E8EAEE; --muted-foreground: #A3AAB6; --subtle: #6B7383;
+    --primary: #F2F4F7; --primary-foreground: #111318; --accent: #7F9CF3; --accent-soft: #1E2A4A; --ring: #7F9CF3;
+    --positive: #4CC38A; --positive-soft: #16302A; --negative: #F0717A; --negative-soft: #3A1F24; --warning: #E0A23C; --warning-soft: #3A2E17;
+    --mode-work: #7F9CF3; --mode-work-soft: #1E2A4A; --mode-life: #3FC1AC; --mode-life-soft: #15302D;
+    --chart-1: #3987e5; --chart-2: #d95926; --chart-3: #199e70; --chart-4: #c98500; --chart-5: #d55181; --chart-6: #008300; --chart-7: #9085e9; --chart-8: #e66767;
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4); --shadow-sm: 0 2px 10px rgb(0 0 0 / 0.45);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4 { margin: 0; text-wrap: balance; letter-spacing: -0.01em; line-height: 1.2; }
+  p { margin: 0; }
+  a { color: var(--accent); text-decoration: none; }
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--font-mono); }
+  .page { max-width: 1160px; margin: 0 auto; padding: 40px 28px 80px; }
+
+  .kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground); }
+  .hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: end; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+  .hero h1 { font-size: 34px; font-weight: 600; margin-top: 10px; }
+  .hero .lede { margin-top: 14px; max-width: 58ch; color: var(--muted-foreground); font-size: 15px; }
+  .meta { display: grid; gap: 8px; font-size: 13px; margin: 0; }
+  .meta div { display: grid; grid-template-columns: 72px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .meta dt { color: var(--subtle); }
+  .meta dd { margin: 0; }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } }
+
+  section { padding-top: 48px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .sec-head h2 { font-size: 20px; font-weight: 600; }
+  .sec-head p { color: var(--muted-foreground); font-size: 13px; max-width: 64ch; }
+
+  .frames { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+  .frame { background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .frame-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--subtle); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 14px; }
+  .frame.pad0 { padding: 0; overflow: hidden; }
+
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .sw { display: grid; gap: 6px; }
+  .sw .chip { height: 44px; border-radius: var(--r-md); border: 1px solid var(--border); }
+  .sw .n { font-size: 11px; color: var(--muted-foreground); line-height: 1.3; }
+  .sw .n b { display: block; color: var(--foreground); font-weight: 500; }
+  .sw .n code { font-family: var(--font-mono); font-size: 10.5px; color: var(--subtle); }
+  .chart-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 14px; }
+  .chart-row div { height: 28px; border-radius: 5px; }
+  .chart-row + p { margin-top: 8px; font-size: 11.5px; color: var(--subtle); }
+
+  .spec-display { font-size: 30px; font-weight: 600; letter-spacing: -0.015em; }
+  .spec-display small { display: block; font-size: 15px; font-weight: 400; color: var(--muted-foreground); letter-spacing: 0; margin-top: 6px; }
+  .scale { display: grid; margin-top: 20px; border-top: 1px solid var(--border); }
+  .scale div { display: grid; grid-template-columns: 56px 1fr 120px; gap: 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .scale .sz { font-family: var(--font-mono); font-size: 11px; color: var(--subtle); }
+  .scale .use { font-size: 12px; color: var(--muted-foreground); text-align: right; }
+  .figs { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .figs .col { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; }
+  .figs .col h4 { font-size: 12px; color: var(--muted-foreground); font-weight: 500; margin-bottom: 8px; }
+  .figs .amt { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 15px; }
+  .figs .amt span:first-child { color: var(--muted-foreground); font-size: 13px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: var(--r-md); font: inherit; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+  .btn-primary { background: var(--primary); color: var(--primary-foreground); }
+  .btn-secondary { background: var(--muted); color: var(--foreground); }
+  .btn-outline { background: var(--card); color: var(--foreground); border-color: var(--input); }
+  .btn-ghost { background: transparent; color: var(--muted-foreground); }
+  .btn-danger { background: var(--negative-soft); color: var(--negative); }
+  .btn svg { width: 16px; height: 16px; }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; opacity: .7; }
+  .field { display: grid; gap: 6px; }
+  .field label { font-size: 12.5px; font-weight: 500; color: var(--muted-foreground); }
+  .input { height: 36px; width: 100%; border: 1px solid var(--input); background: var(--card); color: var(--foreground); border-radius: var(--r-md); padding: 0 12px; font: inherit; font-size: 13.5px; }
+  .input.focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent); }
+  .input.error { border-color: var(--negative); }
+  .hint { font-size: 12px; color: var(--subtle); }
+  .hint.err { color: var(--negative); }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; background: var(--muted); color: var(--muted-foreground); white-space: nowrap; }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; }
+  .badge.nodot::before { display: none; }
+  .badge-accent { background: var(--accent-soft); color: var(--accent); }
+  .badge-pos { background: var(--positive-soft); color: var(--positive); }
+  .badge-neg { background: var(--negative-soft); color: var(--negative); }
+  .badge-warn { background: var(--warning-soft); color: var(--warning); }
+  .badge-work { background: var(--mode-work-soft); color: var(--mode-work); letter-spacing: .06em; font-size: 10.5px; font-weight: 600; }
+  .badge-life { background: var(--mode-life-soft); color: var(--mode-life); letter-spacing: .06em; font-size: 10.5px; font-weight: 600; }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--muted); border-radius: var(--r-md); }
+  .seg button { font: inherit; font-size: 12.5px; font-weight: 500; height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted-foreground); display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--foreground); box-shadow: var(--shadow-xs); }
+  .seg .cnt { font-size: 11px; color: var(--subtle); font-variant-numeric: tabular-nums; }
+  .seg.mode button[aria-pressed="true"] { color: var(--mode-work); }
+  .seg.mode.life button[aria-pressed="true"] { color: var(--mode-life); }
+  .alert { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--card); font-size: 13px; }
+  .alert .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; border-radius: 50%; }
+  .alert-info .ic { background: var(--accent); } .alert-info { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+  .alert-pos .ic { background: var(--positive); } .alert-pos { border-color: color-mix(in srgb, var(--positive) 35%, var(--border)); }
+  .alert-neg .ic { background: var(--negative); } .alert-neg { border-color: color-mix(in srgb, var(--negative) 35%, var(--border)); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px; box-shadow: var(--shadow-xs); }
+  .card h3 { font-size: 14px; font-weight: 600; }
+  .card .sub { font-size: 12px; color: var(--muted-foreground); margin-top: 2px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; }
+  .stat .l { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted-foreground); }
+  .stat .v { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .stat .h { font-size: 12px; color: var(--subtle); margin-top: 4px; }
+  .stat .ico { width: 24px; height: 24px; border-radius: 6px; background: var(--muted); display: grid; place-items: center; color: var(--muted-foreground); }
+  .stat .ico svg { width: 14px; height: 14px; }
+  .pos { color: var(--positive); } .neg { color: var(--negative); } .warn { color: var(--warning); }
+  .progress { height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+  .progress i { display: block; height: 100%; border-radius: 999px; background: var(--positive); }
+  .progress.warn i { background: var(--warning); }
+  .progress.neg i { background: var(--negative); }
+  .comp-grid { display: grid; gap: 14px; }
+  .comp-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .comp-title { font-size: 11px; color: var(--subtle); letter-spacing: .06em; text-transform: uppercase; margin: 6px 0 2px; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+
+  .shell { display: grid; grid-template-columns: 216px 1fr; min-height: 420px; background: var(--background); }
+  .side { background: var(--card); border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 8px; }
+  .brand .name { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
+  .brand .tag { font-size: 11px; color: var(--muted-foreground); }
+  .nav { display: grid; gap: 2px; margin-top: 6px; }
+  .nav a { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: var(--r-md); color: var(--muted-foreground); font-size: 13px; font-weight: 500; position: relative; }
+  .nav a svg { width: 16px; height: 16px; flex: none; }
+  .nav a.active { background: var(--muted); color: var(--foreground); }
+  .nav a.active::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--accent); }
+  .side .bottom { margin-top: auto; display: grid; gap: 8px; }
+  .side .prefs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .side .prefs .btn { height: 30px; font-size: 12px; justify-content: center; }
+  .user { display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: var(--r-md); background: var(--muted); }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--muted-2); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--foreground); }
+  .user .u { font-size: 12.5px; }
+  .user .e { font-size: 11px; color: var(--subtle); }
+  .main { padding: 22px 24px; display: grid; gap: 16px; align-content: start; }
+  .ph { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .ph h2 { font-size: 22px; font-weight: 600; }
+  .ph .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .g2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .row-list { display: grid; }
+  .row-list a { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-top: 1px solid var(--border); color: inherit; font-size: 13px; }
+  .row-list a:first-child { border-top: 0; }
+  .row-list .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .row-list .t { flex: 1; min-width: 0; }
+  .row-list .t small { display: block; color: var(--muted-foreground); font-size: 12px; margin-top: 1px; }
+  .chev { color: var(--subtle); }
+  .bars { display: flex; align-items: flex-end; gap: 4px; height: 56px; margin-top: 10px; border-bottom: 1px solid var(--border); }
+  .bars i { flex: 1; border-radius: 3px 3px 0 0; background: var(--chart-1); }
+  .bars i.e { background: var(--chart-2); }
+  .legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--muted-foreground); margin-top: 8px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--chart-1); }
+  .legend span.e::before { background: var(--chart-2); }
+
+  .tx { display: grid; gap: 8px; }
+  .tx article { display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 12px 14px; }
+  .tx .ic { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--negative-soft); color: var(--negative); font-size: 15px; }
+  .tx .ic.in { background: var(--positive-soft); color: var(--positive); }
+  .tx .body { flex: 1; min-width: 0; }
+  .tx .title { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+  .tx .chips span { font-size: 11.5px; color: var(--muted-foreground); background: var(--muted); border-radius: 5px; padding: 1px 6px; }
+  .tx .chips span.mono { font-family: var(--font-mono); font-size: 11px; }
+  .tx .time { font-size: 12px; color: var(--subtle); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .tx .right { display: grid; justify-items: end; gap: 6px; flex: none; }
+  .tx .amt { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .tx .acts { display: flex; gap: 6px; align-items: center; }
+  .tx .acts .id { font-family: var(--font-mono); font-size: 11px; color: var(--subtle); }
+  .tx.mobile article { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; }
+  .tx.mobile .acts { grid-column: 1 / -1; justify-content: space-between; }
+
+  .phone { width: 100%; max-width: 372px; margin: 0 auto; border: 1px solid var(--border); border-radius: 26px; background: var(--background); overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; height: 640px; }
+  .ph-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 14px 10px; background: var(--card); border-bottom: 1px solid var(--border); }
+  .ph-head .brand { padding: 0; gap: 8px; }
+  .ph-body { padding: 14px; display: grid; gap: 12px; align-content: start; overflow: hidden; }
+  .ph-nav { display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; background: var(--card); border-top: 1px solid var(--border); padding: 8px 6px 14px; }
+  .ph-nav a { display: grid; justify-items: center; gap: 3px; font-size: 10.5px; color: var(--subtle); font-weight: 500; }
+  .ph-nav a svg { width: 18px; height: 18px; }
+  .ph-nav a.active { color: var(--accent); }
+  .ph-nav .plus { width: 44px; height: 44px; border-radius: 14px; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; margin-top: -18px; box-shadow: var(--shadow-sm); }
+  .ph-nav .plus svg { width: 20px; height: 20px; }
+  .iconbtn { width: 32px; height: 32px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground); display: grid; place-items: center; }
+  .iconbtn svg { width: 16px; height: 16px; }
+
+  .auth { position: relative; padding: 36px 20px; background: var(--background); overflow: hidden; }
+  .auth::before { content: ""; position: absolute; inset: -40% -20% auto -20%; height: 60%; background: radial-gradient(60% 60% at 50% 40%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%); pointer-events: none; }
+  .auth .card { position: relative; max-width: 360px; margin: 0 auto; padding: 22px; }
+  .auth .brand { justify-content: center; flex-direction: column; gap: 6px; padding-bottom: 14px; }
+  .auth form { display: grid; gap: 12px; margin-top: 12px; }
+  .auth .btn { width: 100%; justify-content: center; }
+  .auth .foot { text-align: center; font-size: 12px; margin-top: 8px; }
+
+  .email { background: #F6F7F9; padding: 28px 16px; color: #161A22; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .email .wrap { max-width: 480px; margin: 0 auto; background: #fff; border: 1px solid #E2E6EC; border-radius: 12px; overflow: hidden; }
+  .email .eh { display: flex; align-items: center; gap: 10px; padding: 18px 24px; border-bottom: 1px solid #E2E6EC; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+  .email .eb { padding: 24px; font-size: 14px; line-height: 1.7; color: #374151; }
+  .email h4 { font-size: 20px; color: #161A22; margin: 0 0 4px; font-weight: 700; }
+  .email .esub { color: #5D6572; margin-bottom: 18px; font-size: 13px; }
+  .email .ebtn { display: inline-block; background: #161A22; color: #fff; padding: 12px 26px; border-radius: 8px; font-weight: 600; font-size: 14px; margin: 14px 0 18px; }
+  .email .ef { background: #F6F7F9; border-top: 1px solid #E2E6EC; padding: 14px 24px; font-size: 12px; color: #8A929F; text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { font-size: 11px; color: var(--subtle); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
+  td code { font-family: var(--font-mono); font-size: 11.5px; }
+  td .dotc { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); vertical-align: -2px; margin-right: 8px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--card); }
+
+  .avoid-keep { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .avoid-keep .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted-foreground); font-size: 13px; display: grid; gap: 4px; }
+  .avoid-keep .card h3 { font-size: 13px; }
+  .foot-note { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted-foreground); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  @media (prefers-reduced-motion: no-preference) { .btn, .nav a, .seg button { transition: background-color .15s ease, color .15s ease, border-color .15s ease; } }
+  @media (max-width: 720px) {
+    .shell { grid-template-columns: 1fr; } .side { display: none; }
+    .g4 { grid-template-columns: repeat(2, 1fr); }
+    .figs { grid-template-columns: 1fr; }
+    .chart-row { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+
+<div class="page">
+  <header class="hero">
+    <div>
+      <div class="kicker">FinArch · 前端重设计 · M0 视觉样张</div>
+      <h1>冷静、可信的财务工作台</h1>
+      <p class="lede">近中性冷灰底、一种强调蓝、绿红只留给收入与支出。墨色主按钮，1px 边框代替阴影与渐变，Geist + Noto Sans SC 的等宽数字让每一笔金额对齐。下方所有组件在浅色与深色下并排呈现——这套 token 确认后将原样落入 <code class="mono">index.css</code>。</p>
+    </div>
+    <dl class="meta">
+      <div><dt>方向</dt><dd>克制的金融工作台（Linear / Vercel / Mercury 一路）</dd></div>
+      <div><dt>字体</dt><dd>Geist（UI 与数字）· Noto Sans SC（中文）· Geist Mono（ID）</dd></div>
+      <div><dt>主题</dt><dd>浅 / 深 / 跟随系统；WORK / LIFE 只切换模式色</dd></div>
+      <div><dt>范围</dt><dd>应用外壳与 17 个页面、登录与邮件确认页、PWA 资源、邮件模板</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <div class="sec-head"><h2>取舍</h2><p>相对现有界面与被回滚的 #117，哪些去掉、哪些保留、哪些新增。</p></div>
+    <div class="avoid-keep">
+      <div class="card"><h3 class="neg">去掉</h3><ul>
+        <li>紫色渐变 hero、模糊光斑、紫色光晕阴影</li>
+        <li>全站衬线字体与「纸张 / 账本」质感</li>
+        <li>大圆角与厚阴影堆叠</li>
+        <li>页面里逐处手写 dark: 与调色板类名</li>
+        <li>移动端磁吸悬浮模式按钮</li></ul></div>
+      <div class="card"><h3 class="pos">保留</h3><ul>
+        <li>三根上升柱的品牌标识（重新配色）</li>
+        <li>WORK / LIFE 双模式与全部功能、文案、i18n key</li>
+        <li>侧栏 + 移动底栏的导航结构与「更多」抽屉</li>
+        <li>现有动效时长与曲线（180–300ms，easeInOut）</li>
+        <li>所有 e2e 与源码策略测试依赖的角色与字面量</li></ul></div>
+      <div class="card"><h3 style="color: var(--accent)">新增</h3><ul>
+        <li>一套语义 token（浅 / 深各一份），组件不再关心主题</li>
+        <li>ui/ 原语：Button、Field、Card、Badge、Segmented、Dialog…</li>
+        <li>三态主题切换（浅 / 深 / 系统）与 reduced-motion 支持</li>
+        <li>可访问的对话框取代裸浮层与 window.prompt</li>
+        <li>图表配色改用经色觉缺陷校验的 8 色序列，超出折叠为「其他」</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>色彩 token</h2><p>同一组名字，两套取值。深色不是反相：底色是中性冷灰而非紫黑，强调色与语义色各自重新取步，文字对比度均 ≥ 4.5:1。</p></div>
+    <div class="frames">
+      <div class="frame theme-light">
+        <div class="frame-label"><span>Light</span><span>--background #F6F7F9</span></div>
+        <div class="swatches">
+          <div class="sw"><div class="chip" style="background:var(--background)"></div><div class="n"><b>background</b><code>#F6F7F9</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--card)"></div><div class="n"><b>card</b><code>#FFFFFF</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--muted)"></div><div class="n"><b>muted</b><code>#EEF1F5</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--border)"></div><div class="n"><b>border</b><code>#E2E6EC</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--foreground)"></div><div class="n"><b>foreground</b><code>#161A22</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--muted-foreground)"></div><div class="n"><b>muted-fg</b><code>#5D6572</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--accent)"></div><div class="n"><b>accent</b><code>#2F5FD6</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--positive)"></div><div class="n"><b>positive</b><code>#1B7F4C</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--negative)"></div><div class="n"><b>negative</b><code>#C93A3F</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--warning)"></div><div class="n"><b>warning</b><code>#9A5B00</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--mode-work)"></div><div class="n"><b>mode · work</b><code>#2F5FD6</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--mode-life)"></div><div class="n"><b>mode · life</b><code>#0B7A6B</code></div></div>
+        </div>
+        <div class="chart-row"><div style="background:var(--chart-1)"></div><div style="background:var(--chart-2)"></div><div style="background:var(--chart-3)"></div><div style="background:var(--chart-4)"></div><div style="background:var(--chart-5)"></div><div style="background:var(--chart-6)"></div><div style="background:var(--chart-7)"></div><div style="background:var(--chart-8)"></div></div>
+        <p>chart-1 … chart-8：分类色固定顺序，来自已通过色觉缺陷与对比度校验的参考调色板。</p>
+      </div>
+      <div class="frame theme-dark">
+        <div class="frame-label"><span>Dark</span><span>--background #111318</span></div>
+        <div class="swatches">
+          <div class="sw"><div class="chip" style="background:var(--background)"></div><div class="n"><b>background</b><code>#111318</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--card)"></div><div class="n"><b>card</b><code>#181B21</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--muted)"></div><div class="n"><b>muted</b><code>#1F232B</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--border)"></div><div class="n"><b>border</b><code>#2A2F39</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--foreground)"></div><div class="n"><b>foreground</b><code>#E8EAEE</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--muted-foreground)"></div><div class="n"><b>muted-fg</b><code>#A3AAB6</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--accent)"></div><div class="n"><b>accent</b><code>#7F9CF3</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--positive)"></div><div class="n"><b>positive</b><code>#4CC38A</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--negative)"></div><div class="n"><b>negative</b><code>#F0717A</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--warning)"></div><div class="n"><b>warning</b><code>#E0A23C</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--mode-work)"></div><div class="n"><b>mode · work</b><code>#7F9CF3</code></div></div>
+          <div class="sw"><div class="chip" style="background:var(--mode-life)"></div><div class="n"><b>mode · life</b><code>#3FC1AC</code></div></div>
+        </div>
+        <div class="chart-row"><div style="background:var(--chart-1)"></div><div style="background:var(--chart-2)"></div><div style="background:var(--chart-3)"></div><div style="background:var(--chart-4)"></div><div style="background:var(--chart-5)"></div><div style="background:var(--chart-6)"></div><div style="background:var(--chart-7)"></div><div style="background:var(--chart-8)"></div></div>
+        <p>深色下同八种色相重新取步，而不是直接反相。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>字体与数字</h2><p>Geist 负责拉丁与数字，Noto Sans SC 承接中文，两者 x 高度接近、混排不跳。金额一律等宽数字，个位对齐。</p></div>
+    <div class="frames">
+      <div class="frame theme-light">
+        <div class="frame-label"><span>Specimen</span><span>Geist · Noto Sans SC</span></div>
+        <div class="spec-display">收支 · 报销 · 统计<small>Calm ledger for work and life — 公共资金与个人垫付分账，报销状态一目了然。</small></div>
+        <div class="scale">
+          <div><span class="sz">30 / 600</span><span style="font-size:30px;font-weight:600;letter-spacing:-0.015em">下午好，项目进展如何</span><span class="use">页面标题 · 问候</span></div>
+          <div><span class="sz">22 / 600</span><span style="font-size:22px;font-weight:600" class="num">¥128,450.00</span><span class="use">统计数值</span></div>
+          <div><span class="sz">16 / 600</span><span style="font-size:16px;font-weight:600">本月预算进度</span><span class="use">卡片标题</span></div>
+          <div><span class="sz">14 / 400</span><span style="font-size:14px">高铁票 北京南 → 上海虹桥，二等座，含保险。</span><span class="use">正文</span></div>
+          <div><span class="sz">12.5 / 500</span><span style="font-size:12.5px;font-weight:500;color:var(--muted-foreground)">来源 · 账户 · 分类 · 项目</span><span class="use">标签</span></div>
+          <div><span class="sz">11 / 600</span><span class="kicker">PENDING REIMBURSEMENT</span><span class="use">小标 · 字距 +0.08em</span></div>
+        </div>
+      </div>
+      <div class="frame theme-dark">
+        <div class="frame-label"><span>Figures</span><span>tabular-nums · Geist Mono</span></div>
+        <div class="figs">
+          <div class="col"><h4>等宽数字（金额列）</h4>
+            <div class="amt num"><span>公共账户余额</span><span>¥128,450.00</span></div>
+            <div class="amt num"><span>个人待报销</span><span>¥3,286.50</span></div>
+            <div class="amt num"><span>高铁票</span><span class="neg">−¥553.00</span></div>
+            <div class="amt num"><span>3M 胶带 ×10</span><span class="neg">−¥86.40</span></div>
+            <div class="amt num"><span>项目回款</span><span class="pos">+¥12,000.00</span></div></div>
+          <div class="col"><h4>等宽字体（标识符）</h4>
+            <div class="amt"><span>交易 ID</span><span class="mono">7f3a9c2e…</span></div>
+            <div class="amt"><span>项目</span><span class="mono">P-2026-014</span></div>
+            <div class="amt"><span>汇率</span><span class="mono num">1 USD = 7.1300 CNY</span></div>
+            <div class="amt"><span>时间</span><span class="mono num">2026-09-03 08:42</span></div>
+            <div class="amt"><span>验证码</span><span class="mono num" style="letter-spacing:.2em">482 913</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>组件原语</h2><p>ui/ 目录里的一套基础件。主按钮是墨色而不是品牌蓝；蓝色只出现在链接、焦点环、激活导航与选中态。</p></div>
+    <div class="frames">
+      <div class="frame theme-light">
+        <div class="frame-label"><span>Light</span><span>ui/*</span></div>
+        <div class="comp-grid">
+          <div class="comp-title">Button</div>
+          <div class="comp-row">
+            <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>记账</button>
+            <button class="btn btn-secondary">导出 PDF</button><button class="btn btn-outline">取消</button><button class="btn btn-ghost">更多</button><button class="btn btn-danger">删除账户</button>
+            <button class="btn btn-primary" disabled style="opacity:.6"><span class="spin"></span>保存中…</button>
+          </div>
+          <div class="comp-title">Field</div>
+          <div class="two">
+            <div class="field"><label>金额</label><input class="input num" value="0.00" readonly></div>
+            <div class="field"><label>备注</label><input class="input focus" value="高铁票 北京南 → 上海虹桥" readonly></div>
+            <div class="field"><label>邮箱</label><input class="input error" value="user@example" readonly><span class="hint err">邮箱格式不正确，请检查 @ 后的域名。</span></div>
+            <div class="field"><label>账户</label><div class="input" style="display:flex;align-items:center;justify-content:space-between"><span>公共账户 · CNY <span style="color:var(--subtle)">（余额 ¥128,450.00）</span></span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--subtle)"><path d="m6 9 6 6 6-6"/></svg></div></div>
+          </div>
+          <div class="comp-title">Badge · Segmented</div>
+          <div class="comp-row"><span class="badge badge-accent">已上传</span><span class="badge badge-warn">待报销</span><span class="badge badge-pos">已报销</span><span class="badge">未上传</span><span class="badge badge-neg">超支</span><span class="badge badge-work nodot">WORK</span><span class="badge badge-life nodot">LIFE</span></div>
+          <div class="comp-row">
+            <div class="seg"><button aria-pressed="true">全部 <span class="cnt">12</span></button><button aria-pressed="false">待处理 <span class="cnt">5</span></button><button aria-pressed="false">已完成 <span class="cnt">7</span></button></div>
+            <div class="seg mode"><button aria-pressed="true">WORK</button><button aria-pressed="false">LIFE</button></div>
+            <div class="seg"><button aria-pressed="false">7D</button><button aria-pressed="true">30D</button><button aria-pressed="false">90D</button><button aria-pressed="false">1Y</button></div>
+          </div>
+          <div class="comp-title">Alert · Progress · Stat</div>
+          <div class="two">
+            <div class="alert alert-info"><span class="ic"></span><div>实时汇率不可用，当前使用备用汇率。<br><span style="color:var(--muted-foreground)">$ 7.13 · € 8.32 · 2026-09-04</span></div></div>
+            <div class="alert alert-pos"><span class="ic"></span><div>添加成功，即将跳转到明细。</div></div>
+            <div class="alert alert-neg"><span class="ic"></span><div>交易已经保存，不会重复记账；附件关联失败，可重试。</div></div>
+            <div class="card" style="padding:14px 16px">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted-foreground)"><span>本月预算 ¥20,000</span><span class="num">67%</span></div>
+              <div class="progress" style="margin:8px 0"><i style="width:67%"></i></div>
+              <div class="progress warn" style="margin:8px 0"><i style="width:92%"></i></div>
+              <div class="progress neg"><i style="width:100%"></i></div>
+            </div>
+          </div>
+          <div class="g2">
+            <div class="stat"><div class="l"><span>公共账户余额</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg></span></div><div class="v">¥128,450.00</div><div class="h">3 个账户 · 折算人民币</div></div>
+            <div class="stat"><div class="l"><span>个人待报销</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></span></div><div class="v warn">¥3,286.50</div><div class="h">5 笔 · 最早 12 天前</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="frame theme-dark">
+        <div class="frame-label"><span>Dark</span><span>ui/*</span></div>
+        <div class="comp-grid">
+          <div class="comp-title">Button</div>
+          <div class="comp-row">
+            <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>记账</button>
+            <button class="btn btn-secondary">导出 PDF</button><button class="btn btn-outline">取消</button><button class="btn btn-ghost">更多</button><button class="btn btn-danger">删除账户</button>
+            <button class="btn btn-primary" disabled style="opacity:.6"><span class="spin"></span>保存中…</button>
+          </div>
+          <div class="comp-title">Field</div>
+          <div class="two">
+            <div class="field"><label>金额</label><input class="input num" value="0.00" readonly></div>
+            <div class="field"><label>备注</label><input class="input focus" value="高铁票 北京南 → 上海虹桥" readonly></div>
+            <div class="field"><label>邮箱</label><input class="input error" value="user@example" readonly><span class="hint err">邮箱格式不正确，请检查 @ 后的域名。</span></div>
+            <div class="field"><label>账户</label><div class="input" style="display:flex;align-items:center;justify-content:space-between"><span>公共账户 · CNY <span style="color:var(--subtle)">（余额 ¥128,450.00）</span></span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--subtle)"><path d="m6 9 6 6 6-6"/></svg></div></div>
+          </div>
+          <div class="comp-title">Badge · Segmented</div>
+          <div class="comp-row"><span class="badge badge-accent">已上传</span><span class="badge badge-warn">待报销</span><span class="badge badge-pos">已报销</span><span class="badge">未上传</span><span class="badge badge-neg">超支</span><span class="badge badge-work nodot">WORK</span><span class="badge badge-life nodot">LIFE</span></div>
+          <div class="comp-row">
+            <div class="seg"><button aria-pressed="true">全部 <span class="cnt">12</span></button><button aria-pressed="false">待处理 <span class="cnt">5</span></button><button aria-pressed="false">已完成 <span class="cnt">7</span></button></div>
+            <div class="seg mode life"><button aria-pressed="false">WORK</button><button aria-pressed="true">LIFE</button></div>
+            <div class="seg"><button aria-pressed="false">7D</button><button aria-pressed="true">30D</button><button aria-pressed="false">90D</button><button aria-pressed="false">1Y</button></div>
+          </div>
+          <div class="comp-title">Alert · Progress · Stat</div>
+          <div class="two">
+            <div class="alert alert-info"><span class="ic"></span><div>实时汇率不可用，当前使用备用汇率。<br><span style="color:var(--muted-foreground)">$ 7.13 · € 8.32 · 2026-09-04</span></div></div>
+            <div class="alert alert-pos"><span class="ic"></span><div>添加成功，即将跳转到明细。</div></div>
+            <div class="alert alert-neg"><span class="ic"></span><div>交易已经保存，不会重复记账；附件关联失败，可重试。</div></div>
+            <div class="card" style="padding:14px 16px">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted-foreground)"><span>本月预算 ¥20,000</span><span class="num">67%</span></div>
+              <div class="progress" style="margin:8px 0"><i style="width:67%"></i></div>
+              <div class="progress warn" style="margin:8px 0"><i style="width:92%"></i></div>
+              <div class="progress neg"><i style="width:100%"></i></div>
+            </div>
+          </div>
+          <div class="g2">
+            <div class="stat"><div class="l"><span>个人账户余额</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg></span></div><div class="v">¥42,180.36</div><div class="h">2 个账户 · 折算人民币</div></div>
+            <div class="stat"><div class="l"><span>累计个人支出</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span></div><div class="v neg">¥18,904.20</div><div class="h">全部已记录的个人支出</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>桌面外壳 · 概览页</h2><p>216px 侧栏承载品牌、模式、导航与偏好；内容区去掉渐变 hero，问候语直接成为页面标题，其余是统计块、预算 / 周期卡与待办清单。</p></div>
+    <div class="frame theme-light pad0" style="margin-bottom:18px">
+      <div class="shell">
+        <aside class="side">
+          <div class="brand">
+            <svg width="28" height="28" viewBox="0 0 200 200" role="img" aria-label="FinArch"><rect width="200" height="200" rx="44" fill="#161A22"/><rect x="28" y="104" width="44" height="58" rx="10" fill="#6B7A99"/><rect x="78" y="74" width="44" height="88" rx="10" fill="#3D6BE8"/><rect x="128" y="38" width="44" height="124" rx="10" fill="#2FB37C"/></svg>
+            <div><div class="name">FinArch</div><div class="tag">收支 · 报销 · 统计</div></div>
+            <span class="badge badge-work nodot" style="margin-left:auto">WORK</span>
+          </div>
+          <div class="seg mode" style="display:grid;grid-template-columns:1fr 1fr"><button aria-pressed="true">WORK</button><button aria-pressed="false">LIFE</button></div>
+          <nav class="nav">
+            <a class="active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>概览</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>明细</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>添加</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>匹配</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>统计</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14"/><path d="M8 7h8M8 11h8M8 15h3"/></svg>预算</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>周期</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h13M13 4l4 3-4 3M20 17H7M11 14l-4 3 4 3"/></svg>汇率</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
+          </nav>
+          <div class="bottom">
+            <div class="prefs"><button class="btn btn-outline">◐ 系统</button><button class="btn btn-outline">EN</button></div>
+            <div class="user"><span class="avatar">K</span><div><div class="u">Kaiki</div><div class="e">kaiki@example.com</div></div></div>
+            <button class="btn btn-ghost" style="justify-content:flex-start;height:32px;font-size:12.5px">退出登录</button>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="ph">
+            <div><h2>下午好，项目进展如何，Kaiki</h2><div class="chips"><span class="badge nodot">2026年9月5日 星期六</span><span class="badge badge-pos">2 台设备在线</span><span class="badge nodot num">汇率 $ 7.13 · € 8.32 · 09-04</span></div></div>
+            <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>记账</button>
+          </div>
+          <div class="g2">
+            <div class="stat"><div class="l"><span>公共账户余额</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg></span></div><div class="v">¥128,450.00</div><div class="h">余额 · 3 个账户</div></div>
+            <div class="stat"><div class="l"><span>个人待报销</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></span></div><div class="v warn">¥3,286.50</div><div class="h">待报销 · 5 笔</div></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h3>本月洞察</h3><div class="sub">2026-09 · 公共账户</div></div><span class="badge nodot">九月</span></div>
+            <div class="g4" style="margin-top:12px">
+              <div><div class="kicker">收入</div><div class="num pos" style="font-size:18px;font-weight:600;margin-top:4px">¥12,000.00</div></div>
+              <div><div class="kicker">支出</div><div class="num neg" style="font-size:18px;font-weight:600;margin-top:4px">¥13,420.80</div></div>
+              <div><div class="kicker">净额</div><div class="num" style="font-size:18px;font-weight:600;margin-top:4px">−¥1,420.80</div></div>
+              <div><div class="kicker">最大类目</div><div style="font-size:14px;font-weight:600;margin-top:6px">差旅 <span class="num" style="color:var(--muted-foreground);font-weight:500">¥6,210.00</span></div></div>
+            </div>
+            <div class="bars"><i style="height:40%"></i><i class="e" style="height:55%"></i><i style="height:30%"></i><i class="e" style="height:48%"></i><i style="height:62%"></i><i class="e" style="height:35%"></i><i style="height:45%"></i><i class="e" style="height:70%"></i><i style="height:80%"></i><i class="e" style="height:52%"></i><i style="height:38%"></i><i class="e" style="height:66%"></i></div>
+            <div class="legend"><span>收入</span><span class="e">支出</span></div>
+          </div>
+          <div class="g2">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h3>预算进度</h3><div class="sub">本月总预算</div></div><a href="#" style="font-size:12.5px">管理预算</a></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px"><span class="num" style="font-size:20px;font-weight:600">¥13,420.80</span><span class="num" style="font-size:12.5px;color:var(--muted-foreground)">计划 ¥20,000.00</span></div>
+              <div class="progress" style="margin-top:8px"><i style="width:67%"></i></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--subtle);margin-top:6px" class="num"><span>67%</span><span>剩余 ¥6,579.20</span></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h3>待处理</h3><div class="sub">3 笔超过 7 天未上传</div></div><span class="badge badge-warn">8 项</span></div>
+              <div class="row-list" style="margin-top:8px">
+                <a href="#"><span class="dot" style="background:var(--warning)"></span><div class="t">3 笔未上传<small>¥1,240.00 · 最早 12 天前</small></div><span class="chev">›</span></a>
+                <a href="#"><span class="dot" style="background:var(--accent)"></span><div class="t">5 笔待报销<small>¥2,046.50 · 已上传，等待匹配</small></div><span class="chev">›</span></a>
+                <a href="#"><span class="dot" style="background:var(--muted-foreground)"></span><div class="t">下次周期交易<small>房租 · 2026-10-01 09:00</small></div><span class="chev">›</span></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame theme-dark pad0">
+      <div class="shell">
+        <aside class="side">
+          <div class="brand">
+            <svg width="28" height="28" viewBox="0 0 200 200" role="img" aria-label="FinArch"><rect width="200" height="200" rx="44" fill="#F2F4F7"/><rect x="28" y="104" width="44" height="58" rx="10" fill="#6B7A99"/><rect x="78" y="74" width="44" height="88" rx="10" fill="#3D6BE8"/><rect x="128" y="38" width="44" height="124" rx="10" fill="#2FB37C"/></svg>
+            <div><div class="name">FinArch</div><div class="tag">收支 · 记录 · 统计</div></div>
+            <span class="badge badge-life nodot" style="margin-left:auto">LIFE</span>
+          </div>
+          <div class="seg mode life" style="display:grid;grid-template-columns:1fr 1fr"><button aria-pressed="false">WORK</button><button aria-pressed="true">LIFE</button></div>
+          <nav class="nav">
+            <a class="active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>概览</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>明细</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>添加</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>匹配</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>统计</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14"/><path d="M8 7h8M8 11h8M8 15h3"/></svg>预算</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>周期</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h13M13 4l4 3-4 3M20 17H7M11 14l-4 3 4 3"/></svg>汇率</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
+          </nav>
+          <div class="bottom">
+            <div class="prefs"><button class="btn btn-outline">● 深色</button><button class="btn btn-outline">中</button></div>
+            <div class="user"><span class="avatar">K</span><div><div class="u">Kaiki</div><div class="e">kaiki@example.com</div></div></div>
+            <button class="btn btn-ghost" style="justify-content:flex-start;height:32px;font-size:12.5px">退出登录</button>
+          </div>
+        </aside>
+        <div class="main">
+          <div class="ph">
+            <div><h2>晚上好！今天花了多少呢，Kaiki</h2><div class="chips"><span class="badge nodot">2026年9月5日 星期六</span><span class="badge badge-pos">1 台设备在线</span><span class="badge badge-warn">备用汇率 · $ 7.26 · € 7.84</span></div></div>
+            <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>记账</button>
+          </div>
+          <div class="g2">
+            <div class="stat"><div class="l"><span>个人账户余额</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg></span></div><div class="v">¥42,180.36</div><div class="h">余额 · 2 个账户</div></div>
+            <div class="stat"><div class="l"><span>累计个人支出</span><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></span></div><div class="v neg">¥18,904.20</div><div class="h">全部已记录的个人支出</div></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h3>本月洞察</h3><div class="sub">2026-09 · 个人账户</div></div><span class="badge nodot">九月</span></div>
+            <div class="g4" style="margin-top:12px">
+              <div><div class="kicker">收入</div><div class="num pos" style="font-size:18px;font-weight:600;margin-top:4px">¥18,500.00</div></div>
+              <div><div class="kicker">支出</div><div class="num neg" style="font-size:18px;font-weight:600;margin-top:4px">¥6,312.40</div></div>
+              <div><div class="kicker">净额</div><div class="num pos" style="font-size:18px;font-weight:600;margin-top:4px">+¥12,187.60</div></div>
+              <div><div class="kicker">最大类目</div><div style="font-size:14px;font-weight:600;margin-top:6px">餐饮 <span class="num" style="color:var(--muted-foreground);font-weight:500">¥2,140.00</span></div></div>
+            </div>
+            <div class="bars"><i style="height:70%"></i><i class="e" style="height:25%"></i><i style="height:70%"></i><i class="e" style="height:38%"></i><i style="height:72%"></i><i class="e" style="height:30%"></i><i style="height:70%"></i><i class="e" style="height:44%"></i><i style="height:74%"></i><i class="e" style="height:28%"></i><i style="height:70%"></i><i class="e" style="height:36%"></i></div>
+            <div class="legend"><span>收入</span><span class="e">支出</span></div>
+          </div>
+          <div class="g2">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h3>预算进度</h3><div class="sub">本月总预算</div></div><a href="#" style="font-size:12.5px">管理预算</a></div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px"><span class="num" style="font-size:20px;font-weight:600">¥6,312.40</span><span class="num" style="font-size:12.5px;color:var(--muted-foreground)">计划 ¥7,000.00</span></div>
+              <div class="progress warn" style="margin-top:8px"><i style="width:90%"></i></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--subtle);margin-top:6px" class="num"><span>90%</span><span>剩余 ¥687.60</span></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><div><h3>周期交易</h3><div class="sub">2 条规则生效中</div></div><a href="#" style="font-size:12.5px">管理周期</a></div>
+              <div class="row-list" style="margin-top:8px">
+                <a href="#"><span class="dot" style="background:var(--mode-life)"></span><div class="t">房租<small>每月 1 日 · 下次 2026-10-01 · ¥4,500.00</small></div><span class="chev">›</span></a>
+                <a href="#"><span class="dot" style="background:var(--mode-life)"></span><div class="t">健身房<small>每月 15 日 · 下次 2026-09-15 · ¥199.00</small></div><span class="chev">›</span></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>交易行</h2><p>桌面与移动共用一份行组件：左侧方向图标，中间标题与元信息胶囊，右侧金额与状态；已完成的行降低不透明度而不是变灰变小。</p></div>
+    <div class="frames">
+      <div class="frame theme-light">
+        <div class="frame-label"><span>Desktop · Light</span><span>article</span></div>
+        <div class="tx">
+          <article>
+            <div class="ic">↙</div>
+            <div class="body"><div class="title">高铁票 北京南 → 上海虹桥</div><div class="chips"><span>差旅</span><span>公共账户 · 主账户</span><span class="mono">P-2026-014</span></div><div class="time">2026-09-03 · 08:42</div></div>
+            <div class="right"><div class="amt neg">−¥553.00</div><div class="acts"><span class="badge badge-accent">已上传</span><span class="badge badge-warn">待报销</span></div><div class="acts"><span class="badge nodot" style="height:20px">附件 1</span><span class="id">7f3a9c2e…</span></div></div>
+          </article>
+          <article style="opacity:.6">
+            <div class="ic in">↗</div>
+            <div class="body"><div class="title">项目回款 · 第二期</div><div class="chips"><span>其他</span><span>公共账户 · 主账户</span><span class="mono">P-2026-009</span></div><div class="time">2026-09-01 · 14:05</div></div>
+            <div class="right"><div class="amt pos">+¥12,000.00</div><div class="acts"><span style="font-size:12px;color:var(--subtle)">收入无需报销</span></div><div class="acts"><span class="id">a81c40d2…</span></div></div>
+          </article>
+        </div>
+      </div>
+      <div class="frame theme-dark">
+        <div class="frame-label"><span>Mobile · Dark</span><span>article · virtualized</span></div>
+        <div class="tx mobile">
+          <article>
+            <div class="body"><div class="title">3M 胶带 ×10</div><div class="chips"><span>耗材</span><span>个人账户</span></div><div class="time">2026-09-04 · 17:20</div></div>
+            <div class="right"><div class="amt neg">−¥86.40</div></div>
+            <div class="acts"><span class="badge">未上传</span><span class="id">c4e19b77…</span></div>
+          </article>
+          <article>
+            <div class="body"><div class="title">高铁票 北京南 → 上海虹桥</div><div class="chips"><span>差旅</span><span>个人账户</span><span class="mono">P-2026-014</span></div><div class="time">2026-09-03 · 08:42</div></div>
+            <div class="right"><div class="amt neg">−¥553.00</div></div>
+            <div class="acts"><span style="display:flex;gap:6px"><span class="badge badge-accent">已上传</span><span class="badge badge-warn">待报销</span></span><span class="id">7f3a9c2e…</span></div>
+          </article>
+          <article style="opacity:.6">
+            <div class="body"><div class="title">打车 · 会议往返</div><div class="chips"><span>差旅</span><span>个人账户</span></div><div class="time">2026-08-28 · 21:10</div></div>
+            <div class="right"><div class="amt neg">−¥64.00</div></div>
+            <div class="acts"><span style="display:flex;gap:6px"><span class="badge badge-accent">已上传</span><span class="badge badge-pos">已报销</span></span><span class="id">9d02f6aa…</span></div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>移动外壳 · 登录页</h2><p>顶栏：品牌 · WORK/LIFE 切换 · 头像与「更多」；底栏五项，中央是墨色记账键。登录页与应用同底色，只有一层极淡的强调色光。</p></div>
+    <div class="frames" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+      <div class="frame theme-light">
+        <div class="frame-label"><span>Mobile · Light</span><span>390 × 844</span></div>
+        <div class="phone">
+          <div class="ph-head">
+            <div class="brand"><svg width="26" height="26" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#161A22"/><rect x="28" y="104" width="44" height="58" rx="10" fill="#6B7A99"/><rect x="78" y="74" width="44" height="88" rx="10" fill="#3D6BE8"/><rect x="128" y="38" width="44" height="124" rx="10" fill="#2FB37C"/></svg><div class="name">FinArch</div></div>
+            <div class="seg mode"><button aria-pressed="true">WORK</button><button aria-pressed="false">LIFE</button></div>
+            <div style="display:flex;gap:8px;align-items:center"><span class="avatar" style="width:30px;height:30px">K</span><span class="iconbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></span></div>
+          </div>
+          <div class="ph-body">
+            <div><h2 style="font-size:19px;font-weight:600">下午好，项目进展如何，Kaiki</h2><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><span class="badge nodot">9月5日</span><span class="badge badge-pos">2 台设备在线</span></div></div>
+            <div class="g2">
+              <div class="stat" style="padding:12px 14px"><div class="l"><span>公共账户余额</span></div><div class="v" style="font-size:19px">¥128,450.00</div><div class="h">3 个账户</div></div>
+              <div class="stat" style="padding:12px 14px"><div class="l"><span>个人待报销</span></div><div class="v warn" style="font-size:19px">¥3,286.50</div><div class="h">5 笔</div></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><h3>预算进度</h3><span class="num" style="font-size:12.5px;color:var(--muted-foreground)">67%</span></div>
+              <div class="progress" style="margin-top:10px"><i style="width:67%"></i></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--subtle);margin-top:6px" class="num"><span>¥13,420.80</span><span>计划 ¥20,000.00</span></div>
+            </div>
+            <div class="card" style="padding:8px 14px">
+              <div class="row-list">
+                <a href="#"><span class="dot" style="background:var(--warning)"></span><div class="t">3 笔未上传<small>¥1,240.00 · 最早 12 天前</small></div><span class="chev">›</span></a>
+                <a href="#"><span class="dot" style="background:var(--accent)"></span><div class="t">5 笔待报销<small>¥2,046.50</small></div><span class="chev">›</span></a>
+              </div>
+            </div>
+          </div>
+          <nav class="ph-nav">
+            <a class="active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>概览</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>明细</a>
+            <a href="#"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>添加</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>匹配</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>统计</a>
+          </nav>
+        </div>
+      </div>
+      <div class="frame theme-dark">
+        <div class="frame-label"><span>Login · Dark</span><span>AuthShell</span></div>
+        <div class="phone" style="grid-template-rows: 1fr">
+          <div class="auth" style="height:100%;display:grid;align-content:center">
+            <div class="card">
+              <div class="brand"><svg width="40" height="40" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#F2F4F7"/><rect x="28" y="104" width="44" height="58" rx="10" fill="#6B7A99"/><rect x="78" y="74" width="44" height="88" rx="10" fill="#3D6BE8"/><rect x="128" y="38" width="44" height="124" rx="10" fill="#2FB37C"/></svg><div class="name" style="font-size:16px">FinArch</div><div class="tag">收支 · 报销 · 统计</div></div>
+              <div class="seg" style="display:grid;grid-template-columns:1fr 1fr"><button aria-pressed="true">登录</button><button aria-pressed="false">注册</button></div>
+              <form onsubmit="return false">
+                <div class="field"><label>邮箱</label><input class="input" value="user@example.com" readonly></div>
+                <div class="field"><label>密码</label><input class="input" type="password" value="••••••••••" readonly></div>
+                <button class="btn btn-primary" type="button">登录</button>
+                <div class="foot"><a href="#">忘记密码？</a></div>
+              </form>
+              <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--border);text-align:center" class="kicker">FinArch · v3.0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>邮件模板</h2><p>邮件客户端只认内联样式与实色，所以邮件是浅色单版：白色头部与三柱标识、墨色按钮、中性页脚，与应用同一套值。</p></div>
+    <div class="frame pad0">
+      <div class="email"><div class="wrap">
+        <div class="eh"><svg width="22" height="22" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#161A22"/><rect x="28" y="104" width="44" height="58" rx="10" fill="#6B7A99"/><rect x="78" y="74" width="44" height="88" rx="10" fill="#3D6BE8"/><rect x="128" y="38" width="44" height="124" rx="10" fill="#2FB37C"/></svg>FinArch</div>
+        <div class="eb">
+          <h4>验证您的邮箱地址</h4><div class="esub">完成注册，激活您的 FinArch 账号</div>
+          <p>您好，<strong>Kaiki</strong>，</p>
+          <p>感谢您注册 FinArch！请点击下方按钮完成邮箱验证，验证链接有效期为 <strong>24 小时</strong>。</p>
+          <a class="ebtn" href="#">立即验证邮箱</a>
+          <p style="font-size:12.5px;color:#5D6572">按钮无法点击？请复制以下链接到浏览器：<br><a href="#" style="color:#2F5FD6;word-break:break-all">https://farc.dev/verify-email#token=…</a></p>
+        </div>
+        <div class="ef">此邮件由 <strong style="color:#5D6572">FinArch</strong> 系统自动发送，请勿直接回复。<br>© 2026 FinArch</div>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Token 对照表</h2><p>确认后按此表写入 <code class="mono">index.css</code>（:root / .dark + @theme inline），组件全部以 token 名引用。</p></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Token</th><th>Light</th><th>Dark</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><code>--background</code></td><td><span class="dotc" style="background:#F6F7F9"></span><code>#F6F7F9</code></td><td><span class="dotc" style="background:#111318"></span><code>#111318</code></td><td>页面底、启动页、manifest theme_color</td></tr>
+          <tr><td><code>--card</code></td><td><span class="dotc" style="background:#FFFFFF"></span><code>#FFFFFF</code></td><td><span class="dotc" style="background:#181B21"></span><code>#181B21</code></td><td>卡片、侧栏、头部、弹层</td></tr>
+          <tr><td><code>--muted</code> / <code>--muted-2</code></td><td><span class="dotc" style="background:#EEF1F5"></span><code>#EEF1F5</code> / <code>#E4E8EE</code></td><td><span class="dotc" style="background:#1F232B"></span><code>#1F232B</code> / <code>#262B35</code></td><td>次级面、分段控件底、激活导航底、hover</td></tr>
+          <tr><td><code>--border</code> / <code>--input</code></td><td><span class="dotc" style="background:#E2E6EC"></span><code>#E2E6EC</code> / <code>#D6DBE3</code></td><td><span class="dotc" style="background:#2A2F39"></span><code>#2A2F39</code> / <code>#343A46</code></td><td>分隔与卡片边 / 输入框边</td></tr>
+          <tr><td><code>--foreground</code></td><td><span class="dotc" style="background:#161A22"></span><code>#161A22</code></td><td><span class="dotc" style="background:#E8EAEE"></span><code>#E8EAEE</code></td><td>正文；也是 --primary（主按钮底）</td></tr>
+          <tr><td><code>--muted-foreground</code> / <code>--subtle</code></td><td><span class="dotc" style="background:#5D6572"></span><code>#5D6572</code> / <code>#8A929F</code></td><td><span class="dotc" style="background:#A3AAB6"></span><code>#A3AAB6</code> / <code>#6B7383</code></td><td>次级文字（≥ 4.5:1）/ 占位与装饰</td></tr>
+          <tr><td><code>--accent</code> / <code>--accent-soft</code></td><td><span class="dotc" style="background:#2F5FD6"></span><code>#2F5FD6</code> / <code>#E8EEFB</code></td><td><span class="dotc" style="background:#7F9CF3"></span><code>#7F9CF3</code> / <code>#1E2A4A</code></td><td>链接、焦点环、激活导航条、选中态、「已上传」</td></tr>
+          <tr><td><code>--positive</code> / <code>-soft</code></td><td><span class="dotc" style="background:#1B7F4C"></span><code>#1B7F4C</code> / <code>#E4F4EB</code></td><td><span class="dotc" style="background:#4CC38A"></span><code>#4CC38A</code> / <code>#16302A</code></td><td>收入、已报销、成功</td></tr>
+          <tr><td><code>--negative</code> / <code>-soft</code></td><td><span class="dotc" style="background:#C93A3F"></span><code>#C93A3F</code> / <code>#FBE7E8</code></td><td><span class="dotc" style="background:#F0717A"></span><code>#F0717A</code> / <code>#3A1F24</code></td><td>支出、超支、危险操作</td></tr>
+          <tr><td><code>--warning</code> / <code>-soft</code></td><td><span class="dotc" style="background:#9A5B00"></span><code>#9A5B00</code> / <code>#FBF0DC</code></td><td><span class="dotc" style="background:#E0A23C"></span><code>#E0A23C</code> / <code>#3A2E17</code></td><td>待报销、未上传提醒、备用汇率</td></tr>
+          <tr><td><code>--mode</code>（work / life）</td><td><span class="dotc" style="background:#2F5FD6"></span><code>#2F5FD6</code> / <span class="dotc" style="background:#0B7A6B"></span><code>#0B7A6B</code></td><td><span class="dotc" style="background:#7F9CF3"></span><code>#7F9CF3</code> / <span class="dotc" style="background:#3FC1AC"></span><code>#3FC1AC</code></td><td>模式徽章、切换器激活段、图表主线</td></tr>
+          <tr><td><code>--chart-1…8</code></td><td><code>2a78d6 · eb6834 · 1baf7a · eda100 · e87ba4 · 008300 · 4a3aa7 · e34948</code></td><td><code>3987e5 · d95926 · 199e70 · c98500 · d55181 · 008300 · 9085e9 · e66767</code></td><td>分类饼图与多序列；第 9 类起折叠为「其他」</td></tr>
+          <tr><td><code>--radius</code></td><td colspan="2"><code>lg 12px</code> 卡片 · <code>md 8px</code> 控件 · <code>sm 6px</code> 小图标块 · 徽章 full</td><td>全站唯一一组圆角</td></tr>
+          <tr><td><code>--font-sans</code> / <code>--font-mono</code></td><td colspan="2"><code>Geist, Noto Sans SC, system-ui…</code> / <code>Geist Mono, ui-monospace…</code></td><td>Google Fonts 加载，声明系统回退栈</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="foot-note"><span>所有数字均为示例数据。样张确认后进入 M1：写入 token、构建 ui/ 原语与外壳。</span><span>FinArch · 设计样张 · 2026-09-05</span></div>
+</div>

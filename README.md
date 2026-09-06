@@ -139,8 +139,8 @@ FinArch/
 │       └── httpserver/      嵌入式文件服务
 ├── frontend/src/
 │   ├── api/                 Axios API 客户端
-│   ├── components/          公共组件（Select · DatePicker · Brand …）
-│   ├── contexts/            Auth · ExchangeRate · Config
+│   ├── components/          公共组件与 UI 原语（Select · Dialog · Brand …）
+│   ├── contexts/            Auth · Theme · Mode · ExchangeRate · Config
 │   ├── hooks/               useTransactions · useAccounts · useHeartbeat …
 │   ├── motion/              Framer Motion 动画系统
 │   ├── pages/               页面组件
@@ -159,7 +159,7 @@ FinArch/
 | | |
 |---|---|
 | **后端** | Go 1.26.6 · Gin · SQLite (WAL) |
-| **前端** | React 19 · Vite 7 · Tailwind CSS v4 · Framer Motion · Recharts |
+| **前端** | React 19 · Vite 8 · Tailwind CSS v4 · Geist + Noto Sans SC · Framer Motion · Recharts |
 | **部署** | Docker 多阶段构建 · GitHub Actions → GHCR → SSH Deploy |
 | **安全** | JWT (HMAC HS256) · HttpOnly refresh 会话 · Cloudflare Turnstile · IP 限流 · 账户锁定 |
 | **邮件** | Resend（验证 · 重置 · 邮箱变更） |

@@ -1,43 +1,41 @@
 import { useTranslation } from 'react-i18next'
 import { useMode } from '../hooks/useMode'
+import { cn } from '../lib/utils'
+import { Segmented, SegmentedButton } from './ui/segmented'
 
 interface ModeSwitcherProps {
-    variant?: 'header' | 'sidebar'
+  variant?: 'header' | 'sidebar'
+  className?: string
 }
 
-export default function ModeSwitcher({ variant = 'header' }: ModeSwitcherProps) {
-    const { mode, setMode } = useMode()
-    const { t } = useTranslation()
+export default function ModeSwitcher({ variant = 'header', className }: ModeSwitcherProps) {
+  const { mode, setMode } = useMode()
+  const { t } = useTranslation()
+  const isSidebar = variant === 'sidebar'
 
-    const isSidebar = variant === 'sidebar'
-
-    const baseBtn = 'font-semibold rounded-lg transition-all duration-150'
-    const sizeClass = isSidebar ? 'px-2 py-1.5 text-xs' : 'text-[11px] py-1 rounded-md'
-
-    const activeClass =
-        'bg-white dark:bg-gray-700 text-violet-600 dark:text-violet-300 shadow-sm'
-    const inactiveClass =
-        'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-
-    return (
-        <div
-            className={`grid grid-cols-2 bg-gray-100 dark:bg-gray-800 overflow-hidden ${isSidebar ? 'rounded-xl p-1' : 'rounded-lg p-0.5 w-full max-w-[10rem]'
-                }`}
-        >
-            <button
-                onClick={() => setMode('work')}
-                className={`${baseBtn} ${sizeClass} ${mode === 'work' ? activeClass : inactiveClass
-                    } min-w-0 truncate`}
-            >
-                {t('mode.work')}
-            </button>
-            <button
-                onClick={() => setMode('life')}
-                className={`${baseBtn} ${sizeClass} ${mode === 'life' ? activeClass : inactiveClass
-                    } min-w-0 truncate`}
-            >
-                {t('mode.life')}
-            </button>
-        </div>
-    )
+  return (
+    <Segmented
+      aria-label={`${t('mode.work')} / ${t('mode.life')}`}
+      className={cn(
+        'grid grid-cols-2',
+        isSidebar ? 'w-full' : 'w-[7.25rem]',
+        className,
+      )}
+    >
+      <SegmentedButton
+        onClick={() => setMode('work')}
+        aria-pressed={mode === 'work'}
+        className="min-w-0 px-2 font-semibold aria-pressed:text-mode"
+      >
+        {t('mode.work')}
+      </SegmentedButton>
+      <SegmentedButton
+        onClick={() => setMode('life')}
+        aria-pressed={mode === 'life'}
+        className="min-w-0 px-2 font-semibold aria-pressed:text-mode"
+      >
+        {t('mode.life')}
+      </SegmentedButton>
+    </Segmented>
+  )
 }

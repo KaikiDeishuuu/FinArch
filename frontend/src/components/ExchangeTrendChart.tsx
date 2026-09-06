@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useTheme } from '../hooks/useTheme'
+import { useChartPalette } from '../hooks/useChartPalette'
 
 import type { TrendPoint, ExchangeRange } from '../utils/exchangeChart'
 import { buildChartPoints, xAxisInterval } from '../utils/exchangeChart'
@@ -9,9 +9,7 @@ function formatRate(value: number, from: string, to: string) {
   const lowPrecisionPairs = new Set(['JPY', 'KRW'])
   const digits = lowPrecisionPairs.has(from) || lowPrecisionPairs.has(to) ? 2 : 4
   const num = Number(value)
-  if (num > 0 && num < 0.01) {
-    return num.toPrecision(2)
-  }
+  if (num > 0 && num < 0.01) return num.toPrecision(2)
   return num.toFixed(digits)
 }
 
@@ -29,58 +27,48 @@ export default function ExchangeTrendChart({
   range: ExchangeRange
 }) {
   const isMobile = typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
-  const { resolved } = useTheme()
-  const isDark = resolved === 'dark'
-  const palette = { primary: '#3B82F6', income: '#22C55E', expense: '#EF4444', secondary: '#6B7280' }
+  const palette = useChartPalette()
   const tooltipPosition = useMemo(() => ({ x: isMobile ? 10 : 20, y: 16 }), [isMobile])
-
   const chartData = useMemo(() => buildChartPoints(data, range, locale), [data, locale, range])
   const tickInterval = useMemo(() => xAxisInterval(range, isMobile), [isMobile, range])
 
-  const trendDelta = chartData.length > 1 ? chartData[chartData.length - 1].rate - chartData[0].rate : 0
+  const trendDelta = chartData.length > 1 ? chartData[chartData.length - 1]!.rate - chartData[0]!.rate : 0
   const trendColors = trendDelta > 0
-    ? { stroke: palette.expense, gradientStart: isDark ? 'rgba(248,113,113,0.35)' : 'rgba(239,68,68,0.20)' }
+    ? { stroke: palette.expense, gradientStart: palette.fillNegative }
     : trendDelta < 0
-      ? { stroke: palette.income, gradientStart: isDark ? 'rgba(74,222,128,0.3)' : 'rgba(34,197,94,0.18)' }
-      : { stroke: palette.secondary, gradientStart: isDark ? 'rgba(156,163,175,0.28)' : 'rgba(107,114,128,0.14)' }
+      ? { stroke: palette.income, gradientStart: palette.fillPositive }
+      : { stroke: palette.secondary, gradientStart: palette.fillNeutral }
 
-  const yFormatter = (v: number) => {
-    const num = Number(v)
-    if (num > 0 && num < 0.01) {
-      if (isMobile) return num.toPrecision(1)
-      return num.toPrecision(2)
-    }
+  const yFormatter = (value: number) => {
+    const num = Number(value)
+    if (num > 0 && num < 0.01) return num.toPrecision(isMobile ? 1 : 2)
     return num.toFixed(isMobile ? 2 : 4)
   }
 
   return (
-    <div
-      className="w-full max-w-full overflow-x-auto overflow-y-visible touch-pan-y md:overflow-visible"
-      style={{ WebkitTapHighlightColor: 'transparent' }}
-    >
+    <div className="w-full max-w-full touch-pan-y overflow-x-auto overflow-y-visible md:overflow-visible" style={{ WebkitTapHighlightColor: 'transparent' }}>
       <div className="h-[220px] w-full px-1 sm:h-[240px] md:h-[320px] md:min-w-0 md:px-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 16, right: isMobile ? 8 : 16, left: isMobile ? 8 : 24, bottom: 16 }}>
             <defs>
               <linearGradient id="rateGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={trendColors.gradientStart} />
-                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                <stop offset="100%" stopColor={palette.surface} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke={isDark ? '#374151' : '#E5E7EB'} strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid stroke={palette.grid} strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="tickLabel"
-              tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: palette.mutedForeground }}
               tickMargin={8}
               minTickGap={isMobile ? 40 : 24}
               interval={tickInterval}
               tickLine={false}
               axisLine={false}
               padding={{ left: 14, right: 14 }}
-
             />
             <YAxis
-              tick={{ fontSize: isMobile ? 10 : 11, fill: isDark ? '#9CA3AF' : '#6B7280' }}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: palette.mutedForeground }}
               tickMargin={6}
               tickLine={false}
               axisLine={false}
@@ -91,13 +79,13 @@ export default function ExchangeTrendChart({
             <Tooltip
               allowEscapeViewBox={{ x: false, y: false }}
               position={tooltipPosition}
-              cursor={{ stroke: palette.primary, strokeWidth: 1.2, strokeDasharray: '4 4' }}
+              cursor={{ stroke: palette.secondary, strokeWidth: 1.2, strokeDasharray: '4 4' }}
               contentStyle={{
-                background: isDark ? '#111827' : '#FFFFFF',
-                borderRadius: 12,
-                border: `1px solid ${isDark ? '#374151' : '#E5E7EB'}`,
-                color: isDark ? '#F3F4F6' : '#111827',
-                boxShadow: '0 8px 20px rgba(15,23,42,0.14)',
+                background: palette.surface,
+                borderRadius: 8,
+                border: `1px solid ${palette.border}`,
+                color: palette.foreground,
+                boxShadow: 'var(--shadow-sm)',
               }}
               wrapperStyle={{ zIndex: 20 }}
               labelFormatter={(_, payload) => String(payload?.[0]?.payload?.tooltipLabel ?? '')}
@@ -107,12 +95,12 @@ export default function ExchangeTrendChart({
               type="monotone"
               dataKey="rate"
               stroke={trendColors.stroke}
-              strokeWidth={isMobile ? 2.5 : 3}
+              strokeWidth={2}
               fill="url(#rateGradient)"
               dot={false}
-              activeDot={{ r: 5, fill: isDark ? '#111827' : '#FFF', stroke: trendColors.stroke, strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: palette.surface, stroke: trendColors.stroke, strokeWidth: 2 }}
               isAnimationActive
-              animationDuration={420}
+              animationDuration={320}
             />
           </AreaChart>
         </ResponsiveContainer>

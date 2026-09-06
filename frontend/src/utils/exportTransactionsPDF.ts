@@ -94,11 +94,11 @@ export function exportTransactionsPDF(
     const src = t.source === 'company' ? i18n.t('exportPdf.companyLabel') : i18n.t('exportPdf.personalLabel')
     const acctName = (t.account_id && accountMap[t.account_id]) ? accountMap[t.account_id] : '—'
     const amount = `${t.direction === 'income' ? '+' : '−'}${fmt(t)}`
-    const amtColor = t.direction === 'income' ? '#16a34a' : '#ef4444'
+    const amtColor = t.direction === 'income' ? '#1B7F4C' : '#C93A3F'
     const uploaded = t.uploaded ? i18n.t('exportPdf.uploadedYes') : i18n.t('exportPdf.uploadedNo')
-    const uploadedColor = t.uploaded ? '#7c3aed' : '#9ca3af'
+    const uploadedColor = t.uploaded ? '#2F5FD6' : '#8A929F'
     const reimbursed = t.reimbursed ? i18n.t('exportPdf.reimbursedYes') : i18n.t('exportPdf.reimbursedNo')
-    const reimbursedColor = t.reimbursed ? '#15803d' : '#9ca3af'
+    const reimbursedColor = t.reimbursed ? '#1B7F4C' : '#8A929F'
     const dotClass = t.direction === 'income' ? 'dot income' : 'dot expense'
     const workflow = workflowStatus(t)
     const reportedAt = clampLifecycleTimestamp(t.reported_at, t.created_at) ?? '—'
@@ -135,54 +135,54 @@ export function exportTransactionsPDF(
     `<title>${e(i18n.t('exportPdf.title'))} ${e(dateStr)}</title>`,
     '<style>',
     '* { box-sizing: border-box; margin: 0; padding: 0; }',
-    'body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 24px 32px; }',
-    '.header { border-bottom: 2px solid #7c3aed; padding-bottom: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }',
+    'body { font-family: "Geist", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 11px; color: #161A22; background: #fff; padding: 24px 32px; }',
+    '.header { border-bottom: 1px solid #E2E6EC; padding-bottom: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }',
     '.header-left { display:flex; align-items:center; gap:12px; }',
-    '.header-left h1 { font-size: 20px; font-weight: 800; color: #5b21b6; letter-spacing: 0.02em; }',
-    '.header-left p { font-size: 11px; color: #6b7280; margin-top: 3px; }',
+    '.header-left h1 { font-size: 20px; font-weight: 700; color: #161A22; letter-spacing: -0.02em; }',
+    '.header-left p { font-size: 11px; color: #5D6572; margin-top: 3px; }',
     '.header-right { text-align: right; }',
-    '.header-right .user-name { font-size: 14px; font-weight: 700; color: #1f2937; }',
-    '.header-right .user-detail { font-size: 10px; color: #9ca3af; margin-top: 2px; }',
+    '.header-right .user-name { font-size: 14px; font-weight: 700; color: #161A22; }',
+    '.header-right .user-detail { font-size: 10px; color: #8A929F; margin-top: 2px; }',
     '.summary { margin-bottom: 16px; display: grid; gap: 10px; }',
-    '.summary-table { width: 100%; border-collapse: collapse; margin-bottom: 0; border: 1px solid #ede9fe; border-radius: 12px; overflow: hidden; }',
-    '.summary-table th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #9ca3af; padding: 6px 10px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; }',
+    '.summary-table { width: 100%; border-collapse: collapse; margin-bottom: 0; border: 1px solid #E2E6EC; border-radius: 10px; overflow: hidden; }',
+    '.summary-table th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #8A929F; padding: 6px 10px; text-align: right; border-bottom: 1px solid #E2E6EC; font-weight: 600; }',
     '.summary-table th:first-child { text-align: left; }',
-    '.summary-table td { padding: 8px 10px; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; border-bottom: 1px solid #f3f4f6; }',
-    '.summary-table td:first-child { text-align: left; font-size: 12px; font-weight: 700; color: #1f2937; }',
+    '.summary-table td { padding: 8px 10px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; border-bottom: 1px solid #EEF1F5; }',
+    '.summary-table td:first-child { text-align: left; font-size: 12px; font-weight: 700; color: #161A22; }',
     '.summary-table tr:last-child td { border-bottom: none; }',
-    '.summary-table .row-all td:first-child { color: #5b21b6; }',
-    '.summary-table .row-personal td:first-child { color: #d97706; }',
-    '.summary-table .row-company td:first-child { color: #0284c7; }',
-    '.summary-table .income { color: #16a34a; }',
-    '.summary-table .expense { color: #ef4444; }',
-    '.summary-table .reimb { color: #7c3aed; }',
-    '.summary-table .count { color: #7c3aed; }',
+    '.summary-table .row-all td:first-child { color: #2F5FD6; }',
+    '.summary-table .row-personal td:first-child { color: #9A5B00; }',
+    '.summary-table .row-company td:first-child { color: #2F5FD6; }',
+    '.summary-table .income { color: #1B7F4C; }',
+    '.summary-table .expense { color: #C93A3F; }',
+    '.summary-table .reimb { color: #2F5FD6; }',
+    '.summary-table .count { color: #2F5FD6; }',
     '.status-note { display:flex; gap:8px; flex-wrap:wrap; }',
     '.status-pill { font-size:10px; padding:4px 8px; border-radius:999px; font-weight:700; }',
-    '.status-pill.pending { color:#b45309; background:#fef3c7; }',
-    '.status-pill.review { color:#6d28d9; background:#ede9fe; }',
-    '.status-pill.done { color:#166534; background:#dcfce7; }',
-    'table { width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #ede9fe; border-radius: 12px; overflow: hidden; }',
-    'thead tr { background: #5b21b6; color: #fff; }',
+    '.status-pill.pending { color:#9A5B00; background:#FBF0DC; }',
+    '.status-pill.review { color:#2F5FD6; background:#E8EEFB; }',
+    '.status-pill.done { color:#1B7F4C; background:#E4F4EB; }',
+    'table { width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #E2E6EC; border-radius: 10px; overflow: hidden; }',
+    'thead tr { background: #161A22; color: #fff; }',
     'thead th { padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; }',
     'thead th:last-child, thead th:nth-child(7) { text-align: center; }',
     'thead th:nth-child(7) { text-align: right; }',
-    'tbody tr { border-bottom: 1px solid #f3f4f6; }',
+    'tbody tr { border-bottom: 1px solid #EEF1F5; }',
     'tbody tr, tbody td { page-break-inside: avoid; break-inside: avoid; }',
-    'tbody tr:nth-child(even) { background: #f9fafb; }',
+    'tbody tr:nth-child(even) { background: #F6F7F9; }',
     'tbody td { padding: 6px 10px; vertical-align: middle; }',
-    'td.note { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7280; }',
+    'td.note { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #5D6572; }',
     '.tx-row { page-break-inside: avoid; break-inside: avoid; }',
-    '.lifecycle { margin-top: 4px; display:flex; flex-direction:column; gap:2px; font-size:9px; color:#6b7280; line-height:1.2; white-space:normal; }',
+    '.lifecycle { margin-top: 4px; display:flex; flex-direction:column; gap:2px; font-size:9px; color:#5D6572; line-height:1.2; white-space:normal; }',
     '.wf-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:3px 8px; font-size:9.5px; font-weight:700; white-space:nowrap; }',
-    '.wf-chip.wf-income { background:#e5e7eb; color:#4b5563; }',
-    '.wf-chip.wf-pending { background:#fef3c7; color:#92400e; }',
-    '.wf-chip.wf-review { background:#ede9fe; color:#6d28d9; }',
-    '.wf-chip.wf-done { background:#dcfce7; color:#166534; }',
+    '.wf-chip.wf-income { background:#EEF1F5; color:#5D6572; }',
+    '.wf-chip.wf-pending { background:#FBF0DC; color:#9A5B00; }',
+    '.wf-chip.wf-review { background:#E8EEFB; color:#2F5FD6; }',
+    '.wf-chip.wf-done { background:#E4F4EB; color:#1B7F4C; }',
     '.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }',
-    '.dot.income { background: #22c55e; }',
-    '.dot.expense { background: #ef4444; }',
-    '.footer { margin-top: 16px; padding-top: 10px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 9px; color: #9ca3af; }',
+    '.dot.income { background: #1B7F4C; }',
+    '.dot.expense { background: #C93A3F; }',
+    '.footer { margin-top: 16px; padding-top: 10px; border-top: 1px solid #E2E6EC; display: flex; justify-content: space-between; font-size: 9px; color: #8A929F; }',
     '@media print {',
     '  body { padding: 10px 16px; }',
     '  @page { size: A4 landscape; margin: 10mm; }',
@@ -193,7 +193,7 @@ export function exportTransactionsPDF(
   ].join('\n')
 
   function netStyle(n: number) {
-    return n >= 0 ? '#16a34a' : '#ef4444'
+    return n >= 0 ? '#1B7F4C' : '#C93A3F'
   }
   function netFmt(n: number) {
     return (n >= 0 ? '+' : '') + fmtTotal(n)
@@ -216,11 +216,11 @@ export function exportTransactionsPDF(
     '<div class="header">',
     '  <div class="header-left">',
     '  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="40" height="40" style="border-radius:10px;flex-shrink:0">',
-    '    <defs><linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0d0b14"/><stop offset="100%" stop-color="#170f26"/></linearGradient></defs>',
-    '    <rect width="512" height="512" rx="104" ry="104" fill="url(#bg)"/>',
-    '    <rect x="64"  y="272" width="112" height="144" rx="24" fill="#818cf8"/>',
-    '    <rect x="200" y="192" width="112" height="224" rx="24" fill="#a78bfa"/>',
-    '    <rect x="336" y="96"  width="112" height="320" rx="24" fill="#34d399"/>',
+    '',
+    '    <rect width="512" height="512" rx="104" ry="104" fill="#161A22"/>',
+    '    <rect x="64"  y="272" width="112" height="144" rx="24" fill="#6B7A99"/>',
+    '    <rect x="200" y="192" width="112" height="224" rx="24" fill="#3D6BE8"/>',
+    '    <rect x="336" y="96"  width="112" height="320" rx="24" fill="#2FB37C"/>',
     '  </svg>',
     '  <div>',
     `    <h1>${e(i18n.t('exportPdf.systemTitle'))}</h1>`,

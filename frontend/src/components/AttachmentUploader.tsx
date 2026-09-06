@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { FilePlus2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { Attachment, OCRSuggestion } from '../api/client'
+import { deleteAttachment } from '../api/client'
 import { useAttachmentMutations } from '../hooks/useAttachments'
 import { attachmentOCRText, hasOCRSuggestion } from '../utils/ocr'
 import OcrTextDisclosure from './OcrTextDisclosure'
-import { deleteAttachment } from '../api/client'
+import { Button } from './ui/button'
+import { cn } from '../lib/utils'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -69,43 +72,58 @@ export default function AttachmentUploader({
   }
 
   return (
-    <div className={compact ? 'space-y-2' : 'rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 p-4 dark:border-violet-500/30 dark:bg-violet-500/5'}>
+    <div
+      className={cn(
+        'space-y-2',
+        !compact && 'rounded-xl border border-dashed border-input bg-muted/45 p-4',
+      )}
+    >
       <input
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
         className="hidden"
-        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => inputRef.current?.click()}
-          className="rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 dark:border-violet-500/30 dark:bg-white/[0.03] dark:text-violet-300 dark:hover:bg-violet-500/10"
         >
+          <FilePlus2 className="size-3.5" />
           {t('attachments.choose')}
-        </button>
-        {file && (
-          <span className="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
+        </Button>
+        {file ? (
+          <span className="min-w-0 truncate text-xs text-muted-foreground">
             {file.name} · {formatFileSize(file.size)}
           </span>
-        )}
+        ) : null}
       </div>
-      <label className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <input type="checkbox" checked={runOCR} onChange={(e) => setRunOCR(e.target.checked)} className="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+      <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={runOCR}
+          onChange={(event) => setRunOCR(event.target.checked)}
+          className="size-4 rounded border-input accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        />
         {t('attachments.runOcr')}
       </label>
-      {file && (
-        <button
+      {file ? (
+        <Button
           type="button"
+          size="sm"
           onClick={upload}
-          disabled={mutations.upload.isPending}
-          className="mt-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+          loading={mutations.upload.isPending}
+          loadingText={t('common.loading')}
+          className="mt-2"
         >
-          {mutations.upload.isPending ? t('common.loading') : t('attachments.upload')}
-        </button>
-      )}
-      {lastAttachment && <OcrTextDisclosure attachment={lastAttachment} />}
+          <Upload className="size-3.5" />
+          {t('attachments.upload')}
+        </Button>
+      ) : null}
+      {lastAttachment ? <OcrTextDisclosure attachment={lastAttachment} /> : null}
     </div>
   )
 }

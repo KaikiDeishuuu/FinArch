@@ -1,386 +1,364 @@
-import { useState } from 'react'
-import { Drawer } from 'vaul'
-import { NavLink, useLocation } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-import { useTheme } from '../hooks/useTheme'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PageTransition } from '../motion'
+import { NavLink, useLocation } from 'react-router-dom'
+import { Drawer } from 'vaul'
+import {
+  ArrowRightLeft,
+  BarChart3,
+  ChevronRight,
+  Home,
+  Languages,
+  List,
+  LogOut,
+  MoreHorizontal,
+  Plus,
+  Repeat2,
+  SearchCheck,
+  Settings2,
+  WalletCards,
+  type LucideIcon,
+} from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
 import { useMode } from '../hooks/useMode'
-import { LogoMark, LogoBars, BrandDivider } from './Brand'
+import { useTheme } from '../hooks/useTheme'
+import type { Theme } from '../contexts/themeContextCore'
+import { PageTransition } from '../motion'
+import { APP_NAME, APP_VERSION } from '../constants/app'
+import { cn } from '../lib/utils'
+import { LogoBars, LogoMark } from './Brand'
 import ModeSwitcher from './ModeSwitcher'
-import MobileModeMagneticFab from './MobileModeMagneticFab'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Segmented, SegmentedButton } from './ui/segmented'
 
-// SVG icon components
-const IconHome = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
-    <path d="M9 21V12h6v9" />
-  </svg>
-)
-const IconList = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-  </svg>
-)
-const IconPlus = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className="w-6 h-6">
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-)
-const IconMatch = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <circle cx="11" cy="11" r="8" />
-    <path d="M21 21l-4.35-4.35" />
-    <path d="M8 11h6M11 8v6" />
-  </svg>
-)
-const IconChart = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <path d="M18 20V10M12 20V4M6 20v-6" />
-  </svg>
-)
-
-const IconBudget = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <path d="M4 19V5a2 2 0 012-2h12a2 2 0 012 2v14" />
-    <path d="M8 7h8M8 11h8M8 15h3" />
-    <path d="M16 15h4v4h-4z" />
-  </svg>
-)
-
-const IconExchange = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <path d="M4 7h13" />
-    <path d="M13 4l4 3-4 3" />
-    <path d="M20 17H7" />
-    <path d="M11 14l-4 3 4 3" />
-  </svg>
-)
-
-const IconRepeat = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <path d="M17 1l4 4-4 4" />
-    <path d="M3 11V9a4 4 0 014-4h14" />
-    <path d="M7 23l-4-4 4-4" />
-    <path d="M21 13v2a4 4 0 01-4 4H3" />
-  </svg>
-)
-
-const IconSettings = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-  </svg>
-)
-const IconLogout = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-)
+interface NavigationItem {
+  to: string
+  labelKey: string
+  Icon: LucideIcon
+  end?: boolean
+  isPrimary?: boolean
+}
 
 const NAV_ITEMS = [
-  { to: '/', labelKey: 'nav.dashboard', Icon: IconHome, end: true },
-  { to: '/transactions', labelKey: 'nav.transactions', Icon: IconList },
-  { to: '/add', labelKey: 'nav.add', Icon: IconPlus, isPrimary: true },
-  { to: '/match', labelKey: 'nav.match', Icon: IconMatch },
-  { to: '/stats', labelKey: 'nav.stats', Icon: IconChart },
-  { to: '/budgets', labelKey: 'nav.budgets', Icon: IconBudget },
-  { to: '/recurring', labelKey: 'nav.recurring', Icon: IconRepeat },
-  { to: '/exchange', labelKey: 'nav.exchange', Icon: IconExchange },
-  { to: '/settings', labelKey: 'nav.settings', Icon: IconSettings },
-]
+  { to: '/', labelKey: 'nav.dashboard', Icon: Home, end: true },
+  { to: '/transactions', labelKey: 'nav.transactions', Icon: List },
+  { to: '/add', labelKey: 'nav.add', Icon: Plus, isPrimary: true },
+  { to: '/match', labelKey: 'nav.match', Icon: SearchCheck },
+  { to: '/stats', labelKey: 'nav.stats', Icon: BarChart3 },
+  { to: '/budgets', labelKey: 'nav.budgets', Icon: WalletCards },
+  { to: '/recurring', labelKey: 'nav.recurring', Icon: Repeat2 },
+  { to: '/exchange', labelKey: 'nav.exchange', Icon: ArrowRightLeft },
+  { to: '/settings', labelKey: 'nav.settings', Icon: Settings2 },
+] satisfies NavigationItem[]
 
-// ── Theme toggle icons ──
-const IconSun = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-    <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-  </svg>
-)
-const IconMoon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-  </svg>
-)
-const IconLang = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-    <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
-  </svg>
-)
-const IconMore = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-    <circle cx="5" cy="12" r="1" />
-    <circle cx="12" cy="12" r="1" />
-    <circle cx="19" cy="12" r="1" />
-  </svg>
-)
+const MOBILE_MORE_ROUTES = new Set(['/budgets', '/recurring', '/exchange', '/settings'])
 
-const controlBtnClass = 'flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/70 dark:bg-white/[0.03] text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-300 hover:border-violet-200 dark:hover:border-violet-500/40 hover:bg-violet-50/80 dark:hover:bg-violet-500/10 transition-all'
-
-export default function Layout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth()
-  const { resolved, toggle: toggleTheme } = useTheme()
-  const { t, i18n } = useTranslation()
-  const location = useLocation()
-  const initial = ((user?.username || user?.email || '?')[0]).toUpperCase()
-  const displayName = user?.username || user?.email || '—'
-  const toggleLang = () => i18n.changeLanguage(i18n.language === 'zh' ? 'en' : 'zh')
-  const isDark = resolved === 'dark'
-  const { isWorkMode } = useMode()
-  const [isMoreOpen, setIsMoreOpen] = useState(false)
-  const navItems = NAV_ITEMS
-  const mobileMoreRoutes = ['/budgets', '/recurring', '/exchange', '/settings']
-  const mobileNavItems = NAV_ITEMS.filter((item) => !mobileMoreRoutes.includes(item.to))
-  const mobileMoreItems = NAV_ITEMS.filter((item) => mobileMoreRoutes.includes(item.to))
+function ThemeSelector({
+  theme,
+  setTheme,
+  className,
+}: {
+  theme: Theme
+  setTheme: (theme: Theme) => void
+  className?: string
+}) {
+  const { t } = useTranslation()
+  const options: Array<{ value: Theme; label: string }> = [
+    { value: 'light', label: t('theme.light') },
+    { value: 'dark', label: t('theme.dark') },
+    { value: 'system', label: t('theme.system') },
+  ]
 
   return (
-    <div className="flex overflow-x-hidden transition-colors duration-300" style={{ height: '100dvh', backgroundColor: 'hsl(var(--mode-bg))' }}>
+    <Segmented aria-label={t('theme.toggle')} className={cn('grid w-full grid-cols-3', className)}>
+      {options.map((option) => (
+        <SegmentedButton
+          key={option.value}
+          aria-pressed={theme === option.value}
+          onClick={() => setTheme(option.value)}
+          className="min-w-0 px-1.5 text-[10px]"
+        >
+          {option.label}
+        </SegmentedButton>
+      ))}
+    </Segmented>
+  )
+}
 
-      {/* ── Desktop Sidebar ── */}
-      <aside className="hidden md:flex w-[236px] bg-white dark:bg-[hsl(260,15%,11%)] border-r border-gray-100/80 dark:border-gray-800/60 flex-col shrink-0">
-        {/* Brand */}
-        <div className="px-4 pt-4 pb-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-violet-100/80 dark:border-violet-500/20 bg-gradient-to-br from-violet-50/80 to-white dark:from-violet-500/10 dark:to-white/[0.01] px-3.5 py-3">
-            <LogoMark size={38} className="rounded-xl shadow-sm shadow-violet-200/60 dark:shadow-violet-900/30" />
-            <div className="min-w-0">
-              <h1 className="font-extrabold text-gray-900 dark:text-gray-100 text-base leading-tight tracking-tight">FinArch</h1>
-              <p className="text-[10px] text-violet-500/80 dark:text-violet-300/80 mt-1 tracking-wide truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</p>
+function Avatar({ initial, size = 'md' }: { initial: string; size?: 'sm' | 'md' }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'grid shrink-0 place-items-center rounded-full bg-muted font-semibold text-foreground ring-1 ring-border',
+        size === 'sm' ? 'size-8 text-[11px]' : 'size-9 text-xs',
+      )}
+    >
+      {initial}
+    </span>
+  )
+}
+
+export default function Layout({ children }: { children: ReactNode }) {
+  const { user, logout } = useAuth()
+  const { theme, setTheme } = useTheme()
+  const { isWorkMode } = useMode()
+  const { t, i18n } = useTranslation()
+  const location = useLocation()
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
+
+  const identity = user?.username || user?.email || '—'
+  const initial = (identity === '—' ? '?' : identity[0]!).toUpperCase()
+  const isChinese = (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('zh')
+  const mobileNavItems = NAV_ITEMS.filter((item) => !MOBILE_MORE_ROUTES.has(item.to))
+  const mobileMoreItems = NAV_ITEMS.filter((item) => MOBILE_MORE_ROUTES.has(item.to))
+  const modeLabel = isWorkMode ? t('mode.work') : t('mode.life')
+  const modeSubtitle = isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')
+
+  const toggleLanguage = () => {
+    void i18n.changeLanguage(isChinese ? 'en' : 'zh')
+  }
+
+  return (
+    <div className="flex h-[100dvh] overflow-x-hidden bg-background text-foreground">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
+        <div className="px-5 pb-4 pt-5">
+          <div className="flex items-center gap-3">
+            <LogoMark size={34} decorative />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-[15px] font-semibold tracking-tight">{APP_NAME}</h1>
+                <Badge variant="mode">{modeLabel}</Badge>
+              </div>
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{modeSubtitle}</p>
             </div>
           </div>
         </div>
 
-
-        <div className="px-5 pb-2">
+        <div className="px-4 pb-3">
           <ModeSwitcher variant="sidebar" />
         </div>
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
-          {navItems.map((item) => (
+
+        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-1" aria-label={APP_NAME}>
+          {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${isActive
-                  ? 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 shadow-sm shadow-violet-100/50 dark:shadow-none'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-800 dark:hover:text-gray-200'
-                }`
-              }
+              className={({ isActive }) => cn(
+                'relative flex h-9 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition-colors before:absolute before:left-0 before:h-4 before:w-0.5 before:rounded-full before:bg-transparent',
+                isActive
+                  ? 'bg-muted text-foreground before:bg-accent'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
             >
-              <item.Icon />
-              {t(item.labelKey)}
+              <item.Icon className="size-[17px] shrink-0" strokeWidth={1.9} />
+              <span className="truncate">{t(item.labelKey)}</span>
             </NavLink>
           ))}
         </nav>
 
-        {/* Theme + Language toggles */}
-        <div className="px-3 pb-2 grid grid-cols-2 gap-2">
-          <button
-            onClick={toggleTheme}
-            className={`${controlBtnClass} text-[11px] font-medium`}
-            title={t('theme.toggle')}
-          >
-            {isDark ? <IconSun /> : <IconMoon />}
-            <span>{t('theme.toggle')}</span>
-          </button>
-          <button
-            onClick={toggleLang}
-            className={`${controlBtnClass} text-[11px] font-semibold`}
-            title={t('language.toggle')}
-          >
-            <IconLang />
-            <span>{i18n.language === 'zh' ? 'EN' : '中'}</span>
-          </button>
-        </div>
-
-        {/* User section */}
-        <div className="px-3 pb-5 pt-3 border-t border-gray-100/80 dark:border-gray-800/60 mt-auto space-y-2">
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] transition-colors group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50">
-              {initial}
-            </div>
-            <p className="flex-1 text-[12px] text-gray-700 dark:text-gray-300 truncate font-medium">{displayName}</p>
+        <div className="space-y-3 border-t border-border px-3 py-4">
+          <div className="space-y-1.5">
+            <p className="px-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              {t('theme.toggle')}
+            </p>
+            <ThemeSelector theme={theme} setTheme={setTheme} />
           </div>
-          <button
-            onClick={logout}
-            title={t('nav.logout')}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-[12px] font-semibold"
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleLanguage}
+            className="w-full justify-start text-muted-foreground"
           >
-            <IconLogout />
-            <span>{t('nav.logout')}</span>
-          </button>
+            <Languages className="size-4" />
+            <span>{t('language.toggle')}</span>
+            <span className="ml-auto font-mono text-[10px] text-muted-foreground">{isChinese ? 'EN' : '中'}</span>
+          </Button>
+
+          <div className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-2.5 py-2">
+            <Avatar initial={initial} size="sm" />
+            <p className="min-w-0 flex-1 truncate text-xs font-medium">{identity}</p>
+          </div>
+
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => void logout()}
+            className="w-full"
+          >
+            <LogOut className="size-4" />
+            {t('nav.logout')}
+          </Button>
         </div>
       </aside>
 
-      {/* ── Mobile Top Header ── */}
       <Drawer.Root open={isMoreOpen} onOpenChange={setIsMoreOpen} shouldScaleBackground>
         <header
-          className="gpu-layer md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-800/60 px-3 pb-2.5"
+          className="gpu-layer fixed inset-x-0 top-0 z-50 border-b border-border bg-card/95 px-3 pb-2 backdrop-blur-md md:hidden"
           style={{ paddingTop: 'max(0.55rem, env(safe-area-inset-top))' }}
         >
-          <div className="flex min-h-11 items-center justify-between gap-3 min-w-0 overflow-hidden">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <LogoMark size={30} className="rounded-lg shrink-0 shadow-sm shadow-violet-200/50 dark:shadow-violet-900/30" />
-              <div className="min-w-0">
-                <span className="block font-extrabold text-gray-900 dark:text-gray-100 text-[15px] tracking-tight truncate">FinArch</span>
-                <span className="block text-[10px] text-violet-500/80 dark:text-violet-300/80 truncate">{isWorkMode ? t('nav.subtitle') : t('nav.life.subtitle')}</span>
-              </div>
+          <div className="flex min-h-11 min-w-0 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <LogoMark size={29} decorative />
+              <span className="truncate text-sm font-semibold tracking-tight">{APP_NAME}</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-[11px] font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
-                {initial}
-              </div>
+            <ModeSwitcher className="shrink-0" />
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Avatar initial={initial} size="sm" />
               <Drawer.Trigger asChild>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="icon"
                   title={t('nav.more')}
                   aria-label={t('nav.more')}
-                  className="h-10 w-10 rounded-2xl border border-violet-100 dark:border-violet-500/30 bg-violet-50/80 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300 flex items-center justify-center active:scale-95 transition-transform"
                 >
-                  <IconMore />
-                </button>
+                  <MoreHorizontal className="size-[18px]" />
+                </Button>
               </Drawer.Trigger>
             </div>
           </div>
         </header>
 
         <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 z-[70] bg-slate-950/45 backdrop-blur-[2px]" />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[80] max-h-[88dvh] rounded-t-[2rem] border border-gray-100/80 dark:border-white/10 bg-white dark:bg-[hsl(260,15%,11%)] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 shadow-2xl shadow-violet-950/20 outline-none">
-            <Drawer.Handle className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-gray-200 dark:bg-white/15" />
-            <div className="mx-auto max-w-md overflow-y-auto pb-2">
+          <Drawer.Overlay className="fixed inset-0 z-[70] bg-foreground/35 backdrop-blur-[2px]" />
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-[80] flex max-h-[88dvh] flex-col rounded-t-xl border border-border bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 text-card-foreground shadow-[var(--shadow-sm)] outline-none">
+            <Drawer.Handle className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-input" />
+            <div className="mx-auto min-h-0 w-full max-w-md overflow-y-auto pb-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Drawer.Title className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                  <Drawer.Title className="text-lg font-semibold tracking-tight text-foreground">
                     {t('nav.moreTitle')}
                   </Drawer.Title>
-                  <Drawer.Description className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <Drawer.Description className="mt-1 text-xs text-muted-foreground">
                     {t('nav.moreDescription')}
                   </Drawer.Description>
                 </div>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-violet-200/50 dark:shadow-violet-900/50 shrink-0">
-                  {initial}
-                </div>
+                <Badge variant="mode">{modeLabel}</Badge>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <nav className="mt-5 grid grid-cols-2 gap-2" aria-label={t('nav.moreTitle')}>
                 {mobileMoreItems.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     onClick={() => setIsMoreOpen(false)}
-                    className={({ isActive }) =>
-                      `group min-h-[6rem] rounded-2xl border p-3.5 transition-all active:scale-[0.98] ${isActive
-                        ? 'border-violet-200 bg-violet-50 text-violet-700 shadow-sm shadow-violet-100/70 dark:border-violet-500/40 dark:bg-violet-500/15 dark:text-violet-200 dark:shadow-none'
-                        : 'border-gray-100 bg-gray-50/80 text-gray-700 hover:border-violet-100 hover:bg-violet-50/60 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:border-violet-500/30 dark:hover:bg-violet-500/10'
-                      }`
-                    }
+                    className={({ isActive }) => cn(
+                      'group min-h-24 rounded-lg border border-border bg-background p-3 transition-colors hover:border-input hover:bg-muted',
+                      isActive && 'border-accent/35 bg-accent-soft',
+                    )}
                   >
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-violet-600 shadow-sm shadow-gray-200/80 group-hover:scale-105 dark:bg-white/10 dark:text-violet-300 dark:shadow-none transition-transform">
-                      <item.Icon />
-                    </div>
-                    <p className="text-sm font-bold leading-tight">{t(item.labelKey)}</p>
-                    <p className="mt-1 text-[11px] leading-snug text-gray-500 dark:text-gray-400">{t(`nav.moreHints.${item.to}`)}</p>
+                    {({ isActive }) => (
+                      <>
+                        <div className={cn(
+                          'mb-3 grid size-8 place-items-center rounded-md bg-card text-muted-foreground ring-1 ring-border',
+                          isActive && 'text-accent',
+                        )}>
+                          <item.Icon className="size-4" />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-foreground">{t(item.labelKey)}</p>
+                          <ChevronRight className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                          {t(`nav.moreHints.${item.to}`)}
+                        </p>
+                      </>
+                    )}
                   </NavLink>
                 ))}
-              </div>
+              </nav>
 
-              <div className="mt-5 rounded-2xl border border-gray-100 bg-gray-50/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
-                <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{t('nav.preferences')}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={toggleTheme} className={`${controlBtnClass} h-11 text-[12px] font-semibold`}>
-                    {isDark ? <IconSun /> : <IconMoon />}
-                    <span>{t('theme.toggle')}</span>
-                  </button>
-                  <button onClick={toggleLang} className={`${controlBtnClass} h-11 text-[12px] font-semibold`}>
-                    <IconLang />
-                    <span>{i18n.language === 'zh' ? 'EN' : '中'}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="px-1 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400 dark:text-gray-500">{t('nav.account')}</p>
-                <div className="flex items-center gap-2.5 rounded-xl bg-gray-50/80 px-3 py-2.5 dark:bg-white/[0.04]">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                    {initial}
-                  </div>
-                  <p className="flex-1 truncate text-[12px] font-medium text-gray-700 dark:text-gray-300">{displayName}</p>
-                </div>
-                <button
-                  onClick={logout}
-                  title={t('nav.logout')}
-                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-rose-100 dark:border-rose-500/30 text-rose-500 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors text-[12px] font-semibold"
+              <section className="mt-4 rounded-lg border border-border bg-background p-3">
+                <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  {t('nav.preferences')}
+                </p>
+                <ThemeSelector theme={theme} setTheme={setTheme} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleLanguage}
+                  className="mt-2 w-full justify-start"
                 >
-                  <IconLogout />
-                  <span>{t('nav.logout')}</span>
-                </button>
-              </div>
+                  <Languages className="size-4" />
+                  <span>{t('language.toggle')}</span>
+                  <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                    {isChinese ? 'EN' : '中'}
+                  </span>
+                </Button>
+              </section>
+
+              <section className="mt-3 rounded-lg border border-border bg-background p-3">
+                <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  {t('nav.account')}
+                </p>
+                <div className="flex items-center gap-2.5 px-1 py-1">
+                  <Avatar initial={initial} size="sm" />
+                  <p className="min-w-0 flex-1 truncate text-xs font-medium">{identity}</p>
+                </div>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => void logout()}
+                  className="mt-2 w-full"
+                >
+                  <LogOut className="size-4" />
+                  {t('nav.logout')}
+                </Button>
+              </section>
             </div>
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
 
-      {/* ── Main Content ── */}
-      <main className="scroll-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden pt-[4rem] md:pt-0 md:pb-0 flex flex-col" style={{ backgroundColor: 'hsl(var(--background))' }}>
-        <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-8 md:py-8">
-          <PageTransition motionKey={location.pathname}>
-            {children}
-          </PageTransition>
+      <main className="scroll-main flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto bg-background pt-[4rem] md:pb-0 md:pt-0">
+        <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8 md:py-8">
+          <PageTransition motionKey={location.pathname}>{children}</PageTransition>
         </div>
 
-        {/* ── Footer ── */}
-        <footer className="shrink-0 mt-auto">
-          <BrandDivider className="mx-6 md:mx-8" />
-          <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <LogoBars size={16} opacity={0.25} />
-              <span className="text-[11px] font-semibold text-gray-300 dark:text-gray-600 tracking-wide">FinArch</span>
-              <span className="text-[11px] text-gray-200 dark:text-gray-700">·</span>
-              <span className="text-[11px] text-gray-300 dark:text-gray-600">{isWorkMode ? t('nav.footer') : t('nav.life.footer')}</span>
-            </div>
-            <span className="text-[10px] text-gray-300 dark:text-gray-600 font-mono">v2.3</span>
-          </div>
+        <footer className="mx-auto flex w-full max-w-7xl shrink-0 items-center justify-between gap-4 border-t border-border px-4 py-3 text-[10px] text-muted-foreground md:px-8">
+          <span className="flex min-w-0 items-center gap-2 truncate">
+            <LogoBars size={14} opacity={0.45} />
+            <span className="truncate">{isWorkMode ? t('nav.footer') : t('nav.life.footer')}</span>
+          </span>
+          <span className="shrink-0 font-mono">v{APP_VERSION}</span>
         </footer>
       </main>
 
-      {/* ── Floating Mode Switcher (mobile) ── */}
-      <MobileModeMagneticFab />
-
-      {/* ── Mobile Bottom Navigation ── */}
-      <nav className="gpu-layer safe-bottom md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[hsl(260,15%,11%)]/95 backdrop-blur-sm border-t border-gray-100/80 dark:border-gray-800/60 flex items-end">
+      <nav className="gpu-layer safe-bottom fixed inset-x-0 bottom-0 z-50 flex items-end border-t border-border bg-card/95 backdrop-blur-md md:hidden" aria-label={APP_NAME}>
         {mobileNavItems.map((item) => {
           if (item.isPrimary) {
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                className="flex-1 flex flex-col items-center pb-2.5 pt-1 -mt-5"
+                className="flex flex-1 -mt-4 flex-col items-center pb-2.5 pt-1 text-muted-foreground"
               >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-violet-400/40 dark:shadow-violet-900/40 active:scale-95 transition-transform">
-                  <item.Icon />
-                </div>
-                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 mt-0.5">{t(item.labelKey)}</span>
+                <span className="grid size-11 place-items-center rounded-lg bg-primary text-primary-foreground shadow-[var(--shadow-sm)] transition-opacity active:opacity-80">
+                  <item.Icon className="size-5" strokeWidth={2.2} />
+                </span>
+                <span className="mt-1 text-[10px] font-medium">{t(item.labelKey)}</span>
               </NavLink>
             )
           }
+
           return (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) =>
-                `flex-1 min-h-[4.25rem] flex flex-col items-center justify-center py-2.5 gap-1 transition-colors ${isActive ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500 active:text-gray-500'
-                }`
-              }
+              className={({ isActive }) => cn(
+                'flex min-h-[4.25rem] flex-1 flex-col items-center justify-center gap-1 py-2.5 text-muted-foreground transition-colors',
+                isActive && 'text-accent',
+              )}
             >
               {({ isActive }) => (
                 <>
-                  <div className={`p-1.5 rounded-xl transition-colors ${isActive ? 'bg-violet-50 dark:bg-violet-500/15' : ''}`}>
-                    <item.Icon />
-                  </div>
-                  <span className={`text-[11px] font-semibold leading-none ${isActive ? 'text-violet-600 dark:text-violet-400' : ''}`}>{t(item.labelKey)}</span>
+                  <span className={cn('grid size-7 place-items-center rounded-md', isActive && 'bg-accent-soft')}>
+                    <item.Icon className="size-[17px]" strokeWidth={1.9} />
+                  </span>
+                  <span className="text-[10px] font-medium leading-none">{t(item.labelKey)}</span>
                 </>
               )}
             </NavLink>

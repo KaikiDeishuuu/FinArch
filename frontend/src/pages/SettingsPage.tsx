@@ -1,134 +1,138 @@
-import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import {
-  changePassword, requestDeleteAccount, requestEmailChange, getMe,
-  createAccount, renameAccount, deleteAccount, updateNickname,
+  AlertTriangle,
+  ChevronDown,
+  LockKeyhole,
+  Pencil,
+  Trash2,
+  WalletCards,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  changePassword,
+  createAccount,
+  deleteAccount,
+  getMe,
+  renameAccount,
+  requestDeleteAccount,
+  requestEmailChange,
+  updateNickname,
+  type UserProfile,
 } from '../api/client'
-import type { UserProfile } from '../api/client'
-import { useAuth } from '../hooks/useAuth'
-import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
-import { useTransactions } from '../hooks/useTransactions'
-import { useMode } from '../hooks/useMode'
+import { PasswordStrength } from '../components/PasswordStrength'
 import Select from '../components/Select'
+import { Alert } from '../components/ui/alert'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card'
+import { EmptyState } from '../components/ui/empty-state'
+import { Field, Input, Label } from '../components/ui/input'
+import { PageHeader } from '../components/ui/page-header'
+import { Spinner } from '../components/ui/spinner'
 import { CURRENCY_SYMBOLS } from '../constants/currencies'
+import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
+import { useAuth } from '../hooks/useAuth'
 import { useConfig } from '../hooks/useConfig'
+import { useMode } from '../hooks/useMode'
+import { useTransactions } from '../hooks/useTransactions'
+import { cn } from '../lib/utils'
 
-// ─── Password strength (shared logic) ────────────────────────────────────────
-type Strength = 'none' | 'weak' | 'medium' | 'strong'
-function calcStrength(pw: string): Strength {
-  if (!pw) return 'none'
-  if (pw.length < 8) return 'weak'
-  if (/^\d+$/.test(pw)) return 'weak'
-  let s = 0
-  if (/[a-z]/.test(pw)) s++
-  if (/[A-Z]/.test(pw)) s++
-  if (/[0-9]/.test(pw)) s++
-  if (/[^a-zA-Z0-9]/.test(pw)) s++
-  if (s <= 1) return 'weak'
-  if (s === 2) return 'medium'
-  return 'strong'
-}
-function PasswordStrength({ password, t }: { password: string; t: (key: string) => string }) {
-  const s = calcStrength(password)
-  if (!password) return null
-  const bar = { none: 'w-0', weak: 'w-1/3', medium: 'w-2/3', strong: 'w-full' }[s]
-  const color = { none: '', weak: 'bg-rose-400', medium: 'bg-amber-400', strong: 'bg-emerald-500' }[s]
-  const label = { none: '', weak: t('settings.password.strength.weak'), medium: t('settings.password.strength.medium'), strong: t('settings.password.strength.strong') }[s]
-  const tc = { none: '', weak: 'text-rose-500', medium: 'text-amber-600', strong: 'text-emerald-500' }[s]
+function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-1.5 space-y-1">
-      <div className="h-1 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-300 ${color} ${bar}`} />
-      </div>
-      {s !== 'none' && <p className={`text-xs ${tc}`}>{label}</p>}
-    </div>
+    <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+      {children}
+    </h2>
   )
 }
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
-const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
-const inputCls = 'w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition bg-white dark:bg-gray-800/50 dark:text-gray-200 dark:placeholder-gray-500'
-
-// ─── Section header ───────────────────────────────────────────────────────────
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 mb-3">
-      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide shrink-0">
-        {children}
-      </span>
-      <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
-    </div>
-  )
-}
-
-function MobileCollapsibleSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+function MobileCollapsibleSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(defaultOpen)
+  const contentId = useId()
+
   return (
     <section className="md:contents">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="md:hidden w-full flex items-center justify-between gap-3 rounded-2xl border border-gray-100/80 dark:border-gray-800/50 bg-white dark:bg-[hsl(260,15%,11%)] px-4 py-3 text-left shadow-sm"
+        className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        aria-controls={contentId}
         aria-expanded={open}
       >
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide">{title}</span>
-        <span className="text-[11px] text-violet-500 dark:text-violet-400 font-semibold">{open ? t('common.collapse') : t('common.expand')}</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{title}</span>
+        <span className="flex items-center gap-1 text-xs font-medium text-accent">
+          {open ? t('common.collapse') : t('common.expand')}
+          <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+        </span>
       </button>
-      <div className={`${open ? 'block' : 'hidden'} md:block mt-3 md:mt-0`}>
+      <div id={contentId} className={cn('mt-3 md:mt-0', open ? 'block' : 'hidden md:block')}>
         {children}
       </div>
     </section>
   )
 }
 
-// ─── Alert components ─────────────────────────────────────────────────────────
-function Alert({ type, children }: { type: 'success' | 'error' | 'info' | 'warning'; children: React.ReactNode }) {
-  const cls = {
-    success: 'bg-emerald-50 dark:bg-emerald-500/10 border-green-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400',
-    error: 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-400',
-    info: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-400',
-    warning: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-400',
-  }[type]
-  return (
-    <div className={`border rounded-xl px-4 py-3 text-sm ${cls}`}>{children}</div>
-  )
-}
-
 function OperationsNotice({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-dashed border-violet-200 bg-violet-50/60 px-4 py-3 dark:border-violet-500/30 dark:bg-violet-500/10">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-violet-500 shadow-sm dark:bg-violet-950/60 dark:text-violet-300" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-      </div>
+    <Alert variant="info" className="items-start">
+      <LockKeyhole className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
       <div>
-        <p className="text-sm font-semibold text-violet-800 dark:text-violet-200">{title}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-violet-700/75 dark:text-violet-300/75">{description}</p>
+        <p className="font-semibold">{title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
       </div>
-    </div>
+    </Alert>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, clearSession, updateUser } = useAuth()
   const { systemOperationsEnabled } = useConfig()
+  const initialSystemOperationsEnabled = useRef(systemOperationsEnabled)
   const { isWorkMode, mode } = useMode()
   const { data: accounts = [], isLoading: acctLoading } = useAccounts()
   const invalidateAccounts = useInvalidateAccounts()
-  const { data: transactions = [] } = useTransactions()
-  // ── Profile data ──────────────────────────────────────────────────────────
+  const { data: workTransactions = [], isLoading: workTransactionsLoading } = useTransactions('work')
+  const { data: lifeTransactions = [], isLoading: lifeTransactionsLoading } = useTransactions('life')
+  const transactions = [...workTransactions, ...lifeTransactions]
+  const transactionsLoading = workTransactionsLoading || lifeTransactionsLoading
+
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const profileRequestId = useRef(0)
+
+  function refreshProfile() {
+    const requestId = profileRequestId.current + 1
+    profileRequestId.current = requestId
+    return getMe().then((nextProfile) => {
+      if (requestId === profileRequestId.current) setProfile(nextProfile)
+      return nextProfile
+    })
+  }
+
   useEffect(() => {
-    getMe().then(setProfile).catch(() => {/* ignore */ })
+    void refreshProfile().catch(() => { /* Profile details are optional here. */ })
+    return () => {
+      profileRequestId.current += 1
+    }
   }, [])
 
-  // ── Nickname ──────────────────────────────────────────────────────────────
   const [editingNickname, setEditingNickname] = useState(false)
   const [nicknameInput, setNicknameInput] = useState('')
   const [nicknameLoading, setNicknameLoading] = useState(false)
@@ -143,26 +147,34 @@ export default function SettingsPage() {
   }
 
   async function handleSaveNickname() {
-    if (!nicknameInput.trim()) { setNicknameError(t('settings.profile.nicknameRequired')); return }
-    if (nicknameInput.length > 20) { setNicknameError(t('settings.profile.nicknameMaxLen')); return }
+    const nickname = nicknameInput.trim()
+    if (!nickname) {
+      setNicknameError(t('settings.profile.nicknameRequired'))
+      return
+    }
+    if (Array.from(nickname).length > 20) {
+      setNicknameError(t('settings.profile.nicknameMaxLen'))
+      return
+    }
+
     setNicknameLoading(true)
     setNicknameError('')
     try {
-      await updateNickname(nicknameInput.trim())
-      updateUser({ nickname: nicknameInput.trim() })
-      setProfile(prev => prev ? { ...prev, nickname: nicknameInput.trim() } : prev)
+      profileRequestId.current += 1
+      await updateNickname(nickname)
+      updateUser({ nickname })
+      setProfile((current) => current ? { ...current, nickname } : current)
       setNicknameSuccess(true)
       setEditingNickname(false)
-      setTimeout(() => setNicknameSuccess(false), 2000)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setNicknameError(msg || t('settings.profile.toast.error'))
+      window.setTimeout(() => setNicknameSuccess(false), 2000)
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setNicknameError(message || t('settings.profile.toast.error'))
     } finally {
       setNicknameLoading(false)
     }
   }
 
-  // ── Change password ───────────────────────────────────────────────────────
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
@@ -170,58 +182,61 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState('')
   const [pwSuccess, setPwSuccess] = useState(false)
 
-  async function handleChangePassword(e: FormEvent) {
-    e.preventDefault()
+  async function handleChangePassword(event: FormEvent) {
+    event.preventDefault()
     setPwError('')
     setPwSuccess(false)
-    if (newPw !== confirmPw) { setPwError(t('settings.password.toast.mismatch')); return }
-    if (newPw.length < 8) { setPwError(t('settings.password.minLength')); return }
+    if (newPw !== confirmPw) {
+      setPwError(t('settings.password.toast.mismatch'))
+      return
+    }
+    if (newPw.length < 8) {
+      setPwError(t('settings.password.minLength'))
+      return
+    }
+
     setPwLoading(true)
     try {
       await changePassword(currentPw, newPw)
       setPwSuccess(true)
-      setCurrentPw(''); setNewPw(''); setConfirmPw('')
-      // Password changes revoke every server-side session, including this one.
-      // Drop the in-memory access token immediately instead of waiting for the
-      // next API request to discover the revocation.
+      setCurrentPw('')
+      setNewPw('')
+      setConfirmPw('')
       clearSession()
       navigate('/login?password_changed=1', { replace: true })
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setPwError(msg || t('settings.password.toast.error'))
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setPwError(message || t('settings.password.toast.error'))
     } finally {
       setPwLoading(false)
     }
   }
 
-  // ── Change email ──────────────────────────────────────────────────────────
   const [newEmail, setNewEmail] = useState('')
+  const [emailCurrentPw, setEmailCurrentPw] = useState('')
   const [emailLoading, setEmailLoading] = useState(false)
   const [emailError, setEmailError] = useState('')
   const [emailSent, setEmailSent] = useState(false)
 
-  async function handleRequestEmailChange(e: FormEvent) {
-    e.preventDefault()
+  async function handleRequestEmailChange(event: FormEvent) {
+    event.preventDefault()
     setEmailError('')
     setEmailSent(false)
     setEmailLoading(true)
     try {
-      const currentPassword = window.prompt(t('settings.password.currentPlaceholder')) || ""
-      if (!currentPassword) { throw new Error(t('common.cancel')) }
-      await requestEmailChange(newEmail, currentPassword)
+      await requestEmailChange(newEmail, emailCurrentPw)
       setEmailSent(true)
       setNewEmail('')
-      // Refresh profile to show pending_email
-      getMe().then(setProfile).catch(() => {/* ignore */ })
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setEmailError(msg || t('settings.changeEmail.toast.error'))
+      setEmailCurrentPw('')
+      void refreshProfile().catch(() => { /* Keep the successful state if refresh fails. */ })
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setEmailError(message || t('settings.changeEmail.toast.error'))
     } finally {
       setEmailLoading(false)
     }
   }
 
-  // ── Delete account ────────────────────────────────────────────────────────
   const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm' | 'loading' | 'sent'>('idle')
   const [deleteError, setDeleteError] = useState('')
 
@@ -231,17 +246,18 @@ export default function SettingsPage() {
     try {
       await requestDeleteAccount()
       setDeleteStep('sent')
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setDeleteError(msg || t('settings.danger.toast.error'))
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setDeleteError(message || t('settings.danger.toast.error'))
       setDeleteStep('confirm')
     }
   }
-  // ── Account management ─────────────────────────────────────────────────
+
   const [newAcctName, setNewAcctName] = useState('')
-  // Mode-restricted: WORK=public only, LIFE=personal only
   const [newAcctType, setNewAcctType] = useState<'personal' | 'public'>(isWorkMode ? 'public' : 'personal')
-  useEffect(() => { setNewAcctType(isWorkMode ? 'public' : 'personal') }, [isWorkMode])
+  useEffect(() => {
+    setNewAcctType(isWorkMode ? 'public' : 'personal')
+  }, [isWorkMode])
   const [newAcctCurrency, setNewAcctCurrency] = useState('CNY')
   const [newAcctLoading, setNewAcctLoading] = useState(false)
   const [newAcctError, setNewAcctError] = useState('')
@@ -253,22 +269,28 @@ export default function SettingsPage() {
   const [deleteAcctLoading, setDeleteAcctLoading] = useState(false)
   const [deleteAcctError, setDeleteAcctError] = useState('')
 
-  async function handleCreateAccount(e: FormEvent) {
-    e.preventDefault()
+  async function handleCreateAccount(event: FormEvent) {
+    event.preventDefault()
     setNewAcctError('')
     setNewAcctSuccess(false)
-    if (!newAcctName.trim()) { setNewAcctError(t('settings.accounts.nameRequired')); return }
+    if (!newAcctName.trim()) {
+      setNewAcctError(t('settings.accounts.nameRequired'))
+      return
+    }
+
     setNewAcctLoading(true)
     try {
       await createAccount(newAcctName.trim(), newAcctType, mode, newAcctCurrency)
       await invalidateAccounts()
       setNewAcctName('')
       setNewAcctSuccess(true)
-      setTimeout(() => setNewAcctSuccess(false), 2000)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setNewAcctError(msg || t('settings.accounts.toast.createError'))
-    } finally { setNewAcctLoading(false) }
+      window.setTimeout(() => setNewAcctSuccess(false), 2000)
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setNewAcctError(message || t('settings.accounts.toast.createError'))
+    } finally {
+      setNewAcctLoading(false)
+    }
   }
 
   async function handleRenameAccount(id: string) {
@@ -278,126 +300,163 @@ export default function SettingsPage() {
       await renameAccount(id, renameValue.trim())
       await invalidateAccounts()
       setRenamingId(null)
-    } catch { /* ignore */ } finally { setRenameLoading(false) }
+    } catch {
+      // The surrounding list remains usable if the update fails.
+    } finally {
+      setRenameLoading(false)
+    }
   }
 
   async function handleDeleteAccount(id: string) {
-    // UX fast-fail: block deletion if this account has unreimbursed expense transactions.
-    // The backend enforces this too, but checking here avoids the round-trip.
-    const hasUnreimbursed = transactions.some(
-      (tx) => tx.account_id === id && tx.direction === 'expense' && !tx.reimbursed
+    if (transactionsLoading) return
+
+    const hasTransactionHistory = transactions.some(
+      (transaction) => transaction.account_id === id,
     )
-    if (hasUnreimbursed) {
-      toast.error(t('settings.accounts.toast.hasUnreimbursed'))
+    if (hasTransactionHistory) {
+      toast.error(t('settings.accounts.toast.hasTransactions'))
       return
     }
+
     setDeleteAcctError('')
     setDeleteAcctLoading(true)
     try {
       await deleteAccount(id)
       await invalidateAccounts()
       setDeletingId(null)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setDeleteAcctError(msg || t('settings.accounts.toast.deleteError'))
-    } finally { setDeleteAcctLoading(false) }
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setDeleteAcctError(message || t('settings.accounts.toast.deleteError'))
+    } finally {
+      setDeleteAcctLoading(false)
+    }
   }
 
-  // Count accounts per type to determine if delete is allowed
-  const personalCount = accounts.filter(a => a.type === 'personal').length
-  const publicCount = accounts.filter(a => a.type === 'public').length
-  function canDelete(a: { type: string }) {
-    return a.type === 'personal' ? personalCount > 1 : publicCount > 1
-  }
+  const personalCount = accounts.filter((account) => account.type === 'personal').length
+  const publicCount = accounts.filter((account) => account.type === 'public').length
+  const canDelete = (account: { type: string }) => account.type === 'personal' ? personalCount > 1 : publicCount > 1
 
   const displayName = profile?.nickname || profile?.username || user?.nickname || user?.username || user?.email || '—'
   const currentEmail = profile?.email || user?.email || '—'
   const pendingEmail = profile?.pending_email
+  const effectiveSystemOperationsEnabled = initialSystemOperationsEnabled.current || systemOperationsEnabled
+  const operationsTitle = t(effectiveSystemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')
+  const operationsDescription = t(effectiveSystemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')
 
   return (
-    <div className="pb-8 max-w-4xl">
-      {/* Page header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('settings.title')}</h1>
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t('settings.subtitle')}</p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-6 pb-8">
+      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* ── Fund Accounts ───────────────────────────── full width ── */}
-        <div className="md:col-span-2">
-          <SectionLabel>{t('settings.sections.accounts')}</SectionLabel>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4">
-            {/* Account list */}
+      <section>
+        <SectionHeading>{t('settings.sections.accounts')}</SectionHeading>
+        <Card>
+          <CardHeader>
+            <div>
+              <CardTitle>{t('settings.sections.accounts')}</CardTitle>
+              <CardDescription>{t('settings.accounts.newTitle')}</CardDescription>
+            </div>
+            <Badge variant="mode">{isWorkMode ? 'WORK' : 'LIFE'}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {acctLoading ? (
-              <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
-                <span className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 border-t-violet-500 rounded-full animate-spin" />
+              <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+                <Spinner size="md" />
                 {t('common.loading')}
               </div>
             ) : accounts.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">{t('settings.accounts.noAccounts')}</p>
+              <EmptyState title={t('settings.accounts.noAccounts')} icon={<WalletCards />} />
             ) : (
-              <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                {accounts.map(a => {
-                  const isPublic = a.type === 'public'
-                  const typeBadge = isPublic
-                    ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-100 dark:border-sky-500/30'
-                    : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-500/30'
+              <div className="divide-y divide-border">
+                {accounts.map((account) => {
+                  const isPublic = account.type === 'public'
                   const typeLabel = isPublic ? t('settings.accounts.publicLabel') : t('settings.accounts.personalLabel')
-                  const balanceColor = a.balance_yuan >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
+
                   return (
-                    <div key={a.id} className="flex flex-wrap items-center gap-2 py-3 first:pt-0 last:pb-0">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${typeBadge}`}>{typeLabel}</span>
-                      {renamingId === a.id ? (
-                        <form onSubmit={(e) => { e.preventDefault(); handleRenameAccount(a.id) }}
-                          className="flex flex-1 gap-2">
-                          <input
+                    <div key={account.id} className="flex flex-wrap items-center gap-2 py-3 first:pt-0 last:pb-0">
+                      <Badge variant={isPublic ? 'accent' : 'warning'}>{typeLabel}</Badge>
+                      {renamingId === account.id ? (
+                        <form
+                          onSubmit={(event) => {
+                            event.preventDefault()
+                            void handleRenameAccount(account.id)
+                          }}
+                          className="flex min-w-56 flex-1 flex-wrap gap-2"
+                        >
+                          <Input
                             autoFocus
                             value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            className="flex-1 border border-violet-300 dark:border-violet-600 rounded-lg px-2.5 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 dark:bg-gray-800/50 dark:text-gray-200"
+                            onChange={(event) => setRenameValue(event.target.value)}
+                            className="min-w-36 flex-1"
+                            aria-label={t('settings.accounts.rename')}
                           />
-                          <button type="submit" disabled={renameLoading}
-                            className="text-xs bg-violet-600 text-white px-3 py-1 rounded-lg disabled:opacity-50">
-                            {renameLoading ? t('common.saving') : t('common.save')}
-                          </button>
-                          <button type="button" onClick={() => setRenamingId(null)}
-                            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1">{t('common.cancel')}</button>
+                          <Button type="submit" size="sm" loading={renameLoading} loadingText={t('common.saving')}>
+                            {t('common.save')}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setRenamingId(null)}>
+                            {t('common.cancel')}
+                          </Button>
                         </form>
                       ) : (
                         <>
-                          <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200 min-w-0 truncate">{a.name}</span>
-                          <span className={`text-sm font-bold tabular-nums shrink-0 ${balanceColor}`}>
-                            {a.balance_yuan >= 0 ? '' : '−'}{CURRENCY_SYMBOLS[a.currency] ?? a.currency} {Math.abs(a.balance_yuan).toFixed(2)}
-                            <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">{a.currency}</span>
+                          <span className="min-w-24 flex-1 truncate text-sm font-medium text-foreground">{account.name}</span>
+                          <span className={cn(
+                            'shrink-0 text-sm font-semibold tabular-nums',
+                            account.balance_yuan >= 0 ? 'text-positive' : 'text-negative',
+                          )}>
+                            {account.balance_yuan >= 0 ? '' : '−'}
+                            {CURRENCY_SYMBOLS[account.currency] ?? account.currency} {Math.abs(account.balance_yuan).toFixed(2)}
+                            <span className="ml-1 font-mono text-[10px] font-normal text-muted-foreground">{account.currency}</span>
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => { setRenamingId(a.id); setRenameValue(a.name) }}
-                            className="text-xs text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors shrink-0"
-                          >{t('settings.accounts.rename')}</button>
-                          {canDelete(a) && (
-                            deletingId === a.id ? (
-                              <span className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  disabled={deleteAcctLoading}
-                                  onClick={() => handleDeleteAccount(a.id)}
-                                  className="text-xs text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 px-2.5 py-1 rounded-lg transition-colors"
-                                >{deleteAcctLoading ? t('settings.accounts.deleting') : t('settings.accounts.confirmDelete')}</button>
-                                <button
-                                  type="button"
-                                  onClick={() => { setDeletingId(null); setDeleteAcctError('') }}
-                                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1"
-                                >{t('common.cancel')}</button>
-                              </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRenamingId(account.id)
+                              setRenameValue(account.name)
+                            }}
+                          >
+                            <Pencil className="size-3.5" />
+                            {t('settings.accounts.rename')}
+                          </Button>
+                          {canDelete(account) ? (
+                            deletingId === account.id ? (
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  loading={deleteAcctLoading}
+                                  loadingText={t('settings.accounts.deleting')}
+                                  disabled={transactionsLoading}
+                                  onClick={() => void handleDeleteAccount(account.id)}
+                                >
+                                  {t('settings.accounts.confirmDelete')}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDeletingId(null)
+                                    setDeleteAcctError('')
+                                  }}
+                                >
+                                  {t('common.cancel')}
+                                </Button>
+                              </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => { setDeletingId(a.id); setDeleteAcctError('') }}
-                                className="text-xs text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors shrink-0"
-                              >{t('settings.accounts.delete')}</button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="hover:text-negative"
+                                onClick={() => {
+                                  setDeletingId(account.id)
+                                  setDeleteAcctError('')
+                                }}
+                              >
+                                <Trash2 className="size-3.5" />
+                                {t('settings.accounts.delete')}
+                              </Button>
                             )
-                          )}
+                          ) : null}
                         </>
                       )}
                     </div>
@@ -405,284 +464,334 @@ export default function SettingsPage() {
                 })}
               </div>
             )}
-            {deleteAcctError && <p className="text-xs text-rose-500 mt-2">{deleteAcctError}</p>}
 
-            {/* Create account form */}
-            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wide mb-3">{t('settings.accounts.newTitle')}</p>
-              <form onSubmit={handleCreateAccount} className="flex flex-wrap items-end gap-2">
-                <input
+            {deleteAcctError ? <Alert variant="negative">{deleteAcctError}</Alert> : null}
+
+            <form onSubmit={handleCreateAccount} className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[minmax(0,1fr)_8rem_6rem_auto] sm:items-end">
+              <Field label={t('settings.accounts.newTitle')} error={newAcctError || undefined}>
+                <Input
                   value={newAcctName}
-                  onChange={(e) => setNewAcctName(e.target.value)}
+                  onChange={(event) => setNewAcctName(event.target.value)}
                   placeholder={t('settings.accounts.namePlaceholder')}
-                  className={`${inputCls} flex-1 min-w-32 py-2`}
                 />
-                <div className="w-28">
-                  <Select
-                    value={newAcctType}
-                    onChange={(v) => setNewAcctType(v as 'personal' | 'public')}
-                    size="sm"
-                    options={isWorkMode
-                      ? [{ value: 'public', label: t('settings.accounts.publicAccount') }]
-                      : [{ value: 'personal', label: t('settings.accounts.personalAccount') }]
-                    }
-                  />
-                </div>
-                <div className="w-20">
-                  <Select
-                    value={newAcctCurrency}
-                    onChange={setNewAcctCurrency}
-                    size="sm"
-                    options={[
-                      { value: 'CNY', label: 'CNY' },
-                      { value: 'USD', label: 'USD' },
-                      { value: 'EUR', label: 'EUR' },
-                    ]}
-                  />
-                </div>
-                <button type="submit" disabled={newAcctLoading}
-                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-                  {newAcctLoading ? t('settings.accounts.creating') : t('settings.accounts.create')}
-                </button>
-              </form>
-              {newAcctError && <p className="text-xs text-rose-500 mt-2">{newAcctError}</p>}
-              {newAcctSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">{t('settings.accounts.toast.created')}</p>}
-            </div>
-          </div>
-        </div>
-        {/* ── Profile ─────────────────────────────────────────── full width ── */}
-        <div className="md:col-span-2">
-          <SectionLabel>{t('settings.sections.profile')}</SectionLabel>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-400 to-emerald-600 text-white flex items-center justify-center text-xl font-bold shrink-0">
-                {(displayName[0] ?? '?').toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                {/* Nickname row */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {editingNickname ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <input type="text" value={nicknameInput} onChange={e => setNicknameInput(e.target.value)}
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent w-36 dark:bg-gray-800/50"
-                        maxLength={20} autoFocus
-                        onKeyDown={e => { if (e.key === 'Enter') handleSaveNickname(); if (e.key === 'Escape') setEditingNickname(false) }} />
-                      <button onClick={handleSaveNickname} disabled={nicknameLoading}
-                        className="text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg transition-colors font-medium">
-                        {nicknameLoading ? t('common.saving') : t('common.save')}
-                      </button>
-                      <button onClick={() => setEditingNickname(false)}
-                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1.5 py-1 transition-colors">{t('common.cancel')}</button>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="font-semibold text-gray-900 dark:text-gray-100 text-base">{displayName}</p>
-                      <button onClick={startEditNickname}
-                        className="text-[10px] font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-500 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/20 px-2 py-0.5 rounded-full transition-colors cursor-pointer">
-                        {t('settings.profile.nicknameTip')}
-                      </button>
-                      {nicknameSuccess && <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">{t('settings.profile.toast.updated')}</span>}
-                    </>
-                  )}
-                </div>
-                {nicknameError && <p className="text-xs text-rose-500 mt-1">{nicknameError}</p>}
-                {/* Username */}
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-sm text-gray-400 dark:text-gray-500">@{profile?.username || user?.username}</p>
-                  <span className="text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-1.5 py-0.5 rounded-full">{t('settings.profile.usernameTip')}</span>
-                </div>
-                {/* Email */}
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{currentEmail}</p>
-                {pendingEmail && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 shrink-0"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
-                    {t('settings.changeEmail.pendingTo')}{pendingEmail}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Change email ─────────────────────────────────────── col 1 ── */}
-        <MobileCollapsibleSection title={t('settings.sections.changeEmail')}>
-        <div className="flex flex-col">
-          <div className="hidden md:block"><SectionLabel>{t('settings.sections.changeEmail')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm space-y-4 flex-1">
-            <div className="space-y-0.5">
-              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{t('settings.changeEmail.currentEmail')}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{currentEmail}</p>
-            </div>
-
-            {pendingEmail && !emailSent && (
-              <Alert type="warning">
-                <p className="font-medium mb-0.5">{t('settings.changeEmail.pendingTitle')}</p>
-                <p>
-                  <Trans
-                    i18nKey="settings.changeEmail.pendingDesc"
-                    values={{ email: pendingEmail }}
-                    components={{ strong: <strong /> }}
-                  />
-                </p>
-              </Alert>
-            )}
-
-            {emailSent ? (
-              <Alert type="success">
-                <p className="font-medium mb-0.5">{t('settings.changeEmail.sentTitle')}</p>
-                <p>
-                  <Trans
-                    i18nKey="settings.changeEmail.sentDesc"
-                    values={{ currentEmail, pendingEmail: profile?.pending_email }}
-                    components={{ strong: <strong /> }}
-                  />
-                </p>
-              </Alert>
-            ) : (
-              <form onSubmit={handleRequestEmailChange} className="space-y-3">
-                <div>
-                  <label className={labelCls}>{t('settings.changeEmail.newEmail')}</label>
-                  <input type="email" required value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className={inputCls} placeholder={t('settings.changeEmail.placeholder')} />
-                </div>
-                {emailError && <Alert type="error">{emailError}</Alert>}
-                <button type="submit" disabled={emailLoading}
-                  className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors">
-                  {emailLoading ? t('settings.changeEmail.sending') : t('settings.changeEmail.submit')}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-        </MobileCollapsibleSection>
-
-        {/* ── Change password ──────────────────────────────────── col 2 ── */}
-        <MobileCollapsibleSection title={t('settings.sections.security')}>
-        <div className="flex flex-col">
-          <div className="hidden md:block"><SectionLabel>{t('settings.sections.security')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
-            {pwSuccess && <div className="mb-4"><Alert type="success">{t('settings.password.toast.success')}</Alert></div>}
-            <form onSubmit={handleChangePassword} className="space-y-4">
+              </Field>
               <div>
-                <label className={labelCls}>{t('settings.password.current')}</label>
-                <input type="password" required value={currentPw}
-                  onChange={(e) => setCurrentPw(e.target.value)}
-                  className={inputCls} placeholder={t('settings.password.currentPlaceholder')} autoComplete="current-password" />
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t('settings.accounts.publicLabel')}</p>
+                <Select
+                  value={newAcctType}
+                  onChange={(value) => setNewAcctType(value as 'personal' | 'public')}
+                  size="sm"
+                  options={isWorkMode
+                    ? [{ value: 'public', label: t('settings.accounts.publicAccount') }]
+                    : [{ value: 'personal', label: t('settings.accounts.personalAccount') }]}
+                />
               </div>
               <div>
-                <label className={labelCls}>{t('settings.password.new')}</label>
-                <input type="password" required minLength={8} value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  className={inputCls} placeholder={t('settings.password.newPlaceholder')} autoComplete="new-password" />
-                <PasswordStrength password={newPw} t={t} />
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">{newAcctCurrency}</p>
+                <Select
+                  value={newAcctCurrency}
+                  onChange={setNewAcctCurrency}
+                  size="sm"
+                  options={[
+                    { value: 'CNY', label: 'CNY' },
+                    { value: 'USD', label: 'USD' },
+                    { value: 'EUR', label: 'EUR' },
+                  ]}
+                />
               </div>
-              <div>
-                <label className={labelCls}>{t('settings.password.confirm')}</label>
-                <input type="password" required minLength={8} value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  className={inputCls} placeholder={t('settings.password.confirmPlaceholder')} autoComplete="new-password" />
-                {confirmPw && newPw !== confirmPw && (
-                  <p className="mt-1 text-xs text-rose-500">{t('settings.password.toast.mismatch')}</p>
-                )}
-              </div>
-              {pwError && <Alert type="error">{pwError}</Alert>}
-              <button type="submit" disabled={pwLoading || (!!confirmPw && newPw !== confirmPw)}
-                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-medium rounded-xl py-2.5 text-sm transition-colors">
-                {pwLoading ? t('settings.password.submitting') : t('settings.password.submit')}
-              </button>
+              <Button type="submit" loading={newAcctLoading} loadingText={t('settings.accounts.creating')}>
+                {t('settings.accounts.create')}
+              </Button>
             </form>
-          </div>
-        </div>
-        </MobileCollapsibleSection>
+            {newAcctSuccess ? <Alert variant="positive">{t('settings.accounts.toast.created')}</Alert> : null}
+          </CardContent>
+        </Card>
+      </section>
 
-        {/* ── Backup ───────────────────────────────────────────── col 1 ── */}
-        <MobileCollapsibleSection title={t('settings.sections.backup')}>
-        <div className="flex flex-col">
-          <div className="hidden md:block"><SectionLabel>{t('settings.sections.backup')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-gray-100/80 dark:border-gray-800/50 p-5 shadow-sm flex-1">
-            <OperationsNotice
-              title={t(systemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')}
-              description={t(systemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')}
-            />
-          </div>
-        </div>
-        </MobileCollapsibleSection>
-
-        {/* ── Restore ──────────────────────────────────────────── col 2 ── */}
-        <MobileCollapsibleSection title={t('settings.sections.restore')}>
-        <div className="flex flex-col">
-          <div className="hidden md:block"><SectionLabel>{t('settings.sections.restore')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-amber-100 dark:border-amber-500/30 p-5 flex-1">
-            <OperationsNotice
-              title={t(systemOperationsEnabled ? 'settings.operationsRestricted.title' : 'settings.operationsDisabled.title')}
-              description={t(systemOperationsEnabled ? 'settings.operationsRestricted.desc' : 'settings.operationsDisabled.desc')}
-            />
-          </div>
-        </div>
-        </MobileCollapsibleSection>
-
-        {/* ── Danger zone ─────────────────────────────────────── full width ── */}
-        <MobileCollapsibleSection title={t('settings.sections.danger')}>
-        <div className="md:col-span-2">
-          <div className="hidden md:block"><SectionLabel>{t('settings.sections.danger')}</SectionLabel></div>
-          <div className="bg-white dark:bg-[hsl(260,15%,11%)] rounded-2xl border border-rose-200 dark:border-rose-500/30 p-5">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-rose-600 dark:text-rose-400 mb-1">{t('settings.danger.deleteAccount')}</h3>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{t('settings.danger.deleteDesc')}</p>
+      <section>
+        <SectionHeading>{t('settings.sections.profile')}</SectionHeading>
+        <Card>
+          <div className="flex items-start gap-4">
+            <div className="grid size-12 shrink-0 place-items-center rounded-full border border-border bg-muted text-base font-semibold text-foreground" aria-hidden="true">
+              {(displayName[0] ?? '?').toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              {editingNickname ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="text"
+                    value={nicknameInput}
+                    onChange={(event) => setNicknameInput(event.target.value)}
+                    className="w-48"
+                    autoFocus
+                    aria-label={t('settings.profile.nicknameTip')}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void handleSaveNickname()
+                      if (event.key === 'Escape') setEditingNickname(false)
+                    }}
+                  />
+                  <Button size="sm" loading={nicknameLoading} loadingText={t('common.saving')} onClick={() => void handleSaveNickname()}>
+                    {t('common.save')}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setEditingNickname(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-base font-semibold text-foreground">{displayName}</p>
+                  <Button variant="ghost" size="sm" onClick={startEditNickname}>
+                    <Pencil className="size-3.5" />
+                    {t('settings.profile.nicknameTip')}
+                  </Button>
+                  {nicknameSuccess ? <Badge variant="positive">{t('settings.profile.toast.updated')}</Badge> : null}
+                </div>
+              )}
+              {nicknameError ? <p className="mt-1 text-xs text-negative">{nicknameError}</p> : null}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-sm text-muted-foreground">@{profile?.username || user?.username}</p>
+                <Badge>{t('settings.profile.usernameTip')}</Badge>
               </div>
-              <div className="shrink-0">
-                {deleteStep === 'sent' ? (
-                  <Alert type="success">
-                    <span>
+              <p className="mt-0.5 text-sm text-muted-foreground">{currentEmail}</p>
+              {pendingEmail ? (
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-warning">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  {t('settings.changeEmail.pendingTo')}{pendingEmail}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      <div className="grid gap-5 md:grid-cols-2 [&>section:last-child]:md:col-span-2">
+        <MobileCollapsibleSection title={t('settings.sections.changeEmail')}>
+          <div className="flex h-full flex-col">
+            <div className="hidden md:block"><SectionHeading>{t('settings.sections.changeEmail')}</SectionHeading></div>
+            <Card className="flex-1">
+              <CardHeader>
+                <div>
+                  <CardTitle>{t('settings.sections.changeEmail')}</CardTitle>
+                  <CardDescription>{t('settings.changeEmail.currentEmail')}: {currentEmail}</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {pendingEmail && !emailSent ? (
+                  <Alert variant="warning" className="mb-4 block">
+                    <p className="font-semibold">{t('settings.changeEmail.pendingTitle')}</p>
+                    <p className="mt-0.5">
+                      <Trans
+                        i18nKey="settings.changeEmail.pendingDesc"
+                        values={{ email: pendingEmail }}
+                        components={{ strong: <strong /> }}
+                      />
+                    </p>
+                  </Alert>
+                ) : null}
+
+                {emailSent ? (
+                  <Alert variant="positive" className="block">
+                    <p className="font-semibold">{t('settings.changeEmail.sentTitle')}</p>
+                    <p className="mt-0.5">
+                      <Trans
+                        i18nKey="settings.changeEmail.sentDesc"
+                        values={{ currentEmail, pendingEmail: profile?.pending_email }}
+                        components={{ strong: <strong /> }}
+                      />
+                    </p>
+                  </Alert>
+                ) : (
+                  <form onSubmit={handleRequestEmailChange} className="space-y-3">
+                    <Field label={t('settings.changeEmail.newEmail')}>
+                      <Input
+                        type="email"
+                        required
+                        value={newEmail}
+                        onChange={(event) => setNewEmail(event.target.value)}
+                        placeholder={t('settings.changeEmail.placeholder')}
+                        autoComplete="email"
+                      />
+                    </Field>
+                    <Field label={t('settings.password.current')}>
+                      <Input
+                        type="password"
+                        required
+                        value={emailCurrentPw}
+                        onChange={(event) => setEmailCurrentPw(event.target.value)}
+                        placeholder={t('settings.password.currentPlaceholder')}
+                        autoComplete="current-password"
+                      />
+                    </Field>
+                    {emailError ? <Alert variant="negative">{emailError}</Alert> : null}
+                    <Button type="submit" loading={emailLoading} loadingText={t('settings.changeEmail.sending')}>
+                      {t('settings.changeEmail.submit')}
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </MobileCollapsibleSection>
+
+        <MobileCollapsibleSection title={t('settings.sections.security')}>
+          <div className="flex h-full flex-col">
+            <div className="hidden md:block"><SectionHeading>{t('settings.sections.security')}</SectionHeading></div>
+            <Card className="flex-1">
+              <CardHeader>
+                <div>
+                  <CardTitle>{t('settings.sections.security')}</CardTitle>
+                  <CardDescription>{t('settings.password.minLength')}</CardDescription>
+                </div>
+                <LockKeyhole className="size-4 text-muted-foreground" aria-hidden="true" />
+              </CardHeader>
+              <CardContent>
+                {pwSuccess ? <Alert variant="positive" className="mb-4">{t('settings.password.toast.success')}</Alert> : null}
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <Field label={t('settings.password.current')}>
+                    <Input
+                      type="password"
+                      required
+                      value={currentPw}
+                      onChange={(event) => setCurrentPw(event.target.value)}
+                      placeholder={t('settings.password.currentPlaceholder')}
+                      autoComplete="current-password"
+                    />
+                  </Field>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="settings-new-password">{t('settings.password.new')}</Label>
+                    <Input
+                      id="settings-new-password"
+                      type="password"
+                      required
+                      minLength={8}
+                      value={newPw}
+                      onChange={(event) => setNewPw(event.target.value)}
+                      placeholder={t('settings.password.newPlaceholder')}
+                      autoComplete="new-password"
+                    />
+                    <PasswordStrength password={newPw} />
+                  </div>
+                  <Field
+                    label={t('settings.password.confirm')}
+                    error={confirmPw && newPw !== confirmPw ? t('settings.password.toast.mismatch') : undefined}
+                  >
+                    <Input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={confirmPw}
+                      onChange={(event) => setConfirmPw(event.target.value)}
+                      placeholder={t('settings.password.confirmPlaceholder')}
+                      autoComplete="new-password"
+                    />
+                  </Field>
+                  {pwError ? <Alert variant="negative">{pwError}</Alert> : null}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    loading={pwLoading}
+                    loadingText={t('settings.password.submitting')}
+                    disabled={Boolean(confirmPw && newPw !== confirmPw)}
+                  >
+                    {t('settings.password.submit')}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </MobileCollapsibleSection>
+
+        <MobileCollapsibleSection title={t('settings.sections.backup')}>
+          <div className="flex h-full flex-col">
+            <div className="hidden md:block"><SectionHeading>{t('settings.sections.backup')}</SectionHeading></div>
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle>{t('settings.sections.backup')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OperationsNotice title={operationsTitle} description={operationsDescription} />
+              </CardContent>
+            </Card>
+          </div>
+        </MobileCollapsibleSection>
+
+        <MobileCollapsibleSection title={t('settings.sections.restore')}>
+          <div className="flex h-full flex-col">
+            <div className="hidden md:block"><SectionHeading>{t('settings.sections.restore')}</SectionHeading></div>
+            <Card className="flex-1 border-warning/35">
+              <CardHeader>
+                <CardTitle>{t('settings.sections.restore')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <OperationsNotice title={operationsTitle} description={operationsDescription} />
+              </CardContent>
+            </Card>
+          </div>
+        </MobileCollapsibleSection>
+
+        <MobileCollapsibleSection title={t('settings.sections.danger')}>
+          <div className="md:col-span-2">
+            <div className="hidden md:block"><SectionHeading>{t('settings.sections.danger')}</SectionHeading></div>
+            <Card className="border-negative/35">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-negative">{t('settings.danger.deleteAccount')}</CardTitle>
+                  <CardDescription>{t('settings.danger.deleteDesc')}</CardDescription>
+                </div>
+                <div className="shrink-0">
+                  {deleteStep === 'sent' ? (
+                    <Alert variant="positive">
                       <Trans
                         i18nKey="settings.danger.emailSent"
                         values={{ email: currentEmail }}
                         components={{ strong: <strong /> }}
                       />
-                    </span>
-                  </Alert>
-                ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
-                  <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-xl p-4 space-y-3 max-w-sm">
-                    <p className="text-sm font-semibold text-rose-700 dark:text-rose-400">{t('settings.danger.confirmTitle')}</p>
-                    <p className="text-xs text-rose-600 dark:text-rose-400">
-                      <Trans
-                        i18nKey="settings.danger.confirmDesc"
-                        values={{ email: currentEmail }}
-                        components={{ strong: <strong /> }}
-                      />
-                    </p>
-                    {deleteError && <Alert type="error">{deleteError}</Alert>}
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={handleRequestDelete} disabled={deleteStep === 'loading'}
-                        className="bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                        {deleteStep === 'loading' ? t('settings.danger.sending') : t('settings.danger.sendConfirm')}
-                      </button>
-                      <button type="button" onClick={() => { setDeleteStep('idle'); setDeleteError('') }}
-                        disabled={deleteStep === 'loading'}
-                        className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
-                        {t('common.cancel')}
-                      </button>
+                    </Alert>
+                  ) : deleteStep === 'confirm' || deleteStep === 'loading' ? (
+                    <div className="max-w-sm space-y-3 rounded-lg border border-negative/35 bg-negative-soft p-4 text-negative">
+                      <p className="text-sm font-semibold">{t('settings.danger.confirmTitle')}</p>
+                      <p className="text-xs">
+                        <Trans
+                          i18nKey="settings.danger.confirmDesc"
+                          values={{ email: currentEmail }}
+                          components={{ strong: <strong /> }}
+                        />
+                      </p>
+                      {deleteError ? <Alert variant="negative">{deleteError}</Alert> : null}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="danger"
+                          loading={deleteStep === 'loading'}
+                          loadingText={t('settings.danger.sending')}
+                          onClick={() => void handleRequestDelete()}
+                        >
+                          {t('settings.danger.sendConfirm')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={deleteStep === 'loading'}
+                          onClick={() => {
+                            setDeleteStep('idle')
+                            setDeleteError('')
+                          }}
+                        >
+                          {t('common.cancel')}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => setDeleteStep('confirm')}
-                    className="inline-flex items-center gap-2 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                      <path d="M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                    </svg>
-                    {t('settings.danger.deleteButton')}
-                  </button>
-                )}
+                  ) : (
+                    <Button variant="danger" onClick={() => setDeleteStep('confirm')}>
+                      <Trash2 className="size-4" />
+                      {t('settings.danger.deleteButton')}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
+            </Card>
           </div>
-        </div>
         </MobileCollapsibleSection>
-
       </div>
+
     </div>
   )
 }

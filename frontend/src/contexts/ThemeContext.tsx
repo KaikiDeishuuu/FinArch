@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react'
+import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from '../constants/theme'
 import { ThemeContext } from './themeContextCore'
 import type { Theme } from './themeContextCore'
 
@@ -26,8 +27,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggle = useCallback(() => {
-    setTheme(resolved === 'light' ? 'dark' : 'light')
-  }, [resolved, setTheme])
+    const nextTheme: Theme = theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'
+    setTheme(nextTheme)
+  }, [setTheme, theme])
 
   // Apply class to <html>
   useEffect(() => {
@@ -40,7 +42,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Update meta theme-color
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) {
-      meta.setAttribute('content', resolved === 'dark' ? '#0f0d18' : '#FAFAF9')
+      meta.setAttribute('content', resolved === 'dark' ? THEME_COLOR_DARK : THEME_COLOR_LIGHT)
     }
   }, [resolved])
 
