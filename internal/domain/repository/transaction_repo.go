@@ -33,6 +33,8 @@ type TransactionRepository interface {
 	ToggleReimbursed(ctx context.Context, id string, userID string) (bool, error)
 	// ToggleUploaded flips the uploaded flag for a single transaction owned by userID and returns the new state.
 	ToggleUploaded(ctx context.Context, id string, userID string) (bool, error)
+	// ToggleSettled flips the settled flag for a single public-account WORK expense owned by userID and returns the new state.
+	ToggleSettled(ctx context.Context, id string, userID string) (bool, error)
 	// SumPoolBalance returns company balance and personal outstanding in yuan for a user.
 	SumPoolBalance(ctx context.Context, userID string, mode model.Mode) (model.Money, model.Money, error)
 	// HasTransactionsByAccount returns true when the account has any historical

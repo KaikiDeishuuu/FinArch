@@ -412,6 +412,10 @@ const zh = {
         pending: '未上传',
         done: '已上传',
       },
+      settlementTabs: {
+        pending: '待核销',
+        done: '已核销',
+      },
       summary: {
         filtered: '筛选结果',
         income: '收入',
@@ -437,6 +441,8 @@ const zh = {
         notUploaded: '未上传',
         reimbursed: '已报销',
         pending: '待报销',
+        settled: '已核销',
+        pendingSettlement: '待核销',
         personalShort: '个人账户',
         companyShort: '公共',
       },
@@ -449,6 +455,8 @@ const zh = {
       incomeNoReimburse: '收入无需报销',
       copyIdTooltip: '点击复制完整 ID',
       lockTitle: '请先取消报销状态',
+      settleLockTitle: '请先取消核销状态',
+      incomeNoSettle: '收入无需核销',
 
       life: {
         tabs: {
@@ -480,6 +488,10 @@ const zh = {
         reimbursedError: '报销状态切换失败',
         uploadError: '上传状态切换失败，请确认后端已重启',
         cancelReimburseFirst: '请先取消报销状态，再取消上传',
+        settledOn: '已标记核销',
+        unsettled: '已取消核销',
+        settledError: '核销状态切换失败',
+        cancelSettleFirst: '请先取消核销状态，再取消上传',
       },
     },
 
@@ -1253,6 +1265,8 @@ const zh = {
         pendingReimbursement: '待报销',
         reimbursed: '已报销',
         uploaded: '已上传',
+        pendingSettlement: '待核销',
+        settled: '已核销',
         company: {
           pendingUpload: '待上传',
           pendingReimburse: '待报销',

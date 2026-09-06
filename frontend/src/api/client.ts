@@ -352,6 +352,7 @@ export interface Transaction {
   updated_at?: string
   reported_at?: string | null
   reimbursed_at?: string | null
+  settled_at?: string | null
   direction: 'income' | 'expense'
   source: 'company' | 'personal'
   account_id: string
@@ -366,6 +367,8 @@ export interface Transaction {
   note: string
   project_id: string | null
   reimbursed: boolean
+  /** Public-account expense cleared with finance. Independent of `reimbursed`. */
+  settled: boolean
   uploaded: boolean
   attachment_key?: string | null
   has_attachment?: boolean
@@ -402,6 +405,11 @@ export async function createTransaction(
 
 export async function toggleReimbursed(id: string): Promise<Transaction> {
   const { data } = await client.patch(`/transactions/${id}/reimburse`)
+  return data.data
+}
+
+export async function toggleSettled(id: string): Promise<{ id: string; settled: boolean }> {
+  const { data } = await client.patch(`/transactions/${id}/settle`)
   return data.data
 }
 

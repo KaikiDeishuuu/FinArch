@@ -20,7 +20,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { downloadAttachment, toggleReimbursed, toggleUploaded } from '../api/client'
+import { downloadAttachment, toggleReimbursed, toggleSettled, toggleUploaded } from '../api/client'
 import type { Account, Attachment, Transaction } from '../api/client'
 import AttachmentUploader from '../components/AttachmentUploader'
 import OcrTextDisclosure from '../components/OcrTextDisclosure'
@@ -219,12 +219,13 @@ function StatusBadge({
   )
 }
 
-type TogglingAction = { id: string; type: 'uploaded' | 'reimbursed' } | null
+type TogglingAction = { id: string; type: 'uploaded' | 'reimbursed' | 'settled' } | null
 
 interface TransactionRowProps {
   tx: Transaction
   accountMap: Record<string, string>
   isReimbursementView: boolean
+  isSettlementView: boolean
   incomeHint: string
   togglingAction: TogglingAction
   attachmentPanelId: string | null
@@ -232,6 +233,7 @@ interface TransactionRowProps {
   formatTransaction: (transaction: Transaction) => string
   handleToggle: (id: string) => void
   handleToggleUpload: (id: string) => void
+  handleToggleSettle: (id: string) => void
   toggleAttachmentPanel: (id: string) => void
   copyId: (id: string) => void
   semantic?: boolean
@@ -241,6 +243,7 @@ function TransactionRow({
   tx,
   accountMap,
   isReimbursementView,
+  isSettlementView,
   incomeHint,
   togglingAction,
   attachmentPanelId,
@@ -248,16 +251,23 @@ function TransactionRow({
   formatTransaction,
   handleToggle,
   handleToggleUpload,
+  handleToggleSettle,
   toggleAttachmentPanel,
   copyId,
   semantic = true,
 }: TransactionRowProps) {
   const { t } = useTranslation()
   const isExpense = tx.direction === 'expense'
-  const done = isExpense && (isReimbursementView ? tx.reimbursed && tx.uploaded : tx.uploaded)
+  const settleDone = tx.settled && tx.uploaded
+  const done = isExpense && (
+    isReimbursementView ? tx.reimbursed && tx.uploaded
+      : isSettlementView ? settleDone
+        : tx.uploaded
+  )
   const urgent = isExpense && !tx.uploaded
   const timestamp = splitTimestamp(tx.occurred_at)
   const lifecycleTimestamp = clampLifecycleTimestamp(tx.reimbursed_at, tx.created_at)
+    || clampLifecycleTimestamp(tx.settled_at, tx.created_at)
     || clampLifecycleTimestamp(tx.reported_at, tx.created_at)
 
   const RowElement = semantic ? 'article' : 'div'
@@ -353,10 +363,10 @@ function TransactionRow({
                 activeClass="bg-accent-soft text-accent"
                 inactiveClass="bg-muted text-muted-foreground"
                 onClick={() => handleToggleUpload(tx.id)}
-                disabled={!!togglingAction || (isReimbursementView && tx.uploaded && tx.reimbursed)}
+                disabled={!!togglingAction || (isReimbursementView && tx.uploaded && tx.reimbursed) || (isSettlementView && settleDone)}
                 loading={togglingAction?.id === tx.id && togglingAction.type === 'uploaded'}
-                locked={isReimbursementView && tx.uploaded && tx.reimbursed}
-                lockedTitle={t('transactions.lockTitle')}
+                locked={(isReimbursementView && tx.uploaded && tx.reimbursed) || (isSettlementView && settleDone)}
+                lockedTitle={isSettlementView ? t('transactions.settleLockTitle') : t('transactions.lockTitle')}
               />
               {isReimbursementView && <StatusBadge
                 active={tx.reimbursed}
@@ -367,6 +377,16 @@ function TransactionRow({
                 onClick={() => handleToggle(tx.id)}
                 disabled={!!togglingAction || !tx.uploaded}
                 loading={togglingAction?.id === tx.id && togglingAction.type === 'reimbursed'}
+              />}
+              {isSettlementView && <StatusBadge
+                active={tx.settled}
+                activeLabel={t('transactions.badges.settled')}
+                inactiveLabel={t('transactions.badges.pendingSettlement')}
+                activeClass="bg-positive-soft text-positive"
+                inactiveClass="bg-muted text-muted-foreground"
+                onClick={() => handleToggleSettle(tx.id)}
+                disabled={!!togglingAction || !tx.uploaded}
+                loading={togglingAction?.id === tx.id && togglingAction.type === 'settled'}
               />}
             </>
           ) : (
@@ -455,21 +475,31 @@ function TransactionsLedger({
   const [filterAccount, setFilterAccount] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [togglingAction, setTogglingAction] = useState<TogglingAction>(null)
-  const [optimisticState, setOptimisticState] = useState<Record<string, { uploaded: boolean; reimbursed: boolean }>>({})
+  const [optimisticState, setOptimisticState] = useState<Record<string, { uploaded: boolean; reimbursed: boolean; settled: boolean }>>({})
   const [attachmentPanelId, setAttachmentPanelId] = useState<string | null>(null)
   const isReimbursementView = isWorkMode && effectiveSourceFilter === 'personal'
-  const workflowKind: TransactionWorkflowKind = isReimbursementView ? 'reimbursement' : 'upload'
+  // Public-account WORK expenses clear with finance instead of being reimbursed.
+  const isSettlementView = isWorkMode && effectiveSourceFilter === 'company'
+  const workflowKind: TransactionWorkflowKind = isReimbursementView
+    ? 'reimbursement'
+    : isSettlementView ? 'settlement' : 'upload'
 
   const tabLabelAll = t('transactions.reimbursementTabs.all')
-  const tabLabelPending = isReimbursementView ? t('transactions.reimbursementTabs.pending') : t('transactions.uploadTabs.pending')
-  const tabLabelDone = isReimbursementView ? t('transactions.reimbursementTabs.done') : t('transactions.uploadTabs.done')
-  const incomeHint = isWorkMode ? t('transactions.incomeNoReimburse') : t('transactions.life.incomeNoProcess')
+  const tabLabelPending = isReimbursementView
+    ? t('transactions.reimbursementTabs.pending')
+    : isSettlementView ? t('transactions.settlementTabs.pending') : t('transactions.uploadTabs.pending')
+  const tabLabelDone = isReimbursementView
+    ? t('transactions.reimbursementTabs.done')
+    : isSettlementView ? t('transactions.settlementTabs.done') : t('transactions.uploadTabs.done')
+  const incomeHint = isSettlementView
+    ? t('transactions.incomeNoSettle')
+    : isWorkMode ? t('transactions.incomeNoReimburse') : t('transactions.life.incomeNoProcess')
 
   const txsView = useMemo(() =>
     txs.map((tx) => {
       const override = optimisticState[tx.id]
       return override
-        ? { ...tx, uploaded: override.uploaded, reimbursed: override.reimbursed }
+        ? { ...tx, uploaded: override.uploaded, reimbursed: override.reimbursed, settled: override.settled }
         : tx
     }),
     [txs, optimisticState],
@@ -481,7 +511,7 @@ function TransactionsLedger({
       let changed = false
       for (const tx of txs) {
         const state = next[tx.id]
-        if (state && state.uploaded === tx.uploaded && state.reimbursed === tx.reimbursed) {
+        if (state && state.uploaded === tx.uploaded && state.reimbursed === tx.reimbursed && state.settled === tx.settled) {
           delete next[tx.id]
           changed = true
         }
@@ -554,8 +584,8 @@ function TransactionsLedger({
   async function handleToggle(id: string) {
     const tx = txsView.find((transaction) => transaction.id === id)
     if (!tx || !isWorkMode || tx.source !== 'personal' || tx.direction !== 'expense') return
-    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed }
-    const next = { uploaded: tx.uploaded, reimbursed: !tx.reimbursed }
+    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
+    const next = { uploaded: tx.uploaded, reimbursed: !tx.reimbursed, settled: tx.settled }
     setOptimisticState((curr) => ({ ...curr, [id]: next }))
     setTogglingAction({ id, type: 'reimbursed' })
     try {
@@ -569,6 +599,24 @@ function TransactionsLedger({
     }
   }
 
+  async function handleToggleSettle(id: string) {
+    const tx = txsView.find((transaction) => transaction.id === id)
+    if (!tx || !isWorkMode || tx.source !== 'company' || tx.direction !== 'expense') return
+    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
+    const next = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: !tx.settled }
+    setOptimisticState((curr) => ({ ...curr, [id]: next }))
+    setTogglingAction({ id, type: 'settled' })
+    try {
+      await toggleSettled(id)
+      refreshFinanceData()
+    } catch {
+      setOptimisticState((curr) => ({ ...curr, [id]: prev }))
+      toast.error(t('transactions.toast.settledError'))
+    } finally {
+      setTogglingAction(null)
+    }
+  }
+
   async function handleToggleUpload(id: string) {
     const tx = txsView.find((transaction) => transaction.id === id)
     if (!tx) return
@@ -576,8 +624,12 @@ function TransactionsLedger({
       toast.error(t('transactions.toast.cancelReimburseFirst'))
       return
     }
-    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed }
-    const next = { uploaded: !tx.uploaded, reimbursed: tx.reimbursed }
+    if (isSettlementView && tx.uploaded && tx.settled) {
+      toast.error(t('transactions.toast.cancelSettleFirst'))
+      return
+    }
+    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
+    const next = { uploaded: !tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
     setOptimisticState((curr) => ({ ...curr, [id]: next }))
     setTogglingAction({ id, type: 'uploaded' })
     try {
@@ -628,6 +680,7 @@ function TransactionsLedger({
   const rowProps = {
     accountMap,
     isReimbursementView,
+    isSettlementView,
     incomeHint,
     togglingAction,
     attachmentPanelId,
@@ -635,6 +688,7 @@ function TransactionsLedger({
     formatTransaction,
     handleToggle,
     handleToggleUpload,
+    handleToggleSettle,
     toggleAttachmentPanel,
     copyId,
   }

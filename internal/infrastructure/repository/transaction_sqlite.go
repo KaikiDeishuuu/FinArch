@@ -35,6 +35,7 @@ const txnSelectSQL = `
          t.recurring_rule_id, t.recurring_occurrence_date,
          t.txn_date, t.transaction_time,
          t.created_at, t.updated_at, t.reported_at, t.reimbursed_at,
+         t.settled, t.settled_at,
          COALESCE(a.type, 'personal') AS account_type
   FROM transactions t
   LEFT JOIN accounts a ON a.id = t.account_id`
@@ -425,6 +426,61 @@ func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id str
 	return newVal == 1, nil
 }
 
+// ToggleSettled flips the settled flag of a public-account WORK expense.
+//
+// Settlement is the public-account counterpart of reimbursement: the money was
+// already company money, so nothing is paid back, but the expense still has to
+// be cleared with finance. Reimbursement stays personal-account-only, and the
+// two flags never read each other.
+func (r *SQLiteTransactionRepository) ToggleSettled(ctx context.Context, id string, userID string) (bool, error) {
+	exec := getExecutor(ctx, r.db)
+	var cur, uploaded int
+	var transactionType, mode string
+	var accountType sql.NullString
+	if err := exec.QueryRowContext(ctx,
+		`SELECT t.settled, t.uploaded, t.type, t.mode, a.type
+		 FROM transactions t
+		 LEFT JOIN accounts a ON a.id = t.account_id AND a.user_id = t.user_id
+		 WHERE t.id = ? AND t.user_id = ?`, id, userID,
+	).Scan(&cur, &uploaded, &transactionType, &mode, &accountType); err != nil {
+		if err == sql.ErrNoRows {
+			return false, domainrepo.ErrTransactionNotFound
+		}
+		return false, fmt.Errorf("read settled: %w", err)
+	}
+	if transactionType != string(model.TxTypeExpense) || !accountType.Valid || accountType.String != string(model.AccountTypePublic) {
+		return false, fmt.Errorf("只有公共账户支出可以标记核销")
+	}
+	if mode != string(model.ModeWork) {
+		return false, fmt.Errorf("只有工作模式支出可以标记核销")
+	}
+	if cur == 0 && uploaded == 0 {
+		return false, fmt.Errorf("请先上报再核销")
+	}
+	newVal := 1 - cur
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+	res, err := exec.ExecContext(ctx,
+		`UPDATE transactions SET settled = ?,
+		  settled_at = CASE WHEN ? = 1 THEN CAST(strftime('%s','now') AS INTEGER) ELSE NULL END,
+		  updated_at = ?
+		 WHERE id = ? AND user_id = ? AND type = 'expense' AND settled = ?
+		   AND EXISTS (
+		     SELECT 1 FROM accounts a
+		     WHERE a.id = transactions.account_id
+		       AND a.user_id = transactions.user_id
+		       AND a.type = 'public'
+		   )`,
+		newVal, newVal, nowStr, id, userID, cur,
+	)
+	if err != nil {
+		return false, fmt.Errorf("toggle settled: %w", err)
+	}
+	if affected, _ := res.RowsAffected(); affected != 1 {
+		return false, domainrepo.ErrConcurrentModification
+	}
+	return newVal == 1, nil
+}
+
 // SumPoolBalance returns public-account net balance and pending personal reimbursements.
 // Uses cached balance in accounts table (O(1) reads).
 func (r *SQLiteTransactionRepository) SumPoolBalance(ctx context.Context, userID string, mode model.Mode) (model.Money, model.Money, error) {
@@ -537,8 +593,8 @@ func scanTransaction(scanner interface {
 	var transactionTime sql.NullInt64
 	var exchangeRateAt sql.NullInt64
 	var createdAt, updatedAt string
-	var reportedAt, reimbursedAt sql.NullInt64
-	var uploaded int
+	var reportedAt, reimbursedAt, settledAt sql.NullInt64
+	var uploaded, settled int
 
 	if err := scanner.Scan(
 		&t.ID, &t.UserID, &t.GroupID,
@@ -551,6 +607,7 @@ func scanTransaction(scanner interface {
 		&recurringRuleID, &recurringOccurrenceDate,
 		&t.TxnDate, &transactionTime,
 		&createdAt, &updatedAt, &reportedAt, &reimbursedAt,
+		&settled, &settledAt,
 		&accountType,
 	); err != nil {
 		return model.Transaction{}, fmt.Errorf("scan transaction: %w", err)
@@ -562,6 +619,7 @@ func scanTransaction(scanner interface {
 	t.AccountType = model.AccountType(accountType)
 	t.Mode = model.Mode(mode)
 	t.Uploaded = uploaded == 1
+	t.Settled = settled == 1
 	t.AmountYuan = model.Money(float64(t.AmountCents) / 100.0)
 	t.Reimbursed = t.ReimbStatus == model.ReimbStatusReimbursed
 
@@ -641,6 +699,10 @@ func scanTransaction(scanner interface {
 	if reimbursedAt.Valid {
 		ts := time.Unix(reimbursedAt.Int64, 0).UTC()
 		t.ReimbursedAt = &ts
+	}
+	if settledAt.Valid {
+		ts := time.Unix(settledAt.Int64, 0).UTC()
+		t.SettledAt = &ts
 	}
 	return t, nil
 }
