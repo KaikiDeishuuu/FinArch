@@ -1,5 +1,14 @@
 const en = {
   translation: {
+    // ── Announcement ──
+    announcement: {
+      title: 'Welcome to FinArch',
+      body: 'This is your finance workstation: work and life ledgers stay on separate books, while public spending, personal advances, budgets and recurring entries are managed in one place. Hit Add to record your first transaction, or set your accounts up first in Settings.',
+      support: 'Run into anything, or have a feature in mind? Get in touch:',
+      dismissHint: 'Dismissing this stops it coming back on its own — you can bring it back any time from Settings · Help & Support.',
+      dismiss: 'Dismiss',
+    },
+
     // ── Common ──
     common: {
       confirm: 'Confirm',
@@ -831,6 +840,14 @@ const en = {
         restore: 'Data Restore',
         danger: 'Danger Zone',
         appearance: 'Appearance',
+        support: 'Help & Support',
+      },
+      support: {
+        title: 'Need a hand?',
+        desc: 'Run into a problem, or have a feature in mind? Email us at',
+        showAnnouncement: 'Show announcement again',
+        restored: 'Announcement restored — head to the dashboard to see it',
+        alreadyVisible: 'The announcement is currently showing at the top of the dashboard.',
       },
       accounts: {
         publicLabel: 'Public',

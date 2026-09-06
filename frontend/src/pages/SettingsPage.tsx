@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   ChevronDown,
+  LifeBuoy,
   LockKeyhole,
   Pencil,
   Trash2,
@@ -37,12 +38,14 @@ import { EmptyState } from '../components/ui/empty-state'
 import { Field, Input, Label } from '../components/ui/input'
 import { PageHeader } from '../components/ui/page-header'
 import { Spinner } from '../components/ui/spinner'
+import { SUPPORT_EMAIL } from '../constants/app'
 import { CURRENCY_SYMBOLS } from '../constants/currencies'
 import { useAccounts, useInvalidateAccounts } from '../hooks/useAccounts'
 import { useAuth } from '../hooks/useAuth'
 import { useConfig } from '../hooks/useConfig'
 import { useMode } from '../hooks/useMode'
 import { useTransactions } from '../hooks/useTransactions'
+import { isAnnouncementDismissed, restoreAnnouncement } from '../utils/announcement'
 import { cn } from '../lib/utils'
 
 function SectionHeading({ children }: { children: ReactNode }) {
@@ -85,6 +88,54 @@ function MobileCollapsibleSection({
         {children}
       </div>
     </section>
+  )
+}
+
+/**
+ * Keeps the support address reachable after the dashboard announcement has been
+ * dismissed, and lets the reader bring that board back.
+ */
+function SupportSection() {
+  const { t } = useTranslation()
+  const [dismissed, setDismissed] = useState(isAnnouncementDismissed)
+
+  function showAnnouncementAgain() {
+    restoreAnnouncement()
+    setDismissed(false)
+    toast.success(t('settings.support.restored'))
+  }
+
+  return (
+    <MobileCollapsibleSection title={t('settings.sections.support')}>
+      <div className="md:col-span-2">
+        <div className="hidden md:block"><SectionHeading>{t('settings.sections.support')}</SectionHeading></div>
+        <Card>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <CardTitle>{t('settings.support.title')}</CardTitle>
+              <CardDescription>
+                {t('settings.support.desc')}{' '}
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  className="font-medium text-accent underline underline-offset-2 hover:no-underline"
+                >
+                  {SUPPORT_EMAIL}
+                </a>
+              </CardDescription>
+              {dismissed ? null : (
+                <p className="mt-2 text-xs text-muted-foreground">{t('settings.support.alreadyVisible')}</p>
+              )}
+            </div>
+            <div className="shrink-0">
+              <Button variant="outline" onClick={showAnnouncementAgain}>
+                <LifeBuoy className="size-4" />
+                {t('settings.support.showAnnouncement')}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </MobileCollapsibleSection>
   )
 }
 
@@ -728,6 +779,8 @@ export default function SettingsPage() {
             </Card>
           </div>
         </MobileCollapsibleSection>
+
+        <SupportSection />
 
         <MobileCollapsibleSection title={t('settings.sections.danger')}>
           <div className="md:col-span-2">
