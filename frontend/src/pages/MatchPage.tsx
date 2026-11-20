@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Trans, useTranslation } from 'react-i18next'
 import { setReimbursed } from '../api/client'
-import type { MatchResult, MatchResultItem, Account, Transaction } from '../api/client'
+import type { MatchResult, Account, Transaction } from '../api/client'
 import { formatAmount } from '../utils/format'
 import { transactionAmountToCNY } from '../utils/financeAmounts'
 import { useExchangeRates } from '../hooks/useExchangeRates'
@@ -37,6 +37,8 @@ import { PageHeader } from '../components/ui/page-header'
 import { Segmented, SegmentedButton } from '../components/ui/segmented'
 import { cn } from '../lib/utils'
 
+type BrowserMatch = Omit<MatchResult, 'items'> & { items: Transaction[] }
+
 function isEligibleMatchTransaction(transaction: Pick<Transaction, 'direction' | 'source' | 'uploaded' | 'reimbursed'>, mode: Transaction['mode']) {
   return transaction.source === 'personal' &&
     transaction.direction === 'expense' &&
@@ -60,7 +62,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
   const sourceFilter = enforcedSource
   const [filterCategory, setFilterCategory] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
-  const [results, setResults] = useState<MatchResult[]>([])
+  const [results, setResults] = useState<BrowserMatch[]>([])
   const [timePruned, setTimePruned] = useState(false)
   const [searchTruncated, setSearchTruncated] = useState(false)
   const [error, setError] = useState('')
@@ -139,11 +141,11 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
   }, [])
 
   // Worker totals are normalized to CNY before matching.
-  function cnyTotal(r: MatchResult): number {
+  function cnyTotal(r: BrowserMatch): number {
     return r.total
   }
   // True if a result contains non-CNY currencies
-  function hasMixedCurrency(r: MatchResult): boolean {
+  function hasMixedCurrency(r: BrowserMatch): boolean {
     return !!r.items?.some(item => item.currency && item.currency.toUpperCase() !== 'CNY')
   }
 
@@ -222,25 +224,10 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
       setSearchTruncated(inputTruncated || ev.data.truncated === true)
 
       // Map WorkerResult → MatchResult, enriching with cached tx data
-      const mapped: MatchResult[] = workerResults.map(wr => {
-        const items: MatchResultItem[] = wr.ids.flatMap(id => {
+      const mapped: BrowserMatch[] = workerResults.map(wr => {
+        const items = wr.ids.flatMap(id => {
           const tx = txMap.get(id)
-          if (!tx) return []
-          const item: MatchResultItem = {
-            id: tx.id,
-            occurred_at: tx.occurred_at,
-            direction: tx.direction,
-            source: tx.source,
-            category: tx.category,
-            amount_yuan: tx.amount_yuan,
-            currency: tx.currency,
-            base_amount_cents: tx.base_amount_cents,
-            base_currency: tx.base_currency,
-            note: tx.note ?? '',
-            project_id: tx.project_id ?? '',
-            uploaded: tx.uploaded,
-          }
-          return [item]
+          return tx ? [tx] : []
         })
         return {
           ids: wr.ids,
@@ -275,40 +262,13 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
 
 
 
-  const matchedTransactions = useMemo(() => {
-    const index = new Map<string, Transaction>()
-    for (const r of results) {
-      for (const item of r.items ?? []) {
-        index.set(item.id, {
-          id: item.id,
-          occurred_at: item.occurred_at,
-          direction: item.direction as Transaction['direction'],
-          source: item.source as Transaction['source'],
-          account_id: '',
-          category: item.category,
-          mode,
-          amount_yuan: item.amount_yuan,
-          currency: item.currency,
-          base_amount_cents: item.base_amount_cents,
-          base_currency: item.base_currency,
-          note: item.note,
-          project_id: item.project_id,
-          reimbursed: reimbursedIds.has(item.id),
-          // Matching only ever sees personal advances, which never settle.
-          settled: false,
-          uploaded: item.uploaded,
-        })
-      }
-    }
-    return Array.from(index.values())
-  }, [results, reimbursedIds, mode])
-
-  function handleExportPDF() {
-    if (matchedTransactions.length === 0) return
-    const label = isLifeMode
-      ? t('match.life.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
-      : t('match.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`) })
-    exportTransactionsPDF(matchedTransactions, label, user, rates, workflowKind, {})
+  function handleExportPDF(result: BrowserMatch, number: number) {
+    const transactions = result.items.map(tx =>
+      reimbursedIds.has(tx.id) ? { ...tx, reimbursed: true } : tx,
+    )
+    const accountMap = Object.fromEntries(accounts.map(account => [account.id, account.name]))
+    const label = t('match.exportLabel', { source: t(`match.sourceTabs.${sourceFilter}`), number })
+    exportTransactionsPDF(transactions, label, user, rates, workflowKind, accountMap)
   }
 
   const fmt = (amount: number, currency: string) => formatAmount(amount, currency)
@@ -462,19 +422,10 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
             </Alert>
           )}
 
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          <div className="mt-5">
             <Button type="submit" loading={loading} loadingText={t('match.form.searching')}>
               <Search className="size-4" />
               {t('match.form.searchButton')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleExportPDF}
-              disabled={matchedTransactions.length === 0}
-            >
-              <Download className="size-4" />
-              {isLifeMode ? t('match.life.exportPdf') : t('transactions.exportPdf')}
             </Button>
           </div>
         </form>
@@ -549,6 +500,12 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                   <div className="border-t border-border">
                     {r.items && r.items.length > 0 ? (
                       <>
+                        <div className="flex justify-end px-4 py-2">
+                          <Button type="button" size="sm" variant="outline" onClick={() => handleExportPDF(r, i + 1)}>
+                            <Download className="size-4" />
+                            {t('match.exportGroupPdf')}
+                          </Button>
+                        </div>
                         {/* Mobile: card list */}
                         <div className="md:hidden divide-y divide-border">
                           {r.items.map((item) => {

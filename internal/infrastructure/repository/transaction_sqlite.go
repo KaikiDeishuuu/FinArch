@@ -396,46 +396,50 @@ func (r *SQLiteTransactionRepository) SetReimbursed(ctx context.Context, id, use
 	return nil
 }
 
-// ToggleUploaded flips the uploaded flag.
-func (r *SQLiteTransactionRepository) ToggleUploaded(ctx context.Context, id string, userID string) (bool, error) {
+// SetUploaded preserves the first reporting timestamp when a request is retried.
+func (r *SQLiteTransactionRepository) SetUploaded(ctx context.Context, id, userID string, uploaded bool) error {
 	exec := getExecutor(ctx, r.db)
-	var cur int
-	if err := exec.QueryRowContext(ctx,
-		`SELECT uploaded FROM transactions WHERE id = ? AND user_id = ?`, id, userID,
-	).Scan(&cur); err != nil {
-		if err == sql.ErrNoRows {
-			return false, fmt.Errorf("交易记录不存在")
-		}
-		return false, fmt.Errorf("read uploaded: %w", err)
+	var current, locked bool
+	err := exec.QueryRowContext(ctx,
+		`SELECT uploaded, mode = 'work' AND (settled = 1 OR reimb_status = 'reimbursed')
+		 FROM transactions WHERE id = ? AND user_id = ?`, id, userID,
+	).Scan(&current, &locked)
+	if err == sql.ErrNoRows {
+		return domainrepo.ErrTransactionNotFound
 	}
-	newVal := 1 - cur
-	nowStr := time.Now().UTC().Format(time.RFC3339)
+	if err != nil {
+		return fmt.Errorf("read uploaded: %w", err)
+	}
+	if current == uploaded {
+		return nil
+	}
+	if !uploaded && locked {
+		return fmt.Errorf("请先撤销报销或核销，再撤销上报")
+	}
 	res, err := exec.ExecContext(ctx,
-		`UPDATE transactions
-		 SET uploaded = ?,
-		     reported_at = CASE WHEN ? = 1 AND reported_at IS NULL THEN CAST(strftime('%s','now') AS INTEGER) ELSE reported_at END,
-		     updated_at = ?
-		 WHERE id = ? AND user_id = ? AND uploaded = ?`,
-		newVal, newVal, nowStr, id, userID, cur,
+		`UPDATE transactions SET uploaded = ?,
+		 reported_at = CASE WHEN ? THEN COALESCE(reported_at, unixepoch()) ELSE reported_at END,
+		 updated_at = ? WHERE id = ? AND user_id = ? AND uploaded = ?`,
+		uploaded, uploaded, time.Now().UTC().Format(time.RFC3339), id, userID, current,
 	)
 	if err != nil {
-		return false, fmt.Errorf("toggle uploaded: %w", err)
+		return fmt.Errorf("set uploaded: %w", err)
 	}
 	if affected, _ := res.RowsAffected(); affected != 1 {
-		return false, fmt.Errorf("concurrent_modification")
+		return domainrepo.ErrConcurrentModification
 	}
-	return newVal == 1, nil
+	return nil
 }
 
-// ToggleSettled flips the settled flag of a public-account WORK expense.
+// SetSettled sets the settled flag of a public-account WORK expense.
 //
 // Settlement is the public-account counterpart of reimbursement: the money was
 // already company money, so nothing is paid back, but the expense still has to
 // be cleared with finance. Reimbursement stays personal-account-only, and the
 // two flags never read each other.
-func (r *SQLiteTransactionRepository) ToggleSettled(ctx context.Context, id string, userID string) (bool, error) {
+func (r *SQLiteTransactionRepository) SetSettled(ctx context.Context, id, userID string, settled bool) error {
 	exec := getExecutor(ctx, r.db)
-	var cur, uploaded int
+	var cur, uploaded bool
 	var transactionType, mode string
 	var accountType sql.NullString
 	if err := exec.QueryRowContext(ctx,
@@ -445,20 +449,22 @@ func (r *SQLiteTransactionRepository) ToggleSettled(ctx context.Context, id stri
 		 WHERE t.id = ? AND t.user_id = ?`, id, userID,
 	).Scan(&cur, &uploaded, &transactionType, &mode, &accountType); err != nil {
 		if err == sql.ErrNoRows {
-			return false, domainrepo.ErrTransactionNotFound
+			return domainrepo.ErrTransactionNotFound
 		}
-		return false, fmt.Errorf("read settled: %w", err)
+		return fmt.Errorf("read settled: %w", err)
 	}
 	if transactionType != string(model.TxTypeExpense) || !accountType.Valid || accountType.String != string(model.AccountTypePublic) {
-		return false, fmt.Errorf("只有公共账户支出可以标记核销")
+		return fmt.Errorf("只有公共账户支出可以标记核销")
 	}
 	if mode != string(model.ModeWork) {
-		return false, fmt.Errorf("只有工作模式支出可以标记核销")
+		return fmt.Errorf("只有工作模式支出可以标记核销")
 	}
-	if cur == 0 && uploaded == 0 {
-		return false, fmt.Errorf("请先上报再核销")
+	if cur == settled {
+		return nil
 	}
-	newVal := 1 - cur
+	if settled && !uploaded {
+		return fmt.Errorf("请先上报再核销")
+	}
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 	res, err := exec.ExecContext(ctx,
 		`UPDATE transactions SET settled = ?,
@@ -471,15 +477,15 @@ func (r *SQLiteTransactionRepository) ToggleSettled(ctx context.Context, id stri
 		       AND a.user_id = transactions.user_id
 		       AND a.type = 'public'
 		   )`,
-		newVal, newVal, nowStr, id, userID, cur,
+		settled, settled, nowStr, id, userID, cur,
 	)
 	if err != nil {
-		return false, fmt.Errorf("toggle settled: %w", err)
+		return fmt.Errorf("set settled: %w", err)
 	}
 	if affected, _ := res.RowsAffected(); affected != 1 {
-		return false, domainrepo.ErrConcurrentModification
+		return domainrepo.ErrConcurrentModification
 	}
-	return newVal == 1, nil
+	return nil
 }
 
 // SumPoolBalance returns public-account net balance and pending personal reimbursements.

@@ -13,7 +13,7 @@ import {
   Settings2,
   UserRound,
 } from 'lucide-react'
-import { createTransaction, deleteAttachment, linkAttachment } from '../api/client'
+import { createTransaction, discardDraftAttachment, getAttachment, linkAttachment } from '../api/client'
 import type { Attachment, OCRSuggestion } from '../api/client'
 import AttachmentUploader from '../components/AttachmentUploader'
 import Select from '../components/Select'
@@ -142,6 +142,8 @@ function AddTransactionForm({
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
   const [ocrSuggestion, setOcrSuggestion] = useState<OCRSuggestion | null>(null)
   const [createdTransactionId, setCreatedTransactionId] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const pendingAttachmentsRef = useRef<Attachment[]>([])
   const submissionInFlightRef = useRef(false)
   const createIdempotencyKeyRef = useRef<string | null>(null)
@@ -186,34 +188,39 @@ function AddTransactionForm({
   }
 
   function addPendingAttachment(attachment: Attachment) {
-    setPendingAttachments((previous) => {
-      const next = [...previous, attachment]
-      pendingAttachmentsRef.current = next
-      return next
-    })
+    replacePendingAttachments([...pendingAttachmentsRef.current, attachment])
   }
 
   async function discardPendingAttachments() {
     const pending = pendingAttachmentsRef.current
     replacePendingAttachments([])
-    await Promise.allSettled(pending.map((attachment) => deleteAttachment(attachment.id)))
+    await Promise.allSettled(pending.map((attachment) => discardDraftAttachment(attachment.id)))
   }
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
+      // An in-flight save owns these drafts until all link requests settle.
+      if (submissionInFlightRef.current) return
       const pending = pendingAttachmentsRef.current
       pendingAttachmentsRef.current = []
       pending.forEach((attachment) => {
-        void deleteAttachment(attachment.id).catch(() => undefined)
+        void discardDraftAttachment(attachment.id).catch(() => undefined)
       })
     }
   }, [])
 
   async function linkPendingAttachments(transactionId: string, attachments: Attachment[]) {
-    const settled = await Promise.allSettled(
-      attachments.map((attachment) => linkAttachment(attachment.id, transactionId)),
-    )
-    return attachments.filter((_, index) => settled[index].status === 'rejected')
+    const results = await Promise.allSettled(attachments.map(async attachment => {
+      try {
+        await linkAttachment(attachment.id, transactionId)
+      } catch (err) {
+        // A lost response can follow a committed link. Check before offering a retry.
+        if ((await getAttachment(attachment.id)).transaction_id !== transactionId) throw err
+      }
+    }))
+    return attachments.filter((_, index) => results[index].status === 'rejected')
   }
 
   function finishCreatedTransaction(amount: number) {
@@ -224,14 +231,19 @@ function AddTransactionForm({
     toast.success(t('addTransaction.toast.success'), {
       description: `${CURRENCY_SYMBOLS[form.currency] ?? form.currency}${amount.toFixed(2)}`,
     })
-    setSuccess(true)
-    window.setTimeout(() => navigate(`/transactions?source=${form.source}`), 1200)
+    if (mountedRef.current) setSuccess(true)
   }
+
+  useEffect(() => {
+    if (!success) return
+    const timer = window.setTimeout(() => navigate(`/transactions?source=${form.source}`), 1200)
+    return () => window.clearTimeout(timer)
+  }, [success, navigate, form.source])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
-    if (submissionInFlightRef.current || success) return
+    if (submissionInFlightRef.current || success || uploadingAttachment) return
     if (!createdTransactionId && accountsUnavailable) {
       haptic.error()
       setError(accountsError ? t('addTransaction.accountLoad.error') : t('addTransaction.accountLoad.empty'))
@@ -343,7 +355,7 @@ function AddTransactionForm({
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
         <fieldset
-          disabled={Boolean(createdTransactionId)}
+          disabled={Boolean(createdTransactionId) || loading || success}
           className="grid min-w-0 grid-cols-1 gap-4 md:col-span-2 md:grid-cols-2 md:items-stretch"
         >
           <Card className="order-1 space-y-5">
@@ -533,6 +545,7 @@ function AddTransactionForm({
             </div>
             <AttachmentUploader
               onUploaded={addPendingAttachment}
+              onUploadingChange={setUploadingAttachment}
               onSuggestion={setOcrSuggestion}
             />
             {pendingAttachments.length > 0 ? (
@@ -606,7 +619,7 @@ function AddTransactionForm({
               type="submit"
               loading={loading}
               loadingText={t('addTransaction.form.submitting')}
-              disabled={success || (!createdTransactionId && accountsUnavailable)}
+              disabled={success || uploadingAttachment || (!createdTransactionId && accountsUnavailable)}
               className="sm:min-w-44"
             >
               {createdTransactionId

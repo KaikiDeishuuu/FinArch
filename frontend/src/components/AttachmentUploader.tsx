@@ -3,7 +3,7 @@ import { FilePlus2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { Attachment, OCRSuggestion } from '../api/client'
-import { deleteAttachment } from '../api/client'
+import { discardDraftAttachment } from '../api/client'
 import { useAttachmentMutations } from '../hooks/useAttachments'
 import { attachmentOCRText, hasOCRSuggestion } from '../utils/ocr'
 import OcrTextDisclosure from './OcrTextDisclosure'
@@ -19,10 +19,12 @@ function formatFileSize(bytes: number) {
 export default function AttachmentUploader({
   transactionId,
   onUploaded,
+  onUploadingChange,
   onSuggestion,
   compact = false,
 }: {
   transactionId?: string
+  onUploadingChange?: (uploading: boolean) => void
   onUploaded?: (attachment: Attachment) => void
   onSuggestion?: (suggestion: OCRSuggestion, attachment: Attachment) => void
   compact?: boolean
@@ -36,6 +38,7 @@ export default function AttachmentUploader({
   const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
     }
@@ -43,11 +46,12 @@ export default function AttachmentUploader({
 
   async function upload() {
     if (!file) return
+    onUploadingChange?.(true)
     try {
       const attachment = await mutations.upload.mutateAsync({ file, runOCR, kind: 'receipt' })
       if (!mountedRef.current) {
         if (!transactionId) {
-          await deleteAttachment(attachment.id).catch(() => undefined)
+          await discardDraftAttachment(attachment.id).catch(() => undefined)
         }
         return
       }
@@ -68,6 +72,8 @@ export default function AttachmentUploader({
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || t('attachments.toast.failed'))
+    } finally {
+      if (mountedRef.current) onUploadingChange?.(false)
     }
   }
 

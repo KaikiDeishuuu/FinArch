@@ -34,6 +34,6 @@ export function useAttachmentMutations(transactionId?: string) {
     onSuccess: invalidate,
   })
   const runOCR = useMutation({ mutationFn: runAttachmentOCR, onSuccess: invalidate })
-  const remove = useMutation({ mutationFn: deleteAttachment, onSuccess: invalidate })
+  const remove = useMutation({ mutationFn: ({ id, transactionId }: { id: string; transactionId: string }) => deleteAttachment(id, transactionId), onSuccess: invalidate })
   return { upload, runOCR, remove }
 }

@@ -515,11 +515,22 @@ func (s *AttachmentService) Link(ctx context.Context, userID, id, transactionID 
 	return attachment, nil
 }
 
-func (s *AttachmentService) Delete(ctx context.Context, userID, id string) error {
+var ErrAttachmentLinkChanged = errors.New("attachment link has changed")
+
+// Delete verifies the expected link under the same write lock as deletion.
+// An empty expected transaction ID is a request to discard an unlinked draft.
+func (s *AttachmentService) Delete(ctx context.Context, userID, id, expectedTransactionID string) error {
 	if err := s.withinTransaction(ctx, func(txCtx context.Context) error {
 		current, err := s.attachments.GetByID(txCtx, id, userID)
 		if err != nil {
 			return err
+		}
+		linkedID := ""
+		if current.TransactionID != nil {
+			linkedID = *current.TransactionID
+		}
+		if linkedID != expectedTransactionID {
+			return ErrAttachmentLinkChanged
 		}
 		if err := s.attachments.EnqueueDeletion(txCtx, current.StorageKey, userID); err != nil {
 			return err

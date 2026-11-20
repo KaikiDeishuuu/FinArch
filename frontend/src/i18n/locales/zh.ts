@@ -748,7 +748,8 @@ const zh = {
         markShort: '标记报销',
       },
 
-      exportLabel: '匹配结果 · {{source}}',
+      exportGroupPdf: '导出本方案 PDF',
+      exportLabel: '匹配方案 {{number}} · {{source}}',
       life: {
         subtitle: '智能查找并组合个人消费记录',
         exportPdf: '导出匹配 PDF',

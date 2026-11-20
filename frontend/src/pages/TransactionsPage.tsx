@@ -19,8 +19,9 @@ import {
   Tag,
   Trash2,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { downloadAttachment, setReimbursed, toggleSettled, toggleUploaded } from '../api/client'
+import { downloadAttachment, setReimbursed, setSettled, setUploaded } from '../api/client'
 import type { Account, Attachment, Transaction } from '../api/client'
 import AttachmentUploader from '../components/AttachmentUploader'
 import OcrTextDisclosure from '../components/OcrTextDisclosure'
@@ -39,7 +40,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useExchangeRates } from '../hooks/useExchangeRates'
 import { useMode } from '../hooks/useMode'
 import { useRefreshFinanceData } from '../hooks/useRefreshFinanceData'
-import { useTransactions } from '../hooks/useTransactions'
+import { TRANSACTIONS_QUERY_KEY, useTransactions } from '../hooks/useTransactions'
 import { useAccounts } from '../hooks/useAccounts'
 import { cn } from '../lib/utils'
 import { accountModeForTransactionSource, transactionSourceForMode } from '../utils/accountScope'
@@ -79,7 +80,7 @@ function AttachmentPanel({ transactionId }: { transactionId: string }) {
 
   async function removeAttachment(attachment: Attachment) {
     try {
-      await mutations.remove.mutateAsync(attachment.id)
+      await mutations.remove.mutateAsync({ id: attachment.id, transactionId })
       toast.success(t('attachments.toast.deleted'))
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -463,6 +464,7 @@ function TransactionsLedger({
   selectSource: (source: 'personal' | 'company') => void
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const { user } = useAuth()
   const { rates } = useExchangeRates()
   const { data: txs = [], isLoading: loading, isError, refetch, isFetching } = useTransactions()
@@ -603,17 +605,16 @@ function TransactionsLedger({
   async function handleToggleSettle(id: string) {
     const tx = txsView.find((transaction) => transaction.id === id)
     if (!tx || !isWorkMode || tx.source !== 'company' || tx.direction !== 'expense') return
-    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
-    const next = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: !tx.settled }
-    setOptimisticState((curr) => ({ ...curr, [id]: next }))
     setTogglingAction({ id, type: 'settled' })
     try {
-      await toggleSettled(id)
-      refreshFinanceData()
+      const updated = await setSettled(id, !tx.settled)
+      queryClient.setQueryData<Transaction[]>(TRANSACTIONS_QUERY_KEY(user?.id, isWorkMode ? 'work' : 'life'), rows =>
+        rows?.map(row => row.id === id ? { ...row, settled: updated.settled } : row),
+      )
     } catch {
-      setOptimisticState((curr) => ({ ...curr, [id]: prev }))
       toast.error(t('transactions.toast.settledError'))
     } finally {
+      refreshFinanceData()
       setTogglingAction(null)
     }
   }
@@ -629,18 +630,17 @@ function TransactionsLedger({
       toast.error(t('transactions.toast.cancelSettleFirst'))
       return
     }
-    const prev = { uploaded: tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
-    const next = { uploaded: !tx.uploaded, reimbursed: tx.reimbursed, settled: tx.settled }
-    setOptimisticState((curr) => ({ ...curr, [id]: next }))
     setTogglingAction({ id, type: 'uploaded' })
     try {
-      await toggleUploaded(id)
-      refreshFinanceData()
+      const updated = await setUploaded(id, !tx.uploaded)
+      queryClient.setQueryData<Transaction[]>(TRANSACTIONS_QUERY_KEY(user?.id, isWorkMode ? 'work' : 'life'), rows =>
+        rows?.map(row => row.id === id ? { ...row, uploaded: updated.uploaded } : row),
+      )
     } catch (err: unknown) {
-      setOptimisticState((curr) => ({ ...curr, [id]: prev }))
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || t('transactions.toast.uploadError'))
     } finally {
+      refreshFinanceData()
       setTogglingAction(null)
     }
   }
