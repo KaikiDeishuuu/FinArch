@@ -73,7 +73,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [reimbursedIds, setReimbursedIds] = useState<Set<string>>(new Set())
   const { rates } = useExchangeRates()
-  const { data: txs = [] } = useTransactions()
+  const { data: txs = [], isSuccess: transactionsReady, isError: transactionsFailed, isFetching, refetch } = useTransactions()
   const { data: accounts = [] } = useAccounts(accountModeForTransactionSource(enforcedSource))
   const invalidate = useInvalidateTransactions()
   const { t } = useTranslation()
@@ -174,6 +174,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!transactionsReady) return
     setError('')
     const val = parseFloat(target)
     if (isNaN(val) || val <= 0) { setError(t('match.error.invalidAmount')); return }
@@ -213,11 +214,11 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
     worker.onmessage = (ev: MessageEvent<MatchWorkerResponse>) => {
       if (!isCurrentMatchResponse(ev.data, activeRequestIdRef.current)) return
       setLoading(false)
-      setSearched(true)
       if (!ev.data.ok) {
         setError(ev.data.error || t('match.error.matchFailed'))
         return
       }
+      setSearched(true)
       const workerResults = ev.data.results ?? []
       const pruned = ev.data.timePruned === true || workerResults.some(r => r.timePruned)
       setTimePruned(pruned)
@@ -247,7 +248,6 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
     worker.onerror = (err) => {
       if (activeRequestIdRef.current !== requestId) return
       setLoading(false)
-      setSearched(true)
       setError(err.message || t('match.error.matchFailed'))
     }
     worker.postMessage({
@@ -415,7 +415,16 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
             </Field>
           </div>
 
-          {error && (
+          {transactionsFailed && (
+            <Alert variant="negative" className="mt-4 items-center">
+              <AlertTriangle className="size-4 shrink-0" />
+              <span>{t('match.error.transactions')}</span>
+              <Button type="button" size="sm" variant="outline" disabled={isFetching} onClick={() => { resetSearch(); void refetch() }}>
+                {t('common.retry')}
+              </Button>
+            </Alert>
+          )}
+          {error && transactionsReady && (
             <Alert variant="negative" className="mt-4">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <span>{error}</span>
@@ -423,7 +432,8 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
           )}
 
           <div className="mt-5">
-            <Button type="submit" loading={loading} loadingText={t('match.form.searching')}>
+            <Button type="submit" disabled={!transactionsReady} loading={loading || (!transactionsReady && !transactionsFailed)}
+              loadingText={t(loading ? 'match.form.searching' : 'common.loading')}>
               <Search className="size-4" />
               {t('match.form.searchButton')}
             </Button>
@@ -432,7 +442,7 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
       </Card>
 
       {/* Results */}
-      {searched && (
+      {searched && transactionsReady && (
         <div className="space-y-3">
           {timePruned && (
             <Alert variant="warning">
@@ -480,7 +490,9 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-base font-semibold text-foreground tabular-nums">{fmt(cnyTotal(r), 'CNY')}</p>
-                        {r.error <= 0.01 && <Badge variant="positive">{t('match.results.exactMatch')}</Badge>}
+                        {r.error_cents === 0
+                          ? <Badge variant="positive">{t('match.results.exactMatch')}</Badge>
+                          : <Badge variant="warning">{t('match.results.difference', { amount: fmt(r.error, 'CNY') })}</Badge>}
                         {r.score != null && <Badge variant="accent" className="font-mono">Score {r.score.toFixed(3)}</Badge>}
                         {hasMixedCurrency(r) && <Badge variant="warning">{t('match.results.mixedCurrency')}</Badge>}
                       </div>

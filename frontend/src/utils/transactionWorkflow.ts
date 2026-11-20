@@ -1,10 +1,11 @@
-export type TransactionWorkflowTab = 'all' | 'unreimbursed' | 'reimbursed'
+export type TransactionWorkflowTab = 'all' | 'unreimbursed' | 'reimbursed' | 'review'
 export type TransactionWorkflowKind = 'reimbursement' | 'settlement' | 'upload'
 export type TransactionWorkflowStage =
   | 'income'
   | 'pending-upload'
   | 'pending-reimbursement'
   | 'reimbursed'
+  | 'needs-review'
   | 'pending-settlement'
   | 'settled'
   | 'uploaded'
@@ -27,11 +28,9 @@ export function transactionWorkflowStage(
     return transaction.uploaded ? 'pending-reimbursement' : 'pending-upload'
   }
 
-  // Settlement clears a public-account expense with finance. It reads `settled`
-  // only: public money was never fronted by the user, so `reimbursed` must not
-  // leak into this lane.
+  // Older public expenses can be settled without a corresponding filing.
   if (workflowKind === 'settlement') {
-    if (transaction.settled) return 'settled'
+    if (transaction.settled) return transaction.uploaded ? 'settled' : 'needs-review'
     return transaction.uploaded ? 'pending-settlement' : 'pending-upload'
   }
 
@@ -45,6 +44,7 @@ export function isTransactionInWorkflowTab(
 ) {
   if (tab === 'all') return true
   const stage = transactionWorkflowStage(transaction, workflowKind)
+  if (tab === 'review') return stage === 'needs-review'
   if (stage === 'income') return false
 
   const completed = stage === 'reimbursed' || stage === 'settled' || stage === 'uploaded'

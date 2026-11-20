@@ -510,6 +510,8 @@ docker run --rm -it \
 
 ## Updating the Deployment
 
+Set the GitHub Actions repository variable `FINARCH_PUBLIC_URL` to the public HTTPS origin. After deployment the workflow fetches the homepage, `/sw.js`, and the entry script through this origin and checks them against the release image. If the CDN serves a previous worker, purge that URL and repeat the check.
+
 After a push to `main`, the deployment workflow builds and deploys the
 `sha-<full commit SHA>` image only if that commit's CI succeeded and it is still
 the tip of `main`. Deployments are serialized, and the runtime tag is never the

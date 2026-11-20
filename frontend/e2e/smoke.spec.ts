@@ -1441,3 +1441,53 @@ test('two ledger tabs both request the same upload and settlement states', async
     ['PUT', 'settle', { settled: true }], ['PUT', 'settle', { settled: true }],
   ])
 })
+
+test('historical public conflicts remain pending and open a read-only review list', async ({ page }) => {
+  await openWorkSession(page)
+  const publicExpense = { ...receipt('original', 10), source: 'company', account_id: 'public', settled: true }
+  const conflicts = ['one', 'two', 'three'].map(id => ({ ...publicExpense, id, note: id, uploaded: false }))
+  const mutations: string[] = []
+  await page.route('**/api/v1/transactions**', route => {
+    if (route.request().method() !== 'GET') mutations.push(route.request().method())
+    return route.fulfill({ json: { success: true, data: [...conflicts, publicExpense] } })
+  })
+  await page.goto('/')
+  const review = page.getByRole('link', { name: /3 Needs review/ })
+  await expect(review).toBeVisible()
+  await expect(page.getByText(/Nothing pending/)).toHaveCount(0)
+  await review.click()
+  await expect(page.getByRole('button', { name: /Needs review.*3/ })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('article')).toHaveCount(3)
+  for (const row of await page.getByRole('article').all()) {
+    await expect(row.getByText('Needs review', { exact: true })).toBeVisible()
+    await expect(row.getByRole('button', { name: 'Settled', exact: true })).toBeVisible()
+  }
+  expect(mutations).toEqual([])
+})
+
+test('matching waits for transactions, retries read failures and distinguishes a one-cent difference', async ({ page }) => {
+  await openWorkSession(page)
+  let available = false
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/api/v1/transactions**', async route => {
+    await gate
+    if (!available) return route.fulfill({ status: 503, json: { success: false } })
+    return route.fulfill({ json: { success: true, data: [receipt('exact', 100), receipt('near', 99.99)] } })
+  })
+  await page.goto('/match')
+  await page.locator('input[type=number]').first().fill('100')
+  await expect(page.locator('button[type=submit]')).toBeDisabled()
+  release()
+  await expect(page.getByText('Could not load transactions. Retry before matching.')).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('button', { name: 'Start Match' })).toBeDisabled()
+  await expect(page.getByText(/No matches found/)).toHaveCount(0)
+  available = true
+  await page.getByRole('button', { name: 'Retry', exact: true }).click()
+  await page.getByRole('button', { name: 'Start Match' }).click()
+  await expect(page.getByRole('button', { name: /Exact match/ })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: /Difference.*0\.01/ })).toContainText('99.99')
+  await page.locator('input[type=number]').first().fill('300')
+  await page.getByRole('button', { name: 'Start Match' }).click()
+  await expect(page.getByText(/No matches found/)).toBeVisible()
+})

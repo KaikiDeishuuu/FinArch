@@ -23,3 +23,8 @@ test -n "$asset"
 docker exec "$container" wget -qO /dev/null "$base$asset"
 worker=$(docker exec "$container" wget -qO- "$base/sw.js")
 [[ "$worker" == *"${asset#/}"* ]]
+# Stable update URLs must reach the current image on every visit.
+for path in / /sw.js /transactions; do
+  headers=$(docker exec "$container" wget -S -O /dev/null "$base$path" 2>&1)
+  grep -Eiq '^[[:space:]]*Cache-Control: no-store[[:space:]]*$' <<< "$headers"
+done
