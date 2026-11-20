@@ -40,6 +40,7 @@ const (
 )
 
 var (
+	ErrAttachmentTooLarge      = errors.New("附件超过单个文件大小上限")
 	ErrAttachmentQuotaExceeded = errors.New("附件存储配额已用尽")
 	ErrOCRBusy                 = errors.New("已有 OCR 任务正在处理，请稍后再试")
 	ErrOCRRateLimited          = errors.New("OCR 请求过于频繁，请稍后再试")
@@ -242,6 +243,9 @@ func (s *AttachmentService) Upload(ctx context.Context, req UploadAttachmentRequ
 	}
 	if req.Reader == nil {
 		return model.Attachment{}, fmt.Errorf("请上传文件")
+	}
+	if req.SizeBytesHint > s.maxBytes {
+		return model.Attachment{}, ErrAttachmentTooLarge
 	}
 	maxFiles, maxTotalBytes := s.quotaLimits()
 	usage, err := s.attachments.UsageByUser(ctx, req.UserID)

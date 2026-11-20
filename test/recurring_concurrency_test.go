@@ -318,7 +318,7 @@ func TestRecurringGenerateDueAdvancesClaimedRule(t *testing.T) {
 		accountRepo,
 	)
 
-	result, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+	result, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func TestRecurringCreateFailureRollsBackAndRetriesSameOccurrence(t *testing.T) {
 		ruleRepo, txRepo, service.NewTransactionService(txRepo, accountRepo, nil), tm, accountRepo,
 	)
 
-	failed, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+	failed, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,7 +398,7 @@ func TestRecurringCreateFailureRollsBackAndRetriesSameOccurrence(t *testing.T) {
 	}
 
 	txRepo.fail.Store(false)
-	retried, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+	retried, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestRecurringIdempotencyLookupFailureRollsBack(t *testing.T) {
 		ruleRepo, txRepo, service.NewTransactionService(txRepo, accountRepo, nil), tm, accountRepo,
 	)
 
-	result, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+	result, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +538,7 @@ func TestRecurringResolvesAndPreservesRateBeforeWriteTransaction(t *testing.T) {
 		ruleRepo, txRepo, service.NewTransactionService(txRepo, accountRepo, rateSvc), observedTM, accountRepo,
 	)
 
-	result, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+	result, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -648,7 +648,7 @@ func TestRecurringReconcilesOrphanTransactionAndInstance(t *testing.T) {
 			ruleRepo, txRepo, txSvc, sqliterepo.NewSQLiteTransactionManager(database), accountRepo,
 		)
 
-		result, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+		result, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -703,7 +703,7 @@ func TestRecurringReconcilesOrphanTransactionAndInstance(t *testing.T) {
 			sqliterepo.NewSQLiteTransactionManager(database), accountRepo,
 		)
 
-		result, err := recurringSvc.GenerateDue(ctx, now, 1, false)
+		result, err := recurringSvc.GenerateDue(ctx, now.Add(-15*time.Minute), now, 1, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -965,4 +965,81 @@ func TestRecurringRuleWritesRejectAccountsDeletedAfterValidation(t *testing.T) {
 			t.Fatalf("inactive-account rule status=%s, want ended", current.Status)
 		}
 	})
+}
+
+func TestRecurringAutomaticGenerationAfterDowntime(t *testing.T) {
+	// In Shanghai these scheduled occurrences fall just after local midnight.
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 20, 0, 12, 0, 0, loc)
+	start := now.AddDate(0, 0, -3).Add(-10 * time.Minute)
+	for _, tc := range []struct {
+		name             string
+		catchUp, expired bool
+		windowStart      time.Time
+		want             int
+	}{
+		{"normal poll crosses midnight", false, false, now.Add(-15 * time.Minute), 1},
+		{"restarted after today's occurrence", false, false, now.Add(-time.Minute), 0},
+		{"ended during downtime", false, true, now.Add(-15 * time.Minute), 0},
+		{"catch up enabled", true, false, now.Add(-15 * time.Minute), 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db := setupDB(t)
+			defer db.Close()
+			accounts := sqliterepo.NewSQLiteAccountRepository(db)
+			account := recurringAccount(t, accounts, model.AccountTypePersonal)
+			rule := dueRecurringRule(account, start.Add(time.Minute), account.Currency, 1)
+			rule.StartDate, rule.TimeOfDay, rule.Timezone = start.Format("2006-01-02"), "00:02:00", loc.String()
+			rule.CatchUpEnabled = tc.catchUp
+			previous := start.AddDate(0, 0, -1).Format("2006-01-02")
+			rule.LastGeneratedFor = &previous
+			if tc.expired {
+				end := now.AddDate(0, 0, -1).Format("2006-01-02")
+				rule.EndDate = &end
+			}
+			rules := sqliterepo.NewSQLiteRecurringTransactionRepository(db)
+			if err := rules.CreateRule(ctx, rule); err != nil {
+				t.Fatal(err)
+			}
+			txs := sqliterepo.NewSQLiteTransactionRepository(db)
+			svc := service.NewRecurringTransactionService(rules, txs, service.NewTransactionService(txs, accounts, nil), sqliterepo.NewSQLiteTransactionManager(db), accounts)
+			if _, err := svc.GenerateDue(ctx, tc.windowStart, now, 10, true); err != nil {
+				t.Fatal(err)
+			}
+			fresh, err := rules.GetRuleByID(ctx, rule.ID, rule.UserID)
+			if err != nil || fresh.NextRunAt != start.Unix() || fresh.Version != rule.Version {
+				t.Fatalf("dry run changed cursor: %v %v", fresh, err)
+			}
+			for i, want := range []int{tc.want, 0, 0} {
+				delta := time.Duration(i) * 15 * time.Minute
+				result, err := svc.GenerateDue(ctx, tc.windowStart.Add(delta), now.Add(delta), 10, false)
+				if err != nil || result.Failed != 0 || result.Generated != want {
+					t.Fatalf("scan %d = %+v, %v; want %d", i, result, err, want)
+				}
+			}
+			fresh, err = rules.GetRuleByID(ctx, rule.ID, rule.UserID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantLast := previous
+			if tc.want > 0 {
+				wantLast = now.Format("2006-01-02")
+			}
+			if fresh.LastGeneratedFor == nil || *fresh.LastGeneratedFor != wantLast || (fresh.Status == model.RecurringRuleStatusEnded) != tc.expired {
+				t.Fatalf("unexpected history or status: %+v", fresh)
+			}
+			var count int
+			if err := db.QueryRow("SELECT count(*) FROM transactions WHERE recurring_rule_id=?", rule.ID).Scan(&count); err != nil || count != tc.want {
+				t.Fatalf("ledger count %d, %v", count, err)
+			}
+			history, err := rules.ListInstances(ctx, rule.ID, rule.UserID, 20)
+			if err != nil || len(history) != tc.want {
+				t.Fatalf("history length %d, %v", len(history), err)
+			}
+		})
+	}
 }

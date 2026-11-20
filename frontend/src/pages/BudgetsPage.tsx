@@ -112,6 +112,32 @@ export default function BudgetsPage() {
   const { t } = useTranslation()
   const { isWorkMode } = useMode()
   const [period, setPeriod] = useState(currentBudgetMonth())
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={t('budgets.title')}
+        description={t('budgets.subtitle')}
+        actions={(
+          <label className="relative block">
+            <span className="sr-only">{t('budgets.overview.title')}</span>
+            <CalendarDays aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="month"
+              value={period}
+              onChange={(e) => setPeriod(e.target.value || currentBudgetMonth())}
+              className="w-auto min-w-40 pl-9 font-medium tabular-nums"
+            />
+          </label>
+        )}
+      />
+
+      <BudgetMonth key={`${isWorkMode}:${period}`} period={period} isWorkMode={isWorkMode} />
+    </div>
+  )
+}
+
+function BudgetMonth({ period, isWorkMode }: { period: string; isWorkMode: boolean }) {
+  const { t } = useTranslation()
   const { data: budgets = [], isLoading } = useBudgets(period)
   const { data: summary } = useBudgetSummary(period)
   const { data: transactions = [] } = useTransactions()
@@ -157,7 +183,7 @@ export default function BudgetsPage() {
     }
     try {
       if (editing) {
-        await mutations.update.mutateAsync({ id: editing.id, req: { period_month: period, category, amount_yuan: value, currency: editing.currency || 'CNY', base_currency: editing.base_currency || 'CNY', base_amount_cents: Math.round(value * 100) } })
+        await mutations.update.mutateAsync({ id: editing.id, req: { period_month: editing.period_month, category, amount_yuan: value, currency: editing.currency || 'CNY', base_currency: editing.base_currency || 'CNY', base_amount_cents: Math.round(value * 100) } })
         toast.success(t('budgets.toast.updated'))
       } else {
         await mutations.create.mutateAsync({ period_month: period, category, amount_yuan: value, currency: 'CNY', base_currency: 'CNY', base_amount_cents: Math.round(value * 100) })
@@ -185,24 +211,7 @@ export default function BudgetsPage() {
   const saving = mutations.create.isPending || mutations.update.isPending
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t('budgets.title')}
-        description={t('budgets.subtitle')}
-        actions={(
-          <label className="relative block">
-            <span className="sr-only">{t('budgets.overview.title')}</span>
-            <CalendarDays aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="month"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value || currentBudgetMonth())}
-              className="w-auto min-w-40 pl-9 font-medium tabular-nums"
-            />
-          </label>
-        )}
-      />
-
+    <>
       <Card>
         <CardHeader>
           <div>
@@ -318,6 +327,6 @@ export default function BudgetsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

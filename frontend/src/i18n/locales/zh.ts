@@ -650,6 +650,8 @@ const zh = {
 
     // ── Attachments / OCR ──
     attachments: {
+      fileLimit: '每个附件最大 {{limit}}',
+      tooLarge: '附件超过 {{limit}}，请重新选择文件。',
       title: '附件凭证',
       short: '凭证',
       choose: '选择文件',

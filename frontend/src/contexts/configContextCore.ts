@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 
 export interface ConfigState {
+  attachmentMaxBytes?: number
   turnstileSiteKey: string
   captchaEnabled: boolean
   emailVerificationRequired: boolean
