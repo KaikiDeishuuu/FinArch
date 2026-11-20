@@ -75,6 +75,12 @@ jobs:
           sbom: true
           provenance: true
 
+      - name: Smoke test the published image before deployment
+        run: |
+          image="$REGISTRY/$IMAGE_NAME:sha-$COMMIT_SHA"
+          docker pull "$image"
+          bash scripts/smoke-image.sh "$image"
+
       - name: Reject commit superseded during build
         run: |
           git fetch origin main

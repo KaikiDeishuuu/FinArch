@@ -29,8 +29,8 @@ type TransactionRepository interface {
 	ListUnreimbursedPersonalExpenses(ctx context.Context, userID string, projectID *string, maxN int, mode model.Mode) ([]model.Transaction, error)
 	// MarkReimbursed marks transactions owned by userID as reimbursed and binds reimbursement ID.
 	MarkReimbursed(ctx context.Context, userID string, transactionIDs []string, reimbursementID string) error
-	// ToggleReimbursed flips the reimbursed flag for a single transaction owned by userID and returns the new state.
-	ToggleReimbursed(ctx context.Context, id string, userID string) (bool, error)
+	// SetReimbursed sets the desired state of an individually managed expense.
+	SetReimbursed(ctx context.Context, id, userID string, reimbursed bool) error
 	// ToggleUploaded flips the uploaded flag for a single transaction owned by userID and returns the new state.
 	ToggleUploaded(ctx context.Context, id string, userID string) (bool, error)
 	// ToggleSettled flips the settled flag for a single public-account WORK expense owned by userID and returns the new state.

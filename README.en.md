@@ -8,7 +8,7 @@
 
 A lightweight, multi-user financial management system
 
-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -68,7 +68,7 @@ One-click export of filtered results to a professionally formatted PDF with bran
 
 ### Local Development
 
-> Prerequisites: Go 1.26.6+, Node.js 22+
+> Prerequisites: Go 1.26.11+, Node.js 22+
 
 ```bash
 git clone https://github.com/KaikiDeishuuu/FinArch.git
@@ -160,7 +160,7 @@ FinArch/
 
 | | |
 |---|---|
-| **Backend** | Go 1.26.6 · Gin · SQLite (WAL) |
+| **Backend** | Go 1.26.11 · Gin · SQLite (WAL) |
 | **Frontend** | React 19 · Vite 8 · Tailwind CSS v4 · Geist + Noto Sans SC · Framer Motion · Recharts |
 | **Deployment** | Docker multi-stage build · GitHub Actions → GHCR → SSH Deploy |
 | **Security** | JWT (HMAC HS256) · HttpOnly refresh sessions · Cloudflare Turnstile · IP rate limiting · Account lockout |

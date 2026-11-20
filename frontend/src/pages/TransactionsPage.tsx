@@ -20,7 +20,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { downloadAttachment, toggleReimbursed, toggleSettled, toggleUploaded } from '../api/client'
+import { downloadAttachment, setReimbursed, toggleSettled, toggleUploaded } from '../api/client'
 import type { Account, Attachment, Transaction } from '../api/client'
 import AttachmentUploader from '../components/AttachmentUploader'
 import OcrTextDisclosure from '../components/OcrTextDisclosure'
@@ -589,7 +589,8 @@ function TransactionsLedger({
     setOptimisticState((curr) => ({ ...curr, [id]: next }))
     setTogglingAction({ id, type: 'reimbursed' })
     try {
-      await toggleReimbursed(id)
+      const updated = await setReimbursed(id, next.reimbursed)
+      setOptimisticState((curr) => ({ ...curr, [id]: { ...next, reimbursed: updated.reimbursed } }))
       refreshFinanceData()
     } catch {
       setOptimisticState((curr) => ({ ...curr, [id]: prev }))

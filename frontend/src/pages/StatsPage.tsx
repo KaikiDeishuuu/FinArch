@@ -294,24 +294,26 @@ export default function StatsPage() {
     return activeAccounts.filter((account: Account) => account.type === accountType)
   }, [activeAccounts, sourceFilter])
 
+  const annualTransactions = useMemo(() => transactions.filter(transaction =>
+    transaction.source === sourceFilter && transaction.occurred_at.startsWith(`${year}-`),
+  ), [transactions, sourceFilter, year])
+
   const allCategories = useMemo(
     () => Array.from(new Set(
-      transactions
-        .filter((transaction) => transaction.source === sourceFilter)
+      annualTransactions
         .map((transaction) => transaction.category)
         .filter(Boolean),
     )).sort() as string[],
-    [transactions, sourceFilter],
+    [annualTransactions],
   )
 
   const allProjects = useMemo(
     () => Array.from(new Set(
-      transactions
-        .filter((transaction) => transaction.source === sourceFilter)
+      annualTransactions
         .map((transaction) => transaction.project_id)
         .filter(Boolean),
     )).sort() as string[],
-    [transactions, sourceFilter],
+    [annualTransactions],
   )
 
   const effectiveFilterCategory = allCategories.includes(filterCategory) ? filterCategory : ''
@@ -319,14 +321,12 @@ export default function StatsPage() {
   const effectiveFilterAccount = filteredAccounts.some((account) => account.id === filterAccount) ? filterAccount : ''
 
   const filteredBySource = useMemo(
-    () => transactions
-      .filter((transaction) => transaction.source === sourceFilter)
+    () => annualTransactions
       .filter((transaction) => !effectiveFilterCategory || transaction.category === effectiveFilterCategory)
       .filter((transaction) => !effectiveFilterProject || (transaction.project_id ?? '') === effectiveFilterProject)
       .filter((transaction) => !effectiveFilterAccount || transaction.account_id === effectiveFilterAccount),
     [
-      transactions,
-      sourceFilter,
+      annualTransactions,
       effectiveFilterCategory,
       effectiveFilterProject,
       effectiveFilterAccount,
@@ -346,18 +346,16 @@ export default function StatsPage() {
 
     for (const transaction of filteredBySource) {
       const cny = transactionAmountToCNY(transaction, rates)
-      if (transaction.occurred_at.startsWith(String(year))) {
-        const month = parseInt(transaction.occurred_at.substring(5, 7))
-        if (!monthlyMap.has(month)) {
-          monthlyMap.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
-        }
-        const entry = monthlyMap.get(month)!
-        if (transaction.direction === 'income') {
-          entry.income += cny
-        } else {
-          entry.expense += cny
-          if (transaction.reimbursed) entry.reimbursed += cny
-        }
+      const month = parseInt(transaction.occurred_at.substring(5, 7))
+      if (!monthlyMap.has(month)) {
+        monthlyMap.set(month, { month, income: 0, expense: 0, reimbursed: 0 })
+      }
+      const entry = monthlyMap.get(month)!
+      if (transaction.direction === 'income') {
+        entry.income += cny
+      } else {
+        entry.expense += cny
+        if (transaction.reimbursed) entry.reimbursed += cny
       }
 
       const category = transaction.category || '其他'
@@ -404,7 +402,7 @@ export default function StatsPage() {
         }))
         .sort((a, b) => a.project_id.localeCompare(b.project_id)),
     }
-  }, [effectiveFilterCategory, filteredBySource, rates, otherLabel, year])
+  }, [effectiveFilterCategory, filteredBySource, rates, otherLabel])
 
   const { monthly, categories, incomeCategories, projects } = statsData
   const totalIncome = monthly.reduce((sum, month) => sum + month.income, 0)

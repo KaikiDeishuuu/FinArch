@@ -39,8 +39,8 @@ func (f *fakeTxRepo) ListUnreimbursedPersonalExpenses(context.Context, string, *
 	return nil, nil
 }
 func (f *fakeTxRepo) MarkReimbursed(context.Context, string, []string, string) error { return nil }
-func (f *fakeTxRepo) ToggleReimbursed(context.Context, string, string) (bool, error) {
-	return false, nil
+func (f *fakeTxRepo) SetReimbursed(context.Context, string, string, bool) error {
+	return nil
 }
 func (f *fakeTxRepo) ToggleUploaded(context.Context, string, string) (bool, error) { return false, nil }
 func (f *fakeTxRepo) ToggleSettled(context.Context, string, string) (bool, error)  { return false, nil }

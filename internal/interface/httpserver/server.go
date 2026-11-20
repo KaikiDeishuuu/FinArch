@@ -257,27 +257,6 @@ func (s *Server) handleReimburse(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusGone, "legacy unauthenticated HTTP API is disabled")
 }
 
-// handleToggleReimbursed flips the reimbursed flag for a single transaction.
-// PATCH /api/transactions/{id}/reimburse
-func (s *Server) handleToggleReimbursed(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		writeError(w, http.StatusMethodNotAllowed, "PATCH only")
-		return
-	}
-	id := r.PathValue("id")
-	if id == "" {
-		writeError(w, http.StatusBadRequest, "missing transaction id")
-		return
-	}
-	// Embedded server is single-user; use empty string as the user scope.
-	newState, err := s.txRepo.ToggleReimbursed(r.Context(), id, "")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"id": id, "reimbursed": newState})
-}
-
 // handleIndex serves the embedded single-page frontend.
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

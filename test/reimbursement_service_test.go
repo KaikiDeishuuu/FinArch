@@ -3,6 +3,10 @@ package test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -142,7 +146,7 @@ func TestReimburse_AtomicAndSingleUse(t *testing.T) {
 	}
 }
 
-func TestToggleReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
+func TestSetReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
 	database := setupDB(t)
 	defer database.Close()
 	ctx := context.Background()
@@ -173,24 +177,23 @@ func TestToggleReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
 	companyExpense := create(public.ID, model.TxTypeExpense, model.SourceCompany)
 	personalIncome := create(personal.ID, model.TxTypeIncome, model.SourcePersonal)
 	for _, transaction := range []model.Transaction{companyExpense, personalIncome} {
-		if _, err := database.Exec(`UPDATE transactions SET reported_at = ? WHERE id = ?`, time.Now().Unix(), transaction.ID); err != nil {
+		if _, err := database.Exec(`UPDATE transactions SET uploaded = 1, reported_at = ? WHERE id = ?`, time.Now().Unix(), transaction.ID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := txRepo.ToggleReimbursed(ctx, transaction.ID, testUserID); err == nil {
+		if err := txRepo.SetReimbursed(ctx, transaction.ID, testUserID, true); err == nil {
 			t.Fatalf("ineligible transaction %s was marked reimbursed", transaction.ID)
 		}
 	}
 
 	personalExpense := create(personal.ID, model.TxTypeExpense, model.SourcePersonal)
-	if _, err := txRepo.ToggleReimbursed(ctx, personalExpense.ID, testUserID); err == nil {
+	if err := txRepo.SetReimbursed(ctx, personalExpense.ID, testUserID, true); err == nil {
 		t.Fatal("unreported personal expense was marked reimbursed")
 	}
-	if _, err := database.Exec(`UPDATE transactions SET reported_at = ? WHERE id = ?`, time.Now().Unix(), personalExpense.ID); err != nil {
+	if _, err := database.Exec(`UPDATE transactions SET uploaded = 1, reported_at = ? WHERE id = ?`, time.Now().Unix(), personalExpense.ID); err != nil {
 		t.Fatal(err)
 	}
-	marked, err := txRepo.ToggleReimbursed(ctx, personalExpense.ID, testUserID)
-	if err != nil || !marked {
-		t.Fatalf("mark personal expense reimbursed = %t, %v", marked, err)
+	if err := txRepo.SetReimbursed(ctx, personalExpense.ID, testUserID, true); err != nil {
+		t.Fatal(err)
 	}
 	var reimbursedAt sql.NullInt64
 	if err := database.QueryRow(`SELECT reimbursed_at FROM transactions WHERE id = ?`, personalExpense.ID).Scan(&reimbursedAt); err != nil {
@@ -199,9 +202,8 @@ func TestToggleReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
 	if !reimbursedAt.Valid {
 		t.Fatal("reimbursed transaction is missing reimbursed_at")
 	}
-	marked, err = txRepo.ToggleReimbursed(ctx, personalExpense.ID, testUserID)
-	if err != nil || marked {
-		t.Fatalf("return personal expense to pending = %t, %v", marked, err)
+	if err := txRepo.SetReimbursed(ctx, personalExpense.ID, testUserID, false); err != nil {
+		t.Fatal(err)
 	}
 	var status string
 	if err := database.QueryRow(`SELECT reimb_status, reimbursed_at FROM transactions WHERE id = ?`, personalExpense.ID).Scan(&status, &reimbursedAt); err != nil {
@@ -295,5 +297,82 @@ func TestToggleSettledEnforcesPublicExpenseLifecycle(t *testing.T) {
 	}
 	if settled != 0 || settledAt.Valid {
 		t.Fatalf("pending lifecycle = settled:%d settled_at:%v", settled, settledAt)
+	}
+}
+
+func TestReimbursementRequestsSetAnExplicitState(t *testing.T) {
+	ctx := context.Background()
+	database := setupFileDB(t, ctx)
+	defer database.Close()
+	txRepo := sqliterepo.NewSQLiteTransactionRepository(database)
+	accountRepo := sqliterepo.NewSQLiteAccountRepository(database)
+	account, err := accountRepo.GetByUserAndType(ctx, testUserID, model.AccountTypePersonal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := service.NewTransactionService(txRepo, accountRepo, nil).CreateTransaction(ctx, service.CreateTransactionRequest{
+		UserID: testUserID, AccountID: account.ID, OccurredAt: time.Now(), TxType: model.TxTypeExpense,
+		Source: model.SourcePersonal, Category: "office", AmountCents: 100, Currency: "CNY",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := txRepo.ToggleUploaded(ctx, item.ID, testUserID); err != nil {
+		t.Fatal(err)
+	}
+	jwtSvc := auth.NewJWTService("test-secret")
+	token := issueTestAccessSession(t, database, jwtSvc, testUserID)
+	handler := newTestServer(t, database, jwtSvc).Handler()
+	request := func(method, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, "/api/v1/transactions/"+item.ID+"/reimburse", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec
+	}
+	start := make(chan struct{})
+	responses := make(chan *httptest.ResponseRecorder, 2)
+	for i := 0; i < 2; i++ {
+		go func() { <-start; responses <- request(http.MethodPut, `{"reimbursed":true}`) }()
+	}
+	close(start)
+	for i := 0; i < 2; i++ {
+		rec := <-responses
+		var reply struct {
+			Data struct {
+				Reimbursed bool `json:"reimbursed"`
+			} `json:"data"`
+		}
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &reply) != nil || !reply.Data.Reimbursed {
+			t.Fatalf("confirmation %d: %d %s", i, rec.Code, rec.Body)
+		}
+	}
+	// Sentinels ensure retries preserve the audit trail even within the same second.
+	if _, err := database.Exec("UPDATE transactions SET updated_at='2026-01-02T00:00:00Z', reimbursed_at=42 WHERE id=?", item.ID); err != nil {
+		t.Fatal(err)
+	}
+	if rec := request(http.MethodPut, `{"reimbursed":true}`); rec.Code != http.StatusOK {
+		t.Fatal(rec.Body)
+	}
+	if rec := request(http.MethodPatch, ""); rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected legacy request to return 422, got %d", rec.Code)
+	}
+	var status, updated string
+	var stamp int64
+	if err := database.QueryRow("SELECT reimb_status,updated_at,reimbursed_at FROM transactions WHERE id=?", item.ID).Scan(&status, &updated, &stamp); err != nil {
+		t.Fatal(err)
+	}
+	if status != "reimbursed" || updated != "2026-01-02T00:00:00Z" || stamp != 42 {
+		t.Fatalf("retry changed audit trail: %s %s %d", status, updated, stamp)
+	}
+	for i := 0; i < 2; i++ {
+		if rec := request(http.MethodPut, `{"reimbursed":false}`); rec.Code != http.StatusOK {
+			t.Fatalf("cancel: %d %s", rec.Code, rec.Body)
+		}
+	}
+	var pending bool
+	if err := database.QueryRow("SELECT reimb_status='pending' AND reimbursed_at IS NULL FROM transactions WHERE id=?", item.ID).Scan(&pending); err != nil || !pending {
+		t.Fatalf("cancel left wrong state: %t %v", pending, err)
 	}
 }

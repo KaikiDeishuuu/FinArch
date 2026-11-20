@@ -831,7 +831,7 @@ func TestCreateTransactionIdempotencyReplaysAndRejectsPayloadMismatch(t *testing
 }
 
 func TestCreateTransactionIdempotencyIsSafeUnderConcurrency(t *testing.T) {
-	database := setupDB(t)
+	database := setupFileDB(t, context.Background())
 	defer database.Close()
 	database.SetMaxOpenConns(12)
 	jwtSvc := auth.NewJWTService("test-secret")

@@ -1236,3 +1236,76 @@ test('creates a work personal advance with a life account and opens it in pendin
   await page.getByRole('button', { name: 'Pending 1', exact: true }).click()
   await expect(transactionRow).toBeVisible()
 })
+
+test('annual totals, categories and projects share the same calendar year', async ({ page }) => {
+  await mockAuthenticatedSession(page)
+  await page.addInitScript(() => {
+    localStorage.setItem('finarch-lang', 'en')
+    localStorage.setItem('finarch_mode', 'work')
+  })
+  const year = new Date().getFullYear()
+  const entry = (id: string, day: string, direction: string, amount: number, category: string, project: string) => ({
+    id, occurred_at: day + ' 12:00:00', direction, source: 'company', account_id: 'annual-account',
+    category, amount_yuan: amount, currency: 'CNY', base_amount_cents: amount * 100, base_currency: 'CNY',
+    note: '', project_id: project, reimbursed: false, uploaded: true, mode: 'work',
+  })
+  const dailyEntries = [
+    entry('1', year + '-01-01', 'expense', 40, 'annual-travel', 'Annual project'),
+    entry('2', (year - 1) + '-12-31', 'expense', 100, 'annual-travel', 'Annual project'),
+    entry('3', year + '-01-01', 'income', 25, 'annual-income', 'Annual project'),
+    entry('4', (year - 1) + '-12-31', 'income', 200, 'annual-income', 'Annual project'),
+    entry('5', (year - 1) + '-12-31', 'expense', 50, 'prior-only', 'Prior project'),
+  ]
+  await page.route('**/api/v1/transactions**', route => route.fulfill({ json: { success: true, data: dailyEntries } }))
+  await page.route('**/api/v1/accounts**', route => route.fulfill({ json: { success: true, data: [] } }))
+  await page.goto('/stats')
+  await expect(page.getByTitle('annual-travel', { exact: true }).locator('../..')).toContainText(/[^\d]40(?:\.00)?\b/)
+  await expect(page.getByTitle('annual-income', { exact: true }).locator('../..')).toContainText(/[^\d]25(?:\.00)?\b/)
+  const project = page.getByRole('row').filter({ hasText: 'Annual project' })
+  await expect(project.getByRole('cell').nth(1)).toContainText(/[^\d]25\b/)
+  await expect(project.getByRole('cell').nth(2)).toContainText(/[^\d]40\b/)
+  await expect(page.getByTitle('prior-only')).toHaveCount(0)
+  await expect(page.getByRole('row').filter({ hasText: 'Prior project' })).toHaveCount(0)
+  await expect(page.locator('section').filter({ has: page.getByText('Expense', { exact: true }) }).last()).toContainText(/[^\d]40\b/)
+})
+
+test('two open match pages both confirm the requested reimbursement state', async ({ page, context }) => {
+  const second = await context.newPage()
+  const writes: { method: string, body: unknown }[] = []
+  const item = {
+    id: 'shared-match', occurred_at: '2026-01-01 12:00:00', direction: 'expense', source: 'personal',
+    account_id: 'match-account', category: 'office', amount_yuan: 1, currency: 'CNY', base_amount_cents: 100,
+    base_currency: 'CNY', note: '', project_id: null, reimbursed: false, uploaded: true, mode: 'work',
+  }
+  for (const tab of [page, second]) {
+    await tab.addInitScript(() => {
+      localStorage.setItem('finarch-lang', 'en')
+      localStorage.setItem('finarch_mode', 'work')
+    })
+    await tab.route('**/api/v1/config', route => route.fulfill({ json: { success: true, data: {} } }))
+    await mockAuthenticatedSession(tab)
+    await tab.route('**/api/v1/accounts**', route => route.fulfill({ json: { success: true, data: [] } }))
+    await tab.route('**/api/v1/transactions**', async route => {
+      const req = route.request()
+      if (new URL(req.url()).pathname.endsWith('/reimburse')) {
+        writes.push({ method: req.method(), body: req.postDataJSON() })
+        await route.fulfill({ json: { success: true, data: { id: item.id, reimbursed: true } } })
+      } else {
+        await route.fulfill({ json: { success: true, data: [item] } })
+      }
+    })
+    await tab.goto('/match')
+    await tab.locator('input[type=number]').first().fill('1')
+    await tab.getByRole('button', { name: 'Start Match' }).click()
+    await tab.getByRole('button', { name: /Exact match/ }).click()
+    await tab.getByRole('button', { name: 'Mark reimburse' }).click()
+  }
+  for (const tab of [page, second]) {
+    await tab.getByRole('button', { name: 'Confirm', exact: true }).click()
+    await expect(tab.getByText('Reimbursed', { exact: true }).filter({ visible: true }).first()).toBeVisible()
+  }
+  expect(writes).toEqual([
+    { method: 'PUT', body: { reimbursed: true } },
+    { method: 'PUT', body: { reimbursed: true } },
+  ])
+})

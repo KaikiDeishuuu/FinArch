@@ -8,7 +8,7 @@
 
 轻量高效的多用户财务管理系统
 
-[![Go](https://img.shields.io/badge/Go-1.26.6-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -68,7 +68,7 @@
 
 ### 本地开发
 
-> 前置条件：Go 1.26.6+、Node.js 22+
+> 前置条件：Go 1.26.11+、Node.js 22+
 
 ```bash
 git clone https://github.com/KaikiDeishuuu/FinArch.git
@@ -158,7 +158,7 @@ FinArch/
 
 | | |
 |---|---|
-| **后端** | Go 1.26.6 · Gin · SQLite (WAL) |
+| **后端** | Go 1.26.11 · Gin · SQLite (WAL) |
 | **前端** | React 19 · Vite 8 · Tailwind CSS v4 · Geist + Noto Sans SC · Framer Motion · Recharts |
 | **部署** | Docker 多阶段构建 · GitHub Actions → GHCR → SSH Deploy |
 | **安全** | JWT (HMAC HS256) · HttpOnly refresh 会话 · Cloudflare Turnstile · IP 限流 · 账户锁定 |

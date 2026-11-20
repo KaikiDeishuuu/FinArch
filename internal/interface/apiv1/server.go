@@ -687,7 +687,8 @@ func (s *Server) registerRoutes() {
 	// Transactions
 	api.GET("/transactions", s.handleListTransactions)
 	api.POST("/transactions", s.handleCreateTransaction)
-	api.PATCH("/transactions/:id/reimburse", s.handleToggleReimbursed)
+	api.PUT("/transactions/:id/reimburse", s.handleSetReimbursed)
+	api.PATCH("/transactions/:id/reimburse", s.handleSetReimbursed)
 	api.PATCH("/transactions/:id/settle", s.handleToggleSettled)
 	api.PATCH("/transactions/:id/upload", s.handleToggleUploaded)
 	api.POST("/transactions/:id/tags", s.handleAddTag)
@@ -871,7 +872,7 @@ func (s *Server) corsMiddleware() gin.HandlerFunc {
 		}
 
 		c.Header("Access-Control-Allow-Origin", originHeader)
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key")
 		// Authentication is bearer-only; omitting ACA-Credentials is equivalent
 		// to false and prevents ambient cookie credentials from being sent.
@@ -2215,9 +2216,18 @@ func (s *Server) handleCreateTransaction(c *gin.Context) {
 	})
 }
 
-func (s *Server) handleToggleReimbursed(c *gin.Context) {
-	id := c.Param("id")
-	newState, err := s.txRepo.ToggleReimbursed(c.Request.Context(), id, userID(c))
+func (s *Server) handleSetReimbursed(c *gin.Context) {
+	var req struct {
+		Reimbursed *bool `json:"reimbursed" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	id, owner := c.Param("id"), userID(c)
+	err := s.txManager.WithinTransaction(c.Request.Context(), func(ctx context.Context) error {
+		return s.txRepo.SetReimbursed(ctx, id, owner, *req.Reimbursed)
+	})
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrConcurrentModification):
@@ -2229,7 +2239,7 @@ func (s *Server) handleToggleReimbursed(c *gin.Context) {
 		}
 		return
 	}
-	ok(c, gin.H{"id": id, "reimbursed": newState})
+	ok(c, gin.H{"id": id, "reimbursed": *req.Reimbursed})
 }
 
 func (s *Server) handleToggleSettled(c *gin.Context) {

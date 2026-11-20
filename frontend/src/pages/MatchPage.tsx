@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Trans, useTranslation } from 'react-i18next'
-import { toggleReimbursed } from '../api/client'
+import { setReimbursed } from '../api/client'
 import type { MatchResult, MatchResultItem, Account, Transaction } from '../api/client'
 import { formatAmount } from '../utils/format'
 import { transactionAmountToCNY } from '../utils/financeAmounts'
@@ -154,11 +154,17 @@ function MatchPageForMode({ mode }: { mode: Transaction['mode'] }) {
 
     setLoadingId(id)
     try {
-      await toggleReimbursed(id)
-      setReimbursedIds(prev => new Set(prev).add(id))
-      toast.success(t('match.reimburse.success'))
-      invalidate()
+      const updated = await setReimbursed(id, true)
+      if (updated.reimbursed) {
+        setReimbursedIds(prev => new Set(prev).add(updated.id))
+        toast.success(t('match.reimburse.success'))
+      } else {
+        toast.error(t('match.reimburse.error'))
+      }
+    } catch {
+      toast.error(t('match.reimburse.error'))
     } finally {
+      invalidate()
       setLoadingId(null)
       setConfirmId(null)
     }

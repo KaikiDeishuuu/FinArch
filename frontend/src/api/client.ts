@@ -403,8 +403,8 @@ export async function createTransaction(
   return data.data
 }
 
-export async function toggleReimbursed(id: string): Promise<Transaction> {
-  const { data } = await client.patch(`/transactions/${id}/reimburse`)
+export async function setReimbursed(id: string, reimbursed: boolean): Promise<{ id: string; reimbursed: boolean }> {
+  const { data } = await client.put(`/transactions/${id}/reimburse`, { reimbursed })
   return data.data
 }
 

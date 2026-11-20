@@ -331,44 +331,45 @@ func (r *SQLiteTransactionRepository) MarkReimbursed(ctx context.Context, userID
 	return nil
 }
 
-// ToggleReimbursed flips an individually managed personal expense between
+// SetReimbursed moves an individually managed personal expense between
 // pending and reimbursed. Transactions linked to a formal reimbursement are
 // immutable here because changing one item would corrupt that reimbursement's
 // item/total audit trail.
-func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id string, userID string) (bool, error) {
+func (r *SQLiteTransactionRepository) SetReimbursed(ctx context.Context, id, userID string, reimbursed bool) error {
 	exec := getExecutor(ctx, r.db)
 	var cur, transactionType string
-	var reportedAt sql.NullInt64
+	var uploaded bool
 	var reimbursementID sql.NullString
 	var accountType sql.NullString
 	if err := exec.QueryRowContext(ctx,
-		`SELECT t.reimb_status, t.reported_at, t.type, t.reimbursement_id, a.type
+		`SELECT t.reimb_status, t.uploaded, t.type, t.reimbursement_id, a.type
 		 FROM transactions t
 		 LEFT JOIN accounts a ON a.id = t.account_id AND a.user_id = t.user_id
 		 WHERE t.id = ? AND t.user_id = ?`, id, userID,
-	).Scan(&cur, &reportedAt, &transactionType, &reimbursementID, &accountType); err != nil {
+	).Scan(&cur, &uploaded, &transactionType, &reimbursementID, &accountType); err != nil {
 		if err == sql.ErrNoRows {
-			return false, domainrepo.ErrTransactionNotFound
+			return domainrepo.ErrTransactionNotFound
 		}
-		return false, fmt.Errorf("read reimb_status: %w", err)
+		return fmt.Errorf("read reimb_status: %w", err)
 	}
 	if transactionType != string(model.TxTypeExpense) || !accountType.Valid || accountType.String != string(model.AccountTypePersonal) {
-		return false, fmt.Errorf("只有个人账户支出可以标记报销")
+		return fmt.Errorf("只有个人账户支出可以标记报销")
 	}
 	if cur != string(model.ReimbStatusPending) && cur != string(model.ReimbStatusReimbursed) {
-		return false, fmt.Errorf("当前交易不处于可报销状态")
+		return fmt.Errorf("当前交易不处于可报销状态")
 	}
 	if reimbursementID.Valid && strings.TrimSpace(reimbursementID.String) != "" {
-		return false, fmt.Errorf("交易已关联正式报销单，不能单独修改")
+		return fmt.Errorf("交易已关联正式报销单，不能单独修改")
 	}
-	var newStatus string
-	if !reportedAt.Valid && cur == string(model.ReimbStatusPending) {
-		return false, fmt.Errorf("请先上报再报销")
-	}
-	if cur == string(model.ReimbStatusReimbursed) {
-		newStatus = string(model.ReimbStatusPending)
-	} else {
+	newStatus := string(model.ReimbStatusPending)
+	if reimbursed {
 		newStatus = string(model.ReimbStatusReimbursed)
+	}
+	if cur == newStatus {
+		return nil
+	}
+	if reimbursed && !uploaded {
+		return fmt.Errorf("请先上报再报销")
 	}
 	nowStr := time.Now().UTC().Format(time.RFC3339)
 	res, err := exec.ExecContext(ctx,
@@ -377,22 +378,22 @@ func (r *SQLiteTransactionRepository) ToggleReimbursed(ctx context.Context, id s
 		  reimbursed_at = CASE WHEN ? = 'reimbursed' THEN CAST(strftime('%s','now') AS INTEGER) ELSE NULL END,
 		  updated_at = ?
 		 WHERE id = ? AND user_id = ? AND type = 'expense' AND reimb_status = ?
-		   AND reimbursement_id IS NULL
+		   AND reimbursement_id IS NULL AND (? = 0 OR uploaded = 1)
 		   AND EXISTS (
 		     SELECT 1 FROM accounts a
 		     WHERE a.id = transactions.account_id
 		       AND a.user_id = transactions.user_id
 		       AND a.type = 'personal'
 		   )`,
-		newStatus, newStatus, newStatus, nowStr, id, userID, cur,
+		newStatus, newStatus, newStatus, nowStr, id, userID, cur, reimbursed,
 	)
 	if err != nil {
-		return false, fmt.Errorf("toggle reimbursed: %w", err)
+		return fmt.Errorf("set reimbursed: %w", err)
 	}
 	if affected, _ := res.RowsAffected(); affected != 1 {
-		return false, domainrepo.ErrConcurrentModification
+		return domainrepo.ErrConcurrentModification
 	}
-	return newStatus == string(model.ReimbStatusReimbursed), nil
+	return nil
 }
 
 // ToggleUploaded flips the uploaded flag.
