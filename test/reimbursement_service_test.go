@@ -214,7 +214,7 @@ func TestSetReimbursedEnforcesPersonalExpenseLifecycle(t *testing.T) {
 	}
 }
 
-func TestToggleSettledEnforcesPublicExpenseLifecycle(t *testing.T) {
+func TestSetSettledEnforcesPublicExpenseLifecycle(t *testing.T) {
 	database := setupDB(t)
 	defer database.Close()
 	ctx := context.Background()
@@ -255,19 +255,18 @@ func TestToggleSettledEnforcesPublicExpenseLifecycle(t *testing.T) {
 	publicIncome := create(public.ID, model.TxTypeIncome, model.SourceCompany, model.ModeWork)
 	for _, transaction := range []model.Transaction{personalExpense, publicIncome} {
 		markUploaded(transaction.ID)
-		if _, err := txRepo.ToggleSettled(ctx, transaction.ID, testUserID); err == nil {
+		if err := txRepo.SetSettled(ctx, transaction.ID, testUserID, true); err == nil {
 			t.Fatalf("ineligible transaction %s was marked settled", transaction.ID)
 		}
 	}
 
 	publicExpense := create(public.ID, model.TxTypeExpense, model.SourceCompany, model.ModeWork)
-	if _, err := txRepo.ToggleSettled(ctx, publicExpense.ID, testUserID); err == nil {
+	if err := txRepo.SetSettled(ctx, publicExpense.ID, testUserID, true); err == nil {
 		t.Fatal("unreported public expense was marked settled")
 	}
 	markUploaded(publicExpense.ID)
-	marked, err := txRepo.ToggleSettled(ctx, publicExpense.ID, testUserID)
-	if err != nil || !marked {
-		t.Fatalf("mark public expense settled = %t, %v", marked, err)
+	if err := txRepo.SetSettled(ctx, publicExpense.ID, testUserID, true); err != nil {
+		t.Fatal(err)
 	}
 	var settledAt sql.NullInt64
 	if err := database.QueryRow(`SELECT settled_at FROM transactions WHERE id = ?`, publicExpense.ID).Scan(&settledAt); err != nil {
@@ -287,9 +286,8 @@ func TestToggleSettledEnforcesPublicExpenseLifecycle(t *testing.T) {
 		t.Fatalf("settling a public expense changed reimb_status to %q", reimbStatus)
 	}
 
-	marked, err = txRepo.ToggleSettled(ctx, publicExpense.ID, testUserID)
-	if err != nil || marked {
-		t.Fatalf("return public expense to pending = %t, %v", marked, err)
+	if err := txRepo.SetSettled(ctx, publicExpense.ID, testUserID, false); err != nil {
+		t.Fatal(err)
 	}
 	var settled int
 	if err := database.QueryRow(`SELECT settled, settled_at FROM transactions WHERE id = ?`, publicExpense.ID).Scan(&settled, &settledAt); err != nil {
@@ -317,7 +315,7 @@ func TestReimbursementRequestsSetAnExplicitState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := txRepo.ToggleUploaded(ctx, item.ID, testUserID); err != nil {
+	if err := txRepo.SetUploaded(ctx, item.ID, testUserID, true); err != nil {
 		t.Fatal(err)
 	}
 	jwtSvc := auth.NewJWTService("test-secret")
@@ -374,5 +372,81 @@ func TestReimbursementRequestsSetAnExplicitState(t *testing.T) {
 	var pending bool
 	if err := database.QueryRow("SELECT reimb_status='pending' AND reimbursed_at IS NULL FROM transactions WHERE id=?", item.ID).Scan(&pending); err != nil || !pending {
 		t.Fatalf("cancel left wrong state: %t %v", pending, err)
+	}
+}
+
+func TestExplicitUploadAndSettlementRequests(t *testing.T) {
+	ctx := context.Background()
+	database := setupFileDB(t, ctx)
+	defer database.Close()
+	accounts := sqliterepo.NewSQLiteAccountRepository(database)
+	public, err := accounts.GetByUserAndType(ctx, testUserID, model.AccountTypePublic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := service.NewTransactionService(sqliterepo.NewSQLiteTransactionRepository(database), accounts, nil)
+	tx, err := svc.CreateTransaction(ctx, service.CreateTransactionRequest{
+		UserID: testUserID, AccountID: public.ID, OccurredAt: time.Now(), Mode: model.ModeWork,
+		TxType: model.TxTypeExpense, Source: model.SourceCompany, Category: "office", AmountCents: 100, Currency: "CNY",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jwt := auth.NewJWTService("test-secret")
+	token := issueTestAccessSession(t, database, jwt, testUserID)
+	handler := newTestServer(t, database, jwt).Handler()
+	request := func(method, endpoint, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, "/api/v1/transactions/"+tx.ID+"/"+endpoint, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec
+	}
+	for _, tc := range []struct{ path, field string }{{"upload", "uploaded"}, {"settle", "settled"}} {
+		body := `{"` + tc.field + `":true}`
+		responses := make(chan *httptest.ResponseRecorder, 2)
+		start := make(chan struct{})
+		for range 2 {
+			go func() { <-start; responses <- request(http.MethodPut, tc.path, body) }()
+		}
+		close(start)
+		for range 2 {
+			r := <-responses
+			var reply struct{ Data map[string]any }
+			if r.Code != http.StatusOK || json.Unmarshal(r.Body.Bytes(), &reply) != nil || reply.Data[tc.field] != true {
+				t.Fatalf("concurrent %s: %d %s", tc.path, r.Code, r.Body)
+			}
+		}
+	}
+	if _, err := database.Exec("UPDATE transactions SET reported_at=123, settled_at=456, updated_at='audit-marker' WHERE id=?", tx.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ path, field string }{{"upload", "uploaded"}, {"settle", "settled"}} {
+		if r := request(http.MethodPut, tc.path, `{"`+tc.field+`":true}`); r.Code != http.StatusOK {
+			t.Fatalf("repeat %s: %s", tc.path, r.Body)
+		}
+		if r := request(http.MethodPatch, tc.path, ""); r.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("legacy %s returned %d", tc.path, r.Code)
+		}
+	}
+	if r := request(http.MethodPut, "upload", `{"uploaded":false}`); r.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("unreported a settled expense: %d", r.Code)
+	}
+	var auditPreserved bool
+	if err := database.QueryRow("SELECT uploaded AND settled AND reported_at=123 AND settled_at=456 AND updated_at='audit-marker' FROM transactions WHERE id=?", tx.ID).Scan(&auditPreserved); err != nil || !auditPreserved {
+		t.Fatalf("audit fields changed on retry: %v", err)
+	}
+	for _, tc := range []struct{ path, field string }{{"settle", "settled"}, {"upload", "uploaded"}} {
+		for range 2 {
+			r := request(http.MethodPut, tc.path, `{"`+tc.field+`":false}`)
+			if r.Code != http.StatusOK {
+				t.Fatalf("cancel %s: %s", tc.path, r.Body)
+			}
+		}
+	}
+	var cancelled bool
+	if err := database.QueryRow("SELECT NOT uploaded AND NOT settled AND settled_at IS NULL AND reported_at=123 FROM transactions WHERE id=?", tx.ID).Scan(&cancelled); err != nil || !cancelled {
+		t.Fatalf("incorrect cancellation state: %v", err)
 	}
 }

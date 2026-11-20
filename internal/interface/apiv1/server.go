@@ -689,8 +689,10 @@ func (s *Server) registerRoutes() {
 	api.POST("/transactions", s.handleCreateTransaction)
 	api.PUT("/transactions/:id/reimburse", s.handleSetReimbursed)
 	api.PATCH("/transactions/:id/reimburse", s.handleSetReimbursed)
-	api.PATCH("/transactions/:id/settle", s.handleToggleSettled)
-	api.PATCH("/transactions/:id/upload", s.handleToggleUploaded)
+	api.PUT("/transactions/:id/settle", s.handleSetSettled)
+	api.PATCH("/transactions/:id/settle", s.handleSetSettled)
+	api.PUT("/transactions/:id/upload", s.handleSetUploaded)
+	api.PATCH("/transactions/:id/upload", s.handleSetUploaded)
 	api.POST("/transactions/:id/tags", s.handleAddTag)
 	api.DELETE("/transactions/:id/tags/:tagID", s.handleRemoveTag)
 
@@ -744,6 +746,7 @@ func (s *Server) registerRoutes() {
 	api.GET("/attachments/:id", s.handleGetAttachment)
 	api.GET("/attachments/:id/download", s.handleDownloadAttachment)
 	api.DELETE("/attachments/:id", s.handleDeleteAttachment)
+	api.DELETE("/attachments/:id/draft", s.handleDiscardDraftAttachment)
 	api.POST("/attachments/:id/link", s.handleLinkAttachment)
 	api.POST("/attachments/:id/ocr", s.handleRunAttachmentOCR)
 	api.GET("/attachments/:id/ocr", s.handleGetAttachmentOCR)
@@ -2224,9 +2227,35 @@ func (s *Server) handleSetReimbursed(c *gin.Context) {
 		failBind(c)
 		return
 	}
+	s.setTransactionState(c, "reimbursed", *req.Reimbursed, s.txRepo.SetReimbursed)
+}
+
+func (s *Server) handleSetSettled(c *gin.Context) {
+	var req struct {
+		Settled *bool `json:"settled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	s.setTransactionState(c, "settled", *req.Settled, s.txRepo.SetSettled)
+}
+
+func (s *Server) handleSetUploaded(c *gin.Context) {
+	var req struct {
+		Uploaded *bool `json:"uploaded" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		failBind(c)
+		return
+	}
+	s.setTransactionState(c, "uploaded", *req.Uploaded, s.txRepo.SetUploaded)
+}
+
+func (s *Server) setTransactionState(c *gin.Context, field string, desired bool, set func(context.Context, string, string, bool) error) {
 	id, owner := c.Param("id"), userID(c)
 	err := s.txManager.WithinTransaction(c.Request.Context(), func(ctx context.Context) error {
-		return s.txRepo.SetReimbursed(ctx, id, owner, *req.Reimbursed)
+		return set(ctx, id, owner, desired)
 	})
 	if err != nil {
 		switch {
@@ -2239,34 +2268,7 @@ func (s *Server) handleSetReimbursed(c *gin.Context) {
 		}
 		return
 	}
-	ok(c, gin.H{"id": id, "reimbursed": *req.Reimbursed})
-}
-
-func (s *Server) handleToggleSettled(c *gin.Context) {
-	id := c.Param("id")
-	newState, err := s.txRepo.ToggleSettled(c.Request.Context(), id, userID(c))
-	if err != nil {
-		switch {
-		case errors.Is(err, repository.ErrConcurrentModification):
-			fail(c, http.StatusConflict, "concurrent_modification", "The transaction changed concurrently. Please refresh and try again.")
-		case errors.Is(err, repository.ErrTransactionNotFound):
-			fail(c, http.StatusNotFound, "transaction_not_found", "Transaction not found.")
-		default:
-			fail(c, http.StatusUnprocessableEntity, 40001, err.Error())
-		}
-		return
-	}
-	ok(c, gin.H{"id": id, "settled": newState})
-}
-
-func (s *Server) handleToggleUploaded(c *gin.Context) {
-	id := c.Param("id")
-	newState, err := s.txRepo.ToggleUploaded(c.Request.Context(), id, userID(c))
-	if err != nil {
-		fail(c, 400, 40001, err.Error())
-		return
-	}
-	ok(c, gin.H{"id": id, "uploaded": newState})
+	ok(c, gin.H{"id": id, field: desired})
 }
 
 func (s *Server) handleAddTag(c *gin.Context) {

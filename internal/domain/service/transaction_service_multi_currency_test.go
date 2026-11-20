@@ -42,8 +42,8 @@ func (f *fakeTxRepo) MarkReimbursed(context.Context, string, []string, string) e
 func (f *fakeTxRepo) SetReimbursed(context.Context, string, string, bool) error {
 	return nil
 }
-func (f *fakeTxRepo) ToggleUploaded(context.Context, string, string) (bool, error) { return false, nil }
-func (f *fakeTxRepo) ToggleSettled(context.Context, string, string) (bool, error)  { return false, nil }
+func (f *fakeTxRepo) SetUploaded(context.Context, string, string, bool) error { return nil }
+func (f *fakeTxRepo) SetSettled(context.Context, string, string, bool) error  { return nil }
 func (f *fakeTxRepo) SumPoolBalance(context.Context, string, model.Mode) (model.Money, model.Money, error) {
 	return 0, 0, nil
 }

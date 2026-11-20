@@ -799,6 +799,9 @@ test('recovers attachment link failures without creating a duplicate transaction
   })
 
   let linkCalls = 0
+  await page.route('**/api/v1/attachments/attachment-1', route =>
+    route.fulfill({ json: { success: true, data: { id: 'attachment-1', transaction_id: null } } }),
+  )
   await page.route('**/api/v1/attachments/attachment-1/link', async (route) => {
     linkCalls += 1
     if (linkCalls === 1) {
@@ -1307,5 +1310,134 @@ test('two open match pages both confirm the requested reimbursement state', asyn
   expect(writes).toEqual([
     { method: 'PUT', body: { reimbursed: true } },
     { method: 'PUT', body: { reimbursed: true } },
+  ])
+})
+
+async function openWorkSession(page: Page) {
+  await mockAuthenticatedSession(page)
+  await page.addInitScript(() => {
+    localStorage.setItem('finarch-lang', 'en')
+    localStorage.setItem('finarch_mode', 'work')
+  })
+  await page.route('**/api/v1/config', route => route.fulfill({ json: { success: true, data: {} } }))
+  await page.route('**/api/v1/accounts**', route => route.fulfill({ json: { success: true, data:
+    ['public', 'personal'].map(type => ({
+      id: type, name: 'Wallet ' + type, type, currency: 'CNY', is_active: true, balance_yuan: 10, balance_cents: 1000,
+    })),
+  } }))
+}
+
+function receipt(id: string, amount: number) {
+  return {
+    id, occurred_at: '2026-11-19 12:00:00', direction: 'expense', source: 'personal', mode: 'work',
+    account_id: 'personal', category: 'office', amount_yuan: amount, currency: 'CNY', base_currency: 'CNY',
+    base_amount_cents: amount * 100, note: id, project_id: null, uploaded: true, settled: false, reimbursed: false,
+  }
+}
+
+test('leaving during receipt linking preserves the file and the destination page', async ({ page }) => {
+  await openWorkSession(page)
+  const file = {
+    id: 'draft-receipt', original_filename: 'invoice.png', kind: 'receipt', size_bytes: 3,
+    transaction_id: null, ocr_status: 'not_requested', created_at: '2026-11-19 12:00:00',
+  }
+  let releaseLink!: () => void
+  const gate = new Promise<void>(resolve => { releaseLink = resolve })
+  const deletes: string[] = []
+  await page.route('**/api/v1/attachments**', async route => {
+    if (route.request().method() === 'DELETE') deletes.push(route.request().url())
+    if (route.request().url().endsWith('/link')) {
+      await gate
+      // Simulate a committed link whose success response was lost.
+      await route.fulfill({ status: 502, json: { success: false } })
+    } else {
+      const saved = route.request().method() === 'GET'
+      await route.fulfill({ json: { success: true, data: { ...file, transaction_id: saved ? 'saved-tx' : null } } })
+    }
+  })
+  await page.route('**/api/v1/transactions**', route => route.fulfill({
+    json: { success: true, data: route.request().method() === 'POST' ? { id: 'saved-tx' } : [] },
+  }))
+  await page.goto('/add')
+  await page.locator('input[type=file]').setInputFiles({ name: 'invoice.png', mimeType: 'image/png', buffer: Buffer.from([1, 2, 3]) })
+  await page.getByRole('button', { name: 'Upload', exact: true }).click()
+  await expect(page.getByText(/invoice\.png/).last()).toBeVisible()
+  await page.locator('input[type=number]').fill('10')
+  const linking = page.waitForRequest(req => req.url().endsWith('/draft-receipt/link'))
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await linking
+  try {
+    await page.locator('a[href="/stats"]:visible').first().click()
+    await expect(page).toHaveURL(/\/stats$/)
+  } finally {
+    releaseLink()
+  }
+  await expect(page.getByText('Transaction added', { exact: true })).toBeVisible()
+  await page.clock.install()
+  await page.clock.fastForward(2000)
+  expect(deletes).toEqual([])
+  await expect(page).toHaveURL(/\/stats$/)
+})
+
+test('exports each alternative match with only its own receipts and accounts', async ({ page }) => {
+  await openWorkSession(page)
+  await page.route('**/api/v1/transactions**', route => route.fulfill({ json: { success: true, data: [
+    receipt('single', 100), receipt('split-a', 60), receipt('split-b', 40),
+  ] } }))
+  await page.goto('/match')
+  await page.locator('input[type=number]').first().fill('100')
+  await page.getByRole('button', { name: 'Start Match' }).click()
+  const options = page.getByRole('button', { name: /Exact match/ })
+  await expect(options).toHaveCount(2)
+  for (const [i, notes] of [['single'], ['split-a', 'split-b']].entries()) {
+    await options.nth(i).click()
+    const popup = page.waitForEvent('popup')
+    await page.getByRole('button', { name: 'Export this match as PDF' }).click()
+    const report = await popup
+    await expect(report.locator('.row-all td').nth(3)).toContainText('100.00')
+    const rows = report.locator('tr.tx-row')
+    await expect(rows).toHaveCount(notes.length)
+    for (const note of notes) {
+      await expect(rows.filter({ hasText: note }).locator('td').nth(3)).toHaveText('Wallet personal')
+    }
+    await report.close()
+  }
+})
+
+test('two ledger tabs both request the same upload and settlement states', async ({ page, context }) => {
+  const second = await context.newPage()
+  const tabs = [page, second]
+  const item = { ...receipt('ledger-item', 100), source: 'company', account_id: 'public', uploaded: false }
+  const writes: unknown[] = []
+  for (const tab of tabs) {
+    await openWorkSession(tab)
+    await tab.route('**/api/v1/transactions**', async route => {
+      const req = route.request()
+      if (req.method() === 'GET') {
+        await route.fulfill({ json: { success: true, data: [item] } })
+      } else {
+        const action = new URL(req.url()).pathname.split('/').pop()
+        const body = req.postDataJSON()
+        writes.push([req.method(), action, body])
+        Object.assign(item, body)
+        await route.fulfill({ json: { success: true, data: { id: item.id, ...body } } })
+      }
+    })
+    await tab.goto('/transactions?source=company')
+    await expect(tab.getByRole('heading', { name: 'ledger-item' })).toBeVisible()
+  }
+  for (const tab of tabs) {
+    const row = tab.getByRole('article').filter({ hasText: 'ledger-item' })
+    await row.getByRole('button', { name: 'Pending', exact: true }).first().click()
+    await expect(row.getByRole('button', { name: 'Uploaded' })).toBeVisible()
+  }
+  for (const tab of tabs) {
+    const row = tab.getByRole('article').filter({ hasText: 'ledger-item' })
+    await row.getByRole('button', { name: 'Pending', exact: true }).click()
+    await expect(row.getByRole('button', { name: 'Settled', exact: true })).toBeVisible()
+  }
+  expect(writes).toEqual([
+    ['PUT', 'upload', { uploaded: true }], ['PUT', 'upload', { uploaded: true }],
+    ['PUT', 'settle', { settled: true }], ['PUT', 'settle', { settled: true }],
   ])
 })

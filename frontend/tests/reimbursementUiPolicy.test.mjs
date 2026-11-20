@@ -163,7 +163,7 @@ test('PDF and transaction tabs share explicit reimbursement and upload stages', 
   )
   assert.match(transactionsSource, /exportTransactionsPDF\(filtered,[\s\S]*?workflowKind, accountMap\)/)
   assert.match(matchSource, /workflowKind[^\n]*isLifeMode \? 'upload' : 'reimbursement'/)
-  assert.match(matchSource, /exportTransactionsPDF\(matchedTransactions,[\s\S]*?workflowKind, \{\}\)/)
+  assert.match(matchSource, /exportTransactionsPDF\(transactions,[\s\S]*?workflowKind, accountMap\)/)
 })
 
 test('public-account settlement is a separate lane that never reads reimbursement', () => {

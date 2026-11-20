@@ -748,7 +748,8 @@ const en = {
         markShort: 'Mark reimburse',
       },
 
-      exportLabel: 'Match Results · {{source}}',
+      exportGroupPdf: 'Export this match as PDF',
+      exportLabel: 'Match {{number}} · {{source}}',
       life: {
         subtitle: 'Smartly find and group your personal spending records',
         exportPdf: 'Export Match PDF',

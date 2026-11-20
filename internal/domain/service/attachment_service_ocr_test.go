@@ -330,7 +330,7 @@ func TestAttachmentServiceDeleteQueuesStorageFailureForRetry(t *testing.T) {
 	repo := &ocrTestAttachmentRepo{attachments: map[string]model.Attachment{"a1": testAttachment("a1")}}
 	storage := &ocrTestStorage{deleteErr: errors.New("disk failure")}
 	svc := NewAttachmentService(repo, nil, storage, nil, DefaultAttachmentMaxBytes)
-	if err := svc.Delete(context.Background(), "user-1", "a1"); err != nil {
+	if err := svc.Delete(context.Background(), "user-1", "a1", ""); err != nil {
 		t.Fatalf("logical delete must succeed after durable enqueue: %v", err)
 	}
 	if _, err := repo.GetByID(context.Background(), "a1", "user-1"); err == nil {

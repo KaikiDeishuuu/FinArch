@@ -539,11 +539,31 @@ func (s *Server) handleDownloadAttachment(c *gin.Context) {
 }
 
 func (s *Server) handleDeleteAttachment(c *gin.Context) {
+	transactionID := strings.TrimSpace(c.Query("transaction_id"))
+	if transactionID == "" {
+		// Older clients used this same unqualified request to clean up a draft
+		// during navigation. It must never race a save and delete the receipt.
+		fail(c, http.StatusUnprocessableEntity, "attachment_link_required", "请刷新页面并从流水详情删除附件")
+		return
+	}
+	s.deleteAttachment(c, transactionID)
+}
+
+func (s *Server) handleDiscardDraftAttachment(c *gin.Context) {
+	s.deleteAttachment(c, "")
+}
+
+func (s *Server) deleteAttachment(c *gin.Context, expectedTransactionID string) {
 	if s.attachmentSvc == nil {
 		fail(c, 503, "ATTACHMENTS_UNAVAILABLE", "附件服务不可用")
 		return
 	}
-	if err := s.attachmentSvc.Delete(c.Request.Context(), userID(c), c.Param("id")); err != nil {
+	err := s.attachmentSvc.Delete(c.Request.Context(), userID(c), c.Param("id"), expectedTransactionID)
+	if errors.Is(err, service.ErrAttachmentLinkChanged) {
+		fail(c, http.StatusConflict, "attachment_link_changed", "附件的关联流水已变更，请刷新页面")
+		return
+	}
+	if err != nil {
 		fail(c, 404, 40401, "附件不存在")
 		return
 	}

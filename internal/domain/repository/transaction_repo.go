@@ -31,10 +31,8 @@ type TransactionRepository interface {
 	MarkReimbursed(ctx context.Context, userID string, transactionIDs []string, reimbursementID string) error
 	// SetReimbursed sets the desired state of an individually managed expense.
 	SetReimbursed(ctx context.Context, id, userID string, reimbursed bool) error
-	// ToggleUploaded flips the uploaded flag for a single transaction owned by userID and returns the new state.
-	ToggleUploaded(ctx context.Context, id string, userID string) (bool, error)
-	// ToggleSettled flips the settled flag for a single public-account WORK expense owned by userID and returns the new state.
-	ToggleSettled(ctx context.Context, id string, userID string) (bool, error)
+	SetUploaded(ctx context.Context, id, userID string, uploaded bool) error
+	SetSettled(ctx context.Context, id, userID string, settled bool) error
 	// SumPoolBalance returns company balance and personal outstanding in yuan for a user.
 	SumPoolBalance(ctx context.Context, userID string, mode model.Mode) (model.Money, model.Money, error)
 	// HasTransactionsByAccount returns true when the account has any historical

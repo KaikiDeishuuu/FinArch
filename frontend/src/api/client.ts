@@ -408,13 +408,13 @@ export async function setReimbursed(id: string, reimbursed: boolean): Promise<{ 
   return data.data
 }
 
-export async function toggleSettled(id: string): Promise<{ id: string; settled: boolean }> {
-  const { data } = await client.patch(`/transactions/${id}/settle`)
+export async function setSettled(id: string, settled: boolean): Promise<{ id: string; settled: boolean }> {
+  const { data } = await client.put(`/transactions/${id}/settle`, { settled })
   return data.data
 }
 
-export async function toggleUploaded(id: string): Promise<{ id: string; uploaded: boolean }> {
-  const { data } = await client.patch(`/transactions/${id}/upload`)
+export async function setUploaded(id: string, uploaded: boolean): Promise<{ id: string; uploaded: boolean }> {
+  const { data } = await client.put(`/transactions/${id}/upload`, { uploaded })
   return data.data
 }
 
@@ -852,8 +852,12 @@ export async function linkAttachment(id: string, transactionId: string): Promise
   return data.data
 }
 
-export async function deleteAttachment(id: string): Promise<void> {
-  await client.delete(`/attachments/${id}`)
+export async function discardDraftAttachment(id: string): Promise<void> {
+  await client.delete(`/attachments/${id}/draft`)
+}
+
+export async function deleteAttachment(id: string, transactionId: string): Promise<void> {
+  await client.delete(`/attachments/${id}`, { params: { transaction_id: transactionId } })
 }
 
 export async function downloadAttachment(id: string, filename: string): Promise<void> {

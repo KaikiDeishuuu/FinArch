@@ -167,7 +167,7 @@ func TestAttachmentDeleteRollbackAlsoRollsBackDeletionQueue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := fixture.service.Delete(ctx, fixture.userID, "attachment-1"); err == nil {
+	if err := fixture.service.Delete(ctx, fixture.userID, "attachment-1", ""); err == nil {
 		t.Fatal("expected metadata delete failure")
 	}
 	if _, err := fixture.repository.GetByID(ctx, "attachment-1", fixture.userID); err != nil {
@@ -190,7 +190,7 @@ func TestAttachmentDeletionQueuePersistsAndRetries(t *testing.T) {
 	ctx := context.Background()
 	fixture.storage.setDeleteError(errors.New("storage temporarily unavailable"))
 
-	if err := fixture.service.Delete(ctx, fixture.userID, "attachment-1"); err != nil {
+	if err := fixture.service.Delete(ctx, fixture.userID, "attachment-1", ""); err != nil {
 		t.Fatalf("logical delete: %v", err)
 	}
 	if _, err := fixture.repository.GetByID(ctx, "attachment-1", fixture.userID); err == nil {
@@ -544,5 +544,44 @@ func TestCleanupExpiredOrphanAttachmentsRollsBackQueueOnDeleteFailure(t *testing
 	}
 	if len(queued) != 0 {
 		t.Fatalf("orphan deletion queue did not roll back: %#v", queued)
+	}
+}
+
+func TestDiscardDraftPreservesLinkedAttachment(t *testing.T) {
+	f := newAttachmentDeletionFixture(t)
+	ctx := context.Background()
+	transactions := sqliterepo.NewSQLiteTransactionRepository(f.database)
+	accounts := sqliterepo.NewSQLiteAccountRepository(f.database)
+	manager := sqliterepo.NewSQLiteTransactionManager(f.database)
+	if err := service.NewAccountService(accounts, transactions, manager).EnsureDefaultAccounts(ctx, f.userID); err != nil {
+		t.Fatal(err)
+	}
+	account, err := accounts.GetByUserAndType(ctx, f.userID, model.AccountTypePersonal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := service.NewTransactionService(transactions, accounts, nil).CreateTransaction(ctx, service.CreateTransactionRequest{
+		UserID: f.userID, AccountID: account.ID, OccurredAt: time.Now(), TxType: model.TxTypeExpense,
+		Source: model.SourcePersonal, Category: "receipt", AmountCents: 100, Currency: "CNY",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.Link(ctx, f.userID, "attachment-1", tx.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Delete(ctx, f.userID, "attachment-1", ""); !errors.Is(err, service.ErrAttachmentLinkChanged) {
+		t.Fatalf("draft cleanup after link: %v", err)
+	}
+	item, err := f.repository.GetByID(ctx, "attachment-1", f.userID)
+	if err != nil || item.TransactionID == nil || *item.TransactionID != tx.ID || f.storage.deleteCount() != 0 {
+		t.Fatalf("linked attachment was not preserved: %v, %v", item.TransactionID, err)
+	}
+	wrong := "other-transaction"
+	if err := f.service.Delete(ctx, f.userID, "attachment-1", wrong); !errors.Is(err, service.ErrAttachmentLinkChanged) {
+		t.Fatalf("wrong transaction could delete receipt: %v", err)
+	}
+	if err := f.service.Delete(ctx, f.userID, "attachment-1", tx.ID); err != nil || f.storage.deleteCount() != 1 {
+		t.Fatalf("explicit deletion from the owning transaction: %v", err)
 	}
 }
