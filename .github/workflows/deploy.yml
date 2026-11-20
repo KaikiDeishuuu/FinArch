@@ -86,15 +86,19 @@ jobs:
           git fetch origin main
           test "$(git rev-parse origin/main)" = "$COMMIT_SHA"
 
-      - name: Deploy to VPS
+      - name: Deploy to VPS and verify the public frontend
+        env:
+          PUBLIC_URL: ${{ vars.FINARCH_PUBLIC_URL }}
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          envs: PUBLIC_URL
           script: |
             set -eu
+            : "${PUBLIC_URL:?Set the FINARCH_PUBLIC_URL repository variable}"
             cd ~/FinArch
             test -f .env
             git fetch origin main
@@ -177,17 +181,13 @@ jobs:
             actual_image="$(docker inspect --format '{{.Config.Image}}' finarch-api)"
             test "$actual_image" = "$expected_image"
             test "$(docker inspect --format '{{.State.Health.Status}}' finarch-api)" = "healthy"
+            # Fetch the public hostname through DNS and the CDN from the VPS.
+            # Hosted runners may be denied by the site's access policy.
+            probe_dir=$(mktemp -d)
+            trap 'rm -rf "$probe_dir"' EXIT
+            docker cp finarch-api:/app/frontend/dist "$probe_dir/expected"
+            bash scripts/check-public-frontend.sh "$PUBLIC_URL" "$probe_dir/expected"
             echo "✅ Deploy finished at $(date)"
-
-      - name: Verify public frontend through the CDN
-        env:
-          PUBLIC_URL: ${{ vars.FINARCH_PUBLIC_URL }}
-        run: |
-          image="$REGISTRY/$IMAGE_NAME:sha-$COMMIT_SHA"
-          container=$(docker create "$image")
-          trap 'docker rm -v "$container" >/dev/null' EXIT
-          docker cp "$container:/app/frontend/dist" "$RUNNER_TEMP/expected-frontend"
-          bash scripts/check-public-frontend.sh "$PUBLIC_URL" "$RUNNER_TEMP/expected-frontend"
 
       - name: Confirm deployed commit is still current
         run: |
