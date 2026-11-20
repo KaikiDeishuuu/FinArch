@@ -1406,12 +1406,16 @@ func (s *Server) handleHealth(c *gin.Context) {
 
 // handleConfig returns public runtime configuration consumed by the frontend.
 func (s *Server) handleConfig(c *gin.Context) {
-	ok(c, gin.H{
+	config := gin.H{
 		"turnstile_site_key":          s.turnstileSiteKey,
 		"captcha_enabled":             s.captchaVerifier.Enabled(),
 		"email_verification_required": s.authSvc.EmailVerificationRequired(),
 		"system_operations_enabled":   s.operationsEnabled,
-	})
+	}
+	if s.attachmentSvc != nil {
+		config["attachment_max_bytes"] = s.attachmentSvc.MaxBytes()
+	}
+	ok(c, config)
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────

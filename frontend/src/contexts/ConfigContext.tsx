@@ -9,7 +9,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     getAppConfig()
-      .then((cfg) => setState({ turnstileSiteKey: cfg.turnstile_site_key, captchaEnabled: cfg.captcha_enabled ?? !!cfg.turnstile_site_key, emailVerificationRequired: cfg.email_verification_required ?? false, systemOperationsEnabled: cfg.system_operations_enabled ?? false, loaded: true, loadError: false }))
+      .then((cfg) => setState({ attachmentMaxBytes: cfg.attachment_max_bytes, turnstileSiteKey: cfg.turnstile_site_key, captchaEnabled: cfg.captcha_enabled ?? !!cfg.turnstile_site_key, emailVerificationRequired: cfg.email_verification_required ?? false, systemOperationsEnabled: cfg.system_operations_enabled ?? false, loaded: true, loadError: false }))
       .catch(() => setState({ turnstileSiteKey: '', captchaEnabled: false, emailVerificationRequired: false, systemOperationsEnabled: false, loaded: true, loadError: true }))
   }, [])
 

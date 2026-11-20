@@ -232,7 +232,7 @@ func (s *RecurringTransactionService) PreviewFromRequest(req UpsertRecurringRule
 	return s.PreviewOccurrences(rule, count)
 }
 
-func (s *RecurringTransactionService) GenerateDue(ctx context.Context, now time.Time, limit int, dryRun bool) (GenerateRecurringResult, error) {
+func (s *RecurringTransactionService) GenerateDue(ctx context.Context, windowStart, now time.Time, limit int, dryRun bool) (GenerateRecurringResult, error) {
 	if limit <= 0 {
 		limit = defaultRecurringLimit
 	}
@@ -247,10 +247,7 @@ func (s *RecurringTransactionService) GenerateDue(ctx context.Context, now time.
 			if count >= defaultMaxCatchUpPerRule {
 				break
 			}
-			if !rule.CatchUpEnabled && count > 0 {
-				break
-			}
-			generated, skipped, err := s.generateOne(ctx, rule, dryRun)
+			generated, skipped, err := s.processDueOccurrence(ctx, rule, windowStart, dryRun)
 			if err != nil {
 				result.Failed++
 				result.Errors = append(result.Errors, err.Error())
@@ -274,6 +271,28 @@ func (s *RecurringTransactionService) GenerateDue(ctx context.Context, now time.
 		}
 	}
 	return result, nil
+}
+
+// Move past missed runs without creating an instance or changing last_generated_for.
+// The normal due loop reloads the rule, so a current occurrence can run in this
+// same scan. AdvanceRule fences concurrent edits and other scheduler instances.
+func (s *RecurringTransactionService) processDueOccurrence(ctx context.Context, rule model.RecurringTransactionRule, windowStart time.Time, dryRun bool) (bool, bool, error) {
+	if rule.CatchUpEnabled || rule.NextRunAt >= windowStart.Unix() {
+		return s.generateOne(ctx, rule, dryRun)
+	}
+	next, err := NextRecurringOccurrence(rule, windowStart.Truncate(time.Second))
+	if err != nil {
+		return false, false, err
+	}
+	if dryRun {
+		return false, true, nil
+	}
+	status := rule.Status
+	if rule.EndDate != nil && *rule.EndDate != "" && next.OccurrenceDate > *rule.EndDate {
+		status = model.RecurringRuleStatusEnded
+	}
+	_, err = s.recurring.AdvanceRule(ctx, rule.ID, rule.UserID, rule.Version, rule.NextRunAt, next.ScheduledAt, rule.LastGeneratedFor, status)
+	return false, err == nil, err
 }
 
 func (s *RecurringTransactionService) GenerateRuleNow(ctx context.Context, userID, id string, dryRun bool) (GenerateRecurringResult, error) {
@@ -600,11 +619,20 @@ func (s *RecurringTransactionService) normalizeRule(req UpsertRecurringRuleReque
 			r.Interval = 1
 		}
 	}
+	if strings.TrimSpace(req.Timezone) != "" || existing == nil {
+		r.Timezone = strings.TrimSpace(req.Timezone)
+		if r.Timezone == "" {
+			r.Timezone = defaultRecurringTimezone
+		}
+	}
+	if _, err := time.LoadLocation(locationName(r.Timezone)); err != nil {
+		return model.RecurringTransactionRule{}, fmt.Errorf("无效的时区")
+	}
 	if strings.TrimSpace(req.StartDate) != "" || existing == nil {
 		r.StartDate = strings.TrimSpace(req.StartDate)
 	}
 	if r.StartDate == "" {
-		r.StartDate = time.Now().Format("2006-01-02")
+		r.StartDate = now.In(locationForRule(r)).Format("2006-01-02")
 	}
 	if _, err := time.Parse("2006-01-02", r.StartDate); err != nil {
 		return model.RecurringTransactionRule{}, fmt.Errorf("开始日期格式必须为 YYYY-MM-DD")
@@ -625,15 +653,6 @@ func (s *RecurringTransactionService) normalizeRule(req UpsertRecurringRuleReque
 	}
 	if _, err := time.Parse("15:04:05", r.TimeOfDay); err != nil {
 		return model.RecurringTransactionRule{}, fmt.Errorf("执行时间格式必须为 HH:mm:ss")
-	}
-	if strings.TrimSpace(req.Timezone) != "" || existing == nil {
-		r.Timezone = strings.TrimSpace(req.Timezone)
-		if r.Timezone == "" {
-			r.Timezone = defaultRecurringTimezone
-		}
-	}
-	if _, err := time.LoadLocation(locationName(r.Timezone)); err != nil {
-		return model.RecurringTransactionRule{}, fmt.Errorf("无效的时区")
 	}
 	if req.DayOfWeek != nil || existing == nil {
 		r.DayOfWeek = req.DayOfWeek

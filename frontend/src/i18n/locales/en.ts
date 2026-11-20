@@ -650,6 +650,8 @@ const en = {
 
     // ── Attachments / OCR ──
     attachments: {
+      fileLimit: 'Maximum per file: {{limit}}',
+      tooLarge: 'File exceeds {{limit}}. Choose a smaller file.',
       title: 'Attachments',
       short: 'Receipt',
       choose: 'Choose file',

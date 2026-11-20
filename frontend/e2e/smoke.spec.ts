@@ -1491,3 +1491,76 @@ test('matching waits for transactions, retries read failures and distinguishes a
   await page.getByRole('button', { name: 'Start Match' }).click()
   await expect(page.getByText(/No matches found/)).toBeVisible()
 })
+
+test('switching budget month discards the old editor and saves to the selected month', async ({ page }) => {
+  await openWorkSession(page)
+  const budget = { id: 'november-budget', mode: 'work', period_month: '2026-11', category: '', amount_yuan: 1000,
+    amount_cents: 100000, currency: 'CNY', base_currency: 'CNY', base_amount_yuan: 1000, base_amount_cents: 100000, is_active: true }
+  const progress = { budget, actual_cents: 0, actual_yuan: 0, remaining_cents: 100000, remaining_yuan: 1000, usage_ratio: 0, status: 'ok' }
+  const writes: {method: string; path: string; period: string}[] = []
+  await page.route('**/api/v1/budgets**', async route => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const period = url.searchParams.get('period')
+    if (request.method() !== 'GET') {
+      writes.push({ method: request.method(), path: url.pathname, period: request.postDataJSON().period_month })
+      return route.fulfill({ json: { success: true, data: budget } })
+    }
+    const hasBudget = period === budget.period_month
+    const data = url.pathname.endsWith('/summary')
+      ? { total_actual_yuan: 0, total_budget: hasBudget ? progress : null, category_budgets: [] }
+      : (hasBudget ? [budget] : [])
+    return route.fulfill({ json: { success: true, data } })
+  })
+  await page.goto('/budgets')
+  const month = page.locator('input[type=month]')
+  await month.fill('2026-11')
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Edit Budget' })).toBeVisible()
+  await month.fill('2026-12')
+  await expect(page.getByRole('heading', { name: 'Add Budget' })).toBeVisible()
+  const amount = page.locator('form input[type=number]')
+  await expect(amount).toHaveValue('')
+  await amount.fill('2000')
+  await page.locator('form button[type=submit]').click()
+  await expect.poll(() => writes).toEqual([{ method: 'POST', path: '/api/v1/budgets', period: '2026-12' }])
+  await month.fill('2026-11')
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  await expect(amount).toHaveValue('1000')
+})
+
+for (const [timezoneId, instant, localDate] of [
+  ['Asia/Shanghai', '2026-11-19T16:30:00Z', '2026-11-20'],
+  ['America/Los_Angeles', '2026-01-01T02:30:00Z', '2025-12-31'],
+]) {
+  test.describe(timezoneId, () => {
+    test.use({ timezoneId })
+    test('uses the local calendar date for a new recurring rule', async ({ page }) => {
+      await openWorkSession(page)
+      await page.clock.setFixedTime(new Date(instant))
+      await page.goto('/recurring')
+      await expect(page.locator('input[type=date]').first()).toHaveValue(localDate)
+    })
+  })
+}
+
+test('attachment selection honors the configured per-file limit including equality', async ({ page }) => {
+  await openWorkSession(page)
+  await page.route('**/api/v1/config', route => route.fulfill({ json: { success: true, data: { attachment_max_bytes: 1024 } } }))
+  let uploads = 0
+  await page.route('**/api/v1/attachments', route => {
+    uploads++
+    return route.fulfill({ json: { success: true, data: { id: 'size-test', ocr_status: 'not_requested' } } })
+  })
+  await page.goto('/add')
+  const picker = page.locator('input[type=file]').first()
+  const upload = page.getByRole('button', { name: 'Upload', exact: true })
+  await picker.setInputFiles({ name: 'large.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(1025) })
+  await expect(page.getByRole('alert').filter({ hasText: 'File exceeds 1024 B' })).toBeVisible()
+  await expect(upload).toBeDisabled()
+  expect(uploads).toBe(0)
+  await picker.setInputFiles({ name: 'exact.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(1024) })
+  await expect(upload).toBeEnabled()
+  await upload.click()
+  await expect.poll(() => uploads).toBe(1)
+})

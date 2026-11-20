@@ -162,6 +162,11 @@ server {
         proxy_set_header   X-Forwarded-For $remote_addr;
         proxy_set_header   X-Forwarded-Proto $scheme;
         client_max_body_size 101m;   # 与应用 100 MiB 文件 + multipart 开销上限匹配
+        # 单个附件按 FINARCH_ATTACHMENT_MAX_BYTES 限制（默认 20 MiB），另留 1 MiB 给 multipart 表单。
+        location ~ ^/api/v1/(attachments|transactions/[^/]+/attachments)$ {
+            client_max_body_size 21m;
+            proxy_pass http://127.0.0.1:8080;
+        }
         client_body_timeout 30m;
         proxy_send_timeout 30m;
         proxy_read_timeout 30m;

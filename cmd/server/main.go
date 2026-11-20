@@ -329,8 +329,14 @@ func startRecurringScheduler(ctx context.Context, workers *backgroundWorkers, re
 	}
 	dryRun := strings.EqualFold(os.Getenv("FINARCH_RECURRING_DRY_RUN"), "true")
 	interval := envPositiveDuration("FINARCH_RECURRING_INTERVAL", 15*time.Minute)
+	startedAt := time.Now()
 	run := func(taskCtx context.Context) {
-		res, err := recurringSvc.GenerateDue(taskCtx, time.Now(), envInt("FINARCH_RECURRING_BATCH_LIMIT", 100), dryRun)
+		now := time.Now()
+		windowStart := now.Add(-interval)
+		if windowStart.Before(startedAt) {
+			windowStart = startedAt
+		}
+		res, err := recurringSvc.GenerateDue(taskCtx, windowStart, now, envInt("FINARCH_RECURRING_BATCH_LIMIT", 100), dryRun)
 		if err != nil {
 			if taskCtx.Err() == nil {
 				log.Printf("[recurring] generation failed: %v", err)

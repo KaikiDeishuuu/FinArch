@@ -165,6 +165,11 @@ server {
         proxy_set_header   X-Forwarded-For $remote_addr;
         proxy_set_header   X-Forwarded-Proto $scheme;
         client_max_body_size 101m;   # 100 MiB file plus multipart overhead
+        # Allow the configured per-file limit (20 MiB by default) plus 1 MiB of multipart overhead.
+        location ~ ^/api/v1/(attachments|transactions/[^/]+/attachments)$ {
+            client_max_body_size 21m;
+            proxy_pass http://127.0.0.1:8080;
+        }
         client_body_timeout 30m;
         proxy_send_timeout 30m;
         proxy_read_timeout 30m;

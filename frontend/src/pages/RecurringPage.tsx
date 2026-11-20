@@ -21,8 +21,8 @@ import { formatAmount } from '../utils/format'
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
 
-function todayDate() {
-  return new Date().toISOString().slice(0, 10)
+function localDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function localTimezone() {
@@ -76,7 +76,7 @@ function defaultForm(accountId = ''): RecurringFormState {
     project_id: '',
     frequency: 'monthly',
     interval: '1',
-    start_date: todayDate(),
+    start_date: localDate(now),
     end_date: '',
     time_of_day: '09:00',
     timezone: localTimezone(),

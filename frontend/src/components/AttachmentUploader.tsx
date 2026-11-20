@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { Attachment, OCRSuggestion } from '../api/client'
 import { discardDraftAttachment } from '../api/client'
+import { useConfig } from '../hooks/useConfig'
 import { useAttachmentMutations } from '../hooks/useAttachments'
 import { attachmentOCRText, hasOCRSuggestion } from '../utils/ocr'
 import OcrTextDisclosure from './OcrTextDisclosure'
@@ -12,8 +13,8 @@ import { cn } from '../lib/utils'
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MiB`
 }
 
 export default function AttachmentUploader({
@@ -32,6 +33,10 @@ export default function AttachmentUploader({
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const { attachmentMaxBytes } = useConfig()
+  const tooLarge = !!file && attachmentMaxBytes != null && file.size > attachmentMaxBytes
+  const limitLabel = attachmentMaxBytes == null ? '' : attachmentMaxBytes % (1024 * 1024) === 0
+    ? `${attachmentMaxBytes / (1024 * 1024)} MiB` : `${attachmentMaxBytes} B`
   const [runOCR, setRunOCR] = useState(true)
   const [lastAttachment, setLastAttachment] = useState<Attachment | null>(null)
   const mutations = useAttachmentMutations(transactionId)
@@ -45,7 +50,7 @@ export default function AttachmentUploader({
   }, [])
 
   async function upload() {
-    if (!file) return
+    if (!file || tooLarge) return
     onUploadingChange?.(true)
     try {
       const attachment = await mutations.upload.mutateAsync({ file, runOCR, kind: 'receipt' })
@@ -107,6 +112,11 @@ export default function AttachmentUploader({
           </span>
         ) : null}
       </div>
+      {limitLabel && (
+        <p role={tooLarge ? 'alert' : undefined} className={cn('text-xs', tooLarge ? 'text-negative' : 'text-muted-foreground')}>
+          {t(tooLarge ? 'attachments.tooLarge' : 'attachments.fileLimit', { limit: limitLabel })}
+        </p>
+      )}
       <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground">
         <input
           type="checkbox"
@@ -121,6 +131,7 @@ export default function AttachmentUploader({
           type="button"
           size="sm"
           onClick={upload}
+          disabled={tooLarge}
           loading={mutations.upload.isPending}
           loadingText={t('common.loading')}
           className="mt-2"

@@ -94,7 +94,7 @@ func (s *LocalAttachmentStorage) Save(ctx context.Context, userID, attachmentID,
 		return service.StoredAttachment{}, fmt.Errorf("附件为空")
 	}
 	if written > maxBytes || limited.tooLarge {
-		return service.StoredAttachment{}, fmt.Errorf("附件过大，最大 %.0f MB", float64(maxBytes)/(1<<20))
+		return service.StoredAttachment{}, service.ErrAttachmentTooLarge
 	}
 	contentType, err := sniffFile(tmpPath, ext)
 	if err != nil {

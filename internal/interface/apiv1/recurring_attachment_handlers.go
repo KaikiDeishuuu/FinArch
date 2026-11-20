@@ -460,9 +460,14 @@ func (s *Server) uploadAttachment(c *gin.Context, forcedTransactionID *string) {
 		fail(c, http.StatusTooManyRequests, "ATTACHMENT_UPLOAD_RATE_LIMITED", "附件上传过于频繁，请稍后再试")
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, s.attachmentSvc.MaxBytes()+1<<20)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, s.attachmentSvc.MaxBytes()+(1<<20))
 	fh, err := c.FormFile("file")
 	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			fail(c, http.StatusRequestEntityTooLarge, "ATTACHMENT_TOO_LARGE", service.ErrAttachmentTooLarge.Error())
+			return
+		}
 		fail(c, 400, 40001, "请上传附件文件（multipart field: file）")
 		return
 	}
@@ -480,6 +485,10 @@ func (s *Server) uploadAttachment(c *gin.Context, forcedTransactionID *string) {
 	defer file.Close()
 	attachment, err := s.attachmentSvc.Upload(c.Request.Context(), service.UploadAttachmentRequest{UserID: uploadUserID, TransactionID: txID, OriginalFilename: fh.Filename, ContentType: fh.Header.Get("Content-Type"), SizeBytesHint: fh.Size, Kind: kind, Reader: file, RunOCR: runOCR})
 	if err != nil {
+		if errors.Is(err, service.ErrAttachmentTooLarge) {
+			fail(c, http.StatusRequestEntityTooLarge, "ATTACHMENT_TOO_LARGE", err.Error())
+			return
+		}
 		if errors.Is(err, service.ErrAttachmentQuotaExceeded) {
 			fail(c, http.StatusRequestEntityTooLarge, "ATTACHMENT_QUOTA_EXCEEDED", err.Error())
 			return
