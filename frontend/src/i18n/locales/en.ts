@@ -291,6 +291,7 @@ const en = {
         },
       },
       settlement: {
+        reviewHint: 'Settled without a filing. Check the supporting receipt.',
         title: 'Settlement queue',
         header: '{{count}} public expenses to handle, {{amt}} in total',
         notUploadedSub: '{{amt}} total, oldest {{days}} days ago — upload the receipt before settling',
@@ -452,6 +453,7 @@ const en = {
         status: 'Status',
       },
       badges: {
+        needsReview: 'Needs review',
         uploaded: 'Uploaded',
         notUploaded: 'Pending',
         reimbursed: 'Done',
@@ -715,10 +717,12 @@ const en = {
       },
       error: {
         invalidAmount: 'Please enter a valid target amount',
+        transactions: 'Could not load transactions. Retry before matching.',
         matchFailed: 'Match failed, please retry',
       },
       results: {
         title: 'Results',
+        difference: 'Difference {{amount}}',
         exactMatch: 'Exact match',
         count: '{{count}} txns',
         totalAmount: 'Total',

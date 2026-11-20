@@ -50,6 +50,7 @@ import { formatAmount, sumInCNY } from '../utils/format'
 import { clampLifecycleTimestamp } from '../utils/timestamp'
 import {
   isTransactionInWorkflowTab,
+  transactionWorkflowStage,
   type TransactionWorkflowKind,
   type TransactionWorkflowTab,
 } from '../utils/transactionWorkflow'
@@ -259,7 +260,8 @@ function TransactionRow({
 }: TransactionRowProps) {
   const { t } = useTranslation()
   const isExpense = tx.direction === 'expense'
-  const settleDone = tx.settled && tx.uploaded
+  const settlementStage = isSettlementView ? transactionWorkflowStage(tx, 'settlement') : null
+  const settleDone = settlementStage === 'settled'
   const done = isExpense && (
     isReimbursementView ? tx.reimbursed && tx.uploaded
       : isSettlementView ? settleDone
@@ -344,6 +346,9 @@ function TransactionRow({
             <Badge className="ml-0.5 h-5 px-1.5 text-[10px]">
               {tx.source === 'company' ? t('common.company') : t('common.personal')}
             </Badge>
+            {settlementStage === 'needs-review' && (
+              <Badge variant="warning" title={t('dashboard.settlement.reviewHint')}>{t('transactions.badges.needsReview')}</Badge>
+            )}
           </div>
         </div>
 
@@ -441,6 +446,7 @@ export default function TransactionsPage() {
     if (!isWorkMode || source === effectiveSourceFilter) return
     const next = new URLSearchParams(searchParams)
     next.set('source', source)
+    next.delete('tab')
     setSearchParams(next, { replace: true })
   }
 
@@ -471,7 +477,7 @@ function TransactionsLedger({
   const accountLookupMode = accountModeForTransactionSource(effectiveSourceFilter)
   const { data: accounts = [] } = useAccounts(accountLookupMode)
   const refreshFinanceData = useRefreshFinanceData()
-  const [filter, setFilter] = useState<TransactionWorkflowTab>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filterCategory, setFilterCategory] = useState('')
   const [filterProject, setFilterProject] = useState('')
   const [filterAccount, setFilterAccount] = useState('')
@@ -485,6 +491,16 @@ function TransactionsLedger({
   const workflowKind: TransactionWorkflowKind = isReimbursementView
     ? 'reimbursement'
     : isSettlementView ? 'settlement' : 'upload'
+
+  const tabParam = searchParams.get('tab')
+  const filter: TransactionWorkflowTab = tabParam === 'unreimbursed' || tabParam === 'reimbursed' || (isSettlementView && tabParam === 'review')
+    ? tabParam : 'all'
+  function setFilter(tab: TransactionWorkflowTab) {
+    const next = new URLSearchParams(searchParams)
+    if (tab === 'all') next.delete('tab')
+    else next.set('tab', tab)
+    setSearchParams(next, { replace: true })
+  }
 
   const tabLabelAll = t('transactions.reimbursementTabs.all')
   const tabLabelPending = isReimbursementView
@@ -577,7 +593,7 @@ function TransactionsLedger({
   const formatTransaction = (transaction: Transaction) => formatAmount(transaction.amount_yuan, transaction.currency)
 
   function exportPDF() {
-    const parts: string[] = [{ all: tabLabelAll, unreimbursed: tabLabelPending, reimbursed: tabLabelDone }[filter]]
+    const parts: string[] = [{ all: tabLabelAll, unreimbursed: tabLabelPending, reimbursed: tabLabelDone, review: t('transactions.badges.needsReview') }[filter]]
     if (filterCategory) parts.push(`${t('transactions.table.category')}: ${categoryLabel(filterCategory)}`)
     if (filterProject) parts.push(`${t('transactions.table.project')}: ${filterProject}`)
     exportTransactionsPDF(filtered, parts.join(' · '), user, rates, workflowKind, accountMap)
@@ -657,17 +673,23 @@ function TransactionsLedger({
   }
 
   const tabCounts = useMemo(() => ({
+    review: isSettlementView ? txsView.filter(tx => tx.source === 'company'
+      && isTransactionInWorkflowTab(tx, 'review', 'settlement')).length : 0,
     all: txsView.filter((transaction) => transaction.source === effectiveSourceFilter).length,
     unreimbursed: txsView.filter((transaction) => transaction.source === effectiveSourceFilter
       && isTransactionInWorkflowTab(transaction, 'unreimbursed', workflowKind)).length,
     reimbursed: txsView.filter((transaction) => transaction.source === effectiveSourceFilter
       && isTransactionInWorkflowTab(transaction, 'reimbursed', workflowKind)).length,
-  }), [txsView, effectiveSourceFilter, workflowKind])
+  }), [txsView, effectiveSourceFilter, workflowKind, isSettlementView])
   const tabs: { key: TransactionWorkflowTab; label: string; count?: number }[] = [
     { key: 'all', label: tabLabelAll, count: tabCounts.all },
     { key: 'unreimbursed', label: tabLabelPending, count: tabCounts.unreimbursed },
     { key: 'reimbursed', label: tabLabelDone, count: tabCounts.reimbursed },
   ]
+
+  if (isSettlementView && (tabCounts.review > 0 || filter === 'review')) {
+    tabs.push({ key: 'review', label: t('transactions.badges.needsReview'), count: tabCounts.review })
+  }
 
   const totals = useMemo(() => {
     const incomeItems = filtered.filter((transaction) => transaction.direction === 'income')

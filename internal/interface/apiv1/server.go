@@ -798,6 +798,9 @@ func (s *Server) registerRoutes() {
 		}
 		// Try to serve the file directly first (e.g. /favicon.svg)
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			if path == "/sw.js" || path == "/index.html" {
+				c.Header("Cache-Control", "no-store")
+			}
 			c.File(candidate)
 			return
 		}
@@ -807,6 +810,7 @@ func (s *Server) registerRoutes() {
 			fail(c, http.StatusInternalServerError, "internal_error", "Something went wrong. Please try again.")
 			return
 		}
+		c.Header("Cache-Control", "no-store")
 		c.File(indexPath)
 	})
 }

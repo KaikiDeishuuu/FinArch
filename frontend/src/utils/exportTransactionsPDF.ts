@@ -67,6 +67,8 @@ export function exportTransactionsPDF(
         return { text: i18n.t('exportPdf.workflow.pendingReimbursement'), className: 'wf-review' }
       case 'reimbursed':
         return { text: i18n.t('exportPdf.workflow.reimbursed'), className: 'wf-done' }
+      case 'needs-review':
+        return { text: i18n.t('transactions.badges.needsReview'), className: 'wf-review' }
       case 'pending-settlement':
         return { text: i18n.t('exportPdf.workflow.pendingSettlement'), className: 'wf-review' }
       case 'settled':
@@ -86,6 +88,8 @@ export function exportTransactionsPDF(
       ? [
           { className: 'pending', text: i18n.t('exportPdf.workflow.pendingUpload') },
           { className: 'review', text: i18n.t('exportPdf.workflow.pendingSettlement') },
+          ...(filtered.some(tx => transactionWorkflowStage(tx, workflowKind) === 'needs-review')
+            ? [{ className: 'review', text: i18n.t('transactions.badges.needsReview') }] : []),
           { className: 'done', text: i18n.t('exportPdf.workflow.settled') },
         ]
       : [

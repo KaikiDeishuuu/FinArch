@@ -291,6 +291,7 @@ const zh = {
         },
       },
       settlement: {
+        reviewHint: '已核销但未上报，请按凭证核对。',
         title: '待核销分析',
         header: '共 {{count}} 笔公共支出待处理，合计 {{amt}}',
         notUploadedSub: '累计 {{amt}}，最早一笔 {{days}} 天前，需先上传凭证才能核销',
@@ -452,6 +453,7 @@ const zh = {
         status: '状态',
       },
       badges: {
+        needsReview: '待核对',
         uploaded: '已上传',
         notUploaded: '未上传',
         reimbursed: '已报销',
@@ -715,10 +717,12 @@ const zh = {
       },
       error: {
         invalidAmount: '请输入有效目标金额',
+        transactions: '流水读取失败，请重试后再匹配。',
         matchFailed: '匹配失败，请重试',
       },
       results: {
         title: '匹配结果',
+        difference: '相差 {{amount}}',
         exactMatch: '精确匹配',
         count: '{{count}} 笔',
         totalAmount: '总金额',

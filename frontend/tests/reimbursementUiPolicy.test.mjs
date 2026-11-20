@@ -181,6 +181,13 @@ test('public-account settlement is a separate lane that never reads reimbursemen
   // settling must not reimburse. WORK statistics add reimbursed amounts back
   // into net, so a public-account expense leaking into that lane would inflate
   // the user's net by money that was never theirs.
+  const conflict = { ...settled, uploaded: false }
+  assert.equal(transactionWorkflowStage(conflict, 'settlement'), 'needs-review')
+  assert.equal(isTransactionInWorkflowTab(conflict, 'review', 'settlement'), true)
+  assert.equal(isTransactionInWorkflowTab(conflict, 'unreimbursed', 'settlement'), true)
+  assert.equal(isTransactionInWorkflowTab(conflict, 'reimbursed', 'settlement'), false)
+  assert.equal(isTransactionInWorkflowTab(conflict, 'review', 'reimbursement'), false)
+  assert.equal(isTransactionInWorkflowTab(settled, 'review', 'settlement'), false)
   const reimbursedOnly = { direction: 'expense', uploaded: true, reimbursed: true, settled: false }
   assert.equal(transactionWorkflowStage(reimbursedOnly, 'settlement'), 'pending-settlement')
   assert.equal(transactionWorkflowStage(settled, 'reimbursement'), 'pending-reimbursement')
@@ -207,7 +214,7 @@ test('work dashboard derives reimbursement cards and actions from personal advan
 test('work dashboard queues unsettled public expenses without feeding reimbursement math', () => {
   // Public expenses have their own queue. Before this existed the dashboard
   // reported "all clear" while unsettled public expenses sat in the ledger.
-  assert.match(dashboardSource, /const publicPending = useMemo\([\s\S]*?isWorkMode[\s\S]*?t\.source === 'company'[\s\S]*?!t\.settled/)
+  assert.match(dashboardSource, /const publicPending = useMemo\([\s\S]*?isWorkMode[\s\S]*?t\.source === 'company' && isTransactionInWorkflowTab\(t, 'unreimbursed', 'settlement'\)/)
   assert.match(dashboardSource, /const hasPublicPending = isWorkMode && publicPending\.length > 0/)
   assert.match(dashboardSource, /const allClear = isWorkMode && !loading && !hasPending && !hasPublicPending/)
 

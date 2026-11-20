@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { isTransactionInWorkflowTab, transactionWorkflowStage } from '../utils/transactionWorkflow'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -215,12 +216,13 @@ export default function DashboardPage() {
   // while unsettled public expenses were still sitting in the ledger.
   const publicPending = useMemo(
     () => isWorkMode
-      ? transactions.filter(t => t.source === 'company' && t.direction === 'expense' && !t.settled)
+      ? transactions.filter(t => t.source === 'company' && isTransactionInWorkflowTab(t, 'unreimbursed', 'settlement'))
       : [],
     [isWorkMode, transactions],
   )
-  const publicNotUploaded = useMemo(() => publicPending.filter((transaction) => !transaction.uploaded), [publicPending])
-  const publicAwaitingSettlement = useMemo(() => publicPending.filter((transaction) => transaction.uploaded), [publicPending])
+  const publicReview = useMemo(() => publicPending.filter(tx => transactionWorkflowStage(tx, 'settlement') === 'needs-review'), [publicPending])
+  const publicNotUploaded = useMemo(() => publicPending.filter(tx => transactionWorkflowStage(tx, 'settlement') === 'pending-upload'), [publicPending])
+  const publicAwaitingSettlement = useMemo(() => publicPending.filter(tx => transactionWorkflowStage(tx, 'settlement') === 'pending-settlement'), [publicPending])
 
   const hasPending = isWorkMode && pendingTxs.length > 0
   const hasPublicPending = isWorkMode && publicPending.length > 0
@@ -315,7 +317,7 @@ export default function DashboardPage() {
           days: oldestDays(publicAwaitingSettlement),
         })
       : ''
-    const total = publicNotUploaded.length + publicAwaitingSettlement.length
+    const total = publicPending.length
     const headerHint = total > 0
       ? t('dashboard.settlement.header', { count: total, amt: fmtExact(sum(publicPending)) })
       : ''
@@ -680,6 +682,19 @@ export default function DashboardPage() {
             <Badge variant="warning">{publicPending.length}</Badge>
           </CardHeader>
           <CardContent className="space-y-2">
+            {publicReview.length > 0 && (
+              <Link
+                to="/transactions?source=company&tab=review"
+                className="group flex items-center gap-3 rounded-lg border border-warning/25 bg-warning-soft p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <SearchCheck className="size-5 shrink-0 text-warning" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{publicReview.length} {t('transactions.badges.needsReview')}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.settlement.reviewHint')}</p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
+            )}
             {publicNotUploaded.length > 0 ? (
               <Link
                 to="/transactions?source=company"
